@@ -135,10 +135,14 @@ Legend: **[agent]** Claude runs it (shell commands in Git Bash) · **[you]** in 
   - Push to `origin main`. Workers Builds isn't connected yet, so this only runs CI.
   - **Result:** pushed as `3553b4a`; the CLAUDE.md diff touches only project-section lines.
 - [ ] 2.8 The first CI run on `main` is green (both jobs). Any failure gets fixed before Phase 3.
-  - **First run failed:** both jobs stopped at `npm ci` with `Missing: @emnapi/runtime@1.11.3` and `@emnapi/core@1.11.3 from lock file`.
-    - Cause: the lockfile, since the initial commit, is written by npm 11 (local Node 24). npm 10 (Node 22 in CI, and `.nvmrc` 22.14.0 for Workers Builds) rejects it.
-    - Reproduced locally with `npm@10.9.2 ci`; `npm@11.6.2 ci` installs it cleanly.
-  - **Fix:** `.nvmrc` moves to 24.18.0 (the Workers Builds default), and both CI jobs use `node-version-file: .nvmrc`. Local dev, CI and Workers Builds now share npm 11. Regenerating the lock with npm 10 instead would break on the next local `npm install`.
+  - **The first two runs failed:** both jobs stopped at `npm ci` with `Missing: @emnapi/runtime@1.11.3` and `@emnapi/core@1.11.3 from lock file`.
+    - Cause: since the initial commit, the lockfile was written by the local npm 11.6.2, which leaves these entries out.
+    - `npm ci` in npm 10.9.2 (Node 22) and in npm 11.16.0 (Node 24.18.0) both reject it; reproduced locally.
+    - The first fix attempt (moving CI to Node 24) rested on a wrong diagnosis.
+  - **Fix:**
+    - The lockfile was regenerated with `npm@11.16.0 install --package-lock-only`: 8 entries added, no version changes.
+    - `npm ci` now passes with npm 10.9.2, 11.6.2 and 11.16.0.
+    - `.nvmrc` stays at 24.18.0 (the Workers Builds default, npm 11.16.0), and both CI jobs read it. Dependency changes made with the `.nvmrc` Node therefore produce lockfiles that CI accepts.
 
 ## Phase 3: First production deploy [agent]
 
