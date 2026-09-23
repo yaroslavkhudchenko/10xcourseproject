@@ -5,13 +5,25 @@ platform: Cloudflare Workers (Worker with static assets, not Pages)
 worker_name: drogeria-radar
 production_branch: main
 auto_deploy: Cloudflare Workers Builds; GitHub Actions stays CI-only
-status: in-progress # planned → in-progress → deployed
+status: deployed # planned → in-progress → deployed
 inputs: [context/foundation/infrastructure.md, context/foundation/tech-stack.md]
 ---
 
 # Drogeria Radar: first deployment plan (Cloudflare Workers)
 
 Approved on 2026-09-23. Checkboxes track execution; the Deployment record at the end says what is live.
+
+**Live since 2026-09-23:**
+
+- The Worker `drogeria-radar` runs on workers.dev and is auto-deployed from `main` by Workers Builds.
+- It uses Supabase in Frankfurt with sign-up closed.
+
+**Open items:**
+
+- 5.2, the phone sign-in check
+- the dm egress decision (research §9)
+- when to switch to Workers Paid (the skeleton already uses up to 12 ms CPU against the Free plan's 10 ms)
+- optional branch protection (8.3)
 
 ## Context
 
@@ -251,8 +263,8 @@ This replaces step 5 of Getting Started in `infrastructure.md`.
 
 ## Phase 7: Auto-deploy `main` with Workers Builds
 
-- [ ] 7.1 [agent] Commit the research note and this file's progress; don't push yet.
-- [ ] 7.2 [you] Dashboard → Workers & Pages → `drogeria-radar` → Settings → Builds → Connect → GitHub. Install the "Cloudflare Workers and Pages" app for this repository only, then set:
+- [x] 7.1 [agent] Commit the research note and this file's progress; don't push yet. **Done:** `96ee2e2`, local only.
+- [x] 7.2 [you] **Done 2026-09-23:** connected with Preview Builds unchecked. Dashboard → Workers & Pages → `drogeria-radar` → Settings → Builds → Connect → GitHub. Install the "Cloudflare Workers and Pages" app for this repository only, then set:
   - production branch: `main`
   - build command: `npm run build` (the default is empty)
   - deploy command: `npx wrangler deploy` (the default)
@@ -262,7 +274,11 @@ This replaces step 5 of Getting Started in `infrastructure.md`.
 
   Cloudflare creates the build API token itself; don't delete it. Connecting doesn't start a build.
 
-- [ ] 7.3 [agent] Push the 7.1 commit, which runs the first Workers Build. Check that:
+- [x] 7.3 [agent] **Done 2026-09-23 22:11 UTC:** the push of `96ee2e2` ran Workers Builds build `0951c850`, which deployed version `a95a6036` at 100% (source "Unknown (deployment)", trigger `version_upload`).
+  - The GitHub check "Workers Builds: drogeria-radar" passed, and `ci` and `smoke` passed.
+  - Both secrets are still bound. `/` returns 200 without the banner, sign-in reaches Supabase, and sign-up is refused.
+  - The build log itself wasn't read (it's only in the dashboard). The green build shows that `npm clean-install` accepted the lockfile under the Node version from `.nvmrc`.
+  - Push the 7.1 commit, which runs the first Workers Build. Check that:
   - the build log shows `npm clean-install`, Node 24.18.0 from `.nvmrc` and a successful `npx wrangler deploy`
   - GitHub shows the Workers Builds check on the commit
   - `npx wrangler deployments list --name drogeria-radar` has the new version
@@ -270,8 +286,8 @@ This replaces step 5 of Getting Started in `infrastructure.md`.
 
 ## Phase 8: Record and hand-off
 
-- [ ] 8.1 [agent] Fill in the Deployment record and set `status: deployed`. Commit and push; it's docs-only, so Workers Builds redeploys identical code.
-- [ ] 8.2 [agent] Update the project memory, including the full production URL (local only).
+- [x] 8.1 [agent] Fill in the Deployment record and set `status: deployed`. Commit and push; it's docs-only, so Workers Builds redeploys identical code.
+- [x] 8.2 [agent] Update the project memory, including the full production URL (local only).
 - [ ] 8.3 [you, optional] Turn on branch protection for `main`, requiring the CI checks. Workers Builds deploys every push to `main` whether or not GitHub Actions passed, so from here on merge through PRs with green CI.
 
 ## Operations after this plan
@@ -299,19 +315,19 @@ This replaces step 5 of Getting Started in `infrastructure.md`.
 
 ## Deployment record (filled in during execution)
 
-| Item                          | Value                                                                                 |
-| ----------------------------- | ------------------------------------------------------------------------------------- |
-| Deployed on                   | 2026-09-23 (first deploy 21:27 UTC, manual)                                           |
-| Worker / URL                  | `drogeria-radar` / `https://drogeria-radar.<subdomain>.workers.dev`                   |
-| Bindings                      | `ASSETS` only                                                                         |
-| First version (Phase 3)       | `d25099a4-4f91-4e32-8f8b-67b63eb0233e` (tag `468c9cb`, no secrets)                    |
-| Workers Builds version/commit |                                                                                       |
-| Secrets (names only)          | `SUPABASE_URL`, `SUPABASE_KEY`                                                        |
-| Supabase                      | project `drogeria-radar`, Central EU (Frankfurt), sign-up off, owner account created  |
-| Workers Builds                | branch `main`, `npm run build`, `npx wrangler deploy`, preview builds off             |
-| Preview URLs                  | off (`preview_urls: false`)                                                           |
-| Workers plan                  | Free                                                                                  |
-| Egress probe                  | 2026-09-23 from WAW: Rossmann, Hebe, Super-Pharm, Natura OK; **dm 403** (research §9) |
+| Item                          | Value                                                                                                                                                                         |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Deployed on                   | 2026-09-23 (first deploy 21:27 UTC, manual)                                                                                                                                   |
+| Worker / URL                  | `drogeria-radar` / `https://drogeria-radar.<subdomain>.workers.dev`                                                                                                           |
+| Bindings                      | `ASSETS` only                                                                                                                                                                 |
+| First version (Phase 3)       | `d25099a4-4f91-4e32-8f8b-67b63eb0233e` (tag `468c9cb`, no secrets)                                                                                                            |
+| Workers Builds version/commit | `a95a6036` from `96ee2e2` (build `0951c850`, 2026-09-23 22:11 UTC); later pushes to `main` deploy the same way                                                                |
+| Secrets (names only)          | `SUPABASE_URL`, `SUPABASE_KEY`, set 21:49–21:50 UTC (versions `b06bf8cc`, `32248307`)                                                                                         |
+| Supabase                      | project `drogeria-radar`, Central EU (Frankfurt), sign-up off (verified `signup_disabled`), owner account created, Data API on, new tables not auto-exposed, automatic RLS on |
+| Workers Builds                | branch `main`, `npm run build`, `npx wrangler deploy`, preview builds off; checks on GitHub                                                                                   |
+| Preview URLs                  | off (`preview_urls: false`; version URL returns 404)                                                                                                                          |
+| Workers plan                  | Free; observed CPU per request 2–12 ms against the 10 ms cap                                                                                                                  |
+| Egress probe                  | 2026-09-23 from WAW: Rossmann, Hebe, Super-Pharm, Natura OK; **dm 403** (research §9)                                                                                         |
 
 ## Verification (end to end)
 
