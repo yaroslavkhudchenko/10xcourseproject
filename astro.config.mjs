@@ -13,7 +13,9 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
   },
-  adapter: cloudflare(),
+  // No Astro sessions or Cloudflare Images yet, so the adapter adds no SESSION KV or IMAGES binding to the Worker.
+  session: false,
+  adapter: cloudflare({ imageService: "passthrough" }),
   env: {
     schema: {
       SUPABASE_URL: envField.string({ context: "server", access: "secret", optional: true }),

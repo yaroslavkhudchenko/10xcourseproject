@@ -14,7 +14,7 @@ Canonical documents (read them; do not restate them here):
 
 ## Non-negotiables
 
-- Sign-up is invite-only with no open registration (PRD FR-001). The starter's `/auth/signup` page and `enable_signup = true` in `supabase/config.toml` are inherited defaults, not the product's registration path.
+- Sign-up is invite-only with no open registration (PRD FR-001). The starter's `/auth/signup` page and `enable_signup = true` in `supabase/config.toml` are inherited defaults, not the product's registration path. The production Supabase project has "Allow new users to sign up" off; never run `supabase config push` against it, because that pushes `enable_signup = true`.
 - Watchlists are private per user; price observations are shared by everyone (FR-005). Enforce this with RLS policies, not only with query filters. Removing a watchlist entry hides it and never deletes observations.
 - Every displayed price shows its source and fetch time (FR-010, FR-011). A failed fetch shows the last known price with its age or a visible gap, never a blank, a zero or a silently stale value. Online prices are labelled as online; never claim shelf prices.
 - Shop fetches run server-side and on demand (FR-008), under a per-shop request cap for the whole deployment, and stop for a shop that blocks or asks. Never circumvent bot protection; Sephora, Douglas and Notino are excluded for that reason.
@@ -33,7 +33,7 @@ Prerequisite: copy `.env.example` to both `.env` (Node processes: build, check, 
 - `npm run smoke` — dependency-free auth-flow smoke test (`scripts/smoke.mjs`) against a running server, `BASE_URL` defaulting to localhost:4321. Needs a reachable Supabase with email confirmation off.
 - Tests: no unit or e2e runner is installed, so there is no single-test command yet. When a runner is added, add its step to `.github/workflows/ci.yml`.
 - `npx supabase start` / `npx supabase stop` — local Supabase via Docker (API on 54321, Studio on 54323, settings in `supabase/config.toml`).
-- `npx wrangler deploy` — deploy to Cloudflare Workers; set secrets with `npx wrangler secret put SUPABASE_URL` and the same for `SUPABASE_KEY`.
+- Production deploys by merging to `main`: Cloudflare Workers Builds runs `npm run build` and `npx wrangler deploy` for the Worker `drogeria-radar`. A manual `npx wrangler deploy` is for emergencies only, from a clean `main` after `npm run build`. Set secrets with `npx wrangler secret put SUPABASE_URL --name drogeria-radar` and the same for `SUPABASE_KEY`. What is live, and how to roll back: `context/deployment/deploy-plan.md`.
 
 ## Architecture
 
@@ -49,10 +49,10 @@ Prerequisite: copy `.env.example` to both `.env` (Node processes: build, check, 
 - Pre-commit (husky + lint-staged) runs `eslint --fix` on `*.{ts,tsx,astro}` and `prettier --write` on `*.{json,css,md}`; a lint error blocks the commit.
 - Prettier uses 120 columns and sorts Tailwind classes; let it reorder them.
 - `.nvmrc` pins Node 22.14, but `eslint-plugin-astro` 3.1 requires 22.22.3+ or 24.16+; older Node prints non-fatal `EBADENGINE` warnings at install.
-- CI (`.github/workflows/ci.yml`) runs on pushes and PRs to `master` only and needs `SUPABASE_URL` and `SUPABASE_KEY` repository secrets for the build job.
+- CI (`.github/workflows/ci.yml`) runs on pushes and PRs to `main`: lint, `astro check`, build, and the smoke test against a local Supabase. It never deploys and needs no repository secrets; keep Cloudflare tokens and Supabase keys out of GitHub.
 - `context/` is the 10x workflow surface: `foundation/` living docs are edited in place, `changes/<id>/` holds per-change artefacts created with `/10x-new`, and `archive/` is read-only (see @context/foundation/README.md).
 - `CLAUDE.md.scaffold` is the starter's original rules file left by the bootstrap merge and `context/changes/bootstrap-verification/verification.md` is its audit log; Claude Code loads neither.
-- The repository has no commits yet, so there is no commit convention to follow; the branch is `master`.
+- The default branch is `main` of a public GitHub repository: never commit account IDs, emails, the workers.dev subdomain or key values. There is no enforced commit convention yet.
 
 <!-- BEGIN @przeprogramowani/10x-cli -->
 
