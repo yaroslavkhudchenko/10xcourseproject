@@ -129,11 +129,16 @@ Legend: **[agent]** Claude runs it (shell commands in Git Bash) · **[you]** in 
     - the generated `dist/server/wrangler.json` has name `drogeria-radar`, `preview_urls: false`, no KV or Images binding
     - dry run: bindings `env.ASSETS` only; upload 2,038 KiB (449 KiB gzip), 29 modules
   - **Windows note:** `core.autocrlf=true` had left `astro.config.mjs`, `eslint.config.js` and `scripts/smoke.mjs` with CRLF in the working copy, and Prettier flagged every CR. The committed blobs are LF, so CI isn't affected. Converting the three files back to LF fixed local lint.
-- [ ] 2.7 **Commit and push:**
+- [x] 2.7 **Commit and push:**
   - Commit `chore: prepare first Cloudflare Workers deploy`, including your pending wrangler bump.
   - Check `git show HEAD -- CLAUDE.md`: after the prettier hook it must touch only project-section lines, with the lesson block byte-identical.
   - Push to `origin main`. Workers Builds isn't connected yet, so this only runs CI.
+  - **Result:** pushed as `3553b4a`; the CLAUDE.md diff touches only project-section lines.
 - [ ] 2.8 The first CI run on `main` is green (both jobs). Any failure gets fixed before Phase 3.
+  - **First run failed:** both jobs stopped at `npm ci` with `Missing: @emnapi/runtime@1.11.3` and `@emnapi/core@1.11.3 from lock file`.
+    - Cause: the lockfile, since the initial commit, is written by npm 11 (local Node 24). npm 10 (Node 22 in CI, and `.nvmrc` 22.14.0 for Workers Builds) rejects it.
+    - Reproduced locally with `npm@10.9.2 ci`; `npm@11.6.2 ci` installs it cleanly.
+  - **Fix:** `.nvmrc` moves to 24.18.0 (the Workers Builds default), and both CI jobs use `node-version-file: .nvmrc`. Local dev, CI and Workers Builds now share npm 11. Regenerating the lock with npm 10 instead would break on the next local `npm install`.
 
 ## Phase 3: First production deploy [agent]
 
@@ -208,7 +213,7 @@ This replaces step 5 of Getting Started in `infrastructure.md`.
   Cloudflare creates the build API token itself; don't delete it. Connecting doesn't start a build.
 
 - [ ] 7.3 [agent] Push the 7.1 commit, which runs the first Workers Build. Check that:
-  - the build log shows `npm clean-install`, Node 22.14.0 and a successful `npx wrangler deploy`
+  - the build log shows `npm clean-install`, Node 24.18.0 from `.nvmrc` and a successful `npx wrangler deploy`
   - GitHub shows the Workers Builds check on the commit
   - `npx wrangler deployments list --name drogeria-radar` has the new version
   - `/` still returns 200 without the banner, so the secrets survived

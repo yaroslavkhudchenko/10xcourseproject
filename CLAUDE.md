@@ -48,7 +48,7 @@ Prerequisite: copy `.env.example` to both `.env` (Node processes: build, check, 
 
 - Pre-commit (husky + lint-staged) runs `eslint --fix` on `*.{ts,tsx,astro}` and `prettier --write` on `*.{json,css,md}`; a lint error blocks the commit.
 - Prettier uses 120 columns and sorts Tailwind classes; let it reorder them.
-- `.nvmrc` pins Node 22.14, but `eslint-plugin-astro` 3.1 requires 22.22.3+ or 24.16+; older Node prints non-fatal `EBADENGINE` warnings at install.
+- `.nvmrc` pins Node 24.18.0, and both CI and Workers Builds read it. Its npm 11 is required: the lockfile is written by npm 11, and npm 10's `npm ci` (Node 22) rejects it for missing `@emnapi/*` entries. Local Node below 24.16 prints non-fatal `EBADENGINE` warnings from `eslint-plugin-astro` at install.
 - CI (`.github/workflows/ci.yml`) runs on pushes and PRs to `main`: lint, `astro check`, build, and the smoke test against a local Supabase. It never deploys and needs no repository secrets; keep Cloudflare tokens and Supabase keys out of GitHub.
 - `context/` is the 10x workflow surface: `foundation/` living docs are edited in place, `changes/<id>/` holds per-change artefacts created with `/10x-new`, and `archive/` is read-only (see @context/foundation/README.md).
 - `CLAUDE.md.scaffold` is the starter's original rules file left by the bootstrap merge and `context/changes/bootstrap-verification/verification.md` is its audit log; Claude Code loads neither.
