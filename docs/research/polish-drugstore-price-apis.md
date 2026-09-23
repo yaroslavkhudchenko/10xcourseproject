@@ -12,7 +12,7 @@
 | Rossmann        | internal JSON API `www.rossmann.pl/products/v4/api/Products`              | `unit` string, `eanNumber[]`                                    | none                             | **open, verified**                                                    |
 | Hebe            | Luigi's Box search API (`live.luigisbox.com`)                             | `Pojemność` (litres), `EAN[]`                                   | tracker id from page             | **open, verified**                                                    |
 | Super-Pharm     | Algolia index `spprod_drugstore_pl_simple_products`                       | `capacity`, `farmax_capacity`; EAN only in product page JSON-LD | public search-only key from page | **open, verified**                                                    |
-| dm              | `product-search.services.dmtech.com/pl/search`                            | size inside `title`, `gtin`                                     | none                             | **open, verified**                                                    |
+| dm              | `product-search.services.dmtech.com/pl/search`                            | size inside `title`, `gtin`                                     | none                             | **open from a normal connection; 403 from Cloudflare Workers** (§9)   |
 | Drogerie Natura | Luigi's Box search API                                                    | `size` + `size_unit`, `ean[]`                                   | tracker id from page             | **open, verified**                                                    |
 | Ziko Dermo      | plain server-rendered HTML (AptusShop)                                    | in HTML                                                         | none                             | scrapable                                                             |
 | Sephora.pl      | Akamai Bot Manager, HTTP 403 "Access Denied" on every URL                 | –                                                               | –                                | **blocked** for plain HTTP                                            |
@@ -263,6 +263,34 @@ GET https://live.luigisbox.com/search?tracker_id=703598-939363&q=4005900009319  
 - Start with the five open sources (Rossmann, Hebe, Super-Pharm, dm, Natura). They already answer "where is it cheapest" for drugstore products and need no browser automation.
 - Architecture: `resolve(name, size) → EAN candidates` → `adapters[shop].byEan / .search` → `normalise(size, price)` → table sorted by price. One adapter ≈ 30–60 lines each.
 - Defer Sephora / Douglas / Notino. When needed, add them via Ceneo product pages (Douglas, Notino) or the Notino affiliate feed, and only then consider Playwright or a paid scraping API.
+
+## 9. Egress from Cloudflare Workers (2026-09-23)
+
+- **Method:**
+  - A throwaway Worker on the project's Cloudflare account: the same account and workers.dev subdomain as the app, so the same egress and `CF-Worker` header. It was deleted afterwards.
+  - One request per target, 2 s apart, no retries.
+  - User-Agent `DrogeriaRadar/0.1 (+https://github.com/yaroslavkhudchenko/10xcourseproject)`, the descriptive one §7 recommends.
+  - Every request ran in the WAW (Warsaw) data center.
+
+| Target               | Request                                              | Status              | Time   | Expected field       | Notes                                 |
+| -------------------- | ---------------------------------------------------- | ------------------- | ------ | -------------------- | ------------------------------------- |
+| Rossmann             | `v4/api/Products?search=nivea%20soft&pageSize=1`     | 200 JSON            | 172 ms | `items` ✓            |                                       |
+| Hebe (Luigi's Box)   | `live.luigisbox.com/search`, tracker `421168-505233` | 200 JSON            | 346 ms | `hits` ✓             |                                       |
+| Natura (Luigi's Box) | `live.luigisbox.com/search`, tracker `703598-939363` | 200 JSON            | 279 ms | `hits` ✓             |                                       |
+| dm                   | `product-search.services.dmtech.com/pl/search`       | **403** HTML, 134 B | 345 ms | ✗                    | no redirect to `/crawl`; see below    |
+| Super-Pharm page     | `www.superpharm.pl/`                                 | 200 HTML, 1.8 MB    | 41 ms  | `algoliaConfig` ✓    | search key extracted at runtime       |
+| Super-Pharm Algolia  | `EP43QPDX9Q-dsn.algolia.net/…/simple_products/query` | 200 JSON            | 369 ms | `hits` ✓             | works with the key read from the page |
+| Hebe page            | `www.hebe.pl/`                                       | 200 HTML, 1.3 MB    | 127 ms | Luigi's Box script ✓ |                                       |
+| Natura page          | `www.drogerienatura.pl/`                             | 200 HTML, 3.3 MB    | 66 ms  | tracker id ✓         | one redirect                          |
+
+- **dm control request:** the same request with the same User-Agent from the developer machine got a 302 to `/pl/search/crawl`, the normal behaviour described in §2.4.
+  - So dm's 403 targets Cloudflare Workers traffic (its IP ranges or the `CF-Worker` header), not the User-Agent.
+  - The API sits behind Google Cloud (`Via: 1.1 google`).
+- **Implications:**
+  - Rossmann, Hebe, Super-Pharm and Natura work from Workers as-is. That includes reading the Super-Pharm search key and the tracker pages at runtime, with no CPU-limit errors on the Free plan.
+  - dm can't be fetched from Workers. The risk register's fallback (a proxy with a fixed egress IP) needs a decision first. Routing around a block aimed at Cloudflare traffic may count as circumventing bot protection, which the project rules forbid ("stop for a shop that blocks").
+  - Until that's decided, treat dm as blocked in production and don't retry it.
+  - The pages that carry dynamic keys are large (Super-Pharm 1.8 MB, Natura 3.3 MB). Cache the extracted key and tracker ids instead of re-reading a page for every request.
 
 ## Appendix A – curl commands used
 
