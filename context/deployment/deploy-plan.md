@@ -21,8 +21,10 @@ Approved on 2026-09-23. Checkboxes track execution; the Deployment record at the
 **Open items:**
 
 - **Workers Paid:** not blocking. Switch before the first real feature (product page, shop adapters), or at the first error 1102 / "exceeded CPU time" in logs, whichever comes first. The skeleton already uses up to 12 ms CPU against the Free plan's 10 ms.
-- **Ruleset `preventFailedDeploy`:** created 2026-09-24 (PR required, `ci` + `smoke` required, no force-push or deletion), but its enforcement is still **Disabled**. Set it to Active.
-- **Decided 2026-09-24:** dm is dropped from the MVP (PRD FR-013 update, research §9).
+  **Decided after the deploy (2026-09-24):**
+
+- dm is dropped from the MVP (PRD FR-013 update, research §9).
+- Changes reach `main` only through pull requests. The `preventFailedDeploy` ruleset is active, with `ci` and `smoke` required, and every merge deploys.
 
 ## Context
 
@@ -287,7 +289,7 @@ This replaces step 5 of Getting Started in `infrastructure.md`.
 
 - [x] 8.1 [agent] Fill in the Deployment record and set `status: deployed`. Commit and push; it's docs-only, so Workers Builds redeploys identical code.
 - [x] 8.2 [agent] Update the project memory, including the full production URL (local only).
-- [ ] 8.3 [you, optional] **Ruleset created 2026-09-24; enforcement not yet Active.** Turn on branch protection for `main`, requiring the CI checks. Workers Builds deploys every push to `main` whether or not GitHub Actions passed, so from here on merge through PRs with green CI.
+- [x] 8.3 [you, optional] **Done 2026-09-24:** ruleset `preventFailedDeploy`, enforcement **Active**. On `main`: no deletion, no force-push, PR required, `ci` and `smoke` required. Turn on branch protection for `main`, requiring the CI checks. Workers Builds deploys every push to `main` whether or not GitHub Actions passed, so from here on merge through PRs with green CI.
 
 ## Operations after this plan
 
