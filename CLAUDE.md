@@ -17,7 +17,7 @@ Canonical documents (read them; do not restate them here):
 - Sign-up is invite-only with no open registration (PRD FR-001). The starter's `/auth/signup` page and `enable_signup = true` in `supabase/config.toml` are inherited defaults, not the product's registration path. The production Supabase project has "Allow new users to sign up" off; never run `supabase config push` against it, because that pushes `enable_signup = true`.
 - Watchlists are private per user; price observations are shared by everyone (FR-005). Enforce this with RLS policies, not only with query filters. Removing a watchlist entry hides it and never deletes observations.
 - Every displayed price shows its source and fetch time (FR-010, FR-011). A failed fetch shows the last known price with its age or a visible gap, never a blank, a zero or a silently stale value. Online prices are labelled as online; never claim shelf prices.
-- Shop fetches run server-side and on demand (FR-008), under a per-shop request cap for the whole deployment, and stop for a shop that blocks or asks. Never circumvent bot protection; Sephora, Douglas and Notino are excluded for that reason.
+- Shop fetches run server-side and on demand (FR-008), under a per-shop request cap for the whole deployment, and stop for a shop that blocks or asks. Never circumvent bot protection; Sephora, Douglas and Notino are excluded for that reason. dm is out of the MVP for the same reason: its search refuses Cloudflare Workers traffic (research §9), so don't build a dm adapter or a proxy for it.
 - The confirmed per-shop item is the anchor and EAN only a helper (FR-004, FR-006): Hebe returns wrong EANs and Super-Pharm's search index has none.
 - Read `SUPABASE_URL` and `SUPABASE_KEY` only through `astro:env/server` (declared in `astro.config.mjs` as optional server secrets), never `import.meta.env`.
 - The HTML-comment-delimited lesson block at the bottom of this file belongs to the 10x CLI and is replaced on every `npx @przeprogramowani/10x-cli get <lesson> --type rules`. Project rules live above it; never edit inside it.
@@ -52,6 +52,7 @@ Prerequisite: copy `.env.example` to both `.env` (Node processes: build, check, 
 - CI (`.github/workflows/ci.yml`) runs on pushes and PRs to `main`: lint, `astro check`, build, and the smoke test against a local Supabase. It never deploys and needs no repository secrets; keep Cloudflare tokens and Supabase keys out of GitHub.
 - `context/` is the 10x workflow surface: `foundation/` living docs are edited in place, `changes/<id>/` holds per-change artefacts created with `/10x-new`, and `archive/` is read-only (see @context/foundation/README.md).
 - `CLAUDE.md.scaffold` is the starter's original rules file left by the bootstrap merge and `context/changes/bootstrap-verification/verification.md` is its audit log; Claude Code loads neither.
+- Changes reach `main` only through pull requests. The `preventFailedDeploy` ruleset requires green `ci` and `smoke` checks, and every merge deploys to production through Workers Builds, so open the PR and leave the merge to the owner.
 - The default branch is `main` of a public GitHub repository: never commit account IDs, emails, the workers.dev subdomain or key values. There is no enforced commit convention yet.
 
 <!-- BEGIN @przeprogramowani/10x-cli -->

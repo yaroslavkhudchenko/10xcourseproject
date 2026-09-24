@@ -290,6 +290,7 @@ GET https://live.luigisbox.com/search?tracker_id=703598-939363&q=4005900009319  
   - Rossmann, Hebe, Super-Pharm and Natura work from Workers as-is. That includes reading the Super-Pharm search key and the tracker pages at runtime, with no CPU-limit errors on the Free plan.
   - dm can't be fetched from Workers. The risk register's fallback (a proxy with a fixed egress IP) needs a decision first. Routing around a block aimed at Cloudflare traffic may count as circumventing bot protection, which the project rules forbid ("stop for a shop that blocks").
   - Until that's decided, treat dm as blocked in production and don't retry it.
+  - **Decision 2026-09-24:** dm is dropped from the MVP, with no proxy; the PRD's FR-013 carries the update.
   - The pages that carry dynamic keys are large (Super-Pharm 1.8 MB, Natura 3.3 MB). Cache the extracted key and tracker ids instead of re-reading a page for every request.
 
 ## Appendix A – curl commands used

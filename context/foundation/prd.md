@@ -130,6 +130,7 @@ A few people the owner knows, using the same deployment with their own private w
 - FR-013: User can compare prices across Rossmann, Hebe, Super-Pharm, dm and Drogerie Natura, added in stages. Priority: must-have
   > Socrates: Counter-arguments considered: two shops already deliver a comparison; the owner may not buy at all five.
   > Resolution: stands as written; the order of adding shops stays in Open Questions (2).
+  > Update 2026-09-24: dm is dropped from the MVP. Its product search refuses traffic from Cloudflare Workers (`docs/research/polish-drugstore-price-apis.md` §9), and routing around that would conflict with the no-circumvention guardrail. The MVP compares Rossmann, Hebe, Super-Pharm and Drogerie Natura; dm returns only through an official route.
 - FR-014: User can see the health of each shop adapter on a separate status page, outside the shopping flow. Priority: nice-to-have
   > Socrates: Counter-argument accepted: shoppers do not care about adapters; health belongs in logs or a status page, not in the product a shopper opens.
   > Resolution: moved out of the shopping flow and demoted to nice-to-have. Stale or missing prices stay visible inline through FR-011. An owner-only page would need a role, which the flat model rules out.
@@ -181,7 +182,7 @@ No non-functional non-goals were chosen.
 ## Open Questions
 
 1. **What does an unauthenticated visitor see when opening a gated page?** — Owner: user.
-2. **Which of the five shops does the owner actually buy from, and in which order should they be added?** — Owner: user.
+2. **Which of the five shops does the owner actually buy from, and in which order should they be added?** — Owner: user. (dm is out of the MVP; see FR-013.)
 3. **How are misspelled product names handled, and does search run live as you type or on submit?** Rossmann's search returns a spelling hint; its suggestion feature is untested. — Owner: user.
 4. **How much history and which threshold define a good price (FR-012)?** — Owner: user.
 5. **After how long is a displayed price marked stale?** — Owner: user.
