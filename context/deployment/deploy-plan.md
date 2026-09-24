@@ -20,10 +20,12 @@ Approved on 2026-09-23. Checkboxes track execution; the Deployment record at the
 
 **Open items:**
 
-- 5.2, the phone sign-in check
-- the dm egress decision (research §9)
-- when to switch to Workers Paid (the skeleton already uses up to 12 ms CPU against the Free plan's 10 ms)
-- optional branch protection (8.3)
+- **Workers Paid:** not blocking. Switch before the first real feature (product page, shop adapters), or at the first error 1102 / "exceeded CPU time" in logs, whichever comes first. The skeleton already uses up to 12 ms CPU against the Free plan's 10 ms.
+
+**Decided after the deploy (2026-09-24):**
+
+- dm is dropped from the MVP (PRD FR-013 update, research §9).
+- Changes reach `main` only through pull requests. The `preventFailedDeploy` ruleset is active, with `ci` and `smoke` required, and every merge deploys.
 
 ## Context
 
@@ -218,7 +220,7 @@ The values never pass through the agent.
     - Stop: redo 1.2 (switch off and **Save**), then run the sign-up check again.
   - **Run 2, after Save:** sign-up returns 302 `…?error=Signups%20not%20allowed%20for%20this%20instance`. Supabase now enforces invite-only.
   - **Tail:** 5 events, all `ok`, 0 exceptions.
-- [ ] 5.2 [you] On your phone, sign in with the account from 1.4: you land on `/`, `/dashboard` renders, and sign-out returns you to `/`.
+- [x] 5.2 [you] On your phone, sign in with the account from 1.4: you land on `/`, `/dashboard` renders, and sign-out returns you to `/`. **Done:** you confirmed it on 2026-09-24.
 - [x] 5.3 [agent] Record the version IDs from `npx wrangler deployments list --name drogeria-radar`. In Workers Logs, note the CPU time of an SSR request against the Free plan's 10 ms cap.
   - **Versions:**
     - `d25099a4`: code, no secrets
@@ -255,7 +257,7 @@ This replaces step 5 of Getting Started in `infrastructure.md`.
   - **dm returns 403** from Workers.
 - [x] 6.4 A shop that answers 403, 429 or a challenge gets no retries.
   - **dm:** no retries. One control request from the developer machine with the same User-Agent got the normal 302 to `/pl/search/crawl`, so dm blocks Cloudflare Workers traffic, not the User-Agent.
-  - **Open decision for the adapter milestone:** proxy dm or drop it. Proxying around a block aimed at Cloudflare traffic may conflict with "never circumvent bot protection".
+  - **Decided 2026-09-24:** dm is dropped from the MVP, with no proxy. Proxying around a block aimed at Cloudflare traffic would conflict with "never circumvent bot protection".
   - One control request from your machine with the same User-Agent tells an IP block from a User-Agent block. Never switch to a browser User-Agent to get past it.
   - The fallback (a Fly.io machine with a fixed egress IP behind the adapter interface) becomes a milestone item outside this plan.
 - [x] 6.5 ⛔ [you] **Done 2026-09-23:** at your request the agent ran the delete (after a dry run) from the probe's own folder. The Worker now returns code 10007 (doesn't exist), and production is untouched. Delete the probe in the dashboard: Workers & Pages → `drogeria-radar-egress-probe` → Settings → Delete. Or run `npx wrangler delete drogeria-radar-egress-probe`; the name is positional.
@@ -288,11 +290,11 @@ This replaces step 5 of Getting Started in `infrastructure.md`.
 
 - [x] 8.1 [agent] Fill in the Deployment record and set `status: deployed`. Commit and push; it's docs-only, so Workers Builds redeploys identical code.
 - [x] 8.2 [agent] Update the project memory, including the full production URL (local only).
-- [ ] 8.3 [you, optional] Turn on branch protection for `main`, requiring the CI checks. Workers Builds deploys every push to `main` whether or not GitHub Actions passed, so from here on merge through PRs with green CI.
+- [x] 8.3 [you, optional] **Done 2026-09-24:** ruleset `preventFailedDeploy`, enforcement **Active**. On `main`: no deletion, no force-push, PR required, `ci` and `smoke` required. Turn on branch protection for `main`, requiring the CI checks. Workers Builds deploys every push to `main` whether or not GitHub Actions passed, so from here on merge through PRs with green CI.
 
 ## Operations after this plan
 
-- **Deploy:** merge to `main`. A manual `wrangler deploy` is for emergencies only, and only from a clean, up-to-date `main`: `git status` clean, then `npm ci`, `npm run build`, `npx wrangler deploy`.
+- **Deploy:** merge a pull request into `main`. The ruleset requires green `ci` and `smoke`, and the merge deploys through Workers Builds. A manual `wrangler deploy` is for emergencies only, and only from a clean, up-to-date `main`: `git status` clean, then `npm ci`, `npm run build`, `npx wrangler deploy`.
 - **Rollback [you]:** run `npx wrangler versions list --name drogeria-radar`, then `npx wrangler rollback <version-id> --message "<why>"`.
   - Then revert the bad commit on `main`, or the next push redeploys it.
   - A version carries its secret set, and wrangler asks you to confirm when the sets differ. So never roll back to the Phase 3 version `d25099a4` (no secrets) or the 4.1 version `b06bf8cc` (URL only), and never past a key rotation.
