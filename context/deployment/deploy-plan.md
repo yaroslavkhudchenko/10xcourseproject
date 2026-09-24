@@ -21,7 +21,8 @@ Approved on 2026-09-23. Checkboxes track execution; the Deployment record at the
 **Open items:**
 
 - **Workers Paid:** not blocking. Switch before the first real feature (product page, shop adapters), or at the first error 1102 / "exceeded CPU time" in logs, whichever comes first. The skeleton already uses up to 12 ms CPU against the Free plan's 10 ms.
-  **Decided after the deploy (2026-09-24):**
+
+**Decided after the deploy (2026-09-24):**
 
 - dm is dropped from the MVP (PRD FR-013 update, research §9).
 - Changes reach `main` only through pull requests. The `preventFailedDeploy` ruleset is active, with `ci` and `smoke` required, and every merge deploys.
