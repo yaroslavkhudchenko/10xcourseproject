@@ -20,7 +20,6 @@ Approved on 2026-09-23. Checkboxes track execution; the Deployment record at the
 
 **Open items:**
 
-- 5.2, the phone sign-in check
 - the dm egress decision (research §9)
 - when to switch to Workers Paid (the skeleton already uses up to 12 ms CPU against the Free plan's 10 ms)
 - optional branch protection (8.3)
@@ -218,7 +217,7 @@ The values never pass through the agent.
     - Stop: redo 1.2 (switch off and **Save**), then run the sign-up check again.
   - **Run 2, after Save:** sign-up returns 302 `…?error=Signups%20not%20allowed%20for%20this%20instance`. Supabase now enforces invite-only.
   - **Tail:** 5 events, all `ok`, 0 exceptions.
-- [ ] 5.2 [you] On your phone, sign in with the account from 1.4: you land on `/`, `/dashboard` renders, and sign-out returns you to `/`.
+- [x] 5.2 [you] On your phone, sign in with the account from 1.4: you land on `/`, `/dashboard` renders, and sign-out returns you to `/`. **Done:** you confirmed it on 2026-09-24.
 - [x] 5.3 [agent] Record the version IDs from `npx wrangler deployments list --name drogeria-radar`. In Workers Logs, note the CPU time of an SSR request against the Free plan's 10 ms cap.
   - **Versions:**
     - `d25099a4`: code, no secrets
