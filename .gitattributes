@@ -1,0 +1,3 @@
+# Check out text files with LF on every OS. Prettier (endOfLine "lf"), CI and the
+# 10x CLI's content hashes all expect LF; core.autocrlf=true on Windows writes CRLF.
+* text=auto eol=lf
