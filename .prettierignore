@@ -1,0 +1,5 @@
+# Written by @przeprogramowani/10x-cli, which tracks them by content hash:
+# reformatting them makes the CLI treat them as locally modified and skip updates.
+.claude/
+.10x-cli.json
+CLAUDE.md
