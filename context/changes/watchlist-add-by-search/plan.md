@@ -537,6 +537,40 @@ Record the new rules in CLAUDE.md, and prepare production before the merge: the 
 - Patterns: `src/middleware.ts:4-24`, `src/pages/api/auth/signin.ts:4-20`, `src/pages/auth/signin.astro:5`, `scripts/check-shop-gate-db.mjs`, `supabase/migrations/20260926112205_polite_shop_access.sql`
 - The `@supabase/ssr` 0.12.7 `setAll` contract: `node_modules/@supabase/ssr/dist/main/types.d.ts:35-58`
 
+## Implementation Notes
+
+Where the shipped code differs from the phase contracts above, and why. The phase blocks still show the contract as it was planned.
+
+### Adaptations during implementation
+
+- **Names from `fallbackName`:** some Rossmann items send an empty `name` and keep it in `fallbackName` instead (item 11790 in the recording). The adapter takes `name`, then `fallbackName`, and drops an item that has neither.
+- **Image choice:** the recorded `pictures[]` entries have a `type` and several sizes. The adapter shows the `medium` URL of the front shot (`type` 1), or else of the first picture with a usable URL. Only https URLs on a `rossmann.pl` host count.
+- **Spelling hint:** Rossmann answers a misspelling with results for its correction and sends that correction as `spellCheckHint`. The page shows the hint only when it's a non-empty string that differs from the query, ignoring case.
+- **No `q` in the add form:** after "Dodaj", the route redirects to `/watchlist` with only its notice, so the form doesn't carry the search text.
+- **Shared pieces:** `src/components/watchlist/ProductSummary.astro` renders a product (thumbnail, brand and name, description, size) in both the results and the list. `WatchlistItem` in `src/types.ts` is a stored row as the page reads it.
+- **CLAUDE.md extras** beyond Phase 4's list: how to run `astro dev` and `astro preview` from a non-interactive shell, and that `npx supabase db reset --local` deletes the local accounts.
+
+### Review fixes (`reviews/impl-review.md`)
+
+- **F1, shared limits:** `src/lib/services/product-limits.ts` holds the field limits, and both the adapter and `watchlistAddSchema` use them. So every result the page shows can be added:
+  - The adapter keeps the first 10 EANs and cuts the brand, name and caption to their limits.
+  - It drops a size text or image URL that is too long, because a cut one would be wrong.
+  - It reads pictures, EANs and the hint one by one, so an odd value costs only itself.
+  - A test posts every recorded item, `recommendedProducts` included, through `parseWatchlistForm` the way the page does.
+- **F2, referrer policy:** thumbnails load with the browser's default referrer policy, so Rossmann's CDN sees the app's origin but never the path or the search text. `referrerpolicy="no-referrer"` was dropped, because it would hide the hotlinking from Rossmann, which comes close to circumventing. Accepted: every view sends the viewer's IP address and the watched items' image paths to `pro-fra-s3-productsassets.rossmann.pl`, outside the gate.
+- **F3, why search is unavailable:** `unavailable` carries a reason (`busy`, `paused` with its end, `stopped` or `failed`), and the page words each one differently. A stopped shop says that the owner has to re-enable it.
+- **F4, response headers:** the early redirect to sign-in gets the collected headers too. `withHeaders` in `src/lib/response-headers.ts` copies a response whose headers are read-only instead of throwing.
+- **F5, links from other sites:** `/watchlist` searches only on the app's own navigation: `Sec-Fetch-Site` is `same-origin` or `none`, or the header is absent. A link from another site shows the form filled in and asks the user to press "Szukaj".
+- **F6, time limits:** the search gives up after 5 s (`AbortSignal.timeout` in the fetch init), and both watchlist queries after 2 s.
+- **F7, error codes:** `/api/watchlist` redirects with `error=invalid`, `failed` or `config`, and the page shows only its own text for those codes. A body that isn't a form counts as invalid.
+- **F8, shop ids:** `SHOP_IDS` in `src/types.ts` is the one list behind `ShopId`, the gate's `SHOP_HOSTS` and the row schema. The seed rows of `public.shops` stay a separate copy, and the foreign key checks them. The list query parses rows one at a time, and drops and logs any that don't fit.
+
+### For S-02 and later (review F10)
+
+- **`source_item_id` in URLs:** the add route checks only its format. Validate and encode it wherever it goes into a shop URL.
+- **Database bounds:** the database bounds only `name`, and the page shows `image_url` from the database without checking it again. S-02's migration adds checks: length caps on the text columns and `source_item_id`, `image_url ~ '^https://'`, and `cardinality(eans) <= 10`.
+- **Search text in logs:** the search text sits in `/watchlist?q=…`, so Workers Logs keeps it for its retention period. This is an accepted risk, as in the plan brief.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.

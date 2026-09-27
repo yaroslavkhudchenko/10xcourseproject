@@ -18,9 +18,7 @@ Approved on 2026-09-23. Checkboxes track execution; the Deployment record at the
 - The Worker `drogeria-radar` runs on workers.dev and is auto-deployed from `main` by Workers Builds.
 - It uses Supabase in Frankfurt with sign-up closed.
 
-**Open items:**
-
-- **Workers Paid:** not blocking. Switch before the first real feature (product page, shop adapters), or at the first error 1102 / "exceeded CPU time" in logs, whichever comes first. The skeleton already uses up to 12 ms CPU against the Free plan's 10 ms.
+**Open items:** none. Workers Paid has been active since 2026-09-27, ahead of S-01, the first feature that calls a shop.
 
 **Decided after the deploy (2026-09-24):**
 
@@ -301,19 +299,17 @@ This replaces step 5 of Getting Started in `infrastructure.md`.
   - Supabase migrations don't roll back with the code.
 - **Non-interactive shells:** wrangler answers its own confirmation prompts with **yes** in non-interactive shells (agents, CI). This applies to `delete` and to rollback's secret-change warning. So destructive commands run only when a human asks, always with an explicit name, and after `--dry-run` where it exists.
 - **Secrets:** `secret put` fails with API error 10215 while an undeployed version is the latest. Deploy first, or use `npx wrangler versions secret put`.
-- **Logs:** `npx wrangler tail drogeria-radar --format json --status error`, or Workers Logs in the dashboard (Free plan: 3 days, 200k events a day).
+- **Logs:** `npx wrangler tail drogeria-radar --format json --status error`, or Workers Logs in the dashboard. Retention and event limits depend on the Workers plan; the Free plan kept 3 days.
 
 ## Deferred, with the trigger that brings each back
 
-- **Workers Paid:** before the first shop adapter merges.
-- **Anti-caching headers:** `@supabase/ssr` passes them as the second argument of `setAll`; apply them to the response in `src/lib/supabase.ts` and the middleware.
-  - Trigger: before the first page with user data, and before any custom domain or cache sits in front of the Worker.
-  - Cloudflare doesn't cache Worker responses today.
+- **Workers Paid:** done. Active since 2026-09-27.
+- **Anti-caching headers:** done in S-01 (`watchlist-add-by-search`). The middleware applies the headers `@supabase/ssr` passes to `setAll`, and every signed-in response is `Cache-Control: private, no-store`.
 - **Sign-up page:** replace the starter's `/auth/signup` with the owner-invite path (FR-001). Product work; Supabase already refuses sign-ups.
 - **Sessions and images:** turn on Astro sessions or Cloudflare Images when a feature needs them. The adapter then adds the `SESSION` KV or `IMAGES` binding.
 - **Preview deploys:** Worker Previews or version URLs, only behind Cloudflare Access and with a Supabase project that isn't production. Branch builds currently hit workers-sdk #15682, a false name mismatch with the Vite plugin's generated config.
 - **Local dev:** `npx supabase start` (Docker) with local values in `.env` and `.dev.vars`, never the production key.
-- **Other:** custom domain, the per-shop cap counter in Supabase, and the FR-015 cron entrypoint.
+- **Other:** custom domain and the FR-015 cron entrypoint. The per-shop cap counter in Supabase shipped in F-01 (`polite-shop-access`).
 
 ## Deployment record (filled in during execution)
 
@@ -328,7 +324,7 @@ This replaces step 5 of Getting Started in `infrastructure.md`.
 | Supabase                      | project `drogeria-radar`, Central EU (Frankfurt), sign-up off (verified `signup_disabled`), owner account created, Data API on, new tables not auto-exposed, automatic RLS on |
 | Workers Builds                | branch `main`, `npm run build`, `npx wrangler deploy`, preview builds off; checks on GitHub                                                                                   |
 | Preview URLs                  | off (`preview_urls: false`; version URL returns 404)                                                                                                                          |
-| Workers plan                  | Free; observed CPU per request 2–12 ms against the 10 ms cap                                                                                                                  |
+| Workers plan                  | Paid since 2026-09-27; on Free, CPU per request was 2–12 ms against the 10 ms cap                                                                                             |
 | Egress probe                  | 2026-09-23 from WAW: Rossmann, Hebe, Super-Pharm, Natura OK; **dm 403** (research §9)                                                                                         |
 
 ## Verification (end to end)

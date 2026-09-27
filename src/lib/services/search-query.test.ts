@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { searchQuerySchema } from "@/lib/services/search-query";
+import { isOwnNavigation, searchQuerySchema } from "@/lib/services/search-query";
+
+describe("isOwnNavigation", () => {
+  it.each([
+    { site: null, own: true },
+    { site: "same-origin", own: true },
+    { site: "none", own: true },
+    { site: "cross-site", own: false },
+    { site: "same-site", own: false },
+  ])("is $own for Sec-Fetch-Site $site", ({ site, own }) => {
+    const headers = new Headers(site === null ? {} : { "Sec-Fetch-Site": site });
+
+    expect(isOwnNavigation(headers)).toBe(own);
+  });
+});
 
 describe("searchQuerySchema", () => {
   it.each([

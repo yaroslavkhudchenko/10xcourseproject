@@ -1,7 +1,7 @@
 ---
 change_id: watchlist-add-by-search
 title: Add a product to the watchlist by searching for it
-status: implemented
+status: impl_reviewed
 created: 2026-09-27
 updated: 2026-09-27
 archived_at: null

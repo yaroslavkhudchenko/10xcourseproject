@@ -1,5 +1,8 @@
-/** A shop the deployment calls. The ids match the rows seeded into `public.shops`. */
-export type ShopId = "rossmann" | "hebe" | "super-pharm" | "natura";
+/** The shops the deployment calls, as one list: the ids match the rows seeded into `public.shops`. */
+export const SHOP_IDS = ["rossmann", "hebe", "super-pharm", "natura"] as const;
+
+/** A shop the deployment calls. */
+export type ShopId = (typeof SHOP_IDS)[number];
 
 /**
  * What one request through the shop gate (`src/lib/services/shop-gate.ts`) came to. Only `ok` carries the shop's
@@ -60,6 +63,14 @@ export interface WatchlistItem {
   addedAt: string;
 }
 
+/**
+ * Why a product search produced nothing to show: the shop's cap was reached (`busy`), the shop asked for a pause
+ * (`paused`, with its end), the shop blocked us and stays stopped until the owner re-enables it (`stopped`), or the call
+ * failed (`failed`).
+ */
+export type SearchUnavailableReason = "busy" | "paused" | "stopped" | "failed";
+
 /** What a product search came to: candidates (possibly none) with the shop's spelling hint, or unavailable. */
 export type ProductSearch =
-  { kind: "results"; candidates: ProductCandidate[]; spellingHint: string | null } | { kind: "unavailable" };
+  | { kind: "results"; candidates: ProductCandidate[]; spellingHint: string | null }
+  | { kind: "unavailable"; reason: SearchUnavailableReason; until?: string };

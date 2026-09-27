@@ -2,9 +2,10 @@
 import ProductSummary from "@/components/watchlist/ProductSummary.astro";
 import Layout from "@/layouts/Layout.astro";
 import { shopGateFor } from "@/lib/services/shop-gate";
-import { searchQuerySchema } from "@/lib/services/search-query";
+import { isOwnNavigation, searchQuerySchema } from "@/lib/services/search-query";
 import { searchRossmann } from "@/lib/services/shops/rossmann";
-import { listWatchlist } from "@/lib/services/watchlist";
+import { listWatchlist, watchlistErrorMessage } from "@/lib/services/watchlist";
+import type { SearchUnavailableReason } from "@/types";
 
 const { user, supabase } = Astro.locals;
 const params = Astro.url.searchParams;
@@ -14,11 +15,30 @@ const rawQuery = params.get("q");
 const parsedQuery = rawQuery === null ? null : searchQuerySchema.safeParse(rawQuery);
 const query = parsedQuery?.success ? parsedQuery.data : null;
 const invalidQuery = parsedQuery !== null && !parsedQuery.success;
+// A link on another site only fills in the form: just the user's own navigation spends the shared cap.
+const searchAllowed = isOwnNavigation(Astro.request.headers);
 
 const [search, items] = await Promise.all([
-  query === null ? null : searchRossmann(shopGateFor(supabase), query),
+  query === null || !searchAllowed ? null : searchRossmann(shopGateFor(supabase), query),
   supabase ? listWatchlist(supabase) : null,
 ]);
+
+const clock = new Intl.DateTimeFormat("pl-PL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" });
+function unavailableText(reason: SearchUnavailableReason, until: string | undefined): string {
+  switch (reason) {
+    case "busy":
+      return "Wyszukiwarka Rossmanna jest teraz zajęta. Spróbuj za minutę.";
+    case "paused":
+      return until
+        ? `Rossmann poprosił o przerwę. Wyszukiwanie wróci około ${clock.format(new Date(until))}.`
+        : "Rossmann poprosił o przerwę. Spróbuj później.";
+    case "stopped":
+      return "Wyszukiwanie w Rossmannie jest wyłączone, bo sklep zablokował zapytania. Właściciel musi je ponownie włączyć.";
+    case "failed":
+      return "Wyszukiwarka Rossmanna jest chwilowo niedostępna. Spróbuj za chwilę.";
+  }
+}
+const unavailableMessage = search?.kind === "unavailable" ? unavailableText(search.reason, search.until) : null;
 const watched = new Set((items ?? []).map((item) => `${item.source}:${item.sourceItemId}`));
 
 const notice = params.has("added")
@@ -26,7 +46,7 @@ const notice = params.has("added")
   : params.has("exists")
     ? "Ten produkt jest już na Twojej liście."
     : null;
-const error = params.get("error");
+const error = watchlistErrorMessage(params.get("error"));
 const addedOn = new Intl.DateTimeFormat("pl-PL", { dateStyle: "long", timeZone: "Europe/Warsaw" });
 ---
 
@@ -93,9 +113,14 @@ const addedOn = new Intl.DateTimeFormat("pl-PL", { dateStyle: "long", timeZone: 
           Wpisz od 2 do 80 znaków: litery, cyfry, spacje i znaki . , % &amp; ' + / ( ) -
         </p>
       )}
-      {search?.kind === "unavailable" && (
+      {query !== null && !searchAllowed && (
+        <p role="status" class="text-sm text-blue-100/80">
+          Naciśnij „Szukaj”, aby wyszukać „{query}”.
+        </p>
+      )}
+      {unavailableMessage && (
         <p role="alert" class="rounded-lg border border-amber-400/30 bg-amber-900/30 px-3 py-2 text-sm text-amber-200">
-          Wyszukiwarka Rossmanna jest chwilowo niedostępna. Spróbuj za chwilę.
+          {unavailableMessage}
         </p>
       )}
 

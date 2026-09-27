@@ -1,7 +1,19 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createShopGate } from "@/lib/services/shop-gate";
+import empty from "@/lib/services/shops/fixtures/rossmann-search-empty.json";
+import misspelled from "@/lib/services/shops/fixtures/rossmann-search-misspelled.json";
 import results from "@/lib/services/shops/fixtures/rossmann-search-results.json";
-import { addToWatchlist, listWatchlist, parseWatchlistForm } from "@/lib/services/watchlist";
+import { searchRossmann } from "@/lib/services/shops/rossmann";
+import { createReplayFetch } from "@/lib/services/testing/replay-fetch";
+import {
+  addToWatchlist,
+  listWatchlist,
+  parseWatchlistForm,
+  watchlistErrorMessage,
+  WATCHLIST_ERRORS,
+} from "@/lib/services/watchlist";
+import type { ProductCandidate } from "@/types";
 
 // The "Dodaj" form as the results page posts it, built from the first recorded Rossmann item.
 const [soft] = results.data.items;
@@ -24,6 +36,22 @@ function dodajForm(overrides: Record<string, string | string[]> = {}): FormData 
     for (const entry of Array.isArray(value) ? value : [value]) {
       form.append(key, entry);
     }
+  }
+  return form;
+}
+
+/** The hidden inputs `src/pages/watchlist.astro` renders for one search result. */
+function pageForm(candidate: ProductCandidate): FormData {
+  const form = new FormData();
+  form.append("source", candidate.source);
+  form.append("sourceItemId", candidate.sourceItemId);
+  form.append("name", candidate.name);
+  form.append("brand", candidate.brand ?? "");
+  form.append("caption", candidate.caption ?? "");
+  form.append("sizeText", candidate.sizeText ?? "");
+  form.append("imageUrl", candidate.imageUrl ?? "");
+  for (const ean of candidate.eans) {
+    form.append("eans", ean);
   }
   return form;
 }
@@ -84,17 +112,59 @@ describe("parseWatchlistForm", () => {
   ])("rejects $field", ({ overrides }) => {
     expect(parseWatchlistForm(dodajForm(overrides))).toBeNull();
   });
+
+  it("accepts every result the adapter makes from the recordings, posted the way the page posts it", async () => {
+    const items: unknown[] = [results, misspelled, empty].flatMap((fixture) => [
+      ...fixture.data.items,
+      ...fixture.data.recommendedProducts,
+    ]);
+    const url = "https://www.rossmann.pl/products/v4/api/Products?search=nivea%20soft&page=1&pageSize=24";
+    const gate = createShopGate({
+      reserve: () => Promise.resolve({ outcome: "allowed" }),
+      reportBlock: () => Promise.resolve(),
+      fetch: createReplayFetch([{ url, status: 200, body: JSON.stringify({ data: { items, spellCheckHint: "" } }) }]),
+      log: () => undefined,
+    });
+
+    const search = await searchRossmann(gate, "nivea soft");
+
+    if (search.kind !== "results") {
+      throw new Error(`expected results, got ${search.kind}`);
+    }
+    // Among them the product with 12 EANs, which the form alone would reject.
+    expect(search.candidates.some((candidate) => candidate.sourceItemId === "17420")).toBe(true);
+    expect(search.candidates.length).toBeGreaterThan(10);
+    for (const candidate of search.candidates) {
+      expect(parseWatchlistForm(pageForm(candidate)), candidate.sourceItemId).not.toBeNull();
+    }
+  });
+});
+
+describe("watchlistErrorMessage", () => {
+  it("gives the page's own text for each error code", () => {
+    for (const [code, message] of Object.entries(WATCHLIST_ERRORS)) {
+      expect(watchlistErrorMessage(code)).toBe(message);
+    }
+  });
+
+  it.each([null, "", "Kliknij tutaj, by odebrać nagrodę", "toString", "__proto__"])(
+    "shows nothing for %j, which the app never sends",
+    (code) => {
+      expect(watchlistErrorMessage(code)).toBeNull();
+    },
+  );
 });
 
 describe("addToWatchlist", () => {
   function insertStub(error: { code: string; message: string } | null) {
-    const insert = vi.fn((_row: Record<string, unknown>) => Promise.resolve({ error }));
+    const abortSignal = vi.fn((_signal: AbortSignal) => Promise.resolve({ error }));
+    const insert = vi.fn((_row: Record<string, unknown>) => ({ abortSignal }));
     const from = vi.fn((_table: string) => ({ insert }));
-    return { client: { from } as unknown as SupabaseClient, from, insert };
+    return { client: { from } as unknown as SupabaseClient, from, insert, abortSignal };
   }
 
-  it("inserts the candidate into the user's watchlist", async () => {
-    const { client, from, insert } = insertStub(null);
+  it("inserts the candidate into the user's watchlist, within a time limit", async () => {
+    const { client, from, insert, abortSignal } = insertStub(null);
 
     expect(await addToWatchlist(client, softCandidate())).toBe("added");
     expect(from).toHaveBeenCalledWith("watchlist_items");
@@ -110,6 +180,7 @@ describe("addToWatchlist", () => {
       eans: ["4005900009319", "4005808890637", "5900017001234"],
       image_url: "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/26900_360_350_1785530324.webp",
     });
+    expect(abortSignal.mock.calls[0][0]).toBeInstanceOf(AbortSignal);
   });
 
   it("reports a product that is already on the list", async () => {
@@ -129,10 +200,11 @@ describe("addToWatchlist", () => {
 
 describe("listWatchlist", () => {
   function selectStub(result: { data: unknown; error: { message: string } | null }) {
-    const order = vi.fn((_column: string, _options: { ascending: boolean }) => Promise.resolve(result));
+    const abortSignal = vi.fn((_signal: AbortSignal) => Promise.resolve(result));
+    const order = vi.fn((_column: string, _options: { ascending: boolean }) => ({ abortSignal }));
     const select = vi.fn((_columns: string) => ({ order }));
     const from = vi.fn((_table: string) => ({ select }));
-    return { client: { from } as unknown as SupabaseClient, order };
+    return { client: { from } as unknown as SupabaseClient, order, abortSignal };
   }
 
   const row = {
@@ -146,29 +218,37 @@ describe("listWatchlist", () => {
     image_url: null,
     created_at: "2026-09-27T12:00:00+00:00",
   };
+  const item = {
+    id: row.id,
+    source: "rossmann",
+    sourceItemId: "26900",
+    brand: "NIVEA",
+    name: "Soft",
+    caption: "krem uniwersalny, nawilżający",
+    sizeText: "300 ml",
+    imageUrl: null,
+    addedAt: row.created_at,
+  };
 
-  it("maps the user's rows to items, newest first", async () => {
-    const { client, order } = selectStub({ data: [row], error: null });
+  it("maps the user's rows to items, newest first, within a time limit", async () => {
+    const { client, order, abortSignal } = selectStub({ data: [row], error: null });
 
-    expect(await listWatchlist(client)).toEqual([
-      {
-        id: row.id,
-        source: "rossmann",
-        sourceItemId: "26900",
-        brand: "NIVEA",
-        name: "Soft",
-        caption: "krem uniwersalny, nawilżający",
-        sizeText: "300 ml",
-        imageUrl: null,
-        addedAt: row.created_at,
-      },
-    ]);
+    expect(await listWatchlist(client)).toEqual([item]);
     expect(order).toHaveBeenCalledWith("created_at", { ascending: false });
+    expect(abortSignal.mock.calls[0][0]).toBeInstanceOf(AbortSignal);
+  });
+
+  it("drops an odd row and keeps the rest of the list", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = selectStub({ data: [{ ...row, id: "odd", source: "dm" }, row], error: null });
+
+    expect(await listWatchlist(client)).toEqual([item]);
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 
   it.each([
     { answer: "a failed query", result: { data: null, error: { message: "permission denied" } } },
-    { answer: "rows of another shape", result: { data: [{ ...row, source: "dm" }], error: null } },
+    { answer: "an answer that isn't a list", result: { data: { rows: [] }, error: null } },
   ])("gives null for $answer", async ({ result }) => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { client } = selectStub(result);
