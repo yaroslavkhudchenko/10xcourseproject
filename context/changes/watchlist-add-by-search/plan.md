@@ -584,11 +584,11 @@ Record the new rules in CLAUDE.md, and prepare production before the merge: the 
 
 #### Automated
 
-- [ ] 4.1 CI `ci` and `smoke` jobs are green on the PR after the documentation changes
+- [x] 4.1 CI `ci` and `smoke` jobs are green on the PR after the documentation changes — 0122c2a
 
 #### Manual
 
-- [x] 4.2 Workers Paid plan is active on the account
-- [x] 4.3 Owner ran `npx supabase db push` (the dry run listed only the watchlist migration) and it reported success
-- [x] 4.4 Supabase dashboard shows `watchlist_items` with RLS on and its two policies; Security Advisor shows no errors
-- [x] 4.5 CLAUDE.md updates reviewed
+- [x] 4.2 Workers Paid plan is active on the account — 0122c2a
+- [x] 4.3 Owner ran `npx supabase db push` (the dry run listed only the watchlist migration) and it reported success — 0122c2a
+- [x] 4.4 Supabase dashboard shows `watchlist_items` with RLS on and its two policies; Security Advisor shows no errors — 0122c2a
+- [x] 4.5 CLAUDE.md updates reviewed — 0122c2a
