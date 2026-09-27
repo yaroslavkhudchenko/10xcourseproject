@@ -2,7 +2,10 @@ import { z } from "astro/zod";
 
 // Letters of any script, digits, spaces and the punctuation product names and sizes use. Nothing else reaches a shop
 // URL: odd input could trip a shop's firewall into a 403, and one 403 stops that shop for everyone.
-const ALLOWED = /^[\p{L}\p{N} .,%&'+/()-]+$/u;
+const ALLOWED_CHARACTERS = String.raw`\p{L}\p{N} .,%&'+/()-`;
+const ALLOWED = new RegExp(`^[${ALLOWED_CHARACTERS}]+$`, "u");
+const NOT_ALLOWED = new RegExp(`[^${ALLOWED_CHARACTERS}]`, "gu");
+const MAX_LENGTH = 80;
 
 /**
  * True when the browser says the request is the user's own navigation: typed, bookmarked, or from one of this app's
@@ -18,4 +21,17 @@ export function isOwnNavigation(headers: Headers): boolean {
 export const searchQuerySchema = z
   .string()
   .transform((value) => value.trim().replace(/\s+/g, " "))
-  .pipe(z.string().min(2).max(80).regex(ALLOWED));
+  .pipe(z.string().min(2).max(MAX_LENGTH).regex(ALLOWED));
+
+/**
+ * Search text made from product text, such as a watched product's brand, name and size. Characters that may not go
+ * into a shop URL become spaces, and text over 80 characters is cut after the last whole word that fits. Null when
+ * what's left isn't valid search text.
+ */
+export function toShopQuery(text: string): string | null {
+  const plain = text.replace(NOT_ALLOWED, " ").replace(/\s+/g, " ").trim();
+  // Up to the last space within the limit; a first word longer than the limit leaves nothing.
+  const cut = plain.length <= MAX_LENGTH ? plain : plain.slice(0, Math.max(plain.lastIndexOf(" ", MAX_LENGTH), 0));
+  const parsed = searchQuerySchema.safeParse(cut);
+  return parsed.success ? parsed.data : null;
+}

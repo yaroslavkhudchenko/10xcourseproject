@@ -1,8 +1,9 @@
 import { z } from "astro/zod";
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import type { ShopGate } from "@/lib/services/shop-gate";
+import { gateUnavailable } from "@/lib/services/shops/shop-outcome";
 import { parseSize } from "@/lib/services/size";
-import type { GateOutcome, ProductCandidate, ProductSearch } from "@/types";
+import type { ProductCandidate, ProductSearch } from "@/types";
 
 // Rossmann's own product search (research note §2.1): text only, one page of up to 24 items, several EANs per item.
 const SEARCH_URL = "https://www.rossmann.pl/products/v4/api/Products";
@@ -40,7 +41,7 @@ export async function searchRossmann(gate: ShopGate, query: string): Promise<Pro
   });
   if (outcome.kind !== "ok") {
     // The gate has already logged why.
-    return unavailable(outcome);
+    return gateUnavailable(outcome);
   }
 
   let body: unknown;
@@ -76,28 +77,6 @@ export function isRossmannImage(url: string): boolean {
     return protocol === "https:" && (hostname === "rossmann.pl" || hostname.endsWith(".rossmann.pl"));
   } catch {
     return false;
-  }
-}
-
-/** Says why the gate produced no answer, in the terms the page explains to the user. */
-function unavailable(outcome: Exclude<GateOutcome, { kind: "ok" }>): ProductSearch {
-  switch (outcome.kind) {
-    case "skipped":
-      if (outcome.reason === "capped") {
-        return { kind: "unavailable", reason: "busy" };
-      }
-      if (outcome.reason === "paused") {
-        return { kind: "unavailable", reason: "paused", until: outcome.until };
-      }
-      return { kind: "unavailable", reason: outcome.reason === "stopped" ? "stopped" : "failed" };
-    case "rate-limited": {
-      const until = new Date(Date.now() + outcome.retryAfterSeconds * 1000).toISOString();
-      return { kind: "unavailable", reason: "paused", until };
-    }
-    case "blocked":
-      return { kind: "unavailable", reason: "stopped" };
-    case "failed":
-      return { kind: "unavailable", reason: "failed" };
   }
 }
 

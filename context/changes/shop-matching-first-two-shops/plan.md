@@ -601,6 +601,15 @@ Where the shipped code differs from the phase contracts above, and why. The phas
 - **Phase 1, the unique key includes the owner:** `unique (watchlist_item_id, user_id, shop_id)` instead of `(watchlist_item_id, shop_id)`. Postgres checks a unique key before a foreign key, so with the planned key another user's insert could collide with the real row. That user, if they held the product's UUID, would get `23505` instead of `23503` and learn that the product has a decision for that shop. For real rows the two keys mean the same, because a product has one owner. Decided by the owner during Phase 1; the database check asserts the probe gets `23503`.
 - **Phase 1, null EANs:** both EAN checks use `array_to_string(eans, ',', '*')`. The two-argument form skips null elements, so `{NULL}` would have passed the "8–14 digits" rule.
 - **Phase 1, extra database checks** beyond the planned nine: B's own match is visible only to B; B can't change A's `not_found` row; each refused update is read back unchanged; the probe above.
+- **Phase 2, what the recordings showed** (2026-09-27):
+  - An unknown tracker id gets `404 text/plain` ("Catalog for tracker_id … not found."), not an empty result. The adapter therefore tells a rejected id apart from "nothing found" and logs it; the both-empty branch of the plan isn't needed.
+  - `web_url` is a one-element list and `image_link` a single string, both https. Product pages are on `drogerienatura.pl` (no `www`) and images on `media.drogerienatura.pl`, the one image host the adapter accepts.
+  - No pseudo-hits appeared; the price filter still drops them, as a test shows. Nivea Soft 300 ml cost 16,99 zł (22,99 zł in the research note).
+- **Phase 2, the float example in Key Discoveries is wrong:** `0.3 × 1000` is exactly 300 in JavaScript. The 0.1% tolerance stays for other float noise; the tests use `(0.1 + 0.2) × 1000 = 300.00000000000006`.
+- **Phase 2, sizes round-trip:** a candidate's `size` is `parseSize(sizeText)` of its display text ("300 ml", "0,5 l"), so the size Phase 3's form re-parses always equals the one shown. A size text over 40 characters gives no size.
+- **Phase 2, the lookup's inputs:** it searches by the first well-formed EAN, not blindly by `eans[0]`, and builds the name query only from the fields that exist.
+- **Phase 2, shared names:** `ShopUnavailable` and `CandidateOption` in `src/types.ts`; `isNaturaProductUrl` and `isNaturaImage` in `natura.ts`, for Phase 3's confirm form. `ALLOWED` and its complement come from one character list in `search-query.ts`.
+- **Phase 2, logs:** no line carries the search text, an EAN or a product name. A parse error logs only its name, a shape error only its issue paths, and the lookup's "nothing found" line only which searches ran.
 
 ## Progress
 
@@ -610,27 +619,27 @@ Where the shipped code differs from the phase contracts above, and why. The phas
 
 #### Automated
 
-- [x] 1.1 With Docker running: `npx supabase migration up --local`, then `node scripts/check-matches-db.mjs` with the local URL and anon key prints only PASS lines
-- [x] 1.2 `node scripts/check-watchlist-db.mjs` still prints only PASS lines
-- [x] 1.3 `npm run lint` passes
-- [ ] 1.4 CI `smoke` job runs "Check shop matches database contract" and is green on the PR
+- [x] 1.1 With Docker running: `npx supabase migration up --local`, then `node scripts/check-matches-db.mjs` with the local URL and anon key prints only PASS lines — 3394d3e
+- [x] 1.2 `node scripts/check-watchlist-db.mjs` still prints only PASS lines — 3394d3e
+- [x] 1.3 `npm run lint` passes — 3394d3e
+- [x] 1.4 CI `smoke` job runs "Check shop matches database contract" and is green on the PR — 3394d3e
 
 #### Manual
 
-- [x] 1.5 Migration review: one policy per operation for `authenticated` only, updates only on `not_found` rows, no delete path, the composite key ties every match to its owner's product, and the new `watchlist_items` bounds equal the form limits
+- [x] 1.5 Migration review: one policy per operation for `authenticated` only, updates only on `not_found` rows, no delete path, the composite key ties every match to its owner's product, and the new `watchlist_items` bounds equal the form limits — 3394d3e
 
 ### Phase 2: Natura lookup and the matching rule
 
 #### Automated
 
-- [ ] 2.1 `npm run test` passes, including the Natura adapter, matching rule, lookup and shared outcome tests
-- [ ] 2.2 `npx astro sync && npx astro check` reports 0 errors
-- [ ] 2.3 `npm run lint` passes
-- [ ] 2.4 `npm run build` passes
+- [x] 2.1 `npm run test` passes, including the Natura adapter, matching rule, lookup and shared outcome tests
+- [x] 2.2 `npx astro sync && npx astro check` reports 0 errors
+- [x] 2.3 `npm run lint` passes
+- [x] 2.4 `npm run build` passes
 
 #### Manual
 
-- [ ] 2.5 Fixture review: four real Luigi's Box answers for Natura (EAN hit, EAN miss, name search, unknown tracker) recorded with the gate's User-Agent at least 2 seconds apart, trimmed, with no cookies or personal data
+- [x] 2.5 Fixture review: four real Luigi's Box answers for Natura (EAN hit, EAN miss, name search, unknown tracker) recorded with the gate's User-Agent at least 2 seconds apart, trimmed, with no cookies or personal data
 
 ### Phase 3: Product page and confirm flow
 

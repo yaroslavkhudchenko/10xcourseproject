@@ -1,0 +1,759 @@
+{
+  "results": {
+    "query": "4005900009319",
+    "corrected_query": null,
+    "filters": [],
+    "filters_negative": [],
+    "accepted_filters": [],
+    "hits": [
+      {
+        "url": "NV89063",
+        "identity_hash": 4955136244677442000,
+        "attributes": {
+          "ordered_quantity": ["0.000000"],
+          "show_is_new": ["Wyłączony"],
+          "gift_message_available": ["Wyłączony"],
+          "cepdtech_catalog_filter_bestseller": ["0"],
+          "price": "16.99 zł",
+          "id": [5246],
+          "lb_id": ["NV89063"],
+          "sku": ["NV89063"],
+          "is_returnable": [],
+          "quantity_default": [486],
+          "brand": ["NIVEA"],
+          "all_categories": [
+            "Wszystkie produkty",
+            "Oferta",
+            "Twarz",
+            "Kosmetyki do twarzy",
+            "Kremy do twarzy",
+            "Kremy na dzień",
+            "Ciało",
+            "Pielęgnacja ciała",
+            "Kremy na noc",
+            "Kremy do ciała",
+            "Kosmetyki do pielęgnacji dłoni",
+            "Kremy do rąk",
+            "Promocje",
+            "Kremy nawilżające do twarzy",
+            "Marki",
+            "Nivea",
+            "Superoferty",
+            "Produkty",
+            "Wszystkie"
+          ],
+          "size_unit": ["ml"],
+          "height": ["6.5 cm"],
+          "images": [
+            "https://media.drogerienatura.pl/catalog/product/4/0/4005900009319_T1_a685.jpg?store=default&image-type=image",
+            "https://media.drogerienatura.pl/catalog/product/n/i/nivea_soft_73ac.png?store=default&image-type=image"
+          ],
+          "image_link": "https://media.drogerienatura.pl/catalog/product/4/0/4005900009319_T1_a685.jpg?store=default&image-type=image",
+          "producent_gpsr1": ["BEIERSDORF - NIVEA, NIEMCY Unnastraße 48,D-20245,Hamburg, www.hidrofugal.com/pl-pl"],
+          "rating_summary": [0],
+          "rma_allowed": ["Włączony"],
+          "price_amount": 16.99,
+          "bool_tags": [],
+          "show_out_of_stock": ["Włączony"],
+          "meta_description": [
+            "Intensywnie nawilżający krem NIVEA SOFT z ulepszoną formułą, zawierający olejek jojoba i witaminę E, zapewnia głębokie nawilżenie, gładkość i ochronę. Sprawdź!"
+          ],
+          "size": ["300.0000"],
+          "discount_price_percentage_amount": 26.1,
+          "category_urls": [
+            "/kategoria/wszystkie-produkty-1066",
+            "/kategoria/oferta-1520",
+            "/kategoria/twarz-1749",
+            "/kategoria/kremy-do-twarzy-1752",
+            "/kategoria/kremy-na-dzien-1753",
+            "/kategoria/pielegnacja-ciala-1839",
+            "/kategoria/kremy-na-noc-1865",
+            "/kategoria/kremy-do-ciala-2510",
+            "/kategoria/kosmetyki-do-twarzy-2658",
+            "/kategoria/cialo-2664",
+            "/kategoria/kosmetyki-do-pielegnacji-dloni-2674",
+            "/kategoria/kremy-do-rak-2675",
+            "/kategoria/cialo-3845",
+            "/kategoria/kremy-nawilzajace-do-twarzy-4790",
+            "/kategoria/nivea-4924",
+            "/kategoria/promocje-4949",
+            "/kategoria/superoferty-4984",
+            "/kategoria/marki-4990",
+            "/kategoria/produkty-7603",
+            "/kategoria/wszystkie-7737"
+          ],
+          "boost": 0,
+          "short_description": ["krem intensywnie nawilżający do ciała, rąk i twarzy"],
+          "magento_status": ["Włączony"],
+          "boosted_via": [],
+          "position_number": ["854.000000"],
+          "lowest_price": ["17.990000"],
+          "description": "NIVEA SOFT - intensywnie nawilżający krem do twarzy i ciałaOdkryj doskonałe nawilżenie z NIVEA SOFT! Ten intensywnie nawilżający krem zapewnia jeszcze głębsze nawilżenie i skuteczną pielęgnację. Jego niezwykle lekka konsystencja sprawia, że krem błyskawicznie się wchłania, pozostawiając skórę jedwabiście gładką, miękką i pełną energii.Kluczowe składniki NIVEA SOFT:Olejek jojoba: Naturalny składnik, który intensywnie nawilża skórę, przywracając jej naturalną równowagę.Witamina E: Chroni skórę przed szkodliwymi czynnikami zewnętrznymi i wspiera jej regenerację.Dlaczego warto wybrać NIVEA SOFT?Intensywne nawilżanie: Ulepszona formuła zapewnia głębokie i długotrwałe nawilżenie.Lekka konsystencja: Krem szybko się wchłania, nie pozostawiając tłustego filmu.Uniwersalność: Idealny do codziennej pielęgnacji, odpowiedni dla wszystkich rodzajów skóry.Delikatny zapach: Przyjemny aromat uprzyjemnia codzienną rutynę pielęgnacyjną.Dermatologicznie testowany: Bezpieczny dla skóry, potwierdzony badaniami dermatologicznymi.Korzyści stosowania kremu intensywnie nawilżającego NIVEA SOFT:Skóra jest intensywnie nawilżona i chroniona.Twarz zyskuje zdrowy i zadbany wygląd.Krem pozostawia uczucie gładkości i miękkości.Dzięki regularnemu stosowaniu NIVEA SOFT, Twoja skóra będzie optymalnie nawilżona, chroniona i pełna blasku. Idealny do stosowania na co dzień, zapewnia doskonałą pielęgnację przez cały rok.",
+          "availability": 1,
+          "tier_prices": [],
+          "main_category_lvl_1": ["Wszystkie produkty"],
+          "title": "NIVEA SOFT krem intensywnie nawilżający 300 ml",
+          "manufacturer": ["BEIERSDORF - NIVEA"],
+          "size_to_calculation": ["1"],
+          "price_old_amount": 22.99,
+          "ean": ["4005900009319"],
+          "date_marked_as_new": ["2023-12-20 23:00:00"],
+          "ingredients": [
+            "Aqua, Glycerin, Paraffinum Liquidum, Myristyl Alcohol, Butylene Glycol, Alcohol Denat., Myristyl Myristate, Palmitic Acid, Glyceryl Stearate, Stearic Acid, Cera Microcristallina, Hydrogenated Coco-Glycerides, Simmondsia Chinensis Seed Oil, Tocopheryl Acetate, Lanolin Alcohol (Eucerit®), Myristic Acid, Arachidic Acid, Oleic Acid, Polyglyceryl-2 Caprate, Dimethicone, Carbomer, Sodium Hydroxide, Phenoxyethanol, Linalool, Citronellol, Alpha-Isomethyl Ionone, Benzyl Alcohol, Limonene, Benzyl Salicylate, Parfum"
+          ],
+          "categories_lvl_4": ["Kremy na dzień", "Kremy na noc", "Kremy nawilżające do twarzy"],
+          "discount_price_absolute_amount": 6,
+          "Media Gallery": [
+            "[{\"position\"=>13",
+            " \"url\"=>\"https://media.drogerienatura.pl/catalog/product/4/0/4005900009319_T1_a685.jpg?store=default&image-type=image\"}",
+            " {\"position\"=>27",
+            " \"url\"=>\"https://media.drogerienatura.pl/catalog/product/n/i/nivea_soft_73ac.png?store=default&image-type=image\"}]"
+          ],
+          "gift_wrapping_available": ["Wyłączony"],
+          "categories_lvl_2": [
+            "Kosmetyki do twarzy",
+            "Pielęgnacja ciała",
+            "Kosmetyki do pielęgnacji dłoni",
+            "Ciało",
+            "Nivea",
+            "Produkty",
+            "Wszystkie"
+          ],
+          "categories_lvl_3": ["Kremy do twarzy", "Kremy do ciała", "Kremy do rąk"],
+          "discount_price_proportion_amount": 0.261,
+          "vat_rate": ["23%"],
+          "categories_lvl_1": ["Wszystkie produkty", "Twarz", "Ciało", "Promocje", "Marki", "Superoferty", "Oferta"],
+          "photo_1": ["7/3/a/c/73acb5f60a70bff88628cad601d15f3bff1f8206_nivea_soft.png"],
+          "price_old": "22.99 zł",
+          "quantity": [486],
+          "category_upto_lvl_5": [
+            "Wszystkie produkty",
+            "Twarz|Kosmetyki do twarzy|Kremy do twarzy|Kremy na dzień",
+            "Twarz|Kosmetyki do twarzy|Kremy do twarzy|Kremy na noc",
+            "Ciało|Pielęgnacja ciała|Kremy do ciała",
+            "Ciało|Kosmetyki do pielęgnacji dłoni|Kremy do rąk",
+            "Promocje|Ciało",
+            "Twarz|Kosmetyki do twarzy|Kremy do twarzy|Kremy nawilżające do twarzy",
+            "Marki|Nivea",
+            "Superoferty",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "ostrzezenia": [
+            "<p>Unikać kontaktu z oczami, błonami śluzowymi i uszkodzoną skórą. W przypadku dostania się do oczu, natychmiast przepłukać dużą ilością wody. </p><p><span style=\"font-weight: bold;\"> Przeciwwskazania: </span>Nie stosować w przypadku nadwrażliwości na którykolwiek ze składników. W razie wystąpienia reakcji alergicznej lub podrażnienia, przerwać stosowanie i skonsultować się z lekarzem.  Przechowywanie: Przechowywać w miejscu niedostępnym dla dzieci, z dala od źródeł ciepła i bezpośredniego światła słonecznego. Chronić przed mrozem.</p><p><span style=\"font-weight: bold;\">  Sposób użycia:</span> Używać zgodnie z instrukcjami na opakowaniu. Przekroczenie zalecanej dawki może prowadzić do podrażnień skóry lub innych niepożądanych reakcji. </p><p><span style=\"font-weight: bold;\"> Środki ostrożności: </span></p><ul><li> Nie połykać. </li><li>Unikać nadmiernej ekspozycji na słońce po zastosowaniu (dotyczy produktów zawierających składniki fotouczulające). </li><li>Nie stosować na skórę dzieci bez konsultacji z pediatrą (dotyczy produktów nieprzeznaczonych dla dzieci).<br><br></li></ul><p><span style=\"font-weight: bold;\"> Data ważności: </span>Stosować wyłącznie przed upływem daty ważności podanej na opakowaniu.</p><p><span style=\"font-weight: bold;\"> Nie używać, jeśli produkt zmienił zapach, konsystencję lub kolor.</span></p><p><span style=\"font-weight: bold;\">  Bezpieczeństwo środowiska</span>: Po użyciu wyrzucić opakowanie zgodnie z lokalnymi przepisami dotyczącymi utylizacji odpadów.  Uwagi dodatkowe:  W zależności od konkretnego kosmetyku, ostrzeżenie może być rozszerzone o dodatkowe informacje zgodnie z regulacjami prawnymi i specyfiką produktu.</p>"
+          ],
+          "warehouses": ["default"],
+          "length": ["6.5 cm"],
+          "dostawca_gpsr": ["BEIERSDORF - NIVEA, NIEMCY Unnastraße 48,D-20245,Hamburg, www.hidrofugal.com/pl-pl"],
+          "is_categoried": ["Wyłączony"],
+          "lowest_price_date": ["2026-09-27 00:00:00"],
+          "base_image": ["a/6/8/5/a685b2c13255c101d02e6a061db0236554d81ab1_4005900009319_T1.jpg"],
+          "product_type": ["Prosty"],
+          "web_url": ["https://drogerienatura.pl/produkt/nivea-soft-krem-intensywnie-nawilzajacy-300-ml-4005900009319"],
+          "original_url": "https://drogerienatura.pl/produkt/nivea-soft-krem-intensywnie-nawilzajacy-300-ml-4005900009319",
+          "width": ["9.8 cm"],
+          "seria": ["NIVEA SOFT"],
+          "category": [
+            "Wszystkie produkty",
+            "Oferta",
+            "Twarz",
+            "Kosmetyki do twarzy",
+            "Kremy do twarzy",
+            "Kremy na dzień",
+            "Ciało",
+            "Pielęgnacja ciała",
+            "Kremy na noc",
+            "Kremy do ciała",
+            "Kosmetyki do pielęgnacji dłoni",
+            "Kremy do rąk",
+            "Promocje",
+            "Kremy nawilżające do twarzy",
+            "Marki",
+            "Nivea",
+            "Superoferty",
+            "Produkty",
+            "Wszystkie"
+          ],
+          "category_upto_lvl_4": [
+            "Wszystkie produkty",
+            "Twarz|Kosmetyki do twarzy|Kremy do twarzy|Kremy na dzień",
+            "Twarz|Kosmetyki do twarzy|Kremy do twarzy|Kremy na noc",
+            "Ciało|Pielęgnacja ciała|Kremy do ciała",
+            "Ciało|Kosmetyki do pielęgnacji dłoni|Kremy do rąk",
+            "Promocje|Ciało",
+            "Twarz|Kosmetyki do twarzy|Kremy do twarzy|Kremy nawilżające do twarzy",
+            "Marki|Nivea",
+            "Superoferty",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "introduced_at": ["2023-02-15 10:49:59"],
+          "category_upto_lvl_3": [
+            "Wszystkie produkty",
+            "Twarz|Kosmetyki do twarzy|Kremy do twarzy",
+            "Ciało|Pielęgnacja ciała|Kremy do ciała",
+            "Ciało|Kosmetyki do pielęgnacji dłoni|Kremy do rąk",
+            "Promocje|Ciało",
+            "Marki|Nivea",
+            "Superoferty",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "category_upto_lvl_2": [
+            "Wszystkie produkty",
+            "Twarz|Kosmetyki do twarzy",
+            "Ciało|Pielęgnacja ciała",
+            "Ciało|Kosmetyki do pielęgnacji dłoni",
+            "Promocje|Ciało",
+            "Marki|Nivea",
+            "Superoferty",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "availability_default": [1],
+          "category_upto_lvl_1": ["Wszystkie produkty", "Twarz", "Ciało", "Promocje", "Marki", "Superoferty", "Oferta"],
+          "title_common": "NIVEA SOFT krem intensywnie nawilżający 300 ml"
+        },
+        "nested": [
+          {
+            "url": "/kategoria/wszystkie-produkty-1066",
+            "identity_hash": 4771393622881233000,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": [],
+              "title": "Wszystkie produkty",
+              "original_url": "https://drogerienatura.pl/kategoria/wszystkie-produkty-1066",
+              "boost": 0,
+              "id": [1066],
+              "ancestors": [],
+              "include_in_menu": [false]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/oferta-1520",
+            "identity_hash": 3937449848269802500,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": [],
+              "title": "Oferta",
+              "original_url": "https://drogerienatura.pl/kategoria/oferta-1520",
+              "boost": 0,
+              "id": [1520],
+              "ancestors": [],
+              "include_in_menu": [false]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/twarz-1749",
+            "identity_hash": 15203485012324194000,
+            "attributes": {
+              "boosted_via": [],
+              "description": "",
+              "bool_tags": ["include_in_menu"],
+              "title": "Twarz",
+              "original_url": "https://drogerienatura.pl/kategoria/twarz-1749",
+              "boost": 0,
+              "id": [1749],
+              "ancestors": [],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/kremy-do-twarzy-1752",
+            "identity_hash": 7032157692884280000,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kremy do twarzy",
+              "original_url": "https://drogerienatura.pl/kategoria/kremy-do-twarzy-1752",
+              "boost": 0,
+              "id": [1752],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                },
+                {
+                  "type": "category",
+                  "title": "Kosmetyki do twarzy",
+                  "url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-2658"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/kremy-na-dzien-1753",
+            "identity_hash": 17139391302389630000,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kremy na dzień",
+              "original_url": "https://drogerienatura.pl/kategoria/kremy-na-dzien-1753",
+              "boost": 0,
+              "id": [1753],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                },
+                {
+                  "type": "category",
+                  "title": "Kosmetyki do twarzy",
+                  "url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-2658"
+                },
+                {
+                  "type": "category",
+                  "title": "Kremy do twarzy",
+                  "url": "https://drogerienatura.pl/kategoria/kremy-do-twarzy-1752"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/pielegnacja-ciala-1839",
+            "identity_hash": 7153726757200201000,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Pielęgnacja ciała",
+              "original_url": "https://drogerienatura.pl/kategoria/pielegnacja-ciala-1839",
+              "boost": 0,
+              "id": [1839],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Ciało",
+                  "url": "https://drogerienatura.pl/kategoria/cialo-2664"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/kremy-na-noc-1865",
+            "identity_hash": 12852111176660460000,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kremy na noc",
+              "original_url": "https://drogerienatura.pl/kategoria/kremy-na-noc-1865",
+              "boost": 0,
+              "id": [1865],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                },
+                {
+                  "type": "category",
+                  "title": "Kosmetyki do twarzy",
+                  "url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-2658"
+                },
+                {
+                  "type": "category",
+                  "title": "Kremy do twarzy",
+                  "url": "https://drogerienatura.pl/kategoria/kremy-do-twarzy-1752"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/kremy-do-ciala-2510",
+            "identity_hash": 6965644895806474000,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kremy do ciała",
+              "original_url": "https://drogerienatura.pl/kategoria/kremy-do-ciala-2510",
+              "boost": 0,
+              "id": [2510],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Ciało",
+                  "url": "https://drogerienatura.pl/kategoria/cialo-2664"
+                },
+                {
+                  "type": "category",
+                  "title": "Pielęgnacja ciała",
+                  "url": "https://drogerienatura.pl/kategoria/pielegnacja-ciala-1839"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/kosmetyki-do-twarzy-2658",
+            "identity_hash": 5304541026264804000,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kosmetyki do twarzy",
+              "original_url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-2658",
+              "boost": 0,
+              "id": [2658],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/cialo-2664",
+            "identity_hash": 2710808415541087700,
+            "attributes": {
+              "boosted_via": [],
+              "description": "",
+              "bool_tags": ["include_in_menu"],
+              "title": "Ciało",
+              "original_url": "https://drogerienatura.pl/kategoria/cialo-2664",
+              "boost": 0,
+              "id": [2664],
+              "ancestors": [],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/kosmetyki-do-pielegnacji-dloni-2674",
+            "identity_hash": 14244329423104864000,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kosmetyki do pielęgnacji dłoni",
+              "original_url": "https://drogerienatura.pl/kategoria/kosmetyki-do-pielegnacji-dloni-2674",
+              "boost": 0,
+              "id": [2674],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Ciało",
+                  "url": "https://drogerienatura.pl/kategoria/cialo-2664"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/kremy-do-rak-2675",
+            "identity_hash": 15548885573126630000,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kremy do rąk",
+              "original_url": "https://drogerienatura.pl/kategoria/kremy-do-rak-2675",
+              "boost": 0,
+              "id": [2675],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Ciało",
+                  "url": "https://drogerienatura.pl/kategoria/cialo-2664"
+                },
+                {
+                  "type": "category",
+                  "title": "Kosmetyki do pielęgnacji dłoni",
+                  "url": "https://drogerienatura.pl/kategoria/kosmetyki-do-pielegnacji-dloni-2674"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/cialo-3845",
+            "identity_hash": 10022742581162910000,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": [],
+              "title": "Ciało",
+              "original_url": "https://drogerienatura.pl/kategoria/cialo-3845",
+              "boost": 0,
+              "id": [3845],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Promocje",
+                  "url": "https://drogerienatura.pl/kategoria/promocje-4949"
+                }
+              ],
+              "include_in_menu": [false]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/kremy-nawilzajace-do-twarzy-4790",
+            "identity_hash": 3089141884359501300,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kremy nawilżające do twarzy",
+              "original_url": "https://drogerienatura.pl/kategoria/kremy-nawilzajace-do-twarzy-4790",
+              "boost": 0,
+              "id": [4790],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                },
+                {
+                  "type": "category",
+                  "title": "Kosmetyki do twarzy",
+                  "url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-2658"
+                },
+                {
+                  "type": "category",
+                  "title": "Kremy do twarzy",
+                  "url": "https://drogerienatura.pl/kategoria/kremy-do-twarzy-1752"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/nivea-4924",
+            "identity_hash": 7536602295303178000,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Nivea",
+              "original_url": "https://drogerienatura.pl/kategoria/nivea-4924",
+              "boost": 0,
+              "id": [4924],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Marki",
+                  "url": "https://drogerienatura.pl/kategoria/marki-4990"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/promocje-4949",
+            "identity_hash": 1471236160746854400,
+            "attributes": {
+              "boosted_via": [],
+              "description": "*Prezent - SEYO krem do rąk 75 ml za 1 zł pojawi się w koszyku dla zamówień od 99 zł. Promocja trwa tylko do 24.04.2026 lub do wyczerpania zapasów.",
+              "bool_tags": ["include_in_menu"],
+              "title": "Promocje",
+              "original_url": "https://drogerienatura.pl/kategoria/promocje-4949",
+              "boost": 0,
+              "id": [4949],
+              "ancestors": [],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/superoferty-4984",
+            "identity_hash": 4969217773954503000,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": [],
+              "title": "Superoferty",
+              "original_url": "https://drogerienatura.pl/kategoria/superoferty-4984",
+              "boost": 0,
+              "id": [4984],
+              "ancestors": [],
+              "include_in_menu": [false]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/marki-4990",
+            "identity_hash": 5559745401925288000,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Marki",
+              "original_url": "https://drogerienatura.pl/kategoria/marki-4990",
+              "boost": 0,
+              "id": [4990],
+              "ancestors": [],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/produkty-7603",
+            "identity_hash": 2046063183395128000,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Produkty",
+              "original_url": "https://drogerienatura.pl/kategoria/produkty-7603",
+              "boost": 0,
+              "id": [7603],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Oferta",
+                  "url": "https://drogerienatura.pl/kategoria/oferta-1520"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          },
+          {
+            "url": "/kategoria/wszystkie-7737",
+            "identity_hash": 15946104044880898000,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Wszystkie",
+              "original_url": "https://drogerienatura.pl/kategoria/wszystkie-7737",
+              "boost": 0,
+              "id": [7737],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Oferta",
+                  "url": "https://drogerienatura.pl/kategoria/oferta-1520"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": true,
+            "alternative": false,
+            "updated_at": "2026-09-27T06:05:32+00:00"
+          }
+        ],
+        "type": "product",
+        "highlight": {},
+        "exact": true,
+        "alternative": false,
+        "updated_at": "2026-09-27T06:05:32+00:00"
+      }
+    ],
+    "quicksearch_hits": [],
+    "facets": [],
+    "suggested_facet": "null",
+    "total_hits": 1
+  },
+  "next_page": null,
+  "guid": "2e21701c-7641-4f58-9c4c-73f080549410"
+}

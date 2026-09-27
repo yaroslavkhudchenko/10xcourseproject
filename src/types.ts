@@ -64,13 +64,65 @@ export interface WatchlistItem {
 }
 
 /**
- * Why a product search produced nothing to show: the shop's cap was reached (`busy`), the shop asked for a pause
+ * Why a shop search produced nothing to show: the shop's cap was reached (`busy`), the shop asked for a pause
  * (`paused`, with its end), the shop blocked us and stays stopped until the owner re-enables it (`stopped`), or the call
  * failed (`failed`).
  */
 export type SearchUnavailableReason = "busy" | "paused" | "stopped" | "failed";
 
+/** Why a shop gave no answer, as searches and lookups report it. `until` is when a pause ends, as an ISO timestamp. */
+export interface ShopUnavailable {
+  kind: "unavailable";
+  reason: SearchUnavailableReason;
+  until?: string;
+}
+
 /** What a product search came to: candidates (possibly none) with the shop's spelling hint, or unavailable. */
 export type ProductSearch =
-  | { kind: "results"; candidates: ProductCandidate[]; spellingHint: string | null }
-  | { kind: "unavailable"; reason: SearchUnavailableReason; until?: string };
+  { kind: "results"; candidates: ProductCandidate[]; spellingHint: string | null } | ShopUnavailable;
+
+/**
+ * One item a shop's search returned, as a candidate for a watched product's match in that shop. Once confirmed, the
+ * item is the product's anchor in that shop (FR-004). Its price is only shown while the user decides.
+ */
+export interface ShopCandidate {
+  shop: ShopId;
+  /** The shop's own id for the item, such as Natura's SKU. */
+  shopItemId: string;
+  brand: string | null;
+  name: string;
+  /** The size as text a form can post back, such as "300 ml", and parsed: `parseSize(sizeText)` gives `size`. */
+  sizeText: string | null;
+  size: Size | null;
+  eans: string[];
+  /** The item's page in the shop. */
+  productUrl: string | null;
+  imageUrl: string | null;
+  /** The shop's current online price in złoty, never a shelf price. */
+  price: number | null;
+}
+
+/** How a candidate compares with the watched product: a shared EAN, and whether the sizes agree when both are known. */
+export interface CandidateVerdict {
+  sharesEan: boolean;
+  size: "equal" | "differs" | "unknown";
+}
+
+/** A candidate the user can pick, with how it compares with the product. */
+export interface CandidateOption {
+  candidate: ShopCandidate;
+  verdict: CandidateVerdict;
+}
+
+/** What a shop's search came to: its candidates (possibly none), or why the shop gave no answer. */
+export type ShopSearch = { kind: "results"; candidates: ShopCandidate[] } | ShopUnavailable;
+
+/**
+ * What looking a watched product up in a shop came to: the one candidate the matching rule accepts, candidates for the
+ * user to choose from (found by the product's EAN or by its name), nothing found, or why the shop gave no answer.
+ */
+export type ShopLookup =
+  | { kind: "accepted"; candidate: ShopCandidate }
+  | { kind: "choose"; options: CandidateOption[]; via: "ean" | "name" }
+  | { kind: "not-found" }
+  | ShopUnavailable;
