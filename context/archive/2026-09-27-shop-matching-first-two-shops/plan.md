@@ -642,6 +642,11 @@ Where the shipped code differs from the phase contracts above, and why. The phas
 - **F8, one way to log and one set of form fields:** Rossmann logs only error names and issue paths, like Natura. `optionalText` and `optionalUrl` live in `src/lib/services/form-fields.ts`.
 - **F9:** a decision post without a valid product id returns to `/watchlist` without an error text.
 
+### Production rollout
+
+- **Merged on 2026-09-28** as `273d656` (PR #7). Both migrations were already on production, confirmed with `npx supabase migration list --linked` before the merge.
+- **The owner's phone check on production passed** the same day (Manual Testing Steps, step 2): adding a product, its Natura match or candidates, confirming one and reopening the product.
+
 ### For S-03 and later
 
 - **S-03's migration:**
