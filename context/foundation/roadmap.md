@@ -3,7 +3,7 @@ project: Drogeria Radar
 version: 1
 status: draft # draft | active | locked
 created: 2026-09-25
-updated: 2026-09-27
+updated: 2026-09-28
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -44,7 +44,7 @@ A shopper who buys the same drugstore products again and again checks two or thr
 | F-01 | polite-shop-access            | (foundation) every shop call obeys a deployment-wide cap and stops on block | —             | NFR polite to the shops                                                                                                | done        |
 | S-01 | watchlist-add-by-search       | search a product by name and size and add it to their private watchlist     | F-01          | FR-003, FR-004, FR-005, NFR private watchlists                                                                         | done        |
 | S-02 | shop-matching-first-two-shops | confirm the matching item in the first two shops once                       | S-01          | US-02, FR-006, FR-013                                                                                                  | in-progress |
-| S-03 | cheapest-shop-today           | open a watched product and see which shop is cheapest today                 | S-02          | US-01, FR-008, FR-010, FR-011, NFR per-shop feedback, NFR price age, NFR phone-usable, Guardrail failed prices visible | proposed    |
+| S-03 | cheapest-shop-today           | see which shop is cheapest today, on the watchlist and on each product      | S-02          | US-01, FR-008, FR-010, FR-011, NFR per-shop feedback, NFR price age, NFR phone-usable, Guardrail failed prices visible | proposed    |
 | S-04 | good-price-judgement          | see whether today's price is a good one                                     | S-03          | FR-012                                                                                                                 | blocked     |
 | S-05 | hebe-in-comparison            | match their products in Hebe and see Hebe in the comparison                 | S-03, F-01    | US-02, FR-006, FR-013                                                                                                  | proposed    |
 | S-06 | super-pharm-in-comparison     | match their products in Super-Pharm and see it in the comparison            | S-03, F-01    | US-02, FR-006, FR-013                                                                                                  | proposed    |
@@ -122,7 +122,8 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 
 ### S-03: See which shop is cheapest today
 
-- **Outcome:** user can open a watched product and see its matched shops ordered by today's price, with the cheapest marked.
+- **Outcome:** user can see on the watchlist which shop is cheapest for each product, and open a product to see its matched shops ordered by today's price, with the cheapest marked.
+  - The watchlist shows each product's cheapest shop and its price, with the price's age, so the user knows where to buy without opening the product. The owner asked for this on 2026-09-28, because "dopasowano" alone doesn't say which shop is cheaper.
   - Each shop shows its regular and promo price, the Omnibus 30-day low, the price's source and its age, and online prices are labelled as online.
   - Prices appear shop by shop as they arrive.
   - A shop that fails shows its last known price with its age, or a clear gap.
@@ -134,7 +135,8 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **Unknowns:**
   - After how long is a displayed price marked stale? (PRD Open Question 5) — Owner: user. Block: no. Plan a configurable limit.
   - Which devices and browsers must the phone view cover? (PRD Open Question 8) — Owner: user. Block: no. Plan for current mobile browsers.
-- **Risk:** Every open fans out to all matched shops at once. This is where CPU time and the per-shop cap first meet real use, and it's the slice the product is judged by.
+  - How do the watchlist's prices stay fresh without spending the per-shop cap on every view of the list? — Owner: user. Block: no. Decide during planning; every price on the list shows its age either way.
+- **Risk:** Every open fans out to all matched shops at once, and a watchlist that fetched its prices on every view would multiply that by the number of products. This is where CPU time and the per-shop cap first meet real use, and it's the slice the product is judged by.
 - **Status:** proposed
 
 ### S-04: Know whether today's price is a good one

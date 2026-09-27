@@ -642,13 +642,14 @@ Where the shipped code differs from the phase contracts above, and why. The phas
 - **F8, one way to log and one set of form fields:** Rossmann logs only error names and issue paths, like Natura. `optionalText` and `optionalUrl` live in `src/lib/services/form-fields.ts`.
 - **F9:** a decision post without a valid product id returns to `/watchlist` without an error text.
 
-### For S-03 and later (review F5)
+### For S-03 and later
 
 - **S-03's migration:**
   - Add to both EAN checks that no element contains a comma and the array has one dimension: `strpos(array_to_string(eans, '', '*'), ',') = 0 and coalesce(array_ndims(eans), 1) = 1`.
   - Limit `watchlist_matches`' update grant to the decision columns.
 - **Stored ids are user input:** before a stored `shop_item_id` or EAN goes into a shop URL, require a letter or digit, reject dot segments, and encode it. A user can write their own rows directly through the Data API.
 - **Prices for both shops:** the owner left the Rossmann price to S-03, so S-03 shows Rossmann's and Natura's prices side by side.
+- **The cheapest shop on the list** (the owner's request after the review re-check, 2026-09-28): the watchlist should show each product's cheapest shop and its price, with the price's age, not only the product page, because "dopasowano" doesn't say which shop is cheaper. The roadmap's S-03 outcome now includes it. Fetching every product's prices on each view of the list would spend the per-shop cap quickly, so S-03's planning decides how the list's prices are refreshed.
 
 ## Progress
 
