@@ -77,6 +77,12 @@ const scriptsConfig = defineConfig({
   rules: { "no-console": "off" },
 });
 
+// unbound-method reads expect(mock.fn) assertions as detached methods, but a vi.fn() mock never relies on `this`.
+const testConfig = defineConfig({
+  files: ["**/*.test.ts"],
+  rules: { "@typescript-eslint/unbound-method": "off" },
+});
+
 export default defineConfig(
   includeIgnoreFile(gitignorePath),
   // Skills and their helper scripts are written by the 10x CLI, not project code.
@@ -87,5 +93,6 @@ export default defineConfig(
   eslintPluginAstro.configs["flat/jsx-a11y-recommended"],
   astroConfig,
   scriptsConfig,
+  testConfig,
   eslintPluginPrettier,
 );

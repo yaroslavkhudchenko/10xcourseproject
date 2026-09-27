@@ -389,22 +389,22 @@ The deployed code may land before this, because no route calls the gate yet. S-0
 
 #### Automated
 
-- [ ] 1.1 CI smoke job applies the migration on a fresh local Supabase and the "Check shop gate database contract" step passes
-- [x] 1.2 With Docker running: `npx supabase db reset` then `node scripts/check-shop-gate-db.mjs` prints only PASS lines
-- [x] 1.3 `npm run lint` passes
+- [x] 1.1 CI smoke job applies the migration on a fresh local Supabase and the "Check shop gate database contract" step passes — e50ff39
+- [x] 1.2 With Docker running: `npx supabase db reset` then `node scripts/check-shop-gate-db.mjs` prints only PASS lines — e50ff39
+- [x] 1.3 `npm run lint` passes — e50ff39
 
 #### Manual
 
-- [x] 1.4 Migration review: no table grants to API roles; both functions `security definer` with `search_path = ''`; execute revoked from `public`/`anon`, granted to `authenticated` only
+- [x] 1.4 Migration review: no table grants to API roles; both functions `security definer` with `search_path = ''`; execute revoked from `public`/`anon`, granted to `authenticated` only — e50ff39
 
 ### Phase 2: Gate and tests
 
 #### Automated
 
-- [ ] 2.1 `npm run test` passes, covering every gate outcome
-- [ ] 2.2 `npx astro sync && npx astro check` reports 0 errors
-- [ ] 2.3 `npm run lint` passes
-- [ ] 2.4 `npm run build` passes
+- [x] 2.1 `npm run test` passes, covering every gate outcome
+- [x] 2.2 `npx astro sync && npx astro check` reports 0 errors
+- [x] 2.3 `npm run lint` passes
+- [x] 2.4 `npm run build` passes
 - [ ] 2.5 CI `ci` job runs `npm run test` and is green on the PR
 
 ### Phase 3: Docs and production rollout
