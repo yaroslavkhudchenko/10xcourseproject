@@ -46,6 +46,8 @@ export interface ProductCandidate {
   sizeText: string | null;
   size: Size | null;
   eans: string[];
+  /** The item's own page in the shop, for "Zobacz w sklepie". */
+  productUrl: string | null;
   imageUrl: string | null;
 }
 
@@ -62,6 +64,44 @@ export interface WatchlistItem {
   /** When the user added it, as an ISO timestamp. */
   addedAt: string;
 }
+
+/** A product on the user's own watchlist, as its page shows it and a shop lookup needs it. */
+export interface WatchlistProduct extends WatchlistItem {
+  size: Size | null;
+  /** Helpers for shop lookups, never the product's identity (FR-004). */
+  eans: string[];
+  /** The product's own page in the shop it was picked from; null for products added before S-02 stored it. */
+  productUrl: string | null;
+}
+
+/**
+ * How a watched product stands in one shop: matched to an item, declined by the user ("Żaden z nich"), or not found by
+ * the lookup, which a retry may still change.
+ */
+export type MatchState = "matched" | "unmatched" | "not_found";
+
+/** The shop's item a watched product is matched to: a copy of what the shop showed for it, without its price. */
+export interface MatchedItem {
+  /** The shop's own id for the item, such as Natura's SKU: the product's anchor in that shop (FR-004). */
+  shopItemId: string;
+  brand: string | null;
+  name: string;
+  sizeText: string | null;
+  size: Size | null;
+  eans: string[];
+  productUrl: string | null;
+  imageUrl: string | null;
+}
+
+/** The stored decision for one watched product in one shop. Only a match carries the shop's item. */
+export type ShopMatch = {
+  watchlistItemId: string;
+  shop: ShopId;
+  /** Whether the matching rule decided on its own or the user did. */
+  decidedBy: "auto" | "user";
+  /** When the decision was made or the lookup last ran, as an ISO timestamp. */
+  checkedAt: string;
+} & ({ state: "matched"; item: MatchedItem } | { state: "unmatched" | "not_found"; item: null });
 
 /**
  * Why a shop search produced nothing to show: the shop's cap was reached (`busy`), the shop asked for a pause

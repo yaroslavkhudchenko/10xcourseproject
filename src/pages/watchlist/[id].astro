@@ -1,0 +1,423 @@
+---
+import ProductSummary from "@/components/watchlist/ProductSummary.astro";
+import Layout from "@/layouts/Layout.astro";
+import { sizesEqual } from "@/lib/services/matching";
+import { listMatches, matchErrorMessage, recordLookup } from "@/lib/services/matches";
+import { isOwnNavigation } from "@/lib/services/search-query";
+import { shopGateFor } from "@/lib/services/shop-gate";
+import { lookupInNatura } from "@/lib/services/shop-matching";
+import { getWatchlistProduct, parseWatchlistItemId } from "@/lib/services/watchlist";
+import { shopUnavailableText } from "@/lib/shop-messages";
+import type { CandidateOption, MatchedItem, ShopCandidate, ShopMatch, Size, WatchlistProduct } from "@/types";
+
+const { supabase } = Astro.locals;
+const params = Astro.url.searchParams;
+
+// Only a UUID reaches the database, and another user's product reads as no product at all (RLS): neither makes a shop
+// call.
+const id = parseWatchlistItemId(Astro.params.id);
+const product = id === null ? null : supabase ? await getWatchlistProduct(supabase, id) : "failed";
+if (product === null) {
+  Astro.response.status = 404;
+} else if (product === "failed") {
+  Astro.response.status = 503;
+}
+
+const clock = new Intl.DateTimeFormat("pl-PL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" });
+const dayAndTime = new Intl.DateTimeFormat("pl-PL", {
+  day: "2-digit",
+  month: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "Europe/Warsaw",
+});
+const pln = new Intl.NumberFormat("pl-PL", { style: "currency", currency: "PLN" });
+const amount = new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 3 });
+const UNIT_NAMES = { ml: "ml", g: "g", pcs: "szt." } as const;
+
+/** A short flag on a candidate: a shared EAN, or a warning about its size. */
+interface Flag {
+  text: string;
+  warning: boolean;
+}
+
+/** What the Natura section shows: the stored decision, the lookup's outcome, or why there's neither. */
+type NaturaView =
+  | { kind: "matched"; item: MatchedItem; note: string; sizeWarning: string | null }
+  | { kind: "unmatched" }
+  | { kind: "not-found"; text: string; href: string }
+  | { kind: "choose"; intro: string; options: { candidate: ShopCandidate; flags: Flag[]; price: string }[] }
+  | { kind: "unavailable"; message: string }
+  | { kind: "prompt"; href: string }
+  | { kind: "decided" }
+  | { kind: "read-failed" };
+
+/** A size as the shop wrote it, or else as the size it stands for. */
+function sizeLabel(sizeText: string | null, size: Size | null): string {
+  if (sizeText !== null) {
+    return sizeText;
+  }
+  return size === null ? "rozmiar nieznany" : `${amount.format(size.value)} ${UNIT_NAMES[size.unit]}`;
+}
+
+function otherSize(item: { sizeText: string | null; size: Size | null }, own: WatchlistProduct): string {
+  return `Inny rozmiar: ${sizeLabel(item.sizeText, item.size)} zamiast ${sizeLabel(own.sizeText, own.size)}`;
+}
+
+/** A match's item next to the product, with its size flagged whenever both sizes are known and differ. */
+function matchedView(item: MatchedItem, decidedBy: "auto" | "user", own: WatchlistProduct): NaturaView {
+  const differs = own.size !== null && item.size !== null && !sizesEqual(own.size, item.size);
+  return {
+    kind: "matched",
+    item,
+    note: decidedBy === "auto" ? "Dopasowano automatycznie: ten sam EAN i rozmiar." : "Potwierdzone przez Ciebie.",
+    sizeWarning: differs ? otherSize(item, own) : null,
+  };
+}
+
+function notFoundView(checkedAt: Date, own: WatchlistProduct): NaturaView {
+  return {
+    kind: "not-found",
+    text: `Nie znaleziono w Naturze (sprawdzono ${dayAndTime.format(checkedAt)}).`,
+    // A retry looks the product up again only while its stored decision is "not found".
+    href: `/watchlist/${own.id}?retry=1`,
+  };
+}
+
+function storedView(match: ShopMatch, own: WatchlistProduct): NaturaView {
+  switch (match.state) {
+    case "matched":
+      return matchedView(match.item, match.decidedBy, own);
+    case "unmatched":
+      return { kind: "unmatched" };
+    case "not_found":
+      return notFoundView(new Date(match.checkedAt), own);
+  }
+}
+
+/** A candidate for the user to pick, with its flags and its price, labelled as Natura's online price at `fetchedAt`. */
+function optionView({ candidate, verdict }: CandidateOption, fetchedAt: Date, own: WatchlistProduct) {
+  const flags: Flag[] = [];
+  if (verdict.sharesEan) {
+    flags.push({ text: "Ten sam EAN", warning: false });
+  }
+  if (verdict.size === "differs") {
+    flags.push({ text: otherSize(candidate, own), warning: true });
+  } else if (verdict.size === "unknown") {
+    flags.push({ text: "Rozmiar nieznany", warning: true });
+  }
+  const source = `drogerienatura.pl, pobrano ${clock.format(fetchedAt)}`;
+  const price =
+    candidate.price === null
+      ? `Brak ceny online w ${source}`
+      : `${pln.format(candidate.price)} · cena online w ${source}`;
+  return { candidate, flags, price };
+}
+
+const retrying = params.get("retry") === "1";
+let natura: NaturaView | null = null;
+// Set when the lookup's own outcome couldn't be stored: the next visit then looks the product up again.
+let unsaved = false;
+if (supabase && product !== null && product !== "failed") {
+  const pageUrl = `/watchlist/${product.id}`;
+  const matches = await listMatches(supabase, product.id);
+  const stored = matches?.find((match) => match.shop === "natura");
+  if (matches === null) {
+    // Without the stored decision, a lookup could ask again about what the user has already settled.
+    natura = { kind: "read-failed" };
+  } else if (stored !== undefined && !(retrying && stored.state === "not_found")) {
+    natura = storedView(stored, product);
+  } else if (!isOwnNavigation(Astro.request.headers)) {
+    // A link on another site must not spend the cap everyone shares: only the user's own navigation looks it up.
+    natura = { kind: "prompt", href: retrying ? `${pageUrl}?retry=1` : pageUrl };
+  } else {
+    const lookup = await lookupInNatura(shopGateFor(supabase), product);
+    const fetchedAt = new Date();
+    if (lookup.kind === "accepted" || lookup.kind === "not-found") {
+      // What the rule settles on its own is stored during this render; the user's picks go through the form.
+      const result = await recordLookup(supabase, product.id, "natura", lookup);
+      unsaved = result === "failed" || result === "gone";
+      if (result === "decided") {
+        // Another tab stored a decision meanwhile; it stands.
+        natura = { kind: "decided" };
+      } else if (lookup.kind === "accepted") {
+        natura = matchedView(lookup.candidate, "auto", product);
+      } else {
+        natura = notFoundView(fetchedAt, product);
+      }
+    } else if (lookup.kind === "choose") {
+      natura = {
+        kind: "choose",
+        intro:
+          lookup.via === "ean"
+            ? "Znalezione w Naturze po kodzie EAN. Wybierz ten sam produkt albo „Żaden z nich”."
+            : "Znalezione w Naturze po nazwie. Wybierz ten sam produkt albo „Żaden z nich”.",
+        options: lookup.options.map((option) => optionView(option, fetchedAt, product)),
+      };
+    } else {
+      // Nothing is stored: Natura can be asked again later.
+      natura = { kind: "unavailable", message: shopUnavailableText("Natura", lookup.reason, lookup.until) };
+    }
+  }
+}
+
+const productTitle =
+  product !== null && product !== "failed"
+    ? [product.brand, product.name].filter((part) => part !== null).join(" ")
+    : null;
+const title = productTitle ?? (product === null ? "Nie znaleziono produktu" : "Nie udało się wczytać produktu");
+const notice = params.has("matched")
+  ? "Zapisano dopasowanie."
+  : params.has("declined")
+    ? "Zapisano: brak w Naturze."
+    : params.has("decided")
+      ? "Ten produkt ma już zapisaną decyzję."
+      : null;
+const error = matchErrorMessage(params.get("error"));
+---
+
+<Layout title={`${title} · Drogeria Radar`} lang="pl">
+  <div class="bg-cosmic min-h-screen p-4 text-white sm:p-8">
+    <main class="mx-auto flex max-w-lg flex-col gap-6">
+      <a href="/watchlist" class="inline-flex min-h-11 items-center self-start text-sm text-purple-300 hover:underline">
+        ← Moja lista
+      </a>
+
+      {product === null ? (
+        <>
+          <h1 class="text-2xl font-bold">Nie znaleziono produktu.</h1>
+          {error && (
+            <p role="alert" class="rounded-lg border border-red-500/30 bg-red-900/30 px-3 py-2 text-sm text-red-300">
+              {error}
+            </p>
+          )}
+        </>
+      ) : product === "failed" ? (
+        <>
+          <h1 class="text-2xl font-bold">Nie udało się wczytać produktu.</h1>
+          <p class="text-sm text-blue-100/80">Odśwież stronę, aby spróbować ponownie.</p>
+        </>
+      ) : (
+        <>
+          <header class="flex flex-col gap-3">
+            <h1 class="sr-only">{productTitle}</h1>
+            <div class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
+              <ProductSummary
+                brand={product.brand}
+                name={product.name}
+                caption={product.caption}
+                sizeText={product.sizeText}
+                imageUrl={product.imageUrl}
+              />
+            </div>
+          </header>
+
+          {notice && (
+            <p
+              role="status"
+              class="rounded-lg border border-emerald-400/30 bg-emerald-900/30 px-3 py-2 text-sm text-emerald-200"
+            >
+              {notice}
+            </p>
+          )}
+          {error && (
+            <p role="alert" class="rounded-lg border border-red-500/30 bg-red-900/30 px-3 py-2 text-sm text-red-300">
+              {error}
+            </p>
+          )}
+
+          <section
+            aria-labelledby="rossmann-heading"
+            class="flex flex-col gap-1 rounded-xl border border-white/10 bg-white/5 p-3"
+          >
+            <h2 id="rossmann-heading" class="text-lg font-semibold">
+              Rossmann
+            </h2>
+            <p class="text-sm text-blue-100/80">Produkt wybrany w wyszukiwarce Rossmanna</p>
+            {product.productUrl && (
+              <a
+                href={product.productUrl}
+                target="_blank"
+                rel="noopener"
+                class="inline-flex min-h-11 items-center self-start text-sm text-purple-300 underline"
+              >
+                Zobacz w sklepie
+              </a>
+            )}
+          </section>
+
+          <section aria-labelledby="natura-heading" class="flex flex-col gap-3">
+            <h2 id="natura-heading" class="text-lg font-semibold">
+              Drogerie Natura
+            </h2>
+
+            {natura?.kind === "matched" && (
+              <div class="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 p-3">
+                <ProductSummary
+                  brand={natura.item.brand}
+                  name={natura.item.name}
+                  caption={null}
+                  sizeText={natura.item.sizeText}
+                  imageUrl={natura.item.imageUrl}
+                />
+                {natura.sizeWarning && <p class="text-sm text-amber-200">{natura.sizeWarning}</p>}
+                <p class="text-sm text-emerald-200">{natura.note}</p>
+                {natura.item.productUrl && (
+                  <a
+                    href={natura.item.productUrl}
+                    target="_blank"
+                    rel="noopener"
+                    class="inline-flex min-h-11 items-center self-start text-sm text-purple-300 underline"
+                  >
+                    Zobacz w sklepie
+                  </a>
+                )}
+              </div>
+            )}
+
+            {natura?.kind === "unmatched" && <p class="text-sm text-blue-100/80">Brak w Naturze — Twój wybór.</p>}
+
+            {natura?.kind === "not-found" && (
+              <div class="flex flex-col gap-2">
+                <p class="text-sm text-blue-100/80">{natura.text}</p>
+                <a
+                  href={natura.href}
+                  class="inline-flex min-h-11 items-center self-start rounded-lg border border-white/20 px-4 text-sm transition-colors hover:bg-white/10"
+                >
+                  Szukaj ponownie
+                </a>
+              </div>
+            )}
+
+            {natura?.kind === "choose" && (
+              <>
+                <p class="text-sm text-blue-100/80">{natura.intro}</p>
+                <ul class="flex flex-col gap-2">
+                  {natura.options.map(({ candidate, flags, price }) => (
+                    <li class="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
+                      <ProductSummary
+                        brand={candidate.brand}
+                        name={candidate.name}
+                        caption={null}
+                        sizeText={candidate.sizeText}
+                        imageUrl={candidate.imageUrl}
+                      />
+                      {flags.length > 0 && (
+                        <ul class="flex flex-wrap gap-2" aria-label="Porównanie z Twoim produktem">
+                          {flags.map((flag) => (
+                            <li
+                              class:list={[
+                                "rounded-full px-2 py-1 text-xs",
+                                flag.warning ? "bg-amber-900/40 text-amber-200" : "bg-emerald-900/40 text-emerald-200",
+                              ]}
+                            >
+                              {flag.text}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <p class="text-sm text-blue-100/80">{price}</p>
+                      <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                        <form method="POST" action="/api/watchlist/matches">
+                          <input type="hidden" name="itemId" value={product.id} />
+                          <input type="hidden" name="shop" value="natura" />
+                          <input type="hidden" name="action" value="confirm" />
+                          <input type="hidden" name="shopItemId" value={candidate.shopItemId} />
+                          <input type="hidden" name="name" value={candidate.name} />
+                          <input type="hidden" name="brand" value={candidate.brand ?? ""} />
+                          <input type="hidden" name="sizeText" value={candidate.sizeText ?? ""} />
+                          {candidate.eans.map((ean) => (
+                            <input type="hidden" name="eans" value={ean} />
+                          ))}
+                          <input type="hidden" name="productUrl" value={candidate.productUrl ?? ""} />
+                          <input type="hidden" name="imageUrl" value={candidate.imageUrl ?? ""} />
+                          <button
+                            type="submit"
+                            class="min-h-11 rounded-lg bg-purple-600 px-4 text-sm font-medium transition-colors hover:bg-purple-500"
+                          >
+                            To ten produkt
+                          </button>
+                        </form>
+                        {candidate.productUrl && (
+                          <a
+                            href={candidate.productUrl}
+                            target="_blank"
+                            rel="noopener"
+                            class="inline-flex min-h-11 items-center text-sm text-purple-300 underline"
+                          >
+                            Zobacz w sklepie
+                          </a>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <form method="POST" action="/api/watchlist/matches">
+                  <input type="hidden" name="itemId" value={product.id} />
+                  <input type="hidden" name="shop" value="natura" />
+                  <input type="hidden" name="action" value="decline" />
+                  <button
+                    type="submit"
+                    class="min-h-11 w-full rounded-lg border border-white/20 px-4 text-sm transition-colors hover:bg-white/10"
+                  >
+                    Żaden z nich
+                  </button>
+                </form>
+              </>
+            )}
+
+            {natura?.kind === "unavailable" && (
+              <p
+                role="alert"
+                class="rounded-lg border border-amber-400/30 bg-amber-900/30 px-3 py-2 text-sm text-amber-200"
+              >
+                {natura.message}
+              </p>
+            )}
+
+            {natura?.kind === "prompt" && (
+              <div class="flex flex-col gap-2">
+                <p class="text-sm text-blue-100/80">Otwórz produkt, aby dopasować go w Naturze.</p>
+                <a
+                  href={natura.href}
+                  class="inline-flex min-h-11 items-center self-start rounded-lg bg-purple-600 px-4 text-sm font-medium transition-colors hover:bg-purple-500"
+                >
+                  Dopasuj w Naturze
+                </a>
+              </div>
+            )}
+
+            {natura?.kind === "decided" && (
+              <div class="flex flex-col gap-2">
+                <p role="status" class="text-sm text-blue-100/80">
+                  Ten produkt ma już zapisaną decyzję.
+                </p>
+                <a
+                  href={`/watchlist/${product.id}`}
+                  class="inline-flex min-h-11 items-center self-start text-sm text-purple-300 underline"
+                >
+                  Pokaż zapisaną decyzję
+                </a>
+              </div>
+            )}
+
+            {natura?.kind === "read-failed" && (
+              <p role="alert" class="text-sm text-red-300">
+                Nie udało się wczytać dopasowania w Naturze. Odśwież stronę.
+              </p>
+            )}
+
+            {unsaved && (
+              <p
+                role="alert"
+                class="rounded-lg border border-amber-400/30 bg-amber-900/30 px-3 py-2 text-sm text-amber-200"
+              >
+                Nie udało się zapisać wyniku. Przy następnym otwarciu produktu Natura zostanie sprawdzona ponownie.
+              </p>
+            )}
+          </section>
+        </>
+      )}
+    </main>
+  </div>
+</Layout>

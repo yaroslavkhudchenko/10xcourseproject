@@ -213,6 +213,7 @@ check("anon can't add a match", anonWrite.error?.code === "42501", show(anonWrit
 // 8. watchlist_items holds the bounds the "Dodaj" form applies. Each row breaks exactly one of them.
 const productRefusals = [
   ["an http image URL", { image_url: "http://www.rossmann.pl/image.jpg" }],
+  ["an http product page", { product_url: "http://www.rossmann.pl/Produkt/Soft,26900,13049" }],
   ["11 EANs", { eans: Array.from({ length: 11 }, (_, i) => String(4005900009300 + i)) }],
   ["an EAN of 5 digits", { eans: ["12345"] }],
   ["a source item id containing a slash", { source_item_id: "26900/1" }],

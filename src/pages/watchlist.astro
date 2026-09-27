@@ -1,11 +1,13 @@
 ---
 import ProductSummary from "@/components/watchlist/ProductSummary.astro";
 import Layout from "@/layouts/Layout.astro";
+import { listMatches } from "@/lib/services/matches";
 import { shopGateFor } from "@/lib/services/shop-gate";
 import { isOwnNavigation, searchQuerySchema } from "@/lib/services/search-query";
 import { searchRossmann } from "@/lib/services/shops/rossmann";
 import { listWatchlist, watchlistErrorMessage } from "@/lib/services/watchlist";
-import type { SearchUnavailableReason } from "@/types";
+import { shopUnavailableText } from "@/lib/shop-messages";
+import type { MatchState } from "@/types";
 
 const { user, supabase } = Astro.locals;
 const params = Astro.url.searchParams;
@@ -18,34 +20,34 @@ const invalidQuery = parsedQuery !== null && !parsedQuery.success;
 // A link on another site only fills in the form: just the user's own navigation spends the shared cap.
 const searchAllowed = isOwnNavigation(Astro.request.headers);
 
-const [search, items] = await Promise.all([
+// The matches come from one query for the whole list, never one per product.
+const [search, items, matches] = await Promise.all([
   query === null || !searchAllowed ? null : searchRossmann(shopGateFor(supabase), query),
   supabase ? listWatchlist(supabase) : null,
+  supabase ? listMatches(supabase) : null,
 ]);
 
-const clock = new Intl.DateTimeFormat("pl-PL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" });
-function unavailableText(reason: SearchUnavailableReason, until: string | undefined): string {
-  switch (reason) {
-    case "busy":
-      return "Wyszukiwarka Rossmanna jest teraz zajęta. Spróbuj za minutę.";
-    case "paused":
-      return until
-        ? `Rossmann poprosił o przerwę. Wyszukiwanie wróci około ${clock.format(new Date(until))}.`
-        : "Rossmann poprosił o przerwę. Spróbuj później.";
-    case "stopped":
-      return "Wyszukiwanie w Rossmannie jest wyłączone, bo sklep zablokował zapytania. Właściciel musi je ponownie włączyć.";
-    case "failed":
-      return "Wyszukiwarka Rossmanna jest chwilowo niedostępna. Spróbuj za chwilę.";
-  }
-}
-const unavailableMessage = search?.kind === "unavailable" ? unavailableText(search.reason, search.until) : null;
+const unavailableMessage =
+  search?.kind === "unavailable" ? shopUnavailableText("Rossmann", search.reason, search.until) : null;
 const watched = new Set((items ?? []).map((item) => `${item.source}:${item.sourceItemId}`));
 
-const notice = params.has("added")
-  ? "Dodano do listy."
-  : params.has("exists")
-    ? "Ten produkt jest już na Twojej liście."
-    : null;
+// Each product's Natura decision; a product without one is still to be matched on its page.
+const naturaStates = new Map(
+  (matches ?? [])
+    .filter((match) => match.shop === "natura")
+    .map((match) => [match.watchlistItemId, match.state] as const),
+);
+const NATURA_STATUS: Record<MatchState | "none", { text: string; tone: string }> = {
+  matched: { text: "Natura: dopasowano", tone: "text-emerald-200" },
+  none: { text: "Natura: do dopasowania", tone: "text-amber-200" },
+  not_found: { text: "Natura: nie znaleziono", tone: "text-blue-100/70" },
+  unmatched: { text: "Natura: brak (Twój wybór)", tone: "text-blue-100/70" },
+};
+function naturaStatus(itemId: string) {
+  return NATURA_STATUS[naturaStates.get(itemId) ?? "none"];
+}
+
+const notice = params.has("exists") ? "Ten produkt jest już na Twojej liście." : null;
 const error = watchlistErrorMessage(params.get("error"));
 const addedOn = new Intl.DateTimeFormat("pl-PL", { dateStyle: "long", timeZone: "Europe/Warsaw" });
 ---
@@ -161,6 +163,7 @@ const addedOn = new Intl.DateTimeFormat("pl-PL", { dateStyle: "long", timeZone: 
                       <input type="hidden" name="brand" value={candidate.brand ?? ""} />
                       <input type="hidden" name="caption" value={candidate.caption ?? ""} />
                       <input type="hidden" name="sizeText" value={candidate.sizeText ?? ""} />
+                      <input type="hidden" name="productUrl" value={candidate.productUrl ?? ""} />
                       <input type="hidden" name="imageUrl" value={candidate.imageUrl ?? ""} />
                       {candidate.eans.map((ean) => (
                         <input type="hidden" name="eans" value={ean} />
@@ -192,20 +195,35 @@ const addedOn = new Intl.DateTimeFormat("pl-PL", { dateStyle: "long", timeZone: 
         ) : items.length === 0 ? (
           <p class="text-sm text-blue-100/70">Twoja lista jest pusta. Wyszukaj produkt powyżej.</p>
         ) : (
-          <ul class="flex flex-col gap-2">
-            {items.map((item) => (
-              <li class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
-                <ProductSummary
-                  brand={item.brand}
-                  name={item.name}
-                  caption={item.caption}
-                  sizeText={item.sizeText}
-                  imageUrl={item.imageUrl}
-                  detail={`dodano ${addedOn.format(new Date(item.addedAt))}`}
-                />
-              </li>
-            ))}
-          </ul>
+          <>
+            {matches === null && (
+              <p role="alert" class="text-sm text-red-300">
+                Nie udało się wczytać dopasowań w Naturze. Odśwież stronę.
+              </p>
+            )}
+            <ul class="flex flex-col gap-2">
+              {items.map((item) => (
+                <li>
+                  <a
+                    href={`/watchlist/${encodeURIComponent(item.id)}`}
+                    class="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 p-3 transition-colors hover:bg-white/10"
+                  >
+                    <ProductSummary
+                      brand={item.brand}
+                      name={item.name}
+                      caption={item.caption}
+                      sizeText={item.sizeText}
+                      imageUrl={item.imageUrl}
+                      detail={`dodano ${addedOn.format(new Date(item.addedAt))}`}
+                    />
+                    {matches !== null && (
+                      <span class:list={["text-sm", naturaStatus(item.id).tone]}>{naturaStatus(item.id).text}</span>
+                    )}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </section>
     </main>

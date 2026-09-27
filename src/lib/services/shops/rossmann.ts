@@ -7,6 +7,9 @@ import type { ProductCandidate, ProductSearch } from "@/types";
 
 // Rossmann's own product search (research note §2.1): text only, one page of up to 24 items, several EANs per item.
 const SEARCH_URL = "https://www.rossmann.pl/products/v4/api/Products";
+// Each item's `navigateUrl` is a path on this site, such as "/Produkt/Kremy-do-twarzy/NIVEA-Soft-…,26900,13049".
+const SITE_URL = "https://www.rossmann.pl";
+const SITE_HOST = "www.rossmann.pl";
 const PAGE_SIZE = 24;
 // A search the user waits for gives up after 5 s, well inside the gate's own 8 s limit.
 const SEARCH_TIMEOUT_MS = 5000;
@@ -23,6 +26,8 @@ const itemSchema = z.object({
   unit: z.string().nullish(),
   eanNumber: z.array(z.unknown()).nullish(),
   pictures: z.array(z.unknown()).nullish(),
+  // Checked on its own too: an odd or missing one costs only the link.
+  navigateUrl: z.unknown().optional(),
 });
 const responseSchema = z.object({
   data: z.object({ items: z.array(z.unknown()), spellCheckHint: z.unknown() }),
@@ -80,6 +85,16 @@ export function isRossmannImage(url: string): boolean {
   }
 }
 
+/** True for an https URL on Rossmann's shop site: the only product pages "Zobacz w sklepie" links to. */
+export function isRossmannProductUrl(url: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(url);
+    return protocol === "https:" && hostname === SITE_HOST;
+  } catch {
+    return false;
+  }
+}
+
 /** A Rossmann item as a candidate within PRODUCT_LIMITS, so it can always be added; null when it can't be one. */
 function toCandidate(raw: unknown): ProductCandidate | null {
   const parsed = itemSchema.safeParse(raw);
@@ -105,8 +120,22 @@ function toCandidate(raw: unknown): ProductCandidate | null {
     eans: (item.eanNumber ?? [])
       .filter((ean): ean is string => typeof ean === "string" && /^\d{8,14}$/.test(ean))
       .slice(0, PRODUCT_LIMITS.eans),
+    productUrl: productUrlFor(item.navigateUrl),
     imageUrl: pickImage(item.pictures ?? []),
   };
+}
+
+/**
+ * The item's page from its `navigateUrl`, a path on Rossmann's site; null for anything else. A full or
+ * protocol-relative URL could point anywhere, so only a path counts, and the result must still be on the site.
+ */
+function productUrlFor(navigateUrl: unknown): string | null {
+  const path = typeof navigateUrl === "string" ? clean(navigateUrl) : null;
+  if (path === null || !path.startsWith("/") || path.startsWith("//")) {
+    return null;
+  }
+  const url = within(`${SITE_URL}${path}`, PRODUCT_LIMITS.productUrl);
+  return url !== null && isRossmannProductUrl(url) ? url : null;
 }
 
 /**

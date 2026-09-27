@@ -610,6 +610,17 @@ Where the shipped code differs from the phase contracts above, and why. The phas
 - **Phase 2, the lookup's inputs:** it searches by the first well-formed EAN, not blindly by `eans[0]`, and builds the name query only from the fields that exist.
 - **Phase 2, shared names:** `ShopUnavailable` and `CandidateOption` in `src/types.ts`; `isNaturaProductUrl` and `isNaturaImage` in `natura.ts`, for Phase 3's confirm form. `ALLOWED` and its complement come from one character list in `search-query.ts`.
 - **Phase 2, logs:** no line carries the search text, an EAN or a product name. A parse error logs only its name, a shape error only its issue paths, and the lookup's "nothing found" line only which searches ran.
+- **Phase 3, a Rossmann link, added during the walk-through** (the owner's call, 2026-09-27): the product page showed a link and a price for Natura but nothing for Rossmann.
+  - A second migration, `20260927204417_watchlist_items_product_url.sql`, adds `watchlist_items.product_url` (https, ≤ 500). The first S-02 migration was already applied locally, so it stays unchanged.
+  - The Rossmann adapter maps the search's `navigateUrl` path to `https://www.rossmann.pl…` (`isRossmannProductUrl`: https on `www.rossmann.pl` only). "Dodaj" posts it, the form checks it, and the product page shows "Zobacz w sklepie" for Rossmann. Products added before have no link.
+  - Prices for both shops stay in S-03.
+- **Phase 3, links keep the app's origin:** "Zobacz w sklepie" uses `rel="noopener"`, not `noreferrer`, for the same reason S-01 dropped `no-referrer` on images (review F2).
+- **Phase 3, how the page handles the edges:**
+  - `listMatches` returns null when the read fails. The product page then says so and makes no lookup, since a lookup could re-ask what the user already settled.
+  - A decision for a product that isn't the user's (`23503`) is `gone` and lands on the 404 view with its message.
+  - A failed product read answers 503 with Polish text.
+  - A decision stored meanwhile in another tab shows "Ten produkt ma już zapisaną decyzję."
+  - The list's "Dodano do listy." notice is gone, because "Dodaj" now lands on the product page.
 
 ## Progress
 
@@ -632,28 +643,28 @@ Where the shipped code differs from the phase contracts above, and why. The phas
 
 #### Automated
 
-- [x] 2.1 `npm run test` passes, including the Natura adapter, matching rule, lookup and shared outcome tests
-- [x] 2.2 `npx astro sync && npx astro check` reports 0 errors
-- [x] 2.3 `npm run lint` passes
-- [x] 2.4 `npm run build` passes
+- [x] 2.1 `npm run test` passes, including the Natura adapter, matching rule, lookup and shared outcome tests — 887bd45
+- [x] 2.2 `npx astro sync && npx astro check` reports 0 errors — 887bd45
+- [x] 2.3 `npm run lint` passes — 887bd45
+- [x] 2.4 `npm run build` passes — 887bd45
 
 #### Manual
 
-- [x] 2.5 Fixture review: four real Luigi's Box answers for Natura (EAN hit, EAN miss, name search, unknown tracker) recorded with the gate's User-Agent at least 2 seconds apart, trimmed, with no cookies or personal data
+- [x] 2.5 Fixture review: four real Luigi's Box answers for Natura (EAN hit, EAN miss, name search, unknown tracker) recorded with the gate's User-Agent at least 2 seconds apart, trimmed, with no cookies or personal data — 887bd45
 
 ### Phase 3: Product page and confirm flow
 
 #### Automated
 
-- [ ] 3.1 `npm run test` passes
-- [ ] 3.2 `npx astro sync && npx astro check` reports 0 errors
-- [ ] 3.3 `npm run lint` passes
-- [ ] 3.4 `npm run build` passes
+- [x] 3.1 `npm run test` passes
+- [x] 3.2 `npx astro sync && npx astro check` reports 0 errors
+- [x] 3.3 `npm run lint` passes
+- [x] 3.4 `npm run build` passes
 - [ ] 3.5 CI `ci` and `smoke` jobs are green on the PR, including the new product-page smoke steps
 
 #### Manual
 
-- [ ] 3.6 Phone-viewport walk-through against `npm run dev` with the local Supabase: adding Nivea Soft 300 ml lands on its page with Natura matched automatically; a product Natura lists differently shows candidates with the size flag and a labelled price; "To ten produkt" and "Żaden z nich" are remembered on reopening with no new lookup; "Szukaj ponownie" retries a not-found product; the list shows each product's Natura status; a second user sees none of the first user's products or matches
+- [x] 3.6 Phone-viewport walk-through against `npm run dev` with the local Supabase: adding Nivea Soft 300 ml lands on its page with Natura matched automatically; a product Natura lists differently shows candidates with the size flag and a labelled price; "To ten produkt" and "Żaden z nich" are remembered on reopening with no new lookup; "Szukaj ponownie" retries a not-found product; the list shows each product's Natura status; a second user sees none of the first user's products or matches
 
 ### Phase 4: Docs and production rollout
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { createShopGate, type ShopGate } from "@/lib/services/shop-gate";
-import { isRossmannImage, searchRossmann } from "@/lib/services/shops/rossmann";
+import { isRossmannImage, isRossmannProductUrl, searchRossmann } from "@/lib/services/shops/rossmann";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
 import empty from "@/lib/services/shops/fixtures/rossmann-search-empty.json";
 import misspelled from "@/lib/services/shops/fixtures/rossmann-search-misspelled.json";
@@ -69,6 +69,8 @@ describe("Rossmann search: recorded answers", () => {
       sizeText: "300 ml",
       size: { value: 300, unit: "ml" },
       eans: ["4005900009319", "4005808890637", "5900017001234"],
+      productUrl:
+        "https://www.rossmann.pl/Produkt/Kremy-do-twarzy/NIVEA-Soft-krem-uniwersalny-nawilzajacy-300-ml,26900,13049",
       imageUrl: `${IMAGE_HOST}/product_1_medium/26900_360_350_1785530324.webp`,
     });
   });
@@ -197,6 +199,26 @@ describe("Rossmann search: what it keeps out", () => {
     expect(search.candidates[2].imageUrl).toBeNull();
     expect(search.candidates[1].imageUrl).toMatch(/^https:\/\/pro-fra-s3-productsassets\.rossmann\.pl\//);
     expect(isRossmannImage("https://rossmann.pl.images.example.com/look-alike.webp")).toBe(false);
+  });
+
+  it("links only to pages on Rossmann's site, and an odd link costs only the link", async () => {
+    const [soft] = editable(results).data.items;
+    const links = [
+      "https://evil.example/Produkt/x",
+      "//evil.example/Produkt/x",
+      "Produkt/x",
+      `/Produkt/${"x".repeat(500)}`,
+      42,
+      undefined,
+    ];
+
+    const search = await searchItems(links.map((navigateUrl) => ({ ...soft, navigateUrl })));
+
+    expect(search.candidates).toHaveLength(links.length);
+    expect(search.candidates.map((candidate) => candidate.productUrl)).toEqual(links.map(() => null));
+    expect(isRossmannProductUrl("https://www.rossmann.pl/Produkt/x,1,2")).toBe(true);
+    expect(isRossmannProductUrl("http://www.rossmann.pl/Produkt/x,1,2")).toBe(false);
+    expect(isRossmannProductUrl("https://rossmann.pl.evil.example/Produkt/x")).toBe(false);
   });
 
   it("drops a malformed item and keeps the others", async () => {
