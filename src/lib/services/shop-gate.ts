@@ -19,6 +19,8 @@ const DEFAULT_TIMEOUT_MS = 8000;
 // The same default and bounds that report_shop_block applies to a pause.
 const DEFAULT_RETRY_AFTER_SECONDS = 900;
 const MAX_RETRY_AFTER_SECONDS = 86_400;
+// How long a reservation or a block report may take before the gate gives up on the counter.
+const COUNTER_TIMEOUT_MS = 2000;
 
 /** A refusal as report_shop_block records it: `rate_limited` pauses the shop, `blocked` stops it. */
 export type ShopBlockKind = "rate_limited" | "blocked";
@@ -48,8 +50,9 @@ export interface ShopGateDeps {
 
 export interface ShopGate {
   /**
-   * Calls a shop politely and resolves to the outcome. Rejects with a TypeError, before reserving anything, when the
-   * URL's host isn't one of the shop's. The timeout covers reading an `ok` response's body too, so read it promptly.
+   * Calls a shop politely and resolves to the outcome. Rejects with a TypeError, before reserving anything, unless the
+   * URL is plain https to one of the shop's hosts. The timeout covers reading an `ok` response's body too, so read it
+   * promptly.
    */
   fetch: (shopId: ShopId, url: string | URL, init?: RequestInit) => Promise<GateOutcome>;
 }
@@ -61,6 +64,8 @@ type Reservation =
 export function createShopGate(deps: ShopGateDeps): ShopGate {
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const log = deps.log ?? logJsonLine;
+  // Called detached: workerd's global fetch throws "Illegal invocation" when it's called as another object's method.
+  const { fetch: send } = deps;
 
   // A failed report must not change the outcome, so its error only goes into the log entry.
   async function report(...args: Parameters<ShopGateDeps["reportBlock"]>): Promise<string | undefined> {
@@ -75,9 +80,11 @@ export function createShopGate(deps: ShopGateDeps): ShopGate {
   return {
     async fetch(shopId, url, init) {
       const target = new URL(url);
-      if (!SHOP_HOSTS[shopId].includes(target.hostname)) {
-        // A programming error: the gate never proxies to other hosts or counts a request against the wrong shop.
-        throw new TypeError(`${target.hostname} is not a ${shopId} host`);
+      // Plain https on the default port, without credentials, to one of the shop's hosts.
+      const plain = target.protocol === "https:" && target.port === "" && !target.username && !target.password;
+      if (!plain || !SHOP_HOSTS[shopId].includes(target.hostname)) {
+        // A programming error: the gate never sends a request to a host outside the shop's list.
+        throw new TypeError(`${target.protocol}//${target.host} is not a ${shopId} URL`);
       }
       const settle = (outcome: ShopGateLogEntry["outcome"], note?: string): GateOutcome => {
         log({ event: "shop-gate", shopId, host: target.hostname, path: target.pathname, outcome, note });
@@ -110,9 +117,11 @@ export function createShopGate(deps: ShopGateDeps): ShopGate {
       headers.set("User-Agent", USER_AGENT);
       let response: Response;
       try {
-        response = await deps.fetch(target, {
+        response = await send(target, {
           ...init,
           headers,
+          // Never follow a redirect: its next hop would skip the host check and the reservation.
+          redirect: "manual",
           signal: init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout,
         });
       } catch (error) {
@@ -128,7 +137,8 @@ export function createShopGate(deps: ShopGateDeps): ShopGate {
         const failure = await report(shopId, "blocked", undefined, detail);
         return settle({ kind: "blocked", status: response.status }, failure);
       }
-      if (response.status === 429) {
+      // A 503 that says when to come back asks us to slow down, just like a 429 (research note §7).
+      if (response.status === 429 || (response.status === 503 && response.headers.has("Retry-After"))) {
         discard(response);
         const seconds = parseRetryAfter(response.headers.get("Retry-After"));
         const failure = await report(shopId, "rate_limited", seconds);
@@ -138,7 +148,7 @@ export function createShopGate(deps: ShopGateDeps): ShopGate {
         return { kind: "ok", response };
       }
       discard(response);
-      return settle({ kind: "failed", reason: "http", status: response.status });
+      return settle({ kind: "failed", reason: "http", status: response.status }, redirectNote(response, target));
     },
   };
 }
@@ -158,7 +168,9 @@ export function shopGateFor(supabase: SupabaseClient | null): ShopGate {
   }
   return createShopGate({
     reserve: async (shopId) => {
-      const result = await supabase.rpc("reserve_shop_request", { p_shop_id: shopId });
+      const result = await supabase
+        .rpc("reserve_shop_request", { p_shop_id: shopId })
+        .abortSignal(AbortSignal.timeout(COUNTER_TIMEOUT_MS));
       if (result.error) {
         throw new Error(`reserve_shop_request: ${result.error.message}`);
       }
@@ -166,12 +178,14 @@ export function shopGateFor(supabase: SupabaseClient | null): ShopGate {
       return reservation;
     },
     reportBlock: async (shopId, kind, retryAfterSeconds, detail) => {
-      const { error } = await supabase.rpc("report_shop_block", {
-        p_shop_id: shopId,
-        p_kind: kind,
-        p_retry_after_seconds: retryAfterSeconds ?? null,
-        p_detail: detail ?? null,
-      });
+      const { error } = await supabase
+        .rpc("report_shop_block", {
+          p_shop_id: shopId,
+          p_kind: kind,
+          p_retry_after_seconds: retryAfterSeconds ?? null,
+          p_detail: detail ?? null,
+        })
+        .abortSignal(AbortSignal.timeout(COUNTER_TIMEOUT_MS));
       if (error) {
         throw new Error(`report_shop_block: ${error.message}`);
       }
@@ -199,12 +213,15 @@ function readReservation(value: unknown): Reservation | null {
 /** Reads Retry-After as delta-seconds or an HTTP date. Missing or unreadable means 900 s; the result is 1-86400 s. */
 function parseRetryAfter(header: string | null): number {
   const value = header?.trim() ?? "";
-  const retryAt = Date.parse(value);
   let seconds = DEFAULT_RETRY_AFTER_SECONDS;
   if (/^\d+$/.test(value)) {
     seconds = Number(value);
-  } else if (!Number.isNaN(retryAt)) {
-    seconds = Math.ceil((retryAt - Date.now()) / 1000);
+  } else if (/[a-z]/i.test(value)) {
+    // Every HTTP date names a weekday and a month. Date.parse alone would also read "1.5" or "-5" as dates in 2001.
+    const retryAt = Date.parse(value);
+    if (!Number.isNaN(retryAt)) {
+      seconds = Math.ceil((retryAt - Date.now()) / 1000);
+    }
   }
   return Math.min(Math.max(seconds, 1), MAX_RETRY_AFTER_SECONDS);
 }
@@ -212,6 +229,19 @@ function parseRetryAfter(header: string | null): number {
 /** Frees the connection behind a response the caller never gets. A body that can't be cancelled is left alone. */
 function discard(response: Response): void {
   response.body?.cancel().catch(() => undefined);
+}
+
+/** Names where a redirect the gate didn't follow pointed. Only the host: the rest of a Location can hold a search. */
+function redirectNote(response: Response, from: URL): string | undefined {
+  const location = response.status >= 300 && response.status < 400 ? response.headers.get("Location") : null;
+  if (location === null) {
+    return undefined;
+  }
+  try {
+    return `redirect to ${new URL(location, from).host} not followed`;
+  } catch {
+    return "redirect not followed";
+  }
 }
 
 function describeError(error: unknown): string {

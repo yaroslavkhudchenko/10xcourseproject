@@ -9,6 +9,12 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.log("FAIL  SUPABASE_URL and SUPABASE_KEY must be set");
   process.exit(1);
 }
+// The checks create a user and pause or stop shops, so they only ever run against the local stack.
+const { hostname } = new URL(SUPABASE_URL);
+if (hostname !== "127.0.0.1" && hostname !== "localhost") {
+  console.log(`FAIL  refusing to run against ${hostname}: point SUPABASE_URL at the local Supabase`);
+  process.exit(1);
+}
 
 // Both clients talk only to SUPABASE_URL: `anon` never signs in, `user` holds a throwaway signed-in session.
 const clientOptions = { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } };
@@ -42,6 +48,16 @@ const refused = first30.find((result) => result.error || result.data?.outcome !=
 check("30 reservations for rossmann are allowed", !refused, refused ? show(refused) : "30 x allowed");
 const thirtyFirst = await reserve(user, "rossmann");
 check("the 31st reservation for rossmann is capped", thirtyFirst.data?.outcome === "capped", show(thirtyFirst));
+
+// The row lock keeps the cap strict under concurrency: of 40 parallel reservations, exactly 30 are allowed.
+const burst = await Promise.all(Array.from({ length: 40 }, () => reserve(user, "super-pharm")));
+const allowed = burst.filter((result) => result.data?.outcome === "allowed").length;
+const capped = burst.filter((result) => result.data?.outcome === "capped").length;
+check(
+  "40 parallel reservations for super-pharm allow exactly 30",
+  allowed === 30 && capped === 10,
+  `${allowed} allowed, ${capped} capped`,
+);
 
 // 2. Without a session the caller is anon, which has no execute grant.
 const anonCall = await reserve(anon, "rossmann");

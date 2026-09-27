@@ -32,7 +32,8 @@ jobs:
           cache: npm
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned: CLI releases change config keys (auto_expose_new_tables is removed on 2026-10-30).
+          version: 2.117.0
       - run: npm ci
       - name: Start local Supabase
         run: |

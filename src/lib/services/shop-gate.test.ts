@@ -36,12 +36,16 @@ interface RpcAnswer {
   error: { message: string } | null;
 }
 
-/** A Supabase client stub whose rpc answers from a table and records every call. */
+/** A Supabase client stub whose rpc answers from a table and records every call and the time limit it got. */
 function stubClient(answers: Partial<Record<string, RpcAnswer>>) {
-  const rpc = vi.fn((fn: string, _args: Record<string, unknown>) =>
-    Promise.resolve(answers[fn] ?? { data: null, error: { message: `no stubbed answer for ${fn}` } }),
-  );
-  return { client: { rpc } as unknown as SupabaseClient, rpc };
+  const signals: AbortSignal[] = [];
+  const rpc = vi.fn((fn: string, _args: Record<string, unknown>) => ({
+    abortSignal: (signal: AbortSignal) => {
+      signals.push(signal);
+      return Promise.resolve(answers[fn] ?? { data: null, error: { message: `no stubbed answer for ${fn}` } });
+    },
+  }));
+  return { client: { rpc } as unknown as SupabaseClient, rpc, signals };
 }
 
 afterEach(() => {
@@ -140,6 +144,15 @@ describe("shop gate: rate limits", () => {
     expect(reportBlock).toHaveBeenCalledWith("hebe", "rate_limited", 120);
   });
 
+  it("pauses the shop on a 503 that says when to come back", async () => {
+    const { gate, reportBlock } = setup({
+      entries: [{ url: HEBE_SEARCH, status: 503, headers: { "Retry-After": "120" } }],
+    });
+
+    expect(await gate.fetch("hebe", HEBE_SEARCH)).toEqual({ kind: "rate-limited", retryAfterSeconds: 120 });
+    expect(reportBlock).toHaveBeenCalledWith("hebe", "rate_limited", 120);
+  });
+
   it("computes the pause from a Retry-After HTTP date", async () => {
     const retryAt = new Date(Date.now() + 300_000).toUTCString();
     const { gate, reportBlock } = setup({
@@ -161,6 +174,8 @@ describe("shop gate: rate limits", () => {
     { retryAfter: undefined, seconds: 900 },
     { retryAfter: "0", seconds: 1 },
     { retryAfter: "604800", seconds: 86_400 },
+    // Not an HTTP date, although Date.parse would read it as one in 2001.
+    { retryAfter: "1.5", seconds: 900 },
   ])("pauses for $seconds s when Retry-After is $retryAfter", async ({ retryAfter, seconds }) => {
     const headers = retryAfter === undefined ? undefined : { "Retry-After": retryAfter };
     const { gate, reportBlock } = setup({ entries: [{ url: HEBE_SEARCH, status: 429, headers }] });
@@ -214,14 +229,41 @@ describe("shop gate: failures", () => {
 });
 
 describe("shop gate: guards", () => {
-  it("throws a TypeError for a host outside the shop's list, before reserving", async () => {
+  it.each([
+    { url: "https://example.com/search?q=nivea", why: "a foreign host" },
+    { url: HEBE_SEARCH, why: "another shop's host" },
+    { url: "http://www.rossmann.pl/products/v4/api/Products", why: "plain http" },
+    { url: "https://www.rossmann.pl:8443/products/v4/api/Products", why: "a non-default port" },
+    { url: "https://user:pass@www.rossmann.pl/products/v4/api/Products", why: "credentials in the URL" },
+  ])("throws a TypeError for $why, before reserving", async ({ url }) => {
     const { gate, reserve, fetchMock } = setup();
 
-    await expect(gate.fetch("rossmann", "https://example.com/search?q=nivea")).rejects.toThrow(TypeError);
-    // Another shop's host is refused too, so no request counts against the wrong shop.
-    await expect(gate.fetch("rossmann", HEBE_SEARCH)).rejects.toThrow(TypeError);
+    await expect(gate.fetch("rossmann", url)).rejects.toThrow(TypeError);
     expect(reserve).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("never follows a redirect, even when the caller asks it to", async () => {
+    const { gate, fetchMock, reportBlock, log } = setup({
+      entries: [{ url: ROSSMANN_SEARCH, status: 302, headers: { Location: "https://elsewhere.example/q?nivea" } }],
+    });
+
+    const outcome = await gate.fetch("rossmann", ROSSMANN_SEARCH, { redirect: "follow" });
+
+    expect(outcome).toEqual({ kind: "failed", reason: "http", status: 302 });
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init?.redirect).toBe("manual");
+    expect(reportBlock).not.toHaveBeenCalled();
+    // The log names only the host the redirect pointed to.
+    expect(log.mock.calls[0][0].note).toBe("redirect to elsewhere.example not followed");
+  });
+
+  it("calls fetch detached, because workerd's global fetch rejects any other `this`", async () => {
+    const { gate, fetchMock } = setup({ entries: [{ url: ROSSMANN_SEARCH, status: 200 }] });
+
+    await gate.fetch("rossmann", ROSSMANN_SEARCH);
+
+    expect(fetchMock.mock.contexts).toEqual([undefined]);
   });
 
   it("keeps the outcome when reporting the block fails, and logs the failure", async () => {
@@ -237,7 +279,7 @@ describe("shop gate: guards", () => {
 describe("shop gate: Supabase binding", () => {
   it("reserves and reports through the migration's functions and parameter names", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const { client, rpc } = stubClient({
+    const { client, rpc, signals } = stubClient({
       reserve_shop_request: { data: { outcome: "allowed" }, error: null },
       report_shop_block: { data: null, error: null },
     });
@@ -265,6 +307,11 @@ describe("shop gate: Supabase binding", () => {
         { p_shop_id: "natura", p_kind: "rate_limited", p_retry_after_seconds: 120, p_detail: null },
       ],
     ]);
+    // Every database call carries a time limit, so a stalled counter can't hold the gate open.
+    expect(signals).toHaveLength(4);
+    for (const signal of signals) {
+      expect(signal).toBeInstanceOf(AbortSignal);
+    }
   });
 
   it("fails closed when reserve_shop_request returns an error", async () => {

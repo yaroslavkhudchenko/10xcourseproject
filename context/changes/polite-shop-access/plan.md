@@ -381,6 +381,29 @@ The deployed code may land before this, because no route calls the gate yet. S-0
 - Supabase: changelog 45329 (tables no longer exposed automatically); supabase/cli PR #5239 and #6337 (`auto_expose_new_tables`); database linter rules 0011, 0028, 0029
 - PostgreSQL `INSERT` / `SELECT … FOR UPDATE` locking semantics (postgresql.org docs)
 
+## Implementation Notes
+
+Added after the implementation review on 2026-09-27 (`reviews/impl-review.md`); the phase blocks above are unchanged.
+
+- **The migration is frozen.** The owner ran `npx supabase db push` from the feature branch before the merge, so production has recorded `20260926112205_polite_shop_access.sql`. Any later SQL change goes into a new migration.
+- **Adaptations during implementation:**
+  - The migration also revokes all table and sequence privileges from `anon`, `authenticated` and `service_role`: turning auto-expose off still leaves TRUNCATE, REFERENCES and TRIGGER, and RLS doesn't cover TRUNCATE.
+  - The gate checks a `cf-mitigated: challenge` header before the status, so a challenge on any status, 429 included, stops the shop.
+  - A `paused` result without `until` fails closed as `unavailable`.
+  - The gate cancels the body of every response it doesn't hand back. A failed block report goes into the same log line as the outcome, and log lines leave out the query string.
+  - Extra tests cover the Supabase binding, more fail-closed shapes, the Retry-After limits, a challenge on a 429 and the replay helper's misses.
+  - CLAUDE.md got the gate rule as its own bullet, plus notes in the Data and CI bullets.
+  - The M-1 roadmap landed in this PR as a separate docs commit.
+- **Review fixes (2026-09-27):**
+  - The gate never follows redirects and accepts only plain https URLs on the default port, without credentials.
+  - Both database calls have a 2 s limit.
+  - `fetch` is called detached, as workerd requires.
+  - A 503 with Retry-After pauses the shop like a 429, and only date-shaped Retry-After values are parsed as dates.
+  - The database check runs 40 parallel reservations and refuses non-local URLs.
+  - CI pins the Supabase CLI to 2.117.0.
+  - CLAUDE.md gained the rules for gate callers.
+- **Accepted risk (review F2):** any signed-in user can call `report_shop_block` directly through the Data API, stopping a shop for everyone or pausing it for up to 24 hours, and can use up a shop's cap through `reserve_shop_request`. With a handful of invited users this is accepted; revisit it before inviting more people. Full prevention would need a server-only secret key, which the deploy plan ruled out.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
