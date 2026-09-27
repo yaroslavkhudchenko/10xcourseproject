@@ -411,10 +411,10 @@ The deployed code may land before this, because no route calls the gate yet. S-0
 
 #### Automated
 
-- [ ] 3.1 CI `ci` and `smoke` jobs are green on the PR after the documentation changes
+- [x] 3.1 CI `ci` and `smoke` jobs are green on the PR after the documentation changes — dc974d7
 
 #### Manual
 
-- [x] 3.2 Owner applied the migration to production with `npx supabase db push` and it reported success
-- [x] 3.3 Supabase dashboard shows 4 `shops` rows (cap 30, enabled) and both functions; Security Advisor shows no errors
-- [x] 3.4 CLAUDE.md updates reviewed: gate rule, test commands, migration workflow
+- [x] 3.2 Owner applied the migration to production with `npx supabase db push` and it reported success — dc974d7
+- [x] 3.3 Supabase dashboard shows 4 `shops` rows (cap 30, enabled) and both functions; Security Advisor shows no errors — dc974d7
+- [x] 3.4 CLAUDE.md updates reviewed: gate rule, test commands, migration workflow — dc974d7
