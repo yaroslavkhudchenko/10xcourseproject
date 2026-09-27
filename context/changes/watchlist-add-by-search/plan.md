@@ -545,26 +545,26 @@ Record the new rules in CLAUDE.md, and prepare production before the merge: the 
 
 #### Automated
 
-- [x] 1.1 With Docker running: `npx supabase db reset --local`, then `node scripts/check-watchlist-db.mjs` with the local URL and anon key prints only PASS lines
-- [x] 1.2 `npm run lint` passes
-- [ ] 1.3 CI `smoke` job runs "Check watchlist database contract" and is green on the PR
+- [x] 1.1 With Docker running: `npx supabase db reset --local`, then `node scripts/check-watchlist-db.mjs` with the local URL and anon key prints only PASS lines — c2f70a8
+- [x] 1.2 `npm run lint` passes — c2f70a8
+- [x] 1.3 CI `smoke` job runs "Check watchlist database contract" and is green on the PR — c2f70a8
 
 #### Manual
 
-- [x] 1.4 Migration review: one policy per operation for `authenticated` only, revoke then grant select and insert, no update or delete path, and no way to read another user's rows
+- [x] 1.4 Migration review: one policy per operation for `authenticated` only, revoke then grant select and insert, no update or delete path, and no way to read another user's rows — c2f70a8
 
 ### Phase 2: Rossmann search
 
 #### Automated
 
-- [ ] 2.1 `npm run test` passes, including the adapter, size and search-text tests
-- [ ] 2.2 `npx astro sync && npx astro check` reports 0 errors
-- [ ] 2.3 `npm run lint` passes
-- [ ] 2.4 `npm run build` passes
+- [x] 2.1 `npm run test` passes, including the adapter, size and search-text tests
+- [x] 2.2 `npx astro sync && npx astro check` reports 0 errors
+- [x] 2.3 `npm run lint` passes
+- [x] 2.4 `npm run build` passes
 
 #### Manual
 
-- [ ] 2.5 Fixture review: three real Rossmann responses recorded with the gate's User-Agent at least 2 seconds apart, including a `spellCheckHint` sample and `pictures[]`, with no cookies or personal data
+- [x] 2.5 Fixture review: three real Rossmann responses recorded with the gate's User-Agent at least 2 seconds apart, including a `spellCheckHint` sample and `pictures[]`, with no cookies or personal data
 
 ### Phase 3: Watchlist page and add flow
 
