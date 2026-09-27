@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import {
   listMatches,
+  listMatchStates,
   MATCH_ERRORS,
   matchErrorMessage,
   parseMatchForm,
@@ -508,7 +509,7 @@ describe("listMatches", () => {
     expect(queries[0].map(([method]) => method)).toEqual(["from", "select", "abortSignal"]);
   });
 
-  it("drops odd rows and keeps the rest", async () => {
+  it("drops odd rows from the whole list and keeps the rest", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { client } = stubClient({
       data: [
@@ -524,6 +525,22 @@ describe("listMatches", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it("gives null for one product when any of its rows is odd, so its page doesn't look the product up again", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // A state a later migration might add before the code knows it, next to a decision that parses.
+    const { client } = stubClient({
+      data: [
+        { ...matchedRow, state: "repinned" },
+        { ...declinedRow, watchlist_item_id: ITEM_ID, shop_id: "hebe" },
+      ],
+    });
+
+    expect(await listMatches(client, ITEM_ID)).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    const line: unknown = JSON.parse(String(warn.mock.calls[0][0]));
+    expect(line).toMatchObject({ reason: "unexpected rows dropped", detail: "1" });
+  });
+
   it.each<{ answer: string; result: Answer }>([
     { answer: "a failed query", result: { error: { code: "42501", message: "permission denied" } } },
     { answer: "an answer that isn't a list", result: { data: { rows: [] } } },
@@ -532,5 +549,55 @@ describe("listMatches", () => {
     const { client } = stubClient(result);
 
     expect(await listMatches(client)).toBeNull();
+  });
+});
+
+describe("listMatchStates", () => {
+  it("reads only the list's columns for every decision, with one query within a time limit", async () => {
+    const { client, queries } = stubClient({
+      data: [
+        { watchlist_item_id: ITEM_ID, shop_id: "natura", state: "matched" },
+        { watchlist_item_id: OTHER_ITEM_ID, shop_id: "natura", state: "not_found" },
+      ],
+    });
+
+    expect(await listMatchStates(client)).toEqual([
+      { watchlistItemId: ITEM_ID, shop: "natura", state: "matched" },
+      { watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "not_found" },
+    ]);
+    expect(queries).toEqual([
+      [
+        ["from", "watchlist_matches"],
+        ["select", "watchlist_item_id, shop_id, state"],
+        ["abortSignal", true],
+      ],
+    ]);
+  });
+
+  it("drops odd rows and keeps the rest", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({
+      data: [
+        { watchlist_item_id: ITEM_ID, shop_id: "natura", state: "repinned" },
+        { watchlist_item_id: ITEM_ID, shop_id: "dm", state: "matched" },
+        { watchlist_item_id: OTHER_ITEM_ID, shop_id: "natura", state: "unmatched" },
+      ],
+    });
+
+    expect(await listMatchStates(client)).toEqual([
+      { watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "unmatched" },
+    ]);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it.each<{ answer: string; result: Answer }>([
+    { answer: "a failed query", result: { error: { code: "42501", message: "permission denied" } } },
+    { answer: "an answer that isn't a list", result: { data: { rows: [] } } },
+  ])("gives null for $answer, and logs it", async ({ result }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient(result);
+
+    expect(await listMatchStates(client)).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 });

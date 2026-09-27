@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "astro/zod";
+import { optionalText, optionalUrl } from "@/lib/services/form-fields";
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import { isRossmannImage, isRossmannProductUrl } from "@/lib/services/shops/rossmann";
 import { parseSize } from "@/lib/services/size";
@@ -20,23 +21,6 @@ export function parseWatchlistItemId(value: unknown): string | null {
   const parsed = watchlistItemIdSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
 }
-
-/** An optional text field: trimmed, capped, and null when empty. */
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .transform((value) => (value === "" ? null : value));
-
-/** An optional link: empty for none, otherwise within its limit and on a host the shop's adapter accepts. */
-const optionalUrl = (max: number, allowed: (url: string) => boolean) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .refine((url) => url === "" || allowed(url))
-    .transform((url) => (url === "" ? null : url));
 
 /**
  * The "Dodaj" form, whose fields come back from the results page. Only the user's own row depends on them, but they

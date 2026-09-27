@@ -1,7 +1,7 @@
 ---
 import ProductSummary from "@/components/watchlist/ProductSummary.astro";
 import Layout from "@/layouts/Layout.astro";
-import { listMatches } from "@/lib/services/matches";
+import { listMatchStates } from "@/lib/services/matches";
 import { shopGateFor } from "@/lib/services/shop-gate";
 import { isOwnNavigation, searchQuerySchema } from "@/lib/services/search-query";
 import { searchRossmann } from "@/lib/services/shops/rossmann";
@@ -20,11 +20,11 @@ const invalidQuery = parsedQuery !== null && !parsedQuery.success;
 // A link on another site only fills in the form: just the user's own navigation spends the shared cap.
 const searchAllowed = isOwnNavigation(Astro.request.headers);
 
-// The matches come from one query for the whole list, never one per product.
+// The matches come from one query for the whole list, never one per product, and carry only what the list shows.
 const [search, items, matches] = await Promise.all([
   query === null || !searchAllowed ? null : searchRossmann(shopGateFor(supabase), query),
   supabase ? listWatchlist(supabase) : null,
-  supabase ? listMatches(supabase) : null,
+  supabase ? listMatchStates(supabase) : null,
 ]);
 
 const unavailableMessage =

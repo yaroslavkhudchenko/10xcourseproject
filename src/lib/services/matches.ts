@@ -1,33 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "astro/zod";
+import { optionalText, optionalUrl } from "@/lib/services/form-fields";
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import { isNaturaImage, isNaturaProductUrl } from "@/lib/services/shops/natura";
 import { parseSize } from "@/lib/services/size";
 import { watchlistItemIdSchema } from "@/lib/services/watchlist";
-import { SHOP_IDS, type MatchedItem, type ShopId, type ShopLookup, type ShopMatch } from "@/types";
+import { SHOP_IDS, type MatchedItem, type MatchState, type ShopId, type ShopLookup, type ShopMatch } from "@/types";
 
 // Each watched product's decision per shop (public.watchlist_matches), private to its user. Every read and write goes
 // through the user's own client, so RLS does the enforcing: a user reads and adds only their own decisions, and
 // changes only a lookup that found nothing. Each call gives up after 2 s, like the watchlist's.
 const DATABASE_TIMEOUT_MS = 2000;
 const TABLE = "watchlist_matches";
-
-/** An optional text field: trimmed, capped, and null when empty. */
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .transform((value) => (value === "" ? null : value));
-
-/** An optional link: empty for none, otherwise within its limit and on a host the shop's adapter accepts. */
-const optionalUrl = (max: number, allowed: (url: string) => boolean) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .refine((url) => url === "" || allowed(url))
-    .transform((url) => (url === "" ? null : url));
 
 // Every decision names the user's product and the shop. Only Natura asks the user for now.
 const decisionFields = { itemId: watchlistItemIdSchema, shop: z.literal("natura") };
@@ -260,7 +244,8 @@ const rowSchema = z.discriminatedUnion("state", [
 
 /**
  * The user's stored decisions: for one product, or for the whole list without `itemId`. Null when they couldn't be
- * read.
+ * read. For one product, an odd row fails the read too: its page would take the dropped decision for none and look the
+ * product up in the shop again. The whole list keeps the rows that parse.
  */
 export async function listMatches(supabase: SupabaseClient, itemId?: string): Promise<ShopMatch[] | null> {
   const query = supabase.from(TABLE).select(COLUMNS);
@@ -271,26 +256,62 @@ export async function listMatches(supabase: SupabaseClient, itemId?: string): Pr
     logFailure("list failed", error.message);
     return null;
   }
-  const rows: unknown = data;
-  if (!Array.isArray(rows)) {
-    logFailure("unexpected list shape", typeof rows);
+  const read = parseRows(data, rowSchema);
+  if (read === null || (itemId !== undefined && read.dropped > 0)) {
     return null;
   }
-  // Each row is checked on its own, so one odd row doesn't hide the others.
-  const matches: ShopMatch[] = [];
-  let dropped = 0;
-  for (const raw of rows) {
-    const row = rowSchema.safeParse(raw);
+  return read.rows.map(toMatch);
+}
+
+// Only the columns the list shows: which product, which shop, and where the product stands there.
+const stateRowSchema = z.object({
+  watchlist_item_id: z.string(),
+  shop_id: z.enum(SHOP_IDS),
+  state: z.enum(["matched", "unmatched", "not_found"]),
+});
+
+/**
+ * Where each product on the user's list stands in each shop, read with one query for the whole list and only the
+ * columns the list shows. Odd rows are dropped and logged. Null when the decisions couldn't be read.
+ */
+export async function listMatchStates(
+  supabase: SupabaseClient,
+): Promise<{ watchlistItemId: string; shop: ShopId; state: MatchState }[] | null> {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("watchlist_item_id, shop_id, state")
+    .abortSignal(AbortSignal.timeout(DATABASE_TIMEOUT_MS));
+  if (error) {
+    logFailure("list failed", error.message);
+    return null;
+  }
+  const read = parseRows(data, stateRowSchema);
+  return (
+    read?.rows.map((row) => ({ watchlistItemId: row.watchlist_item_id, shop: row.shop_id, state: row.state })) ?? null
+  );
+}
+
+/**
+ * Checks each row on its own, so one odd row doesn't hide the others: the rows that parse, and how many didn't, which
+ * is logged. Null when the answer isn't a list.
+ */
+function parseRows<Row>(data: unknown, schema: z.ZodType<Row>): { rows: Row[]; dropped: number } | null {
+  if (!Array.isArray(data)) {
+    logFailure("unexpected list shape", typeof data);
+    return null;
+  }
+  const rows: Row[] = [];
+  for (const raw of data) {
+    const row = schema.safeParse(raw);
     if (row.success) {
-      matches.push(toMatch(row.data));
-    } else {
-      dropped++;
+      rows.push(row.data);
     }
   }
+  const dropped = data.length - rows.length;
   if (dropped > 0) {
     logFailure("unexpected rows dropped", String(dropped));
   }
-  return matches;
+  return { rows, dropped };
 }
 
 function toMatch(row: z.infer<typeof rowSchema>): ShopMatch {

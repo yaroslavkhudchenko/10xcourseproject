@@ -283,15 +283,17 @@ describe("Rossmann search: why it's unavailable", () => {
   });
 
   it.each([
+    { answer: "text that echoes the search", body: "nivea soft" },
     { answer: "an HTML page", body: "<html>Przerwa techniczna</html>" },
     { answer: "JSON of another shape", body: JSON.stringify({ items: [] }) },
-  ])("gives up on $answer", async ({ body }) => {
+  ])("gives up on $answer, and logs it without the search text", async ({ body }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { gate, fetchMock } = setup([{ url: searchUrl("nivea soft"), status: 200, body }]);
 
     expect(await searchRossmann(gate, "nivea soft")).toEqual({ kind: "unavailable", reason: "failed" });
     expect(requestedUrls(fetchMock)).toEqual([searchUrl("nivea soft")]);
     expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).not.toContain("nivea");
   });
 
   it("gives up when reading the body fails", async () => {

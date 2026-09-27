@@ -568,11 +568,11 @@ Record the new rules in CLAUDE.md, and put the migration on production before th
 ## Performance Considerations
 
 - **Shop traffic:**
-  - At most two Natura requests per product lookup (the EAN, then a name search only if the EAN finds nothing), made once per product because decisions are stored. `not_found` is retried only on request.
+  - At most two Natura requests per product lookup (the EAN, then a name search only if the EAN finds nothing). A decided product costs none, because its decision is stored, and `not_found` is retried only on request. An undecided product costs one lookup per view: candidates waiting for the user, or Natura unavailable, are never stored (corrected after review F3).
   - An add costs one Rossmann search plus at most two Natura requests, well inside 30 a minute per shop. Luigi's Box, shared with Hebe, stays under the 60 a minute F-01 accepted.
-- **Waiting:** the product page renders after its lookup. Each Natura request has a 4 s limit and each database call 2 s, so the worst case is about 8 s when Natura is slow; the usual case is under a second.
+- **Waiting:** the product page renders after its lookup. Each Natura request has a 4 s limit and each database call 2 s. The worst case is about 14 s: the two reads run together (2 s), then two slow Natura searches (8 s) and a write that needs its update too (4 s). The usual case is under a second (corrected after review F6).
 - **CPU:** parsing at most 10 hits is small against the Paid plan's limit.
-- **Queries:** the list page makes one extra query, for all the user's matches. The product page makes three: the product, its matches and at most one write.
+- **Queries:** the list page makes one extra query, for the states of all the user's matches. The product page makes three: the product and its matches together, then at most one write (an insert, plus an update when a `not_found` row is retried).
 
 ## Migration Notes
 
@@ -600,7 +600,7 @@ Where the shipped code differs from the phase contracts above, and why. The phas
 
 - **Phase 1, the unique key includes the owner:** `unique (watchlist_item_id, user_id, shop_id)` instead of `(watchlist_item_id, shop_id)`. Postgres checks a unique key before a foreign key, so with the planned key another user's insert could collide with the real row. That user, if they held the product's UUID, would get `23505` instead of `23503` and learn that the product has a decision for that shop. For real rows the two keys mean the same, because a product has one owner. Decided by the owner during Phase 1; the database check asserts the probe gets `23503`.
 - **Phase 1, null EANs:** both EAN checks use `array_to_string(eans, ',', '*')`. The two-argument form skips null elements, so `{NULL}` would have passed the "8–14 digits" rule.
-- **Phase 1, extra database checks** beyond the planned nine: B's own match is visible only to B; B can't change A's `not_found` row; each refused update is read back unchanged; the probe above.
+- **Phase 1, extra database checks** beyond the planned nine: B sees exactly its own match; B can't change A's `not_found` row; each refused update is read back unchanged; the probe above.
 - **Phase 2, what the recordings showed** (2026-09-27):
   - An unknown tracker id gets `404 text/plain` ("Catalog for tracker_id … not found."), not an empty result. The adapter therefore tells a rejected id apart from "nothing found" and logs it; the both-empty branch of the plan isn't needed.
   - `web_url` is a one-element list and `image_link` a single string, both https. Product pages are on `drogerienatura.pl` (no `www`) and images on `media.drogerienatura.pl`, the one image host the adapter accepts.
@@ -622,7 +622,33 @@ Where the shipped code differs from the phase contracts above, and why. The phas
   - A decision stored meanwhile in another tab shows "Ten produkt ma już zapisaną decyzję."
   - The list's "Dodano do listy." notice is gone, because "Dodaj" now lands on the product page.
 - **Phase 4, two migrations reached production:** `20260927184936_watchlist_matches.sql` and `20260927204417_watchlist_items_product_url.sql`, pushed by the owner on 2026-09-27 before the merge. `npx supabase migration list --linked` then showed both with a remote version. Progress 4.2 and 4.3 name only "the matches migration" because step titles don't change; they cover both.
-- **Phase 4, CLAUDE.md:** besides the planned notes, the adapter facts got their own "Shops and matching" bullet. It also says that a new Natura tracker id means updating the Natura tests' expected URLs, which pin it. The null-client bullet now names the product page and its route, and the Data bullet says the table checks mirror `PRODUCT_LIMITS`.
+- **Phase 4, CLAUDE.md:** besides the planned notes, the adapter facts got their own "Shops and matching" bullet. It also says that a new Natura tracker id means updating the Natura tests' expected URLs, which pin it. The null-client bullet now names the product page and its route, and the Data bullet says the table checks mirror `PRODUCT_LIMITS`. The CI bullet lists the `smoke` job's three database checks.
+- **Phase 3, two alerts beyond the plan:**
+  - The product page says "Nie udało się zapisać wyniku…" when a lookup's own outcome can't be stored, and the next visit looks the product up again.
+  - The list shows an alert and leaves out the statuses when the matches can't be read.
+- **Phase 3, the "Brak ceny online" label:** Natura candidates always carry a price, so the label is the fallback for shops whose prices can be missing.
+
+### Review fixes (`reviews/impl-review.md`, 2026-09-28)
+
+- **F1, a dropped row reads as a failed read:** one product's `listMatches` returns null when a row doesn't parse, so the page never takes a decided product for an undecided one.
+- **F2, never "not found" by mistake:** when Natura's answer has product hits but none survives the mapping, the search is `unavailable`/`failed`, logged with a count, and nothing is stored.
+- **F3, fewer needless requests:** `isOwnNavigation` refuses prefetch and prerender (`Sec-Purpose`/`Purpose`). After a stored retry, the page redirects to the plain URL, so `?retry=1` can't repeat.
+  - That redirect is the repo's first top-level `return Astro.redirect(...)`, which crashed ESLint's `no-misused-promises` (its `returns` check expects every return inside a function). `eslint.config.js` therefore turns off only that check, and only for `.astro` files.
+- **F4, a tested seam:** `decideMatchStep` (`src/lib/services/match-step.ts`) decides what the Natura section does next. Table tests pin that `matched` and `unmatched` never trigger a lookup.
+- **F6, less waiting:** the product and its matches are read together, and the list reads only the match states (`listMatchStates`).
+- **F7, more checks:**
+  - The database check covers re-pointing and handing over a `not_found` row, and a null EAN.
+  - A smoke step pins Astro's `checkOrigin`: a foreign `Origin` gets 403.
+- **F8, one way to log and one set of form fields:** Rossmann logs only error names and issue paths, like Natura. `optionalText` and `optionalUrl` live in `src/lib/services/form-fields.ts`.
+- **F9:** a decision post without a valid product id returns to `/watchlist` without an error text.
+
+### For S-03 and later (review F5)
+
+- **S-03's migration:**
+  - Add to both EAN checks that no element contains a comma and the array has one dimension: `strpos(array_to_string(eans, '', '*'), ',') = 0 and coalesce(array_ndims(eans), 1) = 1`.
+  - Limit `watchlist_matches`' update grant to the decision columns.
+- **Stored ids are user input:** before a stored `shop_item_id` or EAN goes into a shop URL, require a letter or digit, reject dot segments, and encode it. A user can write their own rows directly through the Data API.
+- **Prices for both shops:** the owner left the Rossmann price to S-03, so S-03 shows Rossmann's and Natura's prices side by side.
 
 ## Progress
 

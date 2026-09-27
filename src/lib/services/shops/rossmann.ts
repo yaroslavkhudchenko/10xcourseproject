@@ -54,12 +54,15 @@ export async function searchRossmann(gate: ShopGate, query: string): Promise<Pro
     // Read the body right away: the time limits cover it too.
     body = await outcome.response.json();
   } catch (error) {
-    logFailure("unreadable body", error);
+    // Only the error's name: a parse error quotes the body, which can echo the user's search.
+    logFailure("unreadable body", error instanceof Error ? error.name : typeof error);
     return { kind: "unavailable", reason: "failed" };
   }
   const parsed = responseSchema.safeParse(body);
   if (!parsed.success) {
-    logFailure("unexpected response shape", parsed.error);
+    // Where the shape differs, not what the answer holds, for the same reason.
+    const issues = parsed.error.issues.map((issue) => `${issue.path.map(String).join(".")} ${issue.code}`);
+    logFailure("unexpected response shape", issues.join("; "));
     return { kind: "unavailable", reason: "failed" };
   }
 
@@ -170,8 +173,7 @@ function within(value: string | null, max: number): string | null {
   return value !== null && value.length <= max ? value : null;
 }
 
-function logFailure(reason: string, error: unknown): void {
-  const detail = (error instanceof Error ? error.message : String(error)).slice(0, 300);
+function logFailure(reason: string, detail: string): void {
   // eslint-disable-next-line no-console -- one line per unreadable Rossmann answer; Workers observability collects it.
-  console.warn(JSON.stringify({ event: "rossmann-search", reason, detail }));
+  console.warn(JSON.stringify({ event: "rossmann-search", reason, detail: detail.slice(0, 300) }));
 }

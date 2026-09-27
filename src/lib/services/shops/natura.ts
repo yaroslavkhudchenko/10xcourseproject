@@ -21,9 +21,8 @@ const SHOP_ITEM_ID = /^[A-Za-z0-9._-]+$/;
 // The one host the recorded hits load their images from.
 const IMAGE_HOST = "media.drogerienatura.pl";
 
-// Only the fields a candidate uses; Luigi's Box sends many more, which are ignored. A hit needs its SKU and a positive
-// price, which also drops query-suggestion pseudo-hits (research note §2.2). The other attributes are read one by one,
-// so an odd value costs only that value, never the hit.
+// Only the fields a candidate uses; Luigi's Box sends many more, which are ignored. A product hit needs its SKU and a
+// positive price. The other attributes are read one by one, so an odd value costs only that value, never the hit.
 const hitSchema = z.object({
   url: z.string().max(PRODUCT_LIMITS.shopItemId).regex(SHOP_ITEM_ID),
   attributes: z.object({
@@ -41,8 +40,9 @@ const responseSchema = z.object({ results: z.object({ hits: z.array(z.unknown())
 
 /**
  * Searches Natura through the gate, asking for at most `size` hits. Resolves to the candidates (possibly none), or to
- * `unavailable` with the reason: the gate skipped or refused the call, the call failed, or the answer wasn't readable.
- * It never throws. The query must already be an EAN of 8-14 digits or have passed `searchQuerySchema`.
+ * `unavailable` with the reason: the gate skipped or refused the call, the call failed, or the answer wasn't readable,
+ * including an answer whose products all fail their check. It never throws. The query must already be an EAN of 8-14
+ * digits or have passed `searchQuerySchema`.
  */
 export async function searchNatura(gate: ShopGate, query: string, size: number): Promise<ShopSearch> {
   const url = `${SEARCH_URL}?tracker_id=${NATURA_TRACKER_ID}&q=${encodeURIComponent(query)}&size=${size}`;
@@ -75,12 +75,45 @@ export async function searchNatura(gate: ShopGate, query: string, size: number):
     return { kind: "unavailable", reason: "failed" };
   }
 
+  // Luigi's Box can send a query suggestion among the products (research note §2.2); only products become candidates.
+  const productHits = parsed.data.results.hits.filter(isProductHit);
   // Each hit is checked on its own, so one odd hit doesn't blank the whole search.
-  const candidates = parsed.data.results.hits.flatMap((hit) => {
+  const candidates = productHits.flatMap((hit) => {
     const candidate = toCandidate(hit);
     return candidate ? [candidate] : [];
   });
+  const dropped = productHits.length - candidates.length;
+  if (dropped > 0) {
+    // How many, never which: a hit carries the product's name and EAN, which can echo the search.
+    logFailure("hits dropped", `${dropped} of ${productHits.length} product hits`);
+  }
+  // Products that all fail their check point to a changed format, not to a product Natura doesn't sell: a lookup would
+  // store that as "not found".
+  if (productHits.length > 0 && candidates.length === 0) {
+    return { kind: "unavailable", reason: "failed" };
+  }
   return { kind: "results", candidates };
+}
+
+/**
+ * True for a hit that stands for a product: its type says so, as on every recorded hit, or it has no type but carries
+ * attributes. Anything else is a query suggestion.
+ */
+function isProductHit(hit: unknown): boolean {
+  if (typeof hit !== "object" || hit === null) {
+    return false;
+  }
+  const type = "type" in hit ? hit.type : undefined;
+  if (type === "product") {
+    return true;
+  }
+  const attributes = "attributes" in hit ? hit.attributes : undefined;
+  return (
+    (type === undefined || type === null) &&
+    typeof attributes === "object" &&
+    attributes !== null &&
+    Object.keys(attributes).length > 0
+  );
 }
 
 /** True for an https URL on drogerienatura.pl or one of its subdomains: the only product pages a candidate links to. */

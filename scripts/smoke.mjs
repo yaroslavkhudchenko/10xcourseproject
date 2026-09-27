@@ -20,13 +20,14 @@ function storeCookies(response) {
   }
 }
 
-async function request(path, { method = "GET", form } = {}) {
+// Every request comes from the app's own origin unless a step says otherwise.
+async function request(path, { method = "GET", form, origin = BASE_URL } = {}) {
   const response = await fetch(BASE_URL + path, {
     method,
     redirect: "manual",
     headers: {
       Cookie: cookieHeader(),
-      Origin: BASE_URL,
+      Origin: origin,
       ...(form ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
     },
     body: form ? new URLSearchParams(form).toString() : undefined,
@@ -40,7 +41,8 @@ async function request(path, { method = "GET", form } = {}) {
 }
 
 // A product id no one has: its page answers 404 before any lookup.
-const missingProduct = "/watchlist/00000000-0000-4000-8000-000000000000";
+const missingProductId = "00000000-0000-4000-8000-000000000000";
+const missingProduct = `/watchlist/${missingProductId}`;
 
 // No step searches (no `q`) or opens a product that exists, so the smoke test never calls a shop.
 const steps = [
@@ -67,6 +69,17 @@ const steps = [
     "watchlist renders for signed-in user and isn't cacheable",
     () => request("/watchlist"),
     { status: 200, cacheControl: "no-store" },
+  ],
+  [
+    // Astro's checkOrigin is the decision route's only defence against a form posted from another site.
+    "decision form posted from another site is refused",
+    () =>
+      request("/api/watchlist/matches", {
+        method: "POST",
+        form: { itemId: missingProductId, shop: "natura", action: "decline" },
+        origin: "https://evil.example",
+      }),
+    { status: 403 },
   ],
   ["product page answers 404 for a product that doesn't exist", () => request(missingProduct), { status: 404 }],
   ["product page answers 404 for an id that isn't a UUID", () => request("/watchlist/not-a-uuid"), { status: 404 }],

@@ -67,6 +67,9 @@ const astroConfig = defineConfig({
     "astro/no-set-html-directive": "error",
     "astro/no-unused-css-selector": "warn",
     "astro/prefer-class-list-directive": "warn",
+    // A page redirects with a top-level `return Astro.redirect(...)` in its frontmatter; the rule's `returns` check
+    // expects every return inside a function and crashes on that one. Its other checks stay on.
+    "@typescript-eslint/no-misused-promises": ["error", { checksVoidReturn: { attributes: false, returns: false } }],
   },
 });
 

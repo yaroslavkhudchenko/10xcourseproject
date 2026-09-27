@@ -6,13 +6,21 @@ const ALLOWED_CHARACTERS = String.raw`\p{L}\p{N} .,%&'+/()-`;
 const ALLOWED = new RegExp(`^[${ALLOWED_CHARACTERS}]+$`, "u");
 const NOT_ALLOWED = new RegExp(`[^${ALLOWED_CHARACTERS}]`, "gu");
 const MAX_LENGTH = 80;
+// How a browser marks a prefetch or prerender, in Sec-Purpose or the older Purpose header.
+const PREFETCH = /prefetch/i;
 
 /**
  * True when the browser says the request is the user's own navigation: typed, bookmarked, or from one of this app's
- * pages. A link on another site must not start a shop search, because it would spend the cap everyone shares. Browsers
- * that don't send Sec-Fetch-Site are trusted.
+ * pages. A link on another site must not start a shop search, because it would spend the cap everyone shares, and
+ * neither may a prefetch or prerender of a page the user may never open, whatever Sec-Fetch-Site says: Chrome
+ * prerenders what's typed in its address bar with `Sec-Fetch-Site: none` and `Sec-Purpose: prefetch;prerender`.
+ * Browsers that don't send Sec-Fetch-Site are trusted.
  */
 export function isOwnNavigation(headers: Headers): boolean {
+  const purposes = [headers.get("Sec-Purpose"), headers.get("Purpose")];
+  if (purposes.some((purpose) => purpose !== null && PREFETCH.test(purpose))) {
+    return false;
+  }
   const site = headers.get("Sec-Fetch-Site");
   return site === null || site === "same-origin" || site === "none";
 }

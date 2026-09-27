@@ -6,10 +6,10 @@ type Outcome = "matched=1" | "declined=1" | "decided=1" | `error=${MatchError}`;
 
 /**
  * Back to the product's page with a notice, or with an error code the page turns into its own text. Without a valid
- * product id, back to the list.
+ * product id, which only a crafted post lacks, back to the list with no code: the list's codes belong to "Dodaj".
  */
 function backTo(itemId: string | null, outcome: Outcome): string {
-  return itemId === null ? `/watchlist?${outcome}` : `/watchlist/${itemId}?${outcome}`;
+  return itemId === null ? "/watchlist" : `/watchlist/${itemId}?${outcome}`;
 }
 
 // "To ten produkt" and "Żaden z nich" on a product's page. It stores the signed-in user's decision and makes no shop

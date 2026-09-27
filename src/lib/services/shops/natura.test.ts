@@ -174,6 +174,7 @@ describe("Natura search: sizes", () => {
 
 describe("Natura search: what it keeps out", () => {
   it("drops pseudo-hits and hits without a positive price", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { attributes } = softWith({});
     const [suggestion, ...unpriced] = [
       // A query suggestion, as Luigi's Box sends one for Hebe (research note §2.2).
@@ -186,9 +187,34 @@ describe("Natura search: what it keeps out", () => {
     const candidates = await candidatesFrom([suggestion, ...hitsOf(nameSearch), ...unpriced]);
 
     expect(candidates.map((candidate) => candidate.shopItemId)).toEqual(["NV89063", "JM00370", "NV81063"]);
+    // The unpriced hits count as dropped products; the suggestion doesn't count at all.
+    expect(warn).toHaveBeenCalledTimes(1);
+    const line: unknown = JSON.parse(String(warn.mock.calls[0][0]));
+    expect(line).toMatchObject({ reason: "hits dropped", detail: "3 of 6 product hits" });
+  });
+
+  it("keeps the other candidates when one product hit can't be read, and logs how many were dropped", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const [soft, yope, men] = hitsOf(nameSearch);
+    yope.attributes.price_amount = "16.99";
+
+    const candidates = await candidatesFrom([soft, yope, men]);
+
+    expect(candidates.map((candidate) => candidate.shopItemId)).toEqual(["NV89063", "NV81063"]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    const line: unknown = JSON.parse(String(warn.mock.calls[0][0]));
+    expect(line).toEqual({ event: "natura-search", reason: "hits dropped", detail: "1 of 3 product hits" });
+  });
+
+  it("finds nothing, and logs no drop, when the only hit is a query suggestion", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    expect(await candidatesFrom([{ url: "nivea soft", attributes: {} }])).toEqual([]);
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it("lets an odd value cost only itself: a numeric EAN, a foreign product link, a bad SKU", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const [soft, yope, men] = hitsOf(nameSearch);
     soft.attributes.ean = [4005900009319, SOFT_EAN];
     yope.url = "JM00370/../koszyk";
@@ -250,6 +276,7 @@ describe("Natura search: what it keeps out", () => {
     { why: "is missing", title: undefined },
     { why: "isn't text", title: 42 },
   ])("drops a hit whose title $why, and keeps the others", async ({ title }) => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const [, yope] = hitsOf(nameSearch);
 
     const candidates = await candidatesFrom([softWith({ title }), yope]);
@@ -300,6 +327,25 @@ describe("Natura search: why it's unavailable", () => {
 
     expect(await searchNatura(gate, SOFT_EAN, 5)).toEqual({ kind: "unavailable", reason });
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  it.each<{ change: string; edit: (hit: Hit) => Hit }>([
+    {
+      change: "prices sent as text",
+      edit: (hit) => ({ ...hit, attributes: { ...hit.attributes, price_amount: "16.99" } }),
+    },
+    { change: "product links in place of the SKUs", edit: (hit) => ({ ...hit, url: SOFT_PAGE }) },
+  ])("gives up when no product hit can be read, as with $change, and logs how many", async ({ edit }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // A format change that makes every hit fail its check must not read as "Natura doesn't sell it".
+    const body = JSON.stringify({ results: { hits: hitsOf(nameSearch).map(edit) } });
+    const { gate, fetchMock } = setup([{ url: searchUrl(NAME_QUERY, 10), status: 200, body }]);
+
+    expect(await searchNatura(gate, NAME_QUERY, 10)).toEqual({ kind: "unavailable", reason: "failed" });
+    expect(requestedUrls(fetchMock)).toEqual([searchUrl(NAME_QUERY, 10)]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    const line: unknown = JSON.parse(String(warn.mock.calls[0][0]));
+    expect(line).toEqual({ event: "natura-search", reason: "hits dropped", detail: "3 of 3 product hits" });
   });
 
   it.each([

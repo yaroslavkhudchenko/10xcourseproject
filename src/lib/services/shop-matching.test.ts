@@ -84,6 +84,19 @@ describe("lookupInNatura: by EAN", () => {
     expect(await lookupInNatura(gate, soft)).toEqual({ kind: "unavailable", reason });
     expect(requestedUrls(fetchMock)).toEqual([EAN_SEARCH]);
   });
+
+  it("makes no name search when none of the EAN search's hits can be read", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // The recorded hit with its price sent as text, as if Luigi's Box had changed its format.
+    const [hit] = structuredClone(eanHit.results.hits);
+    const body = JSON.stringify({
+      results: { hits: [{ ...hit, attributes: { ...hit.attributes, price_amount: "16.99" } }] },
+    });
+    const { gate, fetchMock } = setup([{ url: EAN_SEARCH, status: 200, body }, answers.name]);
+
+    expect(await lookupInNatura(gate, soft)).toEqual({ kind: "unavailable", reason: "failed" });
+    expect(requestedUrls(fetchMock)).toEqual([EAN_SEARCH]);
+  });
 });
 
 describe("lookupInNatura: by name", () => {

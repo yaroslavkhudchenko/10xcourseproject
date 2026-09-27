@@ -178,6 +178,32 @@ const bRetry = await b.client
   .eq("id", notFound.data?.id)
   .select("id");
 check("user B can't change user A's not-found row", !bRetry.error && bRetry.data?.length === 0, show(bRetry));
+// Even its owner can't move it off their own product (the composite key) or out of their name (RLS), and a refused
+// update leaves the row as it was.
+const readNotFound = () =>
+  a.client.from("watchlist_matches").select("watchlist_item_id, user_id, state").eq("id", notFound.data?.id);
+const stillNotFound = (row) =>
+  row.data?.length === 1 &&
+  row.data[0].watchlist_item_id === aItemId &&
+  row.data[0].user_id === a.id &&
+  row.data[0].state === "not_found";
+const repointed = await a.client
+  .from("watchlist_matches")
+  .update({ watchlist_item_id: bItemId })
+  .eq("id", notFound.data?.id);
+const afterRepoint = await readNotFound();
+check(
+  "user A can't point their not-found row at user B's product",
+  repointed.error?.code === "23503" && stillNotFound(afterRepoint),
+  `update ${show(repointed)}, row ${show(afterRepoint)}`,
+);
+const handedOver = await a.client.from("watchlist_matches").update({ user_id: b.id }).eq("id", notFound.data?.id);
+const afterHandover = await readNotFound();
+check(
+  "user A can't hand their not-found row to user B",
+  handedOver.error?.code === "42501" && stillNotFound(afterHandover),
+  `update ${show(handedOver)}, row ${show(afterHandover)}`,
+);
 const retried = await a.client
   .from("watchlist_matches")
   .update({
@@ -216,6 +242,7 @@ const productRefusals = [
   ["an http product page", { product_url: "http://www.rossmann.pl/Produkt/Soft,26900,13049" }],
   ["11 EANs", { eans: Array.from({ length: 11 }, (_, i) => String(4005900009300 + i)) }],
   ["an EAN of 5 digits", { eans: ["12345"] }],
+  ["an EAN array holding a null", { eans: [null] }],
   ["a source item id containing a slash", { source_item_id: "26900/1" }],
   ["a 41-character size text", { size_text: "x".repeat(41) }],
 ];

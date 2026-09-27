@@ -2,6 +2,7 @@
 import ProductSummary from "@/components/watchlist/ProductSummary.astro";
 import Layout from "@/layouts/Layout.astro";
 import { sizesEqual } from "@/lib/services/matching";
+import { decideMatchStep } from "@/lib/services/match-step";
 import { listMatches, matchErrorMessage, recordLookup } from "@/lib/services/matches";
 import { isOwnNavigation } from "@/lib/services/search-query";
 import { shopGateFor } from "@/lib/services/shop-gate";
@@ -14,9 +15,15 @@ const { supabase } = Astro.locals;
 const params = Astro.url.searchParams;
 
 // Only a UUID reaches the database, and another user's product reads as no product at all (RLS): neither makes a shop
-// call.
+// call. The product and its stored decisions need only the id, so both are read at once; the decisions count only
+// once the product is there.
 const id = parseWatchlistItemId(Astro.params.id);
-const product = id === null ? null : supabase ? await getWatchlistProduct(supabase, id) : "failed";
+const [product, matches]: [WatchlistProduct | null | "failed", ShopMatch[] | null] =
+  id === null
+    ? [null, null]
+    : supabase
+      ? await Promise.all([getWatchlistProduct(supabase, id), listMatches(supabase, id)])
+      : ["failed", null];
 if (product === null) {
   Astro.response.status = 404;
 } else if (product === "failed") {
@@ -107,6 +114,7 @@ function optionView({ candidate, verdict }: CandidateOption, fetchedAt: Date, ow
     flags.push({ text: "Rozmiar nieznany", warning: true });
   }
   const source = `drogerienatura.pl, pobrano ${clock.format(fetchedAt)}`;
+  // Natura's candidates always have a price; the label is the fallback for shops whose prices can be missing.
   const price =
     candidate.price === null
       ? `Brak ceny online w ${source}`
@@ -120,15 +128,20 @@ let natura: NaturaView | null = null;
 let unsaved = false;
 if (supabase && product !== null && product !== "failed") {
   const pageUrl = `/watchlist/${product.id}`;
-  const matches = await listMatches(supabase, product.id);
-  const stored = matches?.find((match) => match.shop === "natura");
-  if (matches === null) {
+  const step = decideMatchStep({
+    matches,
+    shop: "natura",
+    retrying,
+    ownNavigation: isOwnNavigation(Astro.request.headers),
+  });
+  if (step.kind === "read-failed") {
     // Without the stored decision, a lookup could ask again about what the user has already settled.
     natura = { kind: "read-failed" };
-  } else if (stored !== undefined && !(retrying && stored.state === "not_found")) {
-    natura = storedView(stored, product);
-  } else if (!isOwnNavigation(Astro.request.headers)) {
-    // A link on another site must not spend the cap everyone shares: only the user's own navigation looks it up.
+  } else if (step.kind === "stored") {
+    natura = storedView(step.match, product);
+  } else if (step.kind === "prompt") {
+    // A link on another site or a prefetch must not spend the cap everyone shares: only the user's own navigation looks
+    // it up.
     natura = { kind: "prompt", href: retrying ? `${pageUrl}?retry=1` : pageUrl };
   } else {
     const lookup = await lookupInNatura(shopGateFor(supabase), product);
@@ -136,6 +149,10 @@ if (supabase && product !== null && product !== "failed") {
     if (lookup.kind === "accepted" || lookup.kind === "not-found") {
       // What the rule settles on its own is stored during this render; the user's picks go through the form.
       const result = await recordLookup(supabase, product.id, "natura", lookup);
+      if (step.retry && result === "saved") {
+        // The plain URL shows the stored outcome, so a `?retry=1` left in the address bar can't repeat the lookup.
+        return Astro.redirect(pageUrl);
+      }
       unsaved = result === "failed" || result === "gone";
       if (result === "decided") {
         // Another tab stored a decision meanwhile; it stands.

@@ -13,6 +13,20 @@ describe("isOwnNavigation", () => {
 
     expect(isOwnNavigation(headers)).toBe(own);
   });
+
+  it.each<{ request: string; headers: Record<string, string> }>([
+    {
+      request: "Chrome's address-bar prerender",
+      headers: { "Sec-Purpose": "prefetch;prerender", "Sec-Fetch-Site": "none" },
+    },
+    {
+      request: "an older browser's prefetch from this app",
+      headers: { Purpose: "prefetch", "Sec-Fetch-Site": "same-origin" },
+    },
+    { request: "a prefetch without Sec-Fetch-Site", headers: { "Sec-Purpose": "prefetch" } },
+  ])("is false for $request, which the user may never open", ({ headers }) => {
+    expect(isOwnNavigation(new Headers(headers))).toBe(false);
+  });
 });
 
 describe("searchQuerySchema", () => {
