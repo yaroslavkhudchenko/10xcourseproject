@@ -401,11 +401,11 @@ The deployed code may land before this, because no route calls the gate yet. S-0
 
 #### Automated
 
-- [x] 2.1 `npm run test` passes, covering every gate outcome
-- [x] 2.2 `npx astro sync && npx astro check` reports 0 errors
-- [x] 2.3 `npm run lint` passes
-- [x] 2.4 `npm run build` passes
-- [ ] 2.5 CI `ci` job runs `npm run test` and is green on the PR
+- [x] 2.1 `npm run test` passes, covering every gate outcome — 9d483fc
+- [x] 2.2 `npx astro sync && npx astro check` reports 0 errors — 9d483fc
+- [x] 2.3 `npm run lint` passes — 9d483fc
+- [x] 2.4 `npm run build` passes — 9d483fc
+- [x] 2.5 CI `ci` job runs `npm run test` and is green on the PR — 9d483fc
 
 ### Phase 3: Docs and production rollout
 
@@ -415,6 +415,6 @@ The deployed code may land before this, because no route calls the gate yet. S-0
 
 #### Manual
 
-- [ ] 3.2 Owner applied the migration to production with `npx supabase db push` and it reported success
-- [ ] 3.3 Supabase dashboard shows 4 `shops` rows (cap 30, enabled) and both functions; Security Advisor shows no errors
-- [ ] 3.4 CLAUDE.md updates reviewed: gate rule, test commands, migration workflow
+- [x] 3.2 Owner applied the migration to production with `npx supabase db push` and it reported success
+- [x] 3.3 Supabase dashboard shows 4 `shops` rows (cap 30, enabled) and both functions; Security Advisor shows no errors
+- [x] 3.4 CLAUDE.md updates reviewed: gate rule, test commands, migration workflow
