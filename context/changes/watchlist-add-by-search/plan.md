@@ -557,28 +557,28 @@ Record the new rules in CLAUDE.md, and prepare production before the merge: the 
 
 #### Automated
 
-- [x] 2.1 `npm run test` passes, including the adapter, size and search-text tests
-- [x] 2.2 `npx astro sync && npx astro check` reports 0 errors
-- [x] 2.3 `npm run lint` passes
-- [x] 2.4 `npm run build` passes
+- [x] 2.1 `npm run test` passes, including the adapter, size and search-text tests — b91df96
+- [x] 2.2 `npx astro sync && npx astro check` reports 0 errors — b91df96
+- [x] 2.3 `npm run lint` passes — b91df96
+- [x] 2.4 `npm run build` passes — b91df96
 
 #### Manual
 
-- [x] 2.5 Fixture review: three real Rossmann responses recorded with the gate's User-Agent at least 2 seconds apart, including a `spellCheckHint` sample and `pictures[]`, with no cookies or personal data
+- [x] 2.5 Fixture review: three real Rossmann responses recorded with the gate's User-Agent at least 2 seconds apart, including a `spellCheckHint` sample and `pictures[]`, with no cookies or personal data — b91df96
 
 ### Phase 3: Watchlist page and add flow
 
 #### Automated
 
-- [ ] 3.1 `npm run test` passes
-- [ ] 3.2 `npx astro sync && npx astro check` reports 0 errors
-- [ ] 3.3 `npm run lint` passes
-- [ ] 3.4 `npm run build` passes
+- [x] 3.1 `npm run test` passes
+- [x] 3.2 `npx astro sync && npx astro check` reports 0 errors
+- [x] 3.3 `npm run lint` passes
+- [x] 3.4 `npm run build` passes
 - [ ] 3.5 CI `ci` and `smoke` jobs are green on the PR, including the new `/watchlist` smoke steps
 
 #### Manual
 
-- [ ] 3.6 Phone-viewport walk-through against `npm run dev` with the local Supabase: sign-in lands on `/watchlist`; `nivea soft` shows results with thumbnails and sizes; a misspelling offers "Czy chodziło Ci o…"; "Dodaj" puts the product at the top of the list; adding it again shows the notice; a second user sees an empty list
+- [x] 3.6 Phone-viewport walk-through against `npm run dev` with the local Supabase: sign-in lands on `/watchlist`; `nivea soft` shows results with thumbnails and sizes; a misspelling offers "Czy chodziło Ci o…"; "Dodaj" puts the product at the top of the list; adding it again shows the notice; a second user sees an empty list
 
 ### Phase 4: Docs and production rollout
 

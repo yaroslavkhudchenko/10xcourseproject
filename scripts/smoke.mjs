@@ -32,12 +32,18 @@ async function request(path, { method = "GET", form } = {}) {
     body: form ? new URLSearchParams(form).toString() : undefined,
   });
   storeCookies(response);
-  return { status: response.status, location: response.headers.get("location") ?? "" };
+  return {
+    status: response.status,
+    location: response.headers.get("location") ?? "",
+    cacheControl: response.headers.get("cache-control") ?? "",
+  };
 }
 
+// No step searches (no `q`), so the smoke test never calls a shop.
 const steps = [
   ["home renders", () => request("/"), { status: 200 }],
   ["dashboard redirects anonymous user", () => request("/dashboard"), { status: 302, location: "/auth/signin" }],
+  ["watchlist redirects anonymous user", () => request("/watchlist"), { status: 302, location: "/auth/signin" }],
   [
     "signup creates account",
     () => request("/api/auth/signup", { method: "POST", form: { email, password } }),
@@ -51,7 +57,12 @@ const steps = [
   [
     "signin accepts correct password",
     () => request("/api/auth/signin", { method: "POST", form: { email, password } }),
-    { status: 302, location: "/" },
+    { status: 302, location: "/watchlist" },
+  ],
+  [
+    "watchlist renders for signed-in user and isn't cacheable",
+    () => request("/watchlist"),
+    { status: 200, cacheControl: "no-store" },
   ],
   ["dashboard renders for signed-in user", () => request("/dashboard"), { status: 200 }],
   ["signout clears session", () => request("/api/auth/signout", { method: "POST" }), { status: 302, location: "/" }],
@@ -63,11 +74,12 @@ for (const [name, run, expected] of steps) {
   const actual = await run();
   const ok =
     actual.status === expected.status &&
-    (expected.location === undefined || actual.location.startsWith(expected.location));
-  console.log(`${ok ? "PASS" : "FAIL"}  ${name}  -> ${actual.status} ${actual.location}`);
+    (expected.location === undefined || actual.location.startsWith(expected.location)) &&
+    (expected.cacheControl === undefined || actual.cacheControl.includes(expected.cacheControl));
+  console.log(`${ok ? "PASS" : "FAIL"}  ${name}  -> ${actual.status} ${actual.location || actual.cacheControl}`);
   if (!ok) {
     failed++;
-    console.log(`      expected ${expected.status} ${expected.location ?? ""}`);
+    console.log(`      expected ${expected.status} ${expected.location ?? ""} ${expected.cacheControl ?? ""}`);
   }
 }
 

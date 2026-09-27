@@ -1,0 +1,188 @@
+---
+import ProductSummary from "@/components/watchlist/ProductSummary.astro";
+import Layout from "@/layouts/Layout.astro";
+import { shopGateFor } from "@/lib/services/shop-gate";
+import { searchQuerySchema } from "@/lib/services/search-query";
+import { searchRossmann } from "@/lib/services/shops/rossmann";
+import { listWatchlist } from "@/lib/services/watchlist";
+
+const { user, supabase } = Astro.locals;
+const params = Astro.url.searchParams;
+const rawQuery = params.get("q");
+
+// Search runs only on submit, and only with text that may go into a shop URL.
+const parsedQuery = rawQuery === null ? null : searchQuerySchema.safeParse(rawQuery);
+const query = parsedQuery?.success ? parsedQuery.data : null;
+const invalidQuery = parsedQuery !== null && !parsedQuery.success;
+
+const [search, items] = await Promise.all([
+  query === null ? null : searchRossmann(shopGateFor(supabase), query),
+  supabase ? listWatchlist(supabase) : null,
+]);
+const watched = new Set((items ?? []).map((item) => `${item.source}:${item.sourceItemId}`));
+
+const notice = params.has("added")
+  ? "Dodano do listy."
+  : params.has("exists")
+    ? "Ten produkt jest już na Twojej liście."
+    : null;
+const error = params.get("error");
+const addedOn = new Intl.DateTimeFormat("pl-PL", { dateStyle: "long", timeZone: "Europe/Warsaw" });
+---
+
+<Layout title="Moja lista · Drogeria Radar" lang="pl">
+  <div class="bg-cosmic min-h-screen p-4 text-white sm:p-8">
+    <main class="mx-auto flex max-w-lg flex-col gap-6">
+      <header class="flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <h1 class="text-2xl font-bold">Moja lista</h1>
+          <p class="truncate text-sm text-blue-100/60">{user?.email}</p>
+        </div>
+        <form method="POST" action="/api/auth/signout">
+          <button
+            type="submit"
+            class="min-h-11 rounded-lg border border-white/20 px-3 text-sm transition-colors hover:bg-white/10"
+          >
+            Wyloguj
+          </button>
+        </form>
+      </header>
+
+      <form method="GET" action="/watchlist" role="search" class="flex flex-col gap-2">
+        <label for="q" class="text-sm text-blue-100/80">
+          Szukaj produktu
+        </label>
+        <div class="flex gap-2">
+          <input
+            id="q"
+            name="q"
+            type="search"
+            value={rawQuery ?? ""}
+            placeholder="np. nivea soft 300 ml"
+            required
+            minlength="2"
+            maxlength="80"
+            autocomplete="off"
+            enterkeyhint="search"
+            class="min-h-11 min-w-0 flex-1 rounded-lg border border-white/20 bg-white/10 px-3 text-white placeholder-white/40 focus:ring-2 focus:ring-purple-400 focus:outline-none"
+          />
+          <button
+            type="submit"
+            class="min-h-11 rounded-lg bg-purple-600 px-4 font-medium transition-colors hover:bg-purple-500"
+          >
+            Szukaj
+          </button>
+        </div>
+      </form>
+
+      {notice && (
+        <p
+          role="status"
+          class="rounded-lg border border-emerald-400/30 bg-emerald-900/30 px-3 py-2 text-sm text-emerald-200"
+        >
+          {notice}
+        </p>
+      )}
+      {error && (
+        <p role="alert" class="rounded-lg border border-red-500/30 bg-red-900/30 px-3 py-2 text-sm text-red-300">
+          {error}
+        </p>
+      )}
+      {invalidQuery && (
+        <p role="alert" class="rounded-lg border border-red-500/30 bg-red-900/30 px-3 py-2 text-sm text-red-300">
+          Wpisz od 2 do 80 znaków: litery, cyfry, spacje i znaki . , % &amp; ' + / ( ) -
+        </p>
+      )}
+      {search?.kind === "unavailable" && (
+        <p role="alert" class="rounded-lg border border-amber-400/30 bg-amber-900/30 px-3 py-2 text-sm text-amber-200">
+          Wyszukiwarka Rossmanna jest chwilowo niedostępna. Spróbuj za chwilę.
+        </p>
+      )}
+
+      {search?.kind === "results" && (
+        <section aria-labelledby="results-heading" class="flex flex-col gap-3">
+          <h2 id="results-heading" class="text-lg font-semibold">
+            Wyniki wyszukiwania
+          </h2>
+          {search.spellingHint && (
+            <p class="text-sm text-blue-100/80">
+              Czy chodziło Ci o:{" "}
+              <a href={`/watchlist?q=${encodeURIComponent(search.spellingHint)}`} class="text-purple-300 underline">
+                {search.spellingHint}
+              </a>
+              ?
+            </p>
+          )}
+          {search.candidates.length === 0 ? (
+            <p class="text-sm text-blue-100/70">Brak wyników dla „{query}”.</p>
+          ) : (
+            <ul class="flex flex-col gap-2">
+              {search.candidates.map((candidate) => (
+                <li class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
+                  <ProductSummary
+                    brand={candidate.brand}
+                    name={candidate.name}
+                    caption={candidate.caption}
+                    sizeText={candidate.sizeText}
+                    imageUrl={candidate.imageUrl}
+                  />
+                  {watched.has(`${candidate.source}:${candidate.sourceItemId}`) ? (
+                    <span class="shrink-0 text-sm text-emerald-200">Na liście</span>
+                  ) : (
+                    <form method="POST" action="/api/watchlist" class="shrink-0">
+                      <input type="hidden" name="source" value={candidate.source} />
+                      <input type="hidden" name="sourceItemId" value={candidate.sourceItemId} />
+                      <input type="hidden" name="name" value={candidate.name} />
+                      <input type="hidden" name="brand" value={candidate.brand ?? ""} />
+                      <input type="hidden" name="caption" value={candidate.caption ?? ""} />
+                      <input type="hidden" name="sizeText" value={candidate.sizeText ?? ""} />
+                      <input type="hidden" name="imageUrl" value={candidate.imageUrl ?? ""} />
+                      {candidate.eans.map((ean) => (
+                        <input type="hidden" name="eans" value={ean} />
+                      ))}
+                      <button
+                        type="submit"
+                        class="min-h-11 rounded-lg bg-purple-600 px-4 text-sm font-medium transition-colors hover:bg-purple-500"
+                      >
+                        Dodaj
+                      </button>
+                    </form>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p class="text-xs text-blue-100/50">Wyniki z wyszukiwarki rossmann.pl</p>
+        </section>
+      )}
+
+      <section aria-labelledby="list-heading" class="flex flex-col gap-3">
+        <h2 id="list-heading" class="text-lg font-semibold">
+          Obserwowane produkty
+        </h2>
+        {items === null ? (
+          <p role="alert" class="text-sm text-red-300">
+            Nie udało się wczytać listy. Odśwież stronę.
+          </p>
+        ) : items.length === 0 ? (
+          <p class="text-sm text-blue-100/70">Twoja lista jest pusta. Wyszukaj produkt powyżej.</p>
+        ) : (
+          <ul class="flex flex-col gap-2">
+            {items.map((item) => (
+              <li class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
+                <ProductSummary
+                  brand={item.brand}
+                  name={item.name}
+                  caption={item.caption}
+                  sizeText={item.sizeText}
+                  imageUrl={item.imageUrl}
+                  detail={`dodano ${addedOn.format(new Date(item.addedAt))}`}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </main>
+  </div>
+</Layout>

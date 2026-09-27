@@ -46,6 +46,20 @@ export interface ProductCandidate {
   imageUrl: string | null;
 }
 
+/** A product on the user's own watchlist, as the list shows it. */
+export interface WatchlistItem {
+  id: string;
+  source: ShopId;
+  sourceItemId: string;
+  brand: string | null;
+  name: string;
+  caption: string | null;
+  sizeText: string | null;
+  imageUrl: string | null;
+  /** When the user added it, as an ISO timestamp. */
+  addedAt: string;
+}
+
 /** What a product search came to: candidates (possibly none) with the shop's spelling hint, or unavailable. */
 export type ProductSearch =
   { kind: "results"; candidates: ProductCandidate[]; spellingHint: string | null } | { kind: "unavailable" };

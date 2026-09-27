@@ -1,8 +1,8 @@
 import type { APIRoute } from "astro";
-import { createClient } from "@/lib/supabase";
 
 export const POST: APIRoute = async (context) => {
-  const supabase = createClient(context.request.headers, context.cookies);
+  // The middleware's client, so the cache headers that come with the cleared session cookies reach this response.
+  const supabase = context.locals.supabase;
   if (supabase) {
     await supabase.auth.signOut();
   }
