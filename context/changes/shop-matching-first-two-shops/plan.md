@@ -672,11 +672,11 @@ Where the shipped code differs from the phase contracts above, and why. The phas
 
 #### Automated
 
-- [ ] 4.1 CI `ci` and `smoke` jobs are green on the PR after the documentation changes
-- [x] 4.2 `npx supabase migration list --linked` shows the matches migration with a remote version
+- [x] 4.1 CI `ci` and `smoke` jobs are green on the PR after the documentation changes — a7f31ce
+- [x] 4.2 `npx supabase migration list --linked` shows the matches migration with a remote version — a7f31ce
 
 #### Manual
 
-- [x] 4.3 Owner ran `npx supabase db push` (the dry run listed only the matches migration) and it reported success
-- [x] 4.4 Supabase dashboard shows `watchlist_matches` with RLS on and its three policies; Security Advisor shows no errors
-- [x] 4.5 CLAUDE.md updates reviewed
+- [x] 4.3 Owner ran `npx supabase db push` (the dry run listed only the matches migration) and it reported success — a7f31ce
+- [x] 4.4 Supabase dashboard shows `watchlist_matches` with RLS on and its three policies; Security Advisor shows no errors — a7f31ce
+- [x] 4.5 CLAUDE.md updates reviewed — a7f31ce
