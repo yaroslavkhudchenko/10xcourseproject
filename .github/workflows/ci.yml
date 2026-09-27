@@ -48,6 +48,10 @@ jobs:
         run: |
           source supabase.env
           SUPABASE_URL="$API_URL" SUPABASE_KEY="$ANON_KEY" node scripts/check-shop-gate-db.mjs
+      - name: Check watchlist database contract
+        run: |
+          source supabase.env
+          SUPABASE_URL="$API_URL" SUPABASE_KEY="$ANON_KEY" node scripts/check-watchlist-db.mjs
       - run: npm run build
       - name: Run smoke test against production preview
         run: |

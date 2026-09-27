@@ -1,0 +1,329 @@
+{
+  "data": {
+    "filters": {
+      "categories": [],
+      "price": {
+        "min": 0,
+        "max": 0
+      },
+      "facets": []
+    },
+    "items": [],
+    "recommendedProducts": [
+      {
+        "brand": "Isana",
+        "brandId": 4691,
+        "caption": "płatki kosmetyczne",
+        "fallbackName": "Płatki kosmetyczne",
+        "unit": "140 szt.",
+        "averageRating": 4.85,
+        "totalReviews": 2437,
+        "id": 235164,
+        "rossnetId": 378474,
+        "eanNumber": ["4305615438061"],
+        "navigateUrl": "/Produkt/Waciki/Isana-platki-kosmetyczne-140-szt,235164,13172",
+        "name": "",
+        "oldPrice": 3.69,
+        "price": 3.19,
+        "pricePerUnit": "1 szt. = 0,02 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/235164_55_71_1785584610.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/235164_360_350_1785584613.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/235164_338_190_1785584612.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/235164_1280_720_1785584620.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/235164_340_340_1785584622.png",
+            "type": 1,
+            "alt": "Opakowanie płatków kosmetycznych Isana 100% bawełny, 140 sztuk, biało-fioletowe, z grafiką bawełny. Widok z przodu.",
+            "side": "Front"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/235164_55_71_1765182474.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/235164_360_350_1765182477.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/235164_338_190_1765182475.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/235164_1280_720_1765182480.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/235164_340_340_1765182478.png",
+            "type": 0,
+            "alt": "Tył opakowania Isana, 140 sztuk bezchlorowych płatków kosmetycznych. Biała torebka z fioletowym wzorem, widoczne informacje i kod.",
+            "side": "Back"
+          }
+        ],
+        "promotion": {
+          "type": "rossmann",
+          "redirectUrl": "/produkty?Statuses=rossmann"
+        },
+        "promotionFrom": "2026-09-24T00:00:00",
+        "promotionTo": "2026-10-07T00:00:00",
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Pielęgnacja i higiena-Artykuły higieniczne-Waciki",
+        "attributes": [
+          {
+            "type": "rossmann",
+            "redirectUrl": "/produkty?Statuses=rossmann"
+          },
+          {
+            "type": "promoAll",
+            "redirectUrl": "/produkty?Statuses=promoAll"
+          },
+          {
+            "type": "promoNew",
+            "redirectUrl": "/produkty?Statuses=promoNew"
+          }
+        ],
+        "lastLowestPrice": 3.69,
+        "lastLowestPriceType": "basic",
+        "lastLowestPriceV2": 3.69,
+        "lastLowestPriceTypeV2": "basic",
+        "badges": [
+          {
+            "type": "rossmann",
+            "name": "TYLKO U NAS",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Statuses=rossmann",
+              "relative": "/produkty?Statuses=rossmann"
+            }
+          }
+        ],
+        "isInOut": false
+      },
+      {
+        "brand": "Alouette",
+        "brandId": 2353,
+        "caption": "papier toaletowy, 3-warstwowy",
+        "fallbackName": "Papier toaletowy",
+        "fallbackCaption": "3-warstwowy",
+        "unit": "16 szt.",
+        "averageRating": 4.9,
+        "totalReviews": 3920,
+        "id": 66173,
+        "rossnetId": 101923,
+        "eanNumber": ["4047196066669", "4047196061886", "4047196046340", "4305615028460"],
+        "navigateUrl": "/Produkt/Papiery-toaletowe/Alouette-Classic-papier-toaletowy-3-warstwowy-16-szt,66173,19236",
+        "name": "Classic ",
+        "price": 21.99,
+        "pricePerUnit": "1 szt. = 1,37 zł",
+        "vat": 23,
+        "dimensional": 1,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/66173_55_71_1785568444.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/66173_360_350_1785568491.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/66173_338_190_1785568481.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/66173_1280_720_1785568539.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/66173_340_340_1785568508.png",
+            "type": 1,
+            "alt": "Niebieskie opakowanie Alouette, papier toaletowy 3-warstwowy Jumbo Pack, 16 rolek, miękki, widok z przodu.",
+            "side": "Front"
+          },
+          {
+            "id": 3,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_mini/66173_55_71_1776431558.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_medium/66173_360_350_1776431588.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_small/66173_338_190_1776431580.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_large/66173_1280_720_1776431622.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_square/66173_340_340_1776431596.png",
+            "type": 0,
+            "alt": "Alouette Jumbo Pack 3-warstwowy papier toaletowy, 16 rolek, miękki i wytrzymały. Niebiesko-żółte opakowanie, widok z przodu.",
+            "side": "Left"
+          }
+        ],
+        "promotion": {
+          "type": "rossmann",
+          "redirectUrl": "/produkty?Statuses=rossmann"
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Dom i ogród-Artykuły papierowe-Papiery toaletowe",
+        "attributes": [
+          {
+            "type": "rossmann",
+            "redirectUrl": "/produkty?Statuses=rossmann"
+          },
+          {
+            "type": "clickAndCollectBagExcluded",
+            "redirectUrl": "/produkty?Statuses=clickAndCollectBagExcluded"
+          }
+        ],
+        "badges": [
+          {
+            "type": "rossmann",
+            "name": "TYLKO U NAS",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Statuses=rossmann",
+              "relative": "/produkty?Statuses=rossmann"
+            }
+          }
+        ],
+        "isInOut": false
+      },
+      {
+        "brand": "Purina Felix",
+        "brandId": 10210,
+        "caption": "karma pełnoporcjowa mokra dla dorosłych kotów, Wiejskie Smaki, 2 x Kurczak, 2 x Wołowina, w galaretce",
+        "fallbackName": "Karma pełnoporcjowa mokra dla dorosłych kotów",
+        "fallbackCaption": "Wiejskie Smaki, 2 x Kurczak, 2 x Wołowina, w galaretce",
+        "unit": "4 x 85 g",
+        "averageRating": 4.84,
+        "totalReviews": 537,
+        "id": 131225,
+        "rossnetId": 107940,
+        "eanNumber": ["7613039778074", "7613033019425", "7613036429191", "7613033379734"],
+        "navigateUrl": "/Produkt/Mokre/Purina-Felix-Fantastic-karma-pelnoporcjowa-mokra-dla-doroslych-kotow-Wiejskie-Smaki-2-x-Kurczak-2,131225,19121",
+        "name": "Fantastic ",
+        "oldPrice": 9.99,
+        "price": 5.99,
+        "pricePerUnit": "100 g = 1,76 zł",
+        "vat": 8,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/131225_55_71_1786343780.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/131225_360_350_1786343785.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/131225_338_190_1786343781.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/131225_1280_720_1786343789.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/131225_340_340_1786343794.png",
+            "type": 1,
+            "alt": "Niebieska saszetka karmy Felix Fantastic dla kota, czarno-biały kot wychyla się z opakowania, obok miska z jedzeniem.",
+            "side": "Front"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/131225_55_71_1786343798.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/131225_360_350_1786343802.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/131225_338_190_1786343799.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/131225_1280_720_1786343806.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/131225_340_340_1786343810.png",
+            "type": 0,
+            "alt": "Tył ciemnoniebieskiego opakowania karmy dla kota Felix Fantastic, 4x85g. Widoczne składniki, kod i logo Purina.",
+            "side": "Back"
+          }
+        ],
+        "promotion": {
+          "type": "mega",
+          "redirectUrl": "/produkty?Statuses=mega"
+        },
+        "promotionFrom": "2026-09-17T00:00:00",
+        "promotionTo": "2026-09-30T00:00:00",
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Zwierzęta-Koty-Karmy-Mokre",
+        "attributes": [
+          {
+            "type": "mega",
+            "redirectUrl": "/produkty?Statuses=mega"
+          },
+          {
+            "type": "promoAll",
+            "redirectUrl": "/produkty?Statuses=promoAll"
+          }
+        ],
+        "lastLowestPrice": 6.39,
+        "lastLowestPriceType": "basic",
+        "lastLowestPriceV2": 6.39,
+        "lastLowestPriceTypeV2": "basic",
+        "badges": [
+          {
+            "type": "mega",
+            "name": "MEGA!",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Discounts=mega",
+              "relative": "/produkty?Discounts=mega"
+            }
+          }
+        ],
+        "isInOut": false
+      },
+      {
+        "brand": "Ideenwelt",
+        "brandId": 4664,
+        "caption": "parasol składany, mini, Czarny",
+        "fallbackName": "Parasol składany",
+        "fallbackCaption": "mini, Czarny",
+        "unit": "1 szt.",
+        "averageRating": 4.63,
+        "totalReviews": 443,
+        "id": 17420,
+        "rossnetId": 99687,
+        "eanNumber": [
+          "4068134095442",
+          "4305615912042",
+          "4305615514673",
+          "4305615514727",
+          "4305615400532",
+          "4305615455020",
+          "4305615330518",
+          "4305615216423",
+          "4305615035710",
+          "4305615800219",
+          "4047196150337",
+          "4063057000009"
+        ],
+        "navigateUrl": "/Produkt/Parasole/Ideenwelt-parasol-skladany-mini-Czarny-1-szt,17420,19293",
+        "name": "",
+        "price": 17.99,
+        "pricePerUnit": "1 szt. = 17,99 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/17420_55_71_1782443274.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/17420_360_350_1782443278.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/17420_338_190_1782443274.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/17420_1280_720_1782443280.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/17420_340_340_1782443284.png",
+            "type": 2,
+            "alt": "Czarny składany parasol, kompaktowy, widok pod kątem na złożoną konstrukcję metalową, idealny na podróż.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/17420_55_71_1788968540.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/17420_360_350_1788968541.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/17420_338_190_1788968540.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/17420_1280_720_1788968545.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/17420_340_340_1788968546.png",
+            "type": 1,
+            "alt": "Złożony czarny parasol podróżny z materiałową pętlą na rączce, widok pionowy na ciemnym tle.",
+            "side": "Front"
+          }
+        ],
+        "promotion": {
+          "type": "rossmann",
+          "redirectUrl": "/produkty?Statuses=rossmann"
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Lifestyle-Odzież i dodatki-Parasole",
+        "attributes": [
+          {
+            "type": "rossmann",
+            "redirectUrl": "/produkty?Statuses=rossmann"
+          }
+        ],
+        "badges": [
+          {
+            "type": "rossmann",
+            "name": "TYLKO U NAS",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Statuses=rossmann",
+              "relative": "/produkty?Statuses=rossmann"
+            }
+          }
+        ],
+        "isInOut": false
+      }
+    ],
+    "totalPages": 0,
+    "totalCount": 0,
+    "correlationId": "011880bf6be24941fcd92495c5a568b1",
+    "spellCheckHint": ""
+  }
+}
