@@ -73,8 +73,14 @@ const astroConfig = defineConfig({
 const scriptsConfig = defineConfig({
   files: ["scripts/**/*.mjs"],
   extends: [tseslint.configs.disableTypeChecked],
-  languageOptions: { globals: { console: true, process: true, fetch: true, URLSearchParams: true } },
+  languageOptions: { globals: { console: true, process: true, fetch: true, URL: true, URLSearchParams: true } },
   rules: { "no-console": "off" },
+});
+
+// unbound-method reads expect(mock.fn) assertions as detached methods, but a vi.fn() mock never relies on `this`.
+const testConfig = defineConfig({
+  files: ["**/*.test.ts"],
+  rules: { "@typescript-eslint/unbound-method": "off" },
 });
 
 export default defineConfig(
@@ -87,5 +93,6 @@ export default defineConfig(
   eslintPluginAstro.configs["flat/jsx-a11y-recommended"],
   astroConfig,
   scriptsConfig,
+  testConfig,
   eslintPluginPrettier,
 );

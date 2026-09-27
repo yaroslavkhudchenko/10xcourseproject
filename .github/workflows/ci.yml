@@ -19,6 +19,7 @@ jobs:
       - run: npx astro sync
       - run: npm run lint
       - run: npx astro check
+      - run: npm run test
       - run: npm run build
 
   smoke:
@@ -31,7 +32,8 @@ jobs:
           cache: npm
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned: CLI releases change config keys (auto_expose_new_tables is removed on 2026-10-30).
+          version: 2.117.0
       - run: npm ci
       - name: Start local Supabase
         run: |
@@ -42,6 +44,10 @@ jobs:
           source supabase.env
           printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\n' "$API_URL" "$ANON_KEY" > .env
           cp .env .dev.vars
+      - name: Check shop gate database contract
+        run: |
+          source supabase.env
+          SUPABASE_URL="$API_URL" SUPABASE_KEY="$ANON_KEY" node scripts/check-shop-gate-db.mjs
       - run: npm run build
       - name: Run smoke test against production preview
         run: |
