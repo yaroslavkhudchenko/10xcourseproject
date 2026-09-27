@@ -570,15 +570,15 @@ Record the new rules in CLAUDE.md, and prepare production before the merge: the 
 
 #### Automated
 
-- [x] 3.1 `npm run test` passes
-- [x] 3.2 `npx astro sync && npx astro check` reports 0 errors
-- [x] 3.3 `npm run lint` passes
-- [x] 3.4 `npm run build` passes
-- [ ] 3.5 CI `ci` and `smoke` jobs are green on the PR, including the new `/watchlist` smoke steps
+- [x] 3.1 `npm run test` passes — 15c0ffc
+- [x] 3.2 `npx astro sync && npx astro check` reports 0 errors — 15c0ffc
+- [x] 3.3 `npm run lint` passes — 15c0ffc
+- [x] 3.4 `npm run build` passes — 15c0ffc
+- [x] 3.5 CI `ci` and `smoke` jobs are green on the PR, including the new `/watchlist` smoke steps — 15c0ffc
 
 #### Manual
 
-- [x] 3.6 Phone-viewport walk-through against `npm run dev` with the local Supabase: sign-in lands on `/watchlist`; `nivea soft` shows results with thumbnails and sizes; a misspelling offers "Czy chodziło Ci o…"; "Dodaj" puts the product at the top of the list; adding it again shows the notice; a second user sees an empty list
+- [x] 3.6 Phone-viewport walk-through against `npm run dev` with the local Supabase: sign-in lands on `/watchlist`; `nivea soft` shows results with thumbnails and sizes; a misspelling offers "Czy chodziło Ci o…"; "Dodaj" puts the product at the top of the list; adding it again shows the notice; a second user sees an empty list — 15c0ffc
 
 ### Phase 4: Docs and production rollout
 
@@ -588,7 +588,7 @@ Record the new rules in CLAUDE.md, and prepare production before the merge: the 
 
 #### Manual
 
-- [ ] 4.2 Workers Paid plan is active on the account
-- [ ] 4.3 Owner ran `npx supabase db push` (the dry run listed only the watchlist migration) and it reported success
-- [ ] 4.4 Supabase dashboard shows `watchlist_items` with RLS on and its two policies; Security Advisor shows no errors
-- [ ] 4.5 CLAUDE.md updates reviewed
+- [x] 4.2 Workers Paid plan is active on the account
+- [x] 4.3 Owner ran `npx supabase db push` (the dry run listed only the watchlist migration) and it reported success
+- [x] 4.4 Supabase dashboard shows `watchlist_items` with RLS on and its two policies; Security Advisor shows no errors
+- [x] 4.5 CLAUDE.md updates reviewed
