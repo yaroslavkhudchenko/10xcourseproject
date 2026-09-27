@@ -39,17 +39,17 @@ A shopper who buys the same drugstore products again and again checks two or thr
 
 ## At a glance
 
-| ID   | Change ID                     | Outcome (user can …)                                                        | Prerequisites | PRD refs                                                                                                               | Status      |
-| ---- | ----------------------------- | --------------------------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------- |
-| F-01 | polite-shop-access            | (foundation) every shop call obeys a deployment-wide cap and stops on block | —             | NFR polite to the shops                                                                                                | done        |
-| S-01 | watchlist-add-by-search       | search a product by name and size and add it to their private watchlist     | F-01          | FR-003, FR-004, FR-005, NFR private watchlists                                                                         | in-progress |
-| S-02 | shop-matching-first-two-shops | confirm the matching item in the first two shops once                       | S-01          | US-02, FR-006, FR-013                                                                                                  | proposed    |
-| S-03 | cheapest-shop-today           | open a watched product and see which shop is cheapest today                 | S-02          | US-01, FR-008, FR-010, FR-011, NFR per-shop feedback, NFR price age, NFR phone-usable, Guardrail failed prices visible | proposed    |
-| S-04 | good-price-judgement          | see whether today's price is a good one                                     | S-03          | FR-012                                                                                                                 | blocked     |
-| S-05 | hebe-in-comparison            | match their products in Hebe and see Hebe in the comparison                 | S-03, F-01    | US-02, FR-006, FR-013                                                                                                  | proposed    |
-| S-06 | super-pharm-in-comparison     | match their products in Super-Pharm and see it in the comparison            | S-03, F-01    | US-02, FR-006, FR-013                                                                                                  | proposed    |
-| S-07 | invite-only-access            | sign in with an owner-added account; nobody can register themselves         | —             | FR-001, FR-002                                                                                                         | ready       |
-| S-08 | fix-matches-and-watchlist     | re-pin or remove a wrong match and remove a product safely                  | S-02          | FR-007, FR-005                                                                                                         | proposed    |
+| ID   | Change ID                     | Outcome (user can …)                                                        | Prerequisites | PRD refs                                                                                                               | Status   |
+| ---- | ----------------------------- | --------------------------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- | -------- |
+| F-01 | polite-shop-access            | (foundation) every shop call obeys a deployment-wide cap and stops on block | —             | NFR polite to the shops                                                                                                | done     |
+| S-01 | watchlist-add-by-search       | search a product by name and size and add it to their private watchlist     | F-01          | FR-003, FR-004, FR-005, NFR private watchlists                                                                         | done     |
+| S-02 | shop-matching-first-two-shops | confirm the matching item in the first two shops once                       | S-01          | US-02, FR-006, FR-013                                                                                                  | proposed |
+| S-03 | cheapest-shop-today           | open a watched product and see which shop is cheapest today                 | S-02          | US-01, FR-008, FR-010, FR-011, NFR per-shop feedback, NFR price age, NFR phone-usable, Guardrail failed prices visible | proposed |
+| S-04 | good-price-judgement          | see whether today's price is a good one                                     | S-03          | FR-012                                                                                                                 | blocked  |
+| S-05 | hebe-in-comparison            | match their products in Hebe and see Hebe in the comparison                 | S-03, F-01    | US-02, FR-006, FR-013                                                                                                  | proposed |
+| S-06 | super-pharm-in-comparison     | match their products in Super-Pharm and see it in the comparison            | S-03, F-01    | US-02, FR-006, FR-013                                                                                                  | proposed |
+| S-07 | invite-only-access            | sign in with an owner-added account; nobody can register themselves         | —             | FR-001, FR-002                                                                                                         | ready    |
+| S-08 | fix-matches-and-watchlist     | re-pin or remove a wrong match and remove a product safely                  | S-02          | FR-007, FR-005                                                                                                         | proposed |
 
 ## Streams
 
@@ -102,7 +102,7 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **Unknowns:**
   - How are misspelled product names handled, and does search run live as you type or on submit? (PRD Open Question 3) — Owner: user. Block: no. Plan a default and confirm it during planning.
 - **Risk:** This is the first slice that stores personal data, so watchlist privacy has to hold from its very first row.
-- **Status:** in-progress
+- **Status:** done
 
 ### S-02: Match the product in the first two shops
 
@@ -247,3 +247,4 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 (Empty on first generation. `/10x-archive` appends an entry here, and flips the item's `Status` to `done`, when a change with a matching `Change ID` is archived.)
 
 - **F-01: (foundation) Every request the deployment sends to a shop passes one gate. The gate enforces a per-shop request cap across the whole deployment and stops calling a shop that blocks or asks. Shop lookups can be exercised against recorded shop responses, never live shops, in the automated checks.** — Archived 2026-09-27 → `context/archive/2026-09-26-polite-shop-access/`. Lesson: —.
+- **S-01: user can search a product by name and size, pick the right one from the results, and find it on their private watchlist.** — Archived 2026-09-27 → `context/archive/2026-09-27-watchlist-add-by-search/`. Lesson: —.
