@@ -621,6 +621,8 @@ Where the shipped code differs from the phase contracts above, and why. The phas
   - A failed product read answers 503 with Polish text.
   - A decision stored meanwhile in another tab shows "Ten produkt ma już zapisaną decyzję."
   - The list's "Dodano do listy." notice is gone, because "Dodaj" now lands on the product page.
+- **Phase 4, two migrations reached production:** `20260927184936_watchlist_matches.sql` and `20260927204417_watchlist_items_product_url.sql`, pushed by the owner on 2026-09-27 before the merge. `npx supabase migration list --linked` then showed both with a remote version. Progress 4.2 and 4.3 name only "the matches migration" because step titles don't change; they cover both.
+- **Phase 4, CLAUDE.md:** besides the planned notes, the adapter facts got their own "Shops and matching" bullet. It also says that a new Natura tracker id means updating the Natura tests' expected URLs, which pin it. The null-client bullet now names the product page and its route, and the Data bullet says the table checks mirror `PRODUCT_LIMITS`.
 
 ## Progress
 
@@ -656,25 +658,25 @@ Where the shipped code differs from the phase contracts above, and why. The phas
 
 #### Automated
 
-- [x] 3.1 `npm run test` passes
-- [x] 3.2 `npx astro sync && npx astro check` reports 0 errors
-- [x] 3.3 `npm run lint` passes
-- [x] 3.4 `npm run build` passes
-- [ ] 3.5 CI `ci` and `smoke` jobs are green on the PR, including the new product-page smoke steps
+- [x] 3.1 `npm run test` passes — eee8536
+- [x] 3.2 `npx astro sync && npx astro check` reports 0 errors — eee8536
+- [x] 3.3 `npm run lint` passes — eee8536
+- [x] 3.4 `npm run build` passes — eee8536
+- [x] 3.5 CI `ci` and `smoke` jobs are green on the PR, including the new product-page smoke steps — eee8536
 
 #### Manual
 
-- [x] 3.6 Phone-viewport walk-through against `npm run dev` with the local Supabase: adding Nivea Soft 300 ml lands on its page with Natura matched automatically; a product Natura lists differently shows candidates with the size flag and a labelled price; "To ten produkt" and "Żaden z nich" are remembered on reopening with no new lookup; "Szukaj ponownie" retries a not-found product; the list shows each product's Natura status; a second user sees none of the first user's products or matches
+- [x] 3.6 Phone-viewport walk-through against `npm run dev` with the local Supabase: adding Nivea Soft 300 ml lands on its page with Natura matched automatically; a product Natura lists differently shows candidates with the size flag and a labelled price; "To ten produkt" and "Żaden z nich" are remembered on reopening with no new lookup; "Szukaj ponownie" retries a not-found product; the list shows each product's Natura status; a second user sees none of the first user's products or matches — eee8536
 
 ### Phase 4: Docs and production rollout
 
 #### Automated
 
 - [ ] 4.1 CI `ci` and `smoke` jobs are green on the PR after the documentation changes
-- [ ] 4.2 `npx supabase migration list --linked` shows the matches migration with a remote version
+- [x] 4.2 `npx supabase migration list --linked` shows the matches migration with a remote version
 
 #### Manual
 
-- [ ] 4.3 Owner ran `npx supabase db push` (the dry run listed only the matches migration) and it reported success
-- [ ] 4.4 Supabase dashboard shows `watchlist_matches` with RLS on and its three policies; Security Advisor shows no errors
-- [ ] 4.5 CLAUDE.md updates reviewed
+- [x] 4.3 Owner ran `npx supabase db push` (the dry run listed only the matches migration) and it reported success
+- [x] 4.4 Supabase dashboard shows `watchlist_matches` with RLS on and its three policies; Security Advisor shows no errors
+- [x] 4.5 CLAUDE.md updates reviewed
