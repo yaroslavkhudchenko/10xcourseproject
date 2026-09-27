@@ -565,6 +565,14 @@ Where the shipped code differs from the phase contracts above, and why. The phas
 - **F7, error codes:** `/api/watchlist` redirects with `error=invalid`, `failed` or `config`, and the page shows only its own text for those codes. A body that isn't a form counts as invalid.
 - **F8, shop ids:** `SHOP_IDS` in `src/types.ts` is the one list behind `ShopId`, the gate's `SHOP_HOSTS` and the row schema. The seed rows of `public.shops` stay a separate copy, and the foreign key checks them. The list query parses rows one at a time, and drops and logs any that don't fit.
 
+### Production rollout
+
+- **The migration reached production after the merge.** Progress 4.3 and 4.4 were confirmed before the merge, but the push hadn't applied `20260927145051`.
+  - After the merge, every list and add on production failed with PGRST205 ("Could not find the table 'public.watchlist_items' in the schema cache"), and `npx supabase migration list --linked` showed no remote version.
+  - `notify pgrst, 'reload schema'` changed nothing, since the table didn't exist.
+  - The owner pushed the migration on 2026-09-27, and listing and adding then worked on production.
+- **Rule since then** (CLAUDE.md, Data): after the owner's push, `npx supabase migration list --linked` must show the new migration's remote version before the PR that needs it merges.
+
 ### For S-02 and later (review F10)
 
 - **`source_item_id` in URLs:** the add route checks only its format. Validate and encode it wherever it goes into a shop URL.
