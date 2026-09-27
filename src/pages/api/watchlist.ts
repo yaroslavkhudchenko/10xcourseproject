@@ -2,11 +2,12 @@ import type { APIRoute } from "astro";
 import { addToWatchlist, parseWatchlistForm, type WatchlistError } from "@/lib/services/watchlist";
 
 /** Back to the watchlist with a notice, or with an error code the page turns into its own text. */
-function backToWatchlist(result: "added=1" | "exists=1" | `error=${WatchlistError}`): string {
+function backToWatchlist(result: "exists=1" | `error=${WatchlistError}`): string {
   return `/watchlist?${result}`;
 }
 
-// "Dodaj" from the search results. It stores the posted product for the signed-in user and makes no shop request.
+// "Dodaj" from the search results. It stores the posted product for the signed-in user and makes no shop request;
+// the product's page, where it lands, settles its match in Natura.
 export const POST: APIRoute = async (context) => {
   const supabase = context.locals.supabase;
   if (!supabase) {
@@ -25,11 +26,12 @@ export const POST: APIRoute = async (context) => {
   }
 
   const result = await addToWatchlist(supabase, candidate);
-  if (result === "added") {
-    return context.redirect(backToWatchlist("added=1"));
-  }
   if (result === "exists") {
     return context.redirect(backToWatchlist("exists=1"));
   }
-  return context.redirect(backToWatchlist("error=failed"));
+  if (result === "failed") {
+    return context.redirect(backToWatchlist("error=failed"));
+  }
+  // The id is the UUID the database gave the new row.
+  return context.redirect(`/watchlist/${result.id}`);
 };

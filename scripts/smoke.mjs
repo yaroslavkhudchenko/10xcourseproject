@@ -20,13 +20,14 @@ function storeCookies(response) {
   }
 }
 
-async function request(path, { method = "GET", form } = {}) {
+// Every request comes from the app's own origin unless a step says otherwise.
+async function request(path, { method = "GET", form, origin = BASE_URL } = {}) {
   const response = await fetch(BASE_URL + path, {
     method,
     redirect: "manual",
     headers: {
       Cookie: cookieHeader(),
-      Origin: BASE_URL,
+      Origin: origin,
       ...(form ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
     },
     body: form ? new URLSearchParams(form).toString() : undefined,
@@ -39,11 +40,16 @@ async function request(path, { method = "GET", form } = {}) {
   };
 }
 
-// No step searches (no `q`), so the smoke test never calls a shop.
+// A product id no one has: its page answers 404 before any lookup.
+const missingProductId = "00000000-0000-4000-8000-000000000000";
+const missingProduct = `/watchlist/${missingProductId}`;
+
+// No step searches (no `q`) or opens a product that exists, so the smoke test never calls a shop.
 const steps = [
   ["home renders", () => request("/"), { status: 200 }],
   ["dashboard redirects anonymous user", () => request("/dashboard"), { status: 302, location: "/auth/signin" }],
   ["watchlist redirects anonymous user", () => request("/watchlist"), { status: 302, location: "/auth/signin" }],
+  ["product page redirects anonymous user", () => request(missingProduct), { status: 302, location: "/auth/signin" }],
   [
     "signup creates account",
     () => request("/api/auth/signup", { method: "POST", form: { email, password } }),
@@ -64,6 +70,19 @@ const steps = [
     () => request("/watchlist"),
     { status: 200, cacheControl: "no-store" },
   ],
+  [
+    // Astro's checkOrigin is the decision route's only defence against a form posted from another site.
+    "decision form posted from another site is refused",
+    () =>
+      request("/api/watchlist/matches", {
+        method: "POST",
+        form: { itemId: missingProductId, shop: "natura", action: "decline" },
+        origin: "https://evil.example",
+      }),
+    { status: 403 },
+  ],
+  ["product page answers 404 for a product that doesn't exist", () => request(missingProduct), { status: 404 }],
+  ["product page answers 404 for an id that isn't a UUID", () => request("/watchlist/not-a-uuid"), { status: 404 }],
   ["dashboard renders for signed-in user", () => request("/dashboard"), { status: 200 }],
   ["signout clears session", () => request("/api/auth/signout", { method: "POST" }), { status: 302, location: "/" }],
   ["dashboard redirects after signout", () => request("/dashboard"), { status: 302, location: "/auth/signin" }],

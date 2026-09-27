@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isOwnNavigation, searchQuerySchema } from "@/lib/services/search-query";
+import { isOwnNavigation, searchQuerySchema, toShopQuery } from "@/lib/services/search-query";
 
 describe("isOwnNavigation", () => {
   it.each([
@@ -12,6 +12,20 @@ describe("isOwnNavigation", () => {
     const headers = new Headers(site === null ? {} : { "Sec-Fetch-Site": site });
 
     expect(isOwnNavigation(headers)).toBe(own);
+  });
+
+  it.each<{ request: string; headers: Record<string, string> }>([
+    {
+      request: "Chrome's address-bar prerender",
+      headers: { "Sec-Purpose": "prefetch;prerender", "Sec-Fetch-Site": "none" },
+    },
+    {
+      request: "an older browser's prefetch from this app",
+      headers: { Purpose: "prefetch", "Sec-Fetch-Site": "same-origin" },
+    },
+    { request: "a prefetch without Sec-Fetch-Site", headers: { "Sec-Purpose": "prefetch" } },
+  ])("is false for $request, which the user may never open", ({ headers }) => {
+    expect(isOwnNavigation(new Headers(headers))).toBe(false);
   });
 });
 
@@ -35,5 +49,32 @@ describe("searchQuerySchema", () => {
     { input: "nivea; drop table", why: "a semicolon" },
   ])("rejects text that is $why", ({ input }) => {
     expect(searchQuerySchema.safeParse(input).success).toBe(false);
+  });
+});
+
+describe("toShopQuery", () => {
+  it.each([
+    { text: "NIVEA Soft 300 ml", query: "NIVEA Soft 300 ml" },
+    { text: "Ziaja Masło kakaowe żel pod prysznic 0,5 l", query: "Ziaja Masło kakaowe żel pod prysznic 0,5 l" },
+    { text: "L'Oréal Men Expert krem SPF 50+ (4,8 g)", query: "L'Oréal Men Expert krem SPF 50+ (4,8 g)" },
+    { text: "NIVEA; Soft <300 ml>", query: "NIVEA Soft 300 ml" },
+    { text: "  Bielenda®  krem — 50 ml  ", query: "Bielenda krem 50 ml" },
+  ])("makes $text into $query", ({ text, query }) => {
+    expect(toShopQuery(text)).toBe(query);
+  });
+
+  it("cuts text over 80 characters after the last whole word that fits", () => {
+    const text = "Krem nawilżający do twarzy i ciała z olejkiem jojoba oraz witaminą E dla całej rodziny, 300 ml";
+
+    expect(toShopQuery(text)).toBe("Krem nawilżający do twarzy i ciała z olejkiem jojoba oraz witaminą E dla całej");
+  });
+
+  it.each([
+    { text: "", why: "empty" },
+    { text: "x", why: "too short" },
+    { text: "<>;", why: "only characters a shop URL can't take" },
+    { text: "x".repeat(81), why: "one word over 80 characters" },
+  ])("gives null for text that is $why", ({ text }) => {
+    expect(toShopQuery(text)).toBeNull();
   });
 });

@@ -1,11 +1,15 @@
 import { z } from "astro/zod";
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import type { ShopGate } from "@/lib/services/shop-gate";
+import { gateUnavailable } from "@/lib/services/shops/shop-outcome";
 import { parseSize } from "@/lib/services/size";
-import type { GateOutcome, ProductCandidate, ProductSearch } from "@/types";
+import type { ProductCandidate, ProductSearch } from "@/types";
 
 // Rossmann's own product search (research note §2.1): text only, one page of up to 24 items, several EANs per item.
 const SEARCH_URL = "https://www.rossmann.pl/products/v4/api/Products";
+// Each item's `navigateUrl` is a path on this site, such as "/Produkt/Kremy-do-twarzy/NIVEA-Soft-…,26900,13049".
+const SITE_URL = "https://www.rossmann.pl";
+const SITE_HOST = "www.rossmann.pl";
 const PAGE_SIZE = 24;
 // A search the user waits for gives up after 5 s, well inside the gate's own 8 s limit.
 const SEARCH_TIMEOUT_MS = 5000;
@@ -22,6 +26,8 @@ const itemSchema = z.object({
   unit: z.string().nullish(),
   eanNumber: z.array(z.unknown()).nullish(),
   pictures: z.array(z.unknown()).nullish(),
+  // Checked on its own too: an odd or missing one costs only the link.
+  navigateUrl: z.unknown().optional(),
 });
 const responseSchema = z.object({
   data: z.object({ items: z.array(z.unknown()), spellCheckHint: z.unknown() }),
@@ -40,7 +46,7 @@ export async function searchRossmann(gate: ShopGate, query: string): Promise<Pro
   });
   if (outcome.kind !== "ok") {
     // The gate has already logged why.
-    return unavailable(outcome);
+    return gateUnavailable(outcome);
   }
 
   let body: unknown;
@@ -48,12 +54,15 @@ export async function searchRossmann(gate: ShopGate, query: string): Promise<Pro
     // Read the body right away: the time limits cover it too.
     body = await outcome.response.json();
   } catch (error) {
-    logFailure("unreadable body", error);
+    // Only the error's name: a parse error quotes the body, which can echo the user's search.
+    logFailure("unreadable body", error instanceof Error ? error.name : typeof error);
     return { kind: "unavailable", reason: "failed" };
   }
   const parsed = responseSchema.safeParse(body);
   if (!parsed.success) {
-    logFailure("unexpected response shape", parsed.error);
+    // Where the shape differs, not what the answer holds, for the same reason.
+    const issues = parsed.error.issues.map((issue) => `${issue.path.map(String).join(".")} ${issue.code}`);
+    logFailure("unexpected response shape", issues.join("; "));
     return { kind: "unavailable", reason: "failed" };
   }
 
@@ -79,25 +88,13 @@ export function isRossmannImage(url: string): boolean {
   }
 }
 
-/** Says why the gate produced no answer, in the terms the page explains to the user. */
-function unavailable(outcome: Exclude<GateOutcome, { kind: "ok" }>): ProductSearch {
-  switch (outcome.kind) {
-    case "skipped":
-      if (outcome.reason === "capped") {
-        return { kind: "unavailable", reason: "busy" };
-      }
-      if (outcome.reason === "paused") {
-        return { kind: "unavailable", reason: "paused", until: outcome.until };
-      }
-      return { kind: "unavailable", reason: outcome.reason === "stopped" ? "stopped" : "failed" };
-    case "rate-limited": {
-      const until = new Date(Date.now() + outcome.retryAfterSeconds * 1000).toISOString();
-      return { kind: "unavailable", reason: "paused", until };
-    }
-    case "blocked":
-      return { kind: "unavailable", reason: "stopped" };
-    case "failed":
-      return { kind: "unavailable", reason: "failed" };
+/** True for an https URL on Rossmann's shop site: the only product pages "Zobacz w sklepie" links to. */
+export function isRossmannProductUrl(url: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(url);
+    return protocol === "https:" && hostname === SITE_HOST;
+  } catch {
+    return false;
   }
 }
 
@@ -126,8 +123,22 @@ function toCandidate(raw: unknown): ProductCandidate | null {
     eans: (item.eanNumber ?? [])
       .filter((ean): ean is string => typeof ean === "string" && /^\d{8,14}$/.test(ean))
       .slice(0, PRODUCT_LIMITS.eans),
+    productUrl: productUrlFor(item.navigateUrl),
     imageUrl: pickImage(item.pictures ?? []),
   };
+}
+
+/**
+ * The item's page from its `navigateUrl`, a path on Rossmann's site; null for anything else. A full or
+ * protocol-relative URL could point anywhere, so only a path counts, and the result must still be on the site.
+ */
+function productUrlFor(navigateUrl: unknown): string | null {
+  const path = typeof navigateUrl === "string" ? clean(navigateUrl) : null;
+  if (path === null || !path.startsWith("/") || path.startsWith("//")) {
+    return null;
+  }
+  const url = within(`${SITE_URL}${path}`, PRODUCT_LIMITS.productUrl);
+  return url !== null && isRossmannProductUrl(url) ? url : null;
 }
 
 /**
@@ -162,8 +173,7 @@ function within(value: string | null, max: number): string | null {
   return value !== null && value.length <= max ? value : null;
 }
 
-function logFailure(reason: string, error: unknown): void {
-  const detail = (error instanceof Error ? error.message : String(error)).slice(0, 300);
+function logFailure(reason: string, detail: string): void {
   // eslint-disable-next-line no-console -- one line per unreadable Rossmann answer; Workers observability collects it.
-  console.warn(JSON.stringify({ event: "rossmann-search", reason, detail }));
+  console.warn(JSON.stringify({ event: "rossmann-search", reason, detail: detail.slice(0, 300) }));
 }

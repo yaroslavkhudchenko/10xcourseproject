@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { createShopGate, type ShopGate } from "@/lib/services/shop-gate";
-import { isRossmannImage, searchRossmann } from "@/lib/services/shops/rossmann";
+import { isRossmannImage, isRossmannProductUrl, searchRossmann } from "@/lib/services/shops/rossmann";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
 import empty from "@/lib/services/shops/fixtures/rossmann-search-empty.json";
 import misspelled from "@/lib/services/shops/fixtures/rossmann-search-misspelled.json";
@@ -69,6 +69,8 @@ describe("Rossmann search: recorded answers", () => {
       sizeText: "300 ml",
       size: { value: 300, unit: "ml" },
       eans: ["4005900009319", "4005808890637", "5900017001234"],
+      productUrl:
+        "https://www.rossmann.pl/Produkt/Kremy-do-twarzy/NIVEA-Soft-krem-uniwersalny-nawilzajacy-300-ml,26900,13049",
       imageUrl: `${IMAGE_HOST}/product_1_medium/26900_360_350_1785530324.webp`,
     });
   });
@@ -199,6 +201,26 @@ describe("Rossmann search: what it keeps out", () => {
     expect(isRossmannImage("https://rossmann.pl.images.example.com/look-alike.webp")).toBe(false);
   });
 
+  it("links only to pages on Rossmann's site, and an odd link costs only the link", async () => {
+    const [soft] = editable(results).data.items;
+    const links = [
+      "https://evil.example/Produkt/x",
+      "//evil.example/Produkt/x",
+      "Produkt/x",
+      `/Produkt/${"x".repeat(500)}`,
+      42,
+      undefined,
+    ];
+
+    const search = await searchItems(links.map((navigateUrl) => ({ ...soft, navigateUrl })));
+
+    expect(search.candidates).toHaveLength(links.length);
+    expect(search.candidates.map((candidate) => candidate.productUrl)).toEqual(links.map(() => null));
+    expect(isRossmannProductUrl("https://www.rossmann.pl/Produkt/x,1,2")).toBe(true);
+    expect(isRossmannProductUrl("http://www.rossmann.pl/Produkt/x,1,2")).toBe(false);
+    expect(isRossmannProductUrl("https://rossmann.pl.evil.example/Produkt/x")).toBe(false);
+  });
+
   it("drops a malformed item and keeps the others", async () => {
     const body = editable(results);
     body.data.items.splice(1, 0, { id: null, name: "No id" }, { id: 1, name: "  ", fallbackName: "" });
@@ -261,15 +283,17 @@ describe("Rossmann search: why it's unavailable", () => {
   });
 
   it.each([
+    { answer: "text that echoes the search", body: "nivea soft" },
     { answer: "an HTML page", body: "<html>Przerwa techniczna</html>" },
     { answer: "JSON of another shape", body: JSON.stringify({ items: [] }) },
-  ])("gives up on $answer", async ({ body }) => {
+  ])("gives up on $answer, and logs it without the search text", async ({ body }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { gate, fetchMock } = setup([{ url: searchUrl("nivea soft"), status: 200, body }]);
 
     expect(await searchRossmann(gate, "nivea soft")).toEqual({ kind: "unavailable", reason: "failed" });
     expect(requestedUrls(fetchMock)).toEqual([searchUrl("nivea soft")]);
     expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).not.toContain("nivea");
   });
 
   it("gives up when reading the body fails", async () => {

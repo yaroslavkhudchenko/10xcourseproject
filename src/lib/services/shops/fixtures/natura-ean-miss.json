@@ -1,0 +1,16 @@
+{
+  "results": {
+    "query": "5901234123457",
+    "corrected_query": null,
+    "filters": [],
+    "filters_negative": [],
+    "accepted_filters": [],
+    "hits": [],
+    "quicksearch_hits": [],
+    "facets": [],
+    "suggested_facet": "null",
+    "total_hits": 0
+  },
+  "next_page": null,
+  "guid": "dfe7f168-0d33-43f5-a7f0-c808bef6bbec"
+}
