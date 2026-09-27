@@ -1,10 +1,10 @@
 ---
 change_id: shop-matching-first-two-shops
 title: Shop matching first two shops
-status: impl_reviewed
+status: archived
 created: 2026-09-27
-updated: 2026-09-27
-archived_at: null
+updated: 2026-09-28
+archived_at: 2026-09-27T23:13:38Z
 ---
 
 ## Notes
