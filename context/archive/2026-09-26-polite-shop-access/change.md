@@ -1,10 +1,10 @@
 ---
 change_id: polite-shop-access
 title: Polite shop access gate with per-shop cap, stop on block and recorded responses
-status: impl_reviewed
+status: archived
 created: 2026-09-26
 updated: 2026-09-27
-archived_at: null
+archived_at: 2026-09-27T13:58:40Z
 ---
 
 ## Notes
