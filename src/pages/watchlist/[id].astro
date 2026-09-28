@@ -114,11 +114,11 @@ function optionView({ candidate, verdict }: CandidateOption, fetchedAt: Date, ow
     flags.push({ text: "Rozmiar nieznany", warning: true });
   }
   const source = `drogerienatura.pl, pobrano ${clock.format(fetchedAt)}`;
-  // Natura's candidates always have a price; the label is the fallback for shops whose prices can be missing.
+  // A candidate without a price that can be stored says so, never a blank or a zero.
   const price =
-    candidate.price === null
+    candidate.offer === null
       ? `Brak ceny online w ${source}`
-      : `${pln.format(candidate.price)} · cena online w ${source}`;
+      : `${pln.format(candidate.offer.price)} · cena online w ${source}`;
   return { candidate, flags, price };
 }
 

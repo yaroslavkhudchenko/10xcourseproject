@@ -164,7 +164,7 @@ export async function listLatestPrices(supabase: SupabaseClient, keys?: PriceKey
 }
 
 /** One text per shop item, to match rows to keys. No shop id holds a "/", so the first one ends the shop. */
-function keyText({ shop, shopItemId }: PriceKey): string {
+export function keyText({ shop, shopItemId }: PriceKey): string {
   return `${shop}/${shopItemId}`;
 }
 

@@ -811,6 +811,34 @@ Record the new rules and shop facts, get the migration onto production before th
   - `supabase/migrations/20260927184936_watchlist_matches.sql` and `scripts/check-matches-db.mjs`
   - `src/components/auth/SignInForm.tsx`
 
+## Implementation Notes
+
+Where the shipped code differs from the phase contracts above, and why. The phase blocks still show the contract as it was planned.
+
+### Adaptations during implementation
+
+- **Phase 1, S-02's re-pointing check:** `scripts/check-matches-db.mjs` now expects `42501` when a not-found match is pointed at another user's product. The narrower update grant refuses the `watchlist_item_id` column before the composite foreign key is checked.
+- **Phase 1, the price check's test data:**
+  - Every run uses fresh shop item ids: observations are shared and never deleted, so real ids would leave fake prices in those items' local history and break reruns.
+  - The `..` case first adds a product with that id, because RLS runs before the table's checks.
+- **Phase 1, checks beyond the contract:** two-dimensional EAN arrays, reading the recording user, `anon` on the view, and the policy's match branch.
+- **Phase 1, the view's grants** follow the tables' pattern: revoke all from `anon`, `authenticated` and `service_role`, then grant `select` to `authenticated`.
+- **Phase 2, price bounds in one place:** `storableOffer` (`src/lib/services/shops/shop-offer.ts`) rounds amounts to grosze and drops what the table would refuse, so one odd value can't fail a whole batch insert.
+  - A price outside the bounds makes the check `unavailable/failed`.
+  - A regular price or 30-day low that doesn't fit becomes null.
+- **Phase 2, Rossmann:** a 404 is `missing`, as recorded. The answer's `data.id` must equal the requested id.
+- **Phase 2, Natura:** a SKU without a hit is `missing` only when every hit was readable and asked for; otherwise it's `unavailable`. Batches of 50 run one after another, so a block stops the next request.
+- **Phase 2, the refresh service** removes duplicate targets and fetches Rossmann and Natura at the same time.
+- **Phase 2, recordings** (2026-09-28, the owner's approval): four new answers.
+  - Rossmann, an unknown id: HTTP 404 `application/problem+json`.
+  - Natura: one SKU, two SKUs, and an unknown SKU with 0 hits.
+  - The two research answers for Rossmann's detail are reused as they were.
+
+### Accepted during implementation (the owner's call, 2026-09-28)
+
+- **Rossmann product ids in the gate's log:** the F-01 gate logs the path of every request that doesn't succeed, and Rossmann's detail path carries the product id. Accepted for now, since only the owner reads the Workers logs. Phase 3 blanks the id out of the gate's log line.
+- **Any Rossmann 404 counts as missing:** the gate drops the bodies of error answers, so a 404 from a moved API would look like a product that's gone. Every Rossmann price would then show as stale, never as a wrong current price, and the logs would show the 404s.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -819,29 +847,29 @@ Record the new rules and shop facts, get the migration onto production before th
 
 #### Automated
 
-- [x] 1.1 With Docker running, `npx supabase migration up --local` applies the migration, then `node scripts/check-prices-db.mjs` with the local URL and anon key prints only PASS lines
-- [x] 1.2 `node scripts/check-matches-db.mjs` and `node scripts/check-watchlist-db.mjs` still print only PASS lines
-- [x] 1.3 `npm run test` passes, including the prices service tests
-- [x] 1.4 `npx astro sync && npx astro check` reports 0 errors
-- [x] 1.5 `npm run lint` passes
-- [ ] 1.6 CI `smoke` job runs "Check price observations database contract" and is green on the PR
+- [x] 1.1 With Docker running, `npx supabase migration up --local` applies the migration, then `node scripts/check-prices-db.mjs` with the local URL and anon key prints only PASS lines — dab5b2d
+- [x] 1.2 `node scripts/check-matches-db.mjs` and `node scripts/check-watchlist-db.mjs` still print only PASS lines — dab5b2d
+- [x] 1.3 `npm run test` passes, including the prices service tests — dab5b2d
+- [x] 1.4 `npx astro sync && npx astro check` reports 0 errors — dab5b2d
+- [x] 1.5 `npm run lint` passes — dab5b2d
+- [x] 1.6 CI `smoke` job runs "Check price observations database contract" and is green on the PR — dab5b2d
 
 #### Manual
 
-- [x] 1.7 Migration review: only watchers can select or insert, with no update or delete path; users can't set the time, source or recording user, or read the recording user; the view is `security_invoker`; the EAN and match-grant follow-ups are in place
+- [x] 1.7 Migration review: only watchers can select or insert, with no update or delete path; users can't set the time, source or recording user, or read the recording user; the view is `security_invoker`; the EAN and match-grant follow-ups are in place — dab5b2d
 
 ### Phase 2: Shop price lookups
 
 #### Automated
 
-- [ ] 2.1 `npm run test` passes, including the Rossmann and Natura price tests and the refresh service tests
-- [ ] 2.2 `npx astro sync && npx astro check` reports 0 errors
-- [ ] 2.3 `npm run lint` passes
-- [ ] 2.4 `npm run build` passes
+- [x] 2.1 `npm run test` passes, including the Rossmann and Natura price tests and the refresh service tests
+- [x] 2.2 `npx astro sync && npx astro check` reports 0 errors
+- [x] 2.3 `npm run lint` passes
+- [x] 2.4 `npm run build` passes
 
 #### Manual
 
-- [ ] 2.5 Fixture review: every new recording used the gate's User-Agent, went at least 2 s apart, is trimmed to the fields the adapters read, and holds no cookies or personal data; the unknown-id and unknown-SKU recordings show what "not found" looks like
+- [x] 2.5 Fixture review: every new recording used the gate's User-Agent, went at least 2 s apart, is trimmed to the fields the adapters read, and holds no cookies or personal data; the unknown-id and unknown-SKU recordings show what "not found" looks like
 
 ### Phase 3: Product page prices
 

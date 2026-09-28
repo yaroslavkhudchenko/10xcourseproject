@@ -1,0 +1,5 @@
+{
+  "status": 404,
+  "contentType": "application/problem+json; charset=utf-8",
+  "body": "{\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.5\",\"title\":\"Not Found\",\"status\":404,\"traceId\":\"00-79d7779f3d35b5145bbc110bd2e0bec5-a8f1f9e387c8ad95-00\"}"
+}

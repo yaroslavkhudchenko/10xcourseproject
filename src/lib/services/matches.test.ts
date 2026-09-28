@@ -37,7 +37,7 @@ const soft: ShopCandidate = {
   productUrl: "https://drogerienatura.pl/produkt/nivea-soft-krem-intensywnie-nawilzajacy-300-ml-4005900009319",
   imageUrl:
     "https://media.drogerienatura.pl/catalog/product/4/0/4005900009319_T1_a685.jpg?store=default&image-type=image",
-  price: 16.99,
+  offer: { price: 16.99, regularPrice: 22.99, lowestPrice30d: 17.99, promoEndsOn: null, available: true },
 };
 
 // The columns of Natura's Nivea Soft in a match row, and of a row that carries no item.
@@ -64,8 +64,8 @@ const NO_ITEM_COLUMNS = {
   image_url: null,
 };
 
-/** What a confirmed candidate is stored as: the item the shop showed, without its price. */
-function itemOf({ shop: _shop, price: _price, ...item }: ShopCandidate): MatchedItem {
+/** What a confirmed candidate is stored as: the item the shop showed, without its offer. */
+function itemOf({ shop: _shop, offer: _offer, ...item }: ShopCandidate): MatchedItem {
   return item;
 }
 

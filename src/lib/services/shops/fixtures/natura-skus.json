@@ -1,0 +1,51 @@
+{
+  "results": {
+    "query": "",
+    "corrected_query": null,
+    "filters": ["type:product", "sku:NV89063", "sku:NV81063"],
+    "filters_negative": [],
+    "accepted_filters": [],
+    "hits": [
+      {
+        "url": "NV89063",
+        "identity_hash": null,
+        "attributes": {
+          "sku": ["NV89063"],
+          "price_amount": 16.99,
+          "lowest_price": ["17.990000"],
+          "availability": 1,
+          "title": "NIVEA SOFT krem intensywnie nawilżający 300 ml",
+          "price_old_amount": 22.99
+        },
+        "nested": [],
+        "type": "product",
+        "highlight": {},
+        "exact": true,
+        "alternative": false
+      },
+      {
+        "url": "NV81063",
+        "identity_hash": null,
+        "attributes": {
+          "sku": ["NV81063"],
+          "price_amount": 17.99,
+          "lowest_price": ["10.990000"],
+          "availability": 1,
+          "title": "Nivea MEN Fresh Kick 3w1 żel pod prysznic 500 ml"
+        },
+        "nested": [],
+        "type": "product",
+        "highlight": {},
+        "exact": true,
+        "alternative": false
+      }
+    ],
+    "quicksearch_hits": [],
+    "facets": [],
+    "suggested_facet": "null",
+    "total_hits": 2,
+    "offset": "2"
+  },
+  "next_page": null,
+  "guid": "6756f66c-6414-4ab7-b123-4233bede0744"
+}

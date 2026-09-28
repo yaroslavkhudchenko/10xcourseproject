@@ -1,17 +1,44 @@
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { createShopGate, type ShopGate } from "@/lib/services/shop-gate";
-import { isNaturaImage, isNaturaProductUrl, searchNatura } from "@/lib/services/shops/natura";
+import { fetchNaturaPrices, isNaturaImage, isNaturaProductUrl, searchNatura } from "@/lib/services/shops/natura";
 import { parseSize } from "@/lib/services/size";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
+import type { PriceCheck, ShopOffer } from "@/types";
 import eanHit from "@/lib/services/shops/fixtures/natura-ean-hit.json";
 import eanMiss from "@/lib/services/shops/fixtures/natura-ean-miss.json";
 import nameSearch from "@/lib/services/shops/fixtures/natura-name-search.json";
+import skuUnknown from "@/lib/services/shops/fixtures/natura-sku-unknown.json";
+import oneSku from "@/lib/services/shops/fixtures/natura-sku.json";
+import twoSkus from "@/lib/services/shops/fixtures/natura-skus.json";
 import unknownTracker from "@/lib/services/shops/fixtures/natura-unknown-tracker.json";
 
 // The fixtures are real Luigi's Box answers for Natura, recorded once with curl; no test reaches the live search.
 const searchUrl = (query: string, size: number) =>
   `https://live.luigisbox.com/search?tracker_id=703598-939363&q=${encodeURIComponent(query)}&size=${size}`;
+// A price request, spelled out as the natura-sku*.json recordings were made: products only, one repeated f[] per SKU,
+// as many hits as SKUs, and only the price attributes.
+const priceUrl = (skus: string[]) =>
+  "https://live.luigisbox.com/search?tracker_id=703598-939363&f%5B%5D=type%3Aproduct" +
+  skus.map((sku) => `&f%5B%5D=sku%3A${sku}`).join("") +
+  `&size=${skus.length}&hit_fields=sku%2Cprice_amount%2Cprice_old_amount%2Clowest_price%2Cavailability`;
 const SOFT_EAN = "4005900009319";
+// Nivea Soft's offer during a promotion, as every recording of it carries, and Nivea MEN's, which has no promotion but
+// a 30-day low below its price.
+const SOFT_OFFER: ShopOffer = {
+  price: 16.99,
+  regularPrice: 22.99,
+  lowestPrice30d: 17.99,
+  promoEndsOn: null,
+  available: true,
+};
+const MEN_OFFER: ShopOffer = {
+  price: 17.99,
+  regularPrice: null,
+  lowestPrice30d: 10.99,
+  promoEndsOn: null,
+  available: true,
+};
+const FAILED: PriceCheck = { kind: "unavailable", reason: "failed" };
 // An EAN Natura doesn't list, as natura-ean-miss.json recorded.
 const MISSING_EAN = "5901234123457";
 const NAME_QUERY = "nivea soft 300 ml";
@@ -87,7 +114,7 @@ describe("Natura search: recorded answers", () => {
           eans: [SOFT_EAN],
           productUrl: SOFT_PAGE,
           imageUrl: `${IMAGE_HOST}/catalog/product/4/0/4005900009319_T1_a685.jpg?store=default&image-type=image`,
-          price: 16.99,
+          offer: SOFT_OFFER,
         },
       ],
     });
@@ -100,7 +127,7 @@ describe("Natura search: recorded answers", () => {
     expect(requestedUrls(fetchMock)).toEqual([searchUrl(MISSING_EAN, 5)]);
   });
 
-  it("maps the name search's hits in Natura's order", async () => {
+  it("maps the name search's hits in Natura's order, each with its whole offer", async () => {
     const { gate, fetchMock } = setup([
       { url: searchUrl(NAME_QUERY, 10), status: 200, body: JSON.stringify(nameSearch) },
     ]);
@@ -111,9 +138,15 @@ describe("Natura search: recorded answers", () => {
     expect(search).toMatchObject({
       kind: "results",
       candidates: [
-        { shopItemId: "NV89063", brand: "NIVEA", sizeText: "300 ml", eans: [SOFT_EAN], price: 16.99 },
-        { shopItemId: "JM00370", brand: "YOPE", sizeText: "300 ml", eans: ["5900168900370"], price: 16.99 },
-        { shopItemId: "NV81063", brand: "NIVEA MEN", sizeText: "500 ml", eans: ["9005800286563"], price: 17.99 },
+        { shopItemId: "NV89063", brand: "NIVEA", sizeText: "300 ml", eans: [SOFT_EAN], offer: SOFT_OFFER },
+        {
+          shopItemId: "JM00370",
+          brand: "YOPE",
+          sizeText: "300 ml",
+          eans: ["5900168900370"],
+          offer: { ...SOFT_OFFER, regularPrice: 19.99 },
+        },
+        { shopItemId: "NV81063", brand: "NIVEA MEN", sizeText: "500 ml", eans: ["9005800286563"], offer: MEN_OFFER },
       ],
     });
   });
@@ -225,7 +258,7 @@ describe("Natura search: what it keeps out", () => {
     expect(candidates.map((candidate) => candidate.shopItemId)).toEqual(["NV89063", "NV81063"]);
     const [first, second] = candidates;
     expect(first).toMatchObject({ eans: [SOFT_EAN], productUrl: SOFT_PAGE });
-    expect(second).toMatchObject({ brand: "NIVEA MEN", sizeText: "500 ml", productUrl: null, price: 17.99 });
+    expect(second).toMatchObject({ brand: "NIVEA MEN", sizeText: "500 ml", productUrl: null, offer: MEN_OFFER });
     expect(second.imageUrl).toMatch(/^https:\/\/media\.drogerienatura\.pl\//);
   });
 
@@ -269,6 +302,18 @@ describe("Natura search: what it keeps out", () => {
     expect(candidate.brand).toHaveLength(120);
     expect(candidate.name).toHaveLength(300);
     expect(candidate.eans).toEqual(eans.slice(0, 10));
+  });
+
+  it("drops only the offer of a price that can't be stored, and an odd offer value costs only itself", async () => {
+    const candidates = await candidatesFrom([
+      softWith({ price_amount: 100000 }),
+      softWith({ price_old_amount: 16.99, lowest_price: ["brak"], availability: 0 }),
+    ]);
+
+    expect(candidates.map((candidate) => candidate.offer)).toEqual([
+      null,
+      { ...SOFT_OFFER, regularPrice: null, lowestPrice30d: null, available: false },
+    ]);
   });
 
   it.each([
@@ -359,5 +404,288 @@ describe("Natura search: why it's unavailable", () => {
     expect(requestedUrls(fetchMock)).toEqual([searchUrl(NAME_QUERY, 10)]);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0][0])).not.toContain("nivea");
+  });
+});
+
+/** The price answer the given hits make, as JSON. */
+function priceBody(hits: unknown[]): string {
+  return JSON.stringify({ results: { hits } });
+}
+
+/** The one log line a test expects, parsed. */
+function loggedLine(warn: { mock: { calls: unknown[][] } }): unknown {
+  expect(warn.mock.calls).toHaveLength(1);
+  return JSON.parse(String(warn.mock.calls[0][0]));
+}
+
+describe("Natura prices: recorded answers", () => {
+  it("fetches one SKU's offer", async () => {
+    const { gate, fetchMock } = setup([{ url: priceUrl(["NV89063"]), status: 200, body: JSON.stringify(oneSku) }]);
+
+    const checks = await fetchNaturaPrices(gate, ["NV89063"]);
+
+    expect(requestedUrls(fetchMock)).toEqual([priceUrl(["NV89063"])]);
+    expect(checks).toEqual(new Map([["NV89063", { kind: "price", offer: SOFT_OFFER }]]));
+  });
+
+  it("fetches two SKUs' offers with one request, one repeated f[] per SKU", async () => {
+    const url = priceUrl(["NV89063", "NV81063"]);
+    const { gate, fetchMock } = setup([{ url, status: 200, body: JSON.stringify(twoSkus) }]);
+
+    const checks = await fetchNaturaPrices(gate, ["NV89063", "NV81063"]);
+
+    expect(requestedUrls(fetchMock)).toEqual([url]);
+    const [requested] = requestedUrls(fetchMock);
+    expect(new URL(requested).searchParams.getAll("f[]")).toEqual(["type:product", "sku:NV89063", "sku:NV81063"]);
+    expect(checks).toEqual(
+      new Map([
+        ["NV89063", { kind: "price", offer: SOFT_OFFER }],
+        ["NV81063", { kind: "price", offer: MEN_OFFER }],
+      ]),
+    );
+  });
+
+  it("reports a SKU Natura doesn't have as missing", async () => {
+    const url = priceUrl(["ZZ00000000"]);
+    const { gate, fetchMock } = setup([{ url, status: 200, body: JSON.stringify(skuUnknown) }]);
+
+    expect(await fetchNaturaPrices(gate, ["ZZ00000000"])).toEqual(new Map([["ZZ00000000", { kind: "missing" }]]));
+    expect(requestedUrls(fetchMock)).toEqual([url]);
+  });
+
+  it("asks once for a SKU given twice", async () => {
+    const { gate, fetchMock } = setup([{ url: priceUrl(["NV89063"]), status: 200, body: JSON.stringify(oneSku) }]);
+
+    const checks = await fetchNaturaPrices(gate, ["NV89063", "NV89063"]);
+
+    expect(requestedUrls(fetchMock)).toEqual([priceUrl(["NV89063"])]);
+    expect(checks).toEqual(new Map([["NV89063", { kind: "price", offer: SOFT_OFFER }]]));
+  });
+
+  it("splits more than 50 SKUs into requests of at most 50, one after the other", async () => {
+    // Nivea Soft first, then 50 SKUs Natura doesn't have.
+    const absent = Array.from({ length: 50 }, (_, i) => `ZZ${String(i).padStart(8, "0")}`);
+    const skus = ["NV89063", ...absent];
+    const first = priceUrl(skus.slice(0, 50));
+    const second = priceUrl(skus.slice(50));
+    const { gate, fetchMock } = setup([
+      { url: first, status: 200, body: JSON.stringify(oneSku) },
+      { url: second, status: 200, body: JSON.stringify(skuUnknown) },
+    ]);
+
+    const checks = await fetchNaturaPrices(gate, skus);
+
+    expect(requestedUrls(fetchMock)).toEqual([first, second]);
+    const filtersPerRequest = requestedUrls(fetchMock).map((url) => new URL(url).searchParams.getAll("f[]").length);
+    expect(filtersPerRequest).toEqual([51, 2]);
+    expect(checks.size).toBe(51);
+    expect(checks.get("NV89063")).toEqual({ kind: "price", offer: SOFT_OFFER });
+    for (const sku of absent) {
+      expect(checks.get(sku), sku).toEqual({ kind: "missing" });
+    }
+  });
+
+  it("gives each price request its own 4 s limit", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const fetch = vi.fn<ShopGate["fetch"]>(() => Promise.resolve({ kind: "failed", reason: "network" }));
+
+    await fetchNaturaPrices({ fetch }, ["NV89063"]);
+
+    expect(timeout).toHaveBeenCalledWith(4000);
+    const [created] = timeout.mock.results;
+    if (created.type !== "return") {
+      throw new Error("AbortSignal.timeout didn't return a signal");
+    }
+    const [, , init] = fetch.mock.calls[0];
+    expect(init?.signal).toBe(created.value);
+  });
+});
+
+describe("Natura prices: what they keep out", () => {
+  it("never sends a SKU that can't go into a filter, and says it's unavailable", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const invalid = ["..", "NV 89063", "sku:NV81063", "NV89063&size=200", "N".repeat(41)];
+    const { gate, fetchMock } = setup([{ url: priceUrl(["NV89063"]), status: 200, body: JSON.stringify(oneSku) }]);
+
+    const checks = await fetchNaturaPrices(gate, [invalid[0], "NV89063", ...invalid.slice(1)]);
+
+    expect(requestedUrls(fetchMock)).toEqual([priceUrl(["NV89063"])]);
+    expect(checks.get("NV89063")).toEqual({ kind: "price", offer: SOFT_OFFER });
+    for (const sku of invalid) {
+      expect(checks.get(sku), sku).toEqual(FAILED);
+    }
+    // How many, never which.
+    expect(loggedLine(warn)).toEqual({
+      event: "natura-prices",
+      reason: "invalid SKUs",
+      detail: "5 of 6 SKUs not sent",
+    });
+  });
+
+  it("sends nothing when no SKU can go into a filter", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { gate, fetchMock } = setup([]);
+
+    expect(await fetchNaturaPrices(gate, ["..", "-"])).toEqual(
+      new Map([
+        ["..", FAILED],
+        ["-", FAILED],
+      ]),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("sends nothing for no SKUs", async () => {
+    const { gate, fetchMock } = setup([]);
+
+    expect(await fetchNaturaPrices(gate, [])).toEqual(new Map<string, PriceCheck>());
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each<{ change: string; attributes: Record<string, unknown>; offer: ShopOffer }>([
+    {
+      change: "a regular price equal to the price",
+      attributes: { price_old_amount: 16.99 },
+      offer: { ...SOFT_OFFER, regularPrice: null },
+    },
+    {
+      change: "a 30-day low of zero",
+      attributes: { lowest_price: ["0.000000"] },
+      offer: { ...SOFT_OFFER, lowestPrice30d: null },
+    },
+    {
+      change: "a 30-day low that isn't a number",
+      attributes: { lowest_price: ["brak"] },
+      offer: { ...SOFT_OFFER, lowestPrice30d: null },
+    },
+    {
+      change: "an item that can't be ordered online",
+      attributes: { availability: 0 },
+      offer: { ...SOFT_OFFER, available: false },
+    },
+  ])("keeps the offer with $change, which costs only that value", async ({ attributes, offer }) => {
+    const [soft] = hitsOf(oneSku);
+    const body = priceBody([{ ...soft, attributes: { ...soft.attributes, ...attributes } }]);
+    const { gate } = setup([{ url: priceUrl(["NV89063"]), status: 200, body }]);
+
+    expect(await fetchNaturaPrices(gate, ["NV89063"])).toEqual(new Map([["NV89063", { kind: "price", offer }]]));
+  });
+
+  it("keeps the other SKU's price when one hit can't be read, and the unread one is unavailable", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const [soft, men] = hitsOf(twoSkus);
+    men.attributes.price_amount = "17.99";
+    const url = priceUrl(["NV89063", "NV81063"]);
+    const { gate } = setup([{ url, status: 200, body: priceBody([soft, men]) }]);
+
+    expect(await fetchNaturaPrices(gate, ["NV89063", "NV81063"])).toEqual(
+      new Map<string, PriceCheck>([
+        ["NV89063", { kind: "price", offer: SOFT_OFFER }],
+        ["NV81063", FAILED],
+      ]),
+    );
+    expect(loggedLine(warn)).toEqual({ event: "natura-prices", reason: "hits dropped", detail: "1 of 2 product hits" });
+  });
+
+  it.each<{ change: string; edit: (hit: Hit) => Hit }>([
+    {
+      change: "prices sent as text",
+      edit: (hit) => ({ ...hit, attributes: { ...hit.attributes, price_amount: "16.99" } }),
+    },
+    {
+      change: "prices the table can't hold",
+      edit: (hit) => ({ ...hit, attributes: { ...hit.attributes, price_amount: 100000 } }),
+    },
+  ])("calls every SKU unavailable, never missing, when no hit can be read, as with $change", async ({ edit }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const url = priceUrl(["NV89063", "NV81063"]);
+    const { gate, fetchMock } = setup([{ url, status: 200, body: priceBody(hitsOf(twoSkus).map(edit)) }]);
+
+    expect(await fetchNaturaPrices(gate, ["NV89063", "NV81063"])).toEqual(
+      new Map([
+        ["NV89063", FAILED],
+        ["NV81063", FAILED],
+      ]),
+    );
+    expect(requestedUrls(fetchMock)).toEqual([url]);
+    expect(loggedLine(warn)).toEqual({ event: "natura-prices", reason: "hits dropped", detail: "2 of 2 product hits" });
+  });
+
+  it("stores no SKU as missing when Natura answers with an item it wasn't asked for", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // Nivea Soft's recorded hit in answer to another SKU, as if the SKU filter had been ignored.
+    const url = priceUrl(["ZZ00000000"]);
+    const { gate } = setup([{ url, status: 200, body: JSON.stringify(oneSku) }]);
+
+    expect(await fetchNaturaPrices(gate, ["ZZ00000000"])).toEqual(new Map([["ZZ00000000", FAILED]]));
+    expect(loggedLine(warn)).toEqual({
+      event: "natura-prices",
+      reason: "hits not asked for",
+      detail: "1 of 1 product hits",
+    });
+  });
+});
+
+describe("Natura prices: why they're unavailable", () => {
+  it.each([
+    { refusal: "the cap is reached", reservation: { outcome: "capped" }, expected: { reason: "busy" } },
+    { refusal: "the shop is stopped", reservation: { outcome: "stopped" }, expected: { reason: "stopped" } },
+  ])("says so for every SKU without calling Luigi's Box when $refusal", async ({ reservation, expected }) => {
+    const url = priceUrl(["NV89063", "NV81063"]);
+    const { gate, fetchMock } = setup([{ url, status: 200, body: JSON.stringify(twoSkus) }], reservation);
+
+    expect(await fetchNaturaPrices(gate, ["NV89063", "NV81063"])).toEqual(
+      new Map([
+        ["NV89063", { kind: "unavailable", ...expected }],
+        ["NV81063", { kind: "unavailable", ...expected }],
+      ]),
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { answer: "a 403", status: 403, reason: "stopped" },
+    { answer: "a 500", status: 500, reason: "failed" },
+  ])("reports $answer as $reason for every SKU of the request", async ({ status, reason }) => {
+    const url = priceUrl(["NV89063", "NV81063"]);
+    const { gate, fetchMock } = setup([{ url, status }]);
+
+    expect(await fetchNaturaPrices(gate, ["NV89063", "NV81063"])).toEqual(
+      new Map([
+        ["NV89063", { kind: "unavailable", reason }],
+        ["NV81063", { kind: "unavailable", reason }],
+      ]),
+    );
+    expect(requestedUrls(fetchMock)).toEqual([url]);
+  });
+
+  it("says the tracker id may have changed when Luigi's Box doesn't know it", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const url = priceUrl(["NV89063"]);
+    const { gate } = setup([
+      {
+        url,
+        status: unknownTracker.status,
+        headers: { "Content-Type": unknownTracker.contentType },
+        body: unknownTracker.body,
+      },
+    ]);
+
+    expect(await fetchNaturaPrices(gate, ["NV89063"])).toEqual(new Map([["NV89063", FAILED]]));
+    expect(loggedLine(warn)).toMatchObject({ event: "natura-prices", reason: "tracker id rejected" });
+  });
+
+  it.each([
+    { answer: "text", body: "Przerwa techniczna" },
+    { answer: "JSON of another shape", body: JSON.stringify({ hits: [] }) },
+  ])("gives up on $answer for every SKU, and logs it without the SKUs", async ({ body }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const url = priceUrl(["NV89063"]);
+    const { gate, fetchMock } = setup([{ url, status: 200, body }]);
+
+    expect(await fetchNaturaPrices(gate, ["NV89063"])).toEqual(new Map([["NV89063", FAILED]]));
+    expect(requestedUrls(fetchMock)).toEqual([url]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).not.toContain("NV89063");
   });
 });

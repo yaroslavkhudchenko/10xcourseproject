@@ -123,7 +123,8 @@ export type ProductSearch =
 
 /**
  * One item a shop's search returned, as a candidate for a watched product's match in that shop. Once confirmed, the
- * item is the product's anchor in that shop (FR-004). Its price is only shown while the user decides.
+ * item is the product's anchor in that shop (FR-004). Its offer is shown while the user decides, and it's the whole
+ * offer, so an automatic match can store the price the shop sent with it.
  */
 export interface ShopCandidate {
   shop: ShopId;
@@ -138,8 +139,8 @@ export interface ShopCandidate {
   /** The item's page in the shop. */
   productUrl: string | null;
   imageUrl: string | null;
-  /** The shop's current online price in złoty, never a shelf price. */
-  price: number | null;
+  /** The shop's current online offer, never a shelf price; null when it sent no price that can be stored. */
+  offer: ShopOffer | null;
 }
 
 /** How a candidate compares with the watched product: a shared EAN, and whether the sizes agree when both are known. */

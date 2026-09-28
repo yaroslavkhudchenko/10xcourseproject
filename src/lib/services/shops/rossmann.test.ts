@@ -1,7 +1,16 @@
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { createShopGate, type ShopGate } from "@/lib/services/shop-gate";
-import { isRossmannImage, isRossmannProductUrl, searchRossmann } from "@/lib/services/shops/rossmann";
+import {
+  fetchRossmannPrice,
+  isRossmannImage,
+  isRossmannProductUrl,
+  searchRossmann,
+} from "@/lib/services/shops/rossmann";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
+import type { PriceCheck, ShopOffer } from "@/types";
+import reduced from "@/lib/services/shops/fixtures/rossmann-detail-reduced.json";
+import regular from "@/lib/services/shops/fixtures/rossmann-detail-regular.json";
+import unknownProduct from "@/lib/services/shops/fixtures/rossmann-detail-unknown.json";
 import empty from "@/lib/services/shops/fixtures/rossmann-search-empty.json";
 import misspelled from "@/lib/services/shops/fixtures/rossmann-search-misspelled.json";
 import results from "@/lib/services/shops/fixtures/rossmann-search-results.json";
@@ -9,7 +18,18 @@ import results from "@/lib/services/shops/fixtures/rossmann-search-results.json"
 // The fixtures are real Rossmann answers, recorded once with curl; no test reaches the live shop.
 const searchUrl = (query: string) =>
   `https://www.rossmann.pl/products/v4/api/Products?search=${encodeURIComponent(query)}&page=1&pageSize=24`;
+// One product's detail, as the price check asks for it and the rossmann-detail-*.json recordings were made.
+const detailUrl = (id: string) => `https://www.rossmann.pl/products/v2/api/Products/${id}?shopNumber=null`;
 const IMAGE_HOST = "https://pro-fra-s3-productsassets.rossmann.pl";
+// Felix (131225) during a promotion, as rossmann-detail-reduced.json recorded it on 2026-09-28.
+const FELIX_OFFER: ShopOffer = {
+  price: 5.99,
+  regularPrice: 9.99,
+  lowestPrice30d: 6.39,
+  promoEndsOn: "2026-09-30",
+  available: true,
+};
+const FAILED: PriceCheck = { kind: "unavailable", reason: "failed" };
 
 /** A real gate that allows every reservation, over a fetch that answers only the given recordings. */
 function setup(entries: ReplayEntry[], reservation: unknown = { outcome: "allowed" }) {
@@ -313,5 +333,174 @@ describe("Rossmann search: why it's unavailable", () => {
 
     expect(await searchRossmann(gate, "nivea soft")).toEqual({ kind: "unavailable", reason: "failed" });
     expect(requestedUrls(fetchMock)).toEqual([searchUrl("nivea soft")]);
+  });
+});
+
+/** Checks Felix's price against a detail built from the given fields, as if Rossmann had answered with them. */
+async function priceFrom(data: Record<string, unknown>) {
+  const { gate, fetchMock } = setup([{ url: detailUrl("131225"), status: 200, body: JSON.stringify({ data }) }]);
+  const check = await fetchRossmannPrice(gate, "131225");
+  expect(requestedUrls(fetchMock)).toEqual([detailUrl("131225")]);
+  return check;
+}
+
+/** The one log line a test expects, parsed. */
+function loggedLine(warn: { mock: { calls: unknown[][] } }): unknown {
+  expect(warn.mock.calls).toHaveLength(1);
+  return JSON.parse(String(warn.mock.calls[0][0]));
+}
+
+describe("Rossmann price: recorded answers", () => {
+  it("reads a reduced offer: the price before the reduction, the 30-day low and the promotion's end", async () => {
+    const { gate, fetchMock } = setup([{ url: detailUrl("131225"), status: 200, body: JSON.stringify(reduced) }]);
+
+    expect(await fetchRossmannPrice(gate, "131225")).toEqual({ kind: "price", offer: FELIX_OFFER });
+    expect(requestedUrls(fetchMock)).toEqual([detailUrl("131225")]);
+  });
+
+  it("reads a regular offer, which carries only its price", async () => {
+    const { gate, fetchMock } = setup([{ url: detailUrl("26900"), status: 200, body: JSON.stringify(regular) }]);
+
+    expect(await fetchRossmannPrice(gate, "26900")).toEqual({
+      kind: "price",
+      offer: { price: 26.99, regularPrice: null, lowestPrice30d: null, promoEndsOn: null, available: true },
+    });
+    expect(requestedUrls(fetchMock)).toEqual([detailUrl("26900")]);
+  });
+
+  it("reports a product Rossmann doesn't have as missing", async () => {
+    // Rossmann's recorded answer to an id it doesn't have.
+    const { gate, fetchMock } = setup([
+      {
+        url: detailUrl("999999999"),
+        status: unknownProduct.status,
+        headers: { "Content-Type": unknownProduct.contentType },
+        body: unknownProduct.body,
+      },
+    ]);
+
+    expect(await fetchRossmannPrice(gate, "999999999")).toEqual({ kind: "missing" });
+    expect(requestedUrls(fetchMock)).toEqual([detailUrl("999999999")]);
+  });
+
+  it("gives the price check its own 5 s limit", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const fetch = vi.fn<ShopGate["fetch"]>(() => Promise.resolve({ kind: "failed", reason: "network" }));
+
+    await fetchRossmannPrice({ fetch }, "26900");
+
+    expect(timeout).toHaveBeenCalledWith(5000);
+    const [created] = timeout.mock.results;
+    if (created.type !== "return") {
+      throw new Error("AbortSignal.timeout didn't return a signal");
+    }
+    const [, , init] = fetch.mock.calls[0];
+    expect(init?.signal).toBe(created.value);
+  });
+});
+
+describe("Rossmann price: what it keeps out", () => {
+  it.each(["..", "26900x", "26900/..", "../26900", " 26900", "", "1234567890123"])(
+    "asks the gate for nothing with the id %j, so no request and no slot is spent",
+    async (id) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const fetch = vi.fn<ShopGate["fetch"]>();
+
+      expect(await fetchRossmannPrice({ fetch }, id)).toEqual(FAILED);
+      expect(fetch).not.toHaveBeenCalled();
+      // Never the id itself.
+      expect(loggedLine(warn)).toEqual({
+        event: "rossmann-price",
+        reason: "invalid product id",
+        detail: "not 1-12 digits, not sent",
+      });
+    },
+  );
+
+  it.each<{ change: string; data: Record<string, unknown>; offer: ShopOffer }>([
+    {
+      change: "a regular price equal to the price",
+      data: { oldPrice: 5.99 },
+      offer: { ...FELIX_OFFER, regularPrice: null },
+    },
+    {
+      change: "a 30-day low sent as text",
+      data: { lastLowestPrice: "6.39" },
+      offer: { ...FELIX_OFFER, lowestPrice30d: null },
+    },
+    {
+      change: "a promotion end that isn't a date",
+      data: { promotionTo: "30.09.2026" },
+      offer: { ...FELIX_OFFER, promoEndsOn: null },
+    },
+    {
+      change: "a promotion end on a day that doesn't exist",
+      data: { promotionTo: "2026-09-31T00:00:00" },
+      offer: { ...FELIX_OFFER, promoEndsOn: null },
+    },
+    {
+      change: "an item that can't be ordered online",
+      data: { availability: "unavailable" },
+      offer: { ...FELIX_OFFER, available: false },
+    },
+  ])("keeps the offer with $change, which costs only that value", async ({ data, offer }) => {
+    expect(await priceFrom({ ...reduced.data, ...data })).toEqual({ kind: "price", offer });
+  });
+
+  it.each([
+    { why: "zero", price: 0 },
+    { why: "above what the table holds", price: 100000 },
+    { why: "sent as text", price: "5.99" },
+  ])("gives up on a price that's $why, and stores nothing", async ({ price }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    expect(await priceFrom({ ...reduced.data, price })).toEqual(FAILED);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives up on an answer about another product", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    expect(await priceFrom({ ...reduced.data, id: 26900 })).toEqual(FAILED);
+    expect(loggedLine(warn)).toMatchObject({ event: "rossmann-price", reason: "unexpected product" });
+  });
+});
+
+describe("Rossmann price: why it's unavailable", () => {
+  it.each([
+    { refusal: "the cap is reached", reservation: { outcome: "capped" }, expected: { reason: "busy" } },
+    { refusal: "the shop is stopped", reservation: { outcome: "stopped" }, expected: { reason: "stopped" } },
+  ])("says so without calling Rossmann when $refusal", async ({ reservation, expected }) => {
+    const { gate, fetchMock } = setup(
+      [{ url: detailUrl("131225"), status: 200, body: JSON.stringify(reduced) }],
+      reservation,
+    );
+
+    expect(await fetchRossmannPrice(gate, "131225")).toEqual({ kind: "unavailable", ...expected });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { answer: "a 403", status: 403, reason: "stopped" },
+    { answer: "a 500", status: 500, reason: "failed" },
+  ])("reports $answer as $reason, never as missing", async ({ status, reason }) => {
+    const { gate, fetchMock } = setup([{ url: detailUrl("131225"), status }]);
+
+    expect(await fetchRossmannPrice(gate, "131225")).toEqual({ kind: "unavailable", reason });
+    expect(requestedUrls(fetchMock)).toEqual([detailUrl("131225")]);
+  });
+
+  it.each([
+    { answer: "an HTML page", body: "<html>Przerwa techniczna</html>" },
+    { answer: "JSON of another shape", body: JSON.stringify({ data: null }) },
+    { answer: "a detail without its price", body: JSON.stringify({ data: { id: 131225, availability: "available" } }) },
+  ])("gives up on $answer, and logs it without the product's id", async ({ body }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { gate, fetchMock } = setup([{ url: detailUrl("131225"), status: 200, body }]);
+
+    expect(await fetchRossmannPrice(gate, "131225")).toEqual(FAILED);
+    expect(requestedUrls(fetchMock)).toEqual([detailUrl("131225")]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).not.toContain("131225");
   });
 });
