@@ -1,0 +1,303 @@
+// Database contract check: proves that price observations are shared by the watchers of a shop item and read by no one
+// else, that no one can change or delete one or set its time, source or recording user, and that the latest-price view
+// keeps to the same rules. It also proves S-03's follow-ups on S-02's tables: stricter EAN checks, and an update grant
+// on shop matches that covers only the decision.
+// Run: SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=<anon key> node scripts/check-prices-db.mjs
+// Each run signs up two fresh users and uses shop item ids of its own, so it can run again without resetting the
+// database, and it never adds a price to a real product's shared history.
+
+import { createClient } from "@supabase/supabase-js";
+
+const { SUPABASE_URL, SUPABASE_KEY } = process.env;
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.log("FAIL  SUPABASE_URL and SUPABASE_KEY must be set");
+  process.exit(1);
+}
+// The checks sign up users and write rows, so they only ever run against the local stack.
+const { hostname } = new URL(SUPABASE_URL);
+if (hostname !== "127.0.0.1" && hostname !== "localhost") {
+  console.log(`FAIL  refusing to run against ${hostname}: point SUPABASE_URL at the local Supabase`);
+  process.exit(1);
+}
+
+// Every client talks only to SUPABASE_URL: `anon` never signs in, each user holds a throwaway signed-in session.
+const clientOptions = { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } };
+const anon = createClient(SUPABASE_URL, SUPABASE_KEY, clientOptions);
+
+let failed = 0;
+function check(name, ok, actual) {
+  console.log(`${ok ? "PASS" : "FAIL"}  ${name}  -> ${actual}`);
+  if (!ok) failed++;
+}
+
+function show({ data, error }) {
+  if (error) return `error ${error.code} ${error.message}`;
+  return data === null ? "ok" : JSON.stringify(data);
+}
+
+// Local sign-up is enabled with email confirmation off, so signing up returns a session.
+async function signUpUser(label) {
+  const client = createClient(SUPABASE_URL, SUPABASE_KEY, clientOptions);
+  const email = `prices-${label}-${Date.now()}@example.com`;
+  const { data, error } = await client.auth.signUp({ email, password: "Prices-Passw0rd!" });
+  const id = data.session ? data.user?.id : undefined;
+  check(`sign up throwaway user ${label}`, Boolean(id), error?.message ?? (id ? email : "no session returned"));
+  return { client, id };
+}
+
+// Observations are shared and never deleted, so this run's shop items get ids that no earlier run and no real product
+// has: Rossmann's real ids are short numbers, and Natura's SKUs look like "NV89063".
+const run = Date.now();
+const rossmannId = (n) => `${run}${n}`;
+const itemX = rossmannId(0);
+const skuA = `CHECK-${run}-A`;
+const skuB = `CHECK-${run}-B`;
+
+const rossmannItem = (sourceItemId) => ({
+  source: "rossmann",
+  source_item_id: sourceItemId,
+  brand: "NIVEA",
+  name: "Soft",
+  caption: "krem uniwersalny, nawilżający",
+  size_text: "300 ml",
+  size_value: 300,
+  size_unit: "ml",
+  eans: ["4005900009319"],
+});
+
+// A product's match in Natura, which makes the matched SKU watched.
+const naturaMatch = (itemId, sku) => ({
+  watchlist_item_id: itemId,
+  shop_id: "natura",
+  state: "matched",
+  decided_by: "auto",
+  shop_item_id: sku,
+  name: "NIVEA SOFT krem intensywnie nawilżający 300 ml",
+});
+
+// The rows the app inserts for one check (src/lib/services/prices.ts): the same columns in every row, and nothing the
+// database sets itself.
+const priceRow = (shopId, shopItemId, fields = {}) => ({
+  shop_id: shopId,
+  shop_item_id: shopItemId,
+  status: "price",
+  price: 26.99,
+  regular_price: 29.99,
+  lowest_price_30d: 24.99,
+  promo_ends_on: "2026-10-07",
+  available: true,
+  ...fields,
+});
+const missingRow = (shopId, shopItemId) => ({
+  shop_id: shopId,
+  shop_item_id: shopItemId,
+  status: "missing",
+  price: null,
+  regular_price: null,
+  lowest_price_30d: null,
+  promo_ends_on: null,
+  available: null,
+});
+
+const table = (client) => client.from("price_observations");
+const view = (client) => client.from("latest_price_observations");
+const LATEST_COLUMNS =
+  "shop_id, shop_item_id, last_checked_at, last_status, price, regular_price, lowest_price_30d, promo_ends_on, " +
+  "available, priced_at";
+
+// A product on a user's list makes its Rossmann item watched.
+async function addProduct(user, label, sourceItemId) {
+  const product = await user.client.from("watchlist_items").insert(rossmannItem(sourceItemId)).select("id").single();
+  check(`user ${label} adds Rossmann item ${sourceItemId}`, Boolean(product.data?.id), show(product));
+  return product.data?.id;
+}
+
+const a = await signUpUser("a");
+const b = await signUpUser("b");
+if (!a.id || !b.id) process.exit(1);
+const aItemId = await addProduct(a, "A", itemX);
+if (!aItemId) process.exit(1);
+
+// 1. A watcher records a price for X and, later, that Rossmann answered without it. No insert asks for its row back,
+// because users can't read who recorded it, and the database sets the time and the source.
+const readX = (client) => table(client).select("id, status, price, source, observed_at").eq("shop_item_id", itemX);
+const priced = await table(a.client).insert(priceRow("rossmann", itemX));
+const afterPrice = await readX(a.client);
+const priceObs = afterPrice.data?.find((row) => row.status === "price");
+check(
+  "user A records a price for X, with its time and source set by the database",
+  !priced.error &&
+    afterPrice.data?.length === 1 &&
+    priceObs?.price === 26.99 &&
+    priceObs.source === "fetch" &&
+    typeof priceObs.observed_at === "string",
+  `insert ${show(priced)}, rows ${show(afterPrice)}`,
+);
+const missed = await table(a.client).insert(missingRow("rossmann", itemX));
+const afterMissing = await readX(a.client);
+const missingObs = afterMissing.data?.find((row) => row.status === "missing");
+check(
+  "user A records that Rossmann answered without X",
+  !missed.error && afterMissing.data?.length === 2 && missingObs !== undefined,
+  `insert ${show(missed)}, rows ${show(afterMissing)}`,
+);
+
+// 2. The view gives one row per item: its last check, which found X missing, and its last price, which stays.
+const latest = await view(a.client).select(LATEST_COLUMNS);
+const latestX = latest.data?.[0];
+check(
+  "the view gives user A one row, for X: last checked missing, with the price from before",
+  latest.data?.length === 1 &&
+    latestX.shop_item_id === itemX &&
+    latestX.last_status === "missing" &&
+    latestX.last_checked_at === missingObs?.observed_at &&
+    latestX.priced_at === priceObs?.observed_at &&
+    latestX.price === 26.99 &&
+    latestX.available === true,
+  show(latest),
+);
+
+// 3. Only an item's watchers add to it, and only the columns a check fills.
+const bWrite = await table(b.client).insert(priceRow("rossmann", itemX));
+check("user B, who doesn't watch X, can't record a price for it", bWrite.error?.code === "42501", show(bWrite));
+const unwatched = await table(a.client).insert(priceRow("rossmann", rossmannId(1)));
+check("user A can't record a price for an item they don't watch", unwatched.error?.code === "42501", show(unwatched));
+// Even the source's only allowed value is refused: the insert grant leaves all three to the database.
+const setByDatabase = [
+  ["the time", { observed_at: "2020-01-01T00:00:00Z" }],
+  ["the source", { source: "fetch" }],
+  ["the recording user", { recorded_by: b.id }],
+];
+for (const [what, fields] of setByDatabase) {
+  const result = await table(a.client).insert(priceRow("rossmann", itemX, fields));
+  check(`user A can't set ${what} of an observation`, result.error?.code === "42501", show(result));
+}
+
+// 4. The recording user stays hidden, and only watchers read an item's observations, from the table or the view.
+const recorder = await table(a.client).select("id, recorded_by").eq("shop_item_id", itemX);
+check("user A can't read who recorded an observation", recorder.error?.code === "42501", show(recorder));
+const bTable = await table(b.client).select("id").eq("shop_item_id", itemX);
+const bView = await view(b.client).select("shop_item_id").eq("shop_item_id", itemX);
+check(
+  "user B, who doesn't watch X, reads none of its observations",
+  bTable.data?.length === 0 && bView.data?.length === 0,
+  `table ${show(bTable)}, view ${show(bView)}`,
+);
+const anonTable = await table(anon).select("id");
+const anonView = await view(anon).select("shop_item_id");
+check(
+  "anon can't read observations",
+  anonTable.error?.code === "42501" && anonView.error?.code === "42501",
+  `table ${show(anonTable)}, view ${show(anonView)}`,
+);
+const anonWrite = await table(anon).insert(priceRow("rossmann", itemX));
+check("anon can't record a price", anonWrite.error?.code === "42501", show(anonWrite));
+const bItemId = await addProduct(b, "B", itemX);
+const bRows = await table(b.client).select("id").eq("shop_item_id", itemX);
+const bIds = (bRows.data ?? []).map((row) => row.id);
+check(
+  "once user B watches X too, B reads both of user A's observations",
+  bIds.length === 2 && bIds.includes(priceObs?.id) && bIds.includes(missingObs?.id),
+  show(bRows),
+);
+
+// 5. A match in another shop makes that shop's item watched, by the user who matched it only: user B's own match of a
+// different SKU gives B nothing of user A's.
+const aMatch = await a.client.from("watchlist_matches").insert(naturaMatch(aItemId, skuA));
+const bMatch = await b.client.from("watchlist_matches").insert(naturaMatch(bItemId, skuB));
+const aNatura = await table(a.client).insert(priceRow("natura", skuA));
+check(
+  "user A, who matched X to a Natura SKU, records a price for that SKU",
+  !aMatch.error && !bMatch.error && !aNatura.error,
+  `matches ${show(aMatch)}, ${show(bMatch)}, insert ${show(aNatura)}`,
+);
+const bReadsA = await table(b.client).select("id").eq("shop_item_id", skuA);
+const bWritesA = await table(b.client).insert(priceRow("natura", skuA));
+check(
+  "user B, who matched another Natura SKU, can't read or record user A's",
+  bReadsA.data?.length === 0 && bWritesA.error?.code === "42501",
+  `read ${show(bReadsA)}, insert ${show(bWritesA)}`,
+);
+
+// 6. Nothing changes or deletes an observation: there's no update or delete grant, and no policy for either.
+const readPrice = () => table(a.client).select("id, price").eq("id", priceObs?.id);
+const changed = await table(a.client).update({ price: 1 }).eq("id", priceObs?.id).select("id");
+const afterChange = await readPrice();
+check(
+  "user A can't change an observation",
+  (changed.error?.code === "42501" || changed.data?.length === 0) && afterChange.data?.[0]?.price === 26.99,
+  `update ${show(changed)}, row ${show(afterChange)}`,
+);
+const deleted = await table(a.client).delete().eq("id", priceObs?.id).select("id");
+const afterDelete = await readPrice();
+check(
+  "user A can't delete an observation",
+  (deleted.error?.code === "42501" || deleted.data?.length === 0) && afterDelete.data?.length === 1,
+  `delete ${show(deleted)}, row ${show(afterDelete)}`,
+);
+
+// 7. Bounds and shapes, each row breaking exactly one. RLS runs before a table's checks, so every observation is for an
+// item user A watches, '..' included: watchlist_items still accepts it as a product's id.
+await addProduct(a, "A", "..");
+const observationRefusals = [
+  ["a price of 0", priceRow("rossmann", itemX, { price: 0 })],
+  ["a missing item that carries a price", { ...missingRow("rossmann", itemX), price: 26.99 }],
+  ["a shop item id of '..'", priceRow("rossmann", "..")],
+];
+for (const [what, row] of observationRefusals) {
+  const result = await table(a.client).insert(row);
+  check(`price_observations refuses ${what}`, result.error?.code === "23514", show(result));
+}
+// S-02's EAN rule joined the elements with commas, so it read an element holding a comma, or a two-dimensional array
+// (written as the literal Postgres reads it from), as a list of EANs.
+const eanShapes = [
+  { what: "an EAN holding a comma", eans: ["40059000,40059001"], shop: "rossmann" },
+  { what: "a two-dimensional EAN array", eans: "{{40059000},{40059001}}", shop: "hebe" },
+];
+for (const [index, { what, eans, shop }] of eanShapes.entries()) {
+  // A fresh product id, and a shop the product has no decision for, so a missing check shows up as an added row.
+  const product = await a.client.from("watchlist_items").insert({ ...rossmannItem(rossmannId(3 + index)), eans });
+  check(`watchlist_items refuses ${what}`, product.error?.code === "23514", show(product));
+  const match = await a.client
+    .from("watchlist_matches")
+    .insert({ ...naturaMatch(aItemId, "EAN-CHECK"), shop_id: shop, eans });
+  check(`watchlist_matches refuses ${what}`, match.error?.code === "23514", show(match));
+}
+
+// 8. A lookup that found nothing changes only as a decision: the update grant covers the decision's columns, never
+// which shop or product the row belongs to. The old table-wide grant let both changes below through, because the
+// product has no Hebe decision and the other product is user A's own.
+const aOtherItemId = await addProduct(a, "A", rossmannId(2));
+const notFound = await a.client
+  .from("watchlist_matches")
+  .insert({ watchlist_item_id: aItemId, shop_id: "super-pharm", state: "not_found", decided_by: "auto" })
+  .select("id")
+  .single();
+check("user A records a Super-Pharm lookup that found nothing for X", Boolean(notFound.data?.id), show(notFound));
+const readNotFound = () =>
+  a.client.from("watchlist_matches").select("watchlist_item_id, shop_id, state").eq("id", notFound.data?.id);
+const unchanged = (row) =>
+  row.data?.length === 1 &&
+  row.data[0].watchlist_item_id === aItemId &&
+  row.data[0].shop_id === "super-pharm" &&
+  row.data[0].state === "not_found";
+const moved = await a.client.from("watchlist_matches").update({ shop_id: "hebe" }).eq("id", notFound.data?.id);
+const afterMove = await readNotFound();
+check(
+  "user A can't move their not-found row to another shop",
+  moved.error?.code === "42501" && unchanged(afterMove),
+  `update ${show(moved)}, row ${show(afterMove)}`,
+);
+const repointed = await a.client
+  .from("watchlist_matches")
+  .update({ watchlist_item_id: aOtherItemId })
+  .eq("id", notFound.data?.id);
+const afterRepoint = await readNotFound();
+check(
+  "user A can't point their not-found row at their other product",
+  repointed.error?.code === "42501" && unchanged(afterRepoint),
+  `update ${show(repointed)}, row ${show(afterRepoint)}`,
+);
+
+console.log(failed ? `\n${failed} check(s) failed` : "\nAll price observations database checks passed");
+process.exit(failed ? 1 : 0);

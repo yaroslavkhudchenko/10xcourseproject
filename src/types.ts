@@ -166,3 +166,42 @@ export type ShopLookup =
   | { kind: "choose"; options: CandidateOption[]; via: "ean" | "name" }
   | { kind: "not-found" }
   | ShopUnavailable;
+
+/** What a shop offers an item for online, in złoty: an online price, never a shelf price. */
+export interface ShopOffer {
+  price: number;
+  /** The price before a promotion, only while one runs. */
+  regularPrice: number | null;
+  /** The lowest price of the last 30 days, as the shop reports it. */
+  lowestPrice30d: number | null;
+  /** When the promotion ends, as `YYYY-MM-DD`, when the shop says. */
+  promoEndsOn: string | null;
+  /** Whether the item can be ordered online. */
+  available: boolean;
+}
+
+/**
+ * What one check of a shop item came to: the item's offer, `missing` when the shop answered without the item, or why
+ * the shop gave no answer. Only a price or a missing item is stored.
+ */
+export type PriceCheck = { kind: "price"; offer: ShopOffer } | { kind: "missing" } | ShopUnavailable;
+
+/**
+ * A shop item whose prices are observed: the shop and its own id for the item, such as Rossmann's product id or
+ * Natura's SKU. Observations are shared by everyone who watches the item.
+ */
+export interface PriceKey {
+  shop: ShopId;
+  shopItemId: string;
+}
+
+/**
+ * A shop item's latest state: when it was last checked and what that check found, with the latest price and when it
+ * was fetched. A check that found the item missing keeps the price from before; `offer` is null only when no check has
+ * found a price yet. Times are ISO timestamps.
+ */
+export type LatestPrice = PriceKey & {
+  lastCheckedAt: string;
+  lastStatus: "price" | "missing";
+  offer: (ShopOffer & { pricedAt: string }) | null;
+};
