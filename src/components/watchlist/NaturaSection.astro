@@ -22,12 +22,19 @@ interface Props {
   notice: string | null;
   /** Why the decision wasn't saved (`?error=`), as text. */
   error: string | null;
+  /**
+   * What the section's ids start with, "natura" by default. The dev kitchen sink shows several sections on one page,
+   * each with a prefix of its own, so their ids stay unique.
+   */
+  idPrefix?: string;
 }
 
-const { view, productId, unsaved, notice, error } = Astro.props;
+const { view, productId, unsaved, notice, error, idPrefix = "natura" } = Astro.props;
+
+const headingId = `${idPrefix}-heading`;
 
 // A text link, flush with the text around it and underlined like the page's other links.
-const textLink = cn(buttonVariants({ variant: "link", size: "touch" }), "px-0 underline");
+const textLink = cn(buttonVariants({ variant: "underlined", size: "touch" }), "px-0");
 
 // Every candidate's buttons read the same words, so each is described by its candidate's name, which a hidden element
 // holds under an id of its own.
@@ -35,14 +42,14 @@ const candidates =
   view?.kind === "choose"
     ? view.options.map((option, index) => ({
         ...option,
-        nameId: `natura-candidate-${index}`,
+        nameId: `${idPrefix}-candidate-${index}`,
         fullName: [option.candidate.brand, option.candidate.name].filter((part) => part !== null).join(" "),
       }))
     : [];
 ---
 
-<section aria-labelledby="natura-heading" class="flex flex-col gap-3">
-  <h2 id="natura-heading" class="text-lg font-semibold">
+<section aria-labelledby={headingId} class="flex flex-col gap-3">
+  <h2 id={headingId} class="text-lg font-semibold">
     Drogerie Natura
   </h2>
 

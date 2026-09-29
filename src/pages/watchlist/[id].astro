@@ -6,6 +6,7 @@ import NaturaSection from "@/components/watchlist/NaturaSection.astro";
 import PriceComparison from "@/components/watchlist/PriceComparison";
 import type { PriceComparisonShop } from "@/components/watchlist/price-comparison-state";
 import ProductSummary from "@/components/watchlist/ProductSummary.astro";
+import ProductUnavailable from "@/components/watchlist/ProductUnavailable.astro";
 import Layout from "@/layouts/Layout.astro";
 import { decideMatchStep } from "@/lib/services/match-step";
 import { listMatches, matchErrorMessage, recordLookup } from "@/lib/services/matches";
@@ -171,19 +172,9 @@ const pricesNotice = pricesCode === null ? null : PRICE_NOTICES[pricesCode];
       </a>
 
       {product === null ? (
-        <>
-          <h1 class="text-2xl font-bold">Nie znaleziono produktu.</h1>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-        </>
+        <ProductUnavailable reason="not-found" error={error} />
       ) : product === "failed" ? (
-        <>
-          <h1 class="text-2xl font-bold">Nie udało się wczytać produktu.</h1>
-          <p class="text-sm text-muted-foreground">Odśwież stronę, aby spróbować ponownie.</p>
-        </>
+        <ProductUnavailable reason="failed" />
       ) : (
         <>
           <header class="flex flex-col gap-3">

@@ -49,7 +49,7 @@ export default function PriceComparisonView({ itemId, state, onRefresh }: Props)
           <AlertDescription>
             <p>
               Sesja wygasła.{" "}
-              <a href="/auth/signin" className="underline">
+              <a href="/auth/signin" className="underline hover:decoration-2">
                 Zaloguj się ponownie
               </a>
               , aby odświeżyć ceny.
@@ -158,7 +158,7 @@ function PriceRow({ row, now }: PriceRowProps) {
             target="_blank"
             rel="noopener noreferrer"
             aria-describedby={nameId}
-            className={cn(buttonVariants({ variant: "link", size: "touch" }), "self-start px-0 underline")}
+            className={cn(buttonVariants({ variant: "underlined", size: "touch" }), "self-start px-0")}
           >
             Zobacz w sklepie<span className="sr-only"> (otwiera się w nowej karcie)</span>
           </a>

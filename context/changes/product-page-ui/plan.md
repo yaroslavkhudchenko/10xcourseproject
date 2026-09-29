@@ -658,6 +658,36 @@ The contract outlives this session: a lint rule refuses literals in the cleaned 
   - The not-found and failed branches are still inline in `[id].astro`, as the contract left them. The kitchen sink needs its own copy of them or an extraction.
 - **For Phase 5:** CLAUDE.md's UI text still says the product page shows the Rossmann item "with its 'Zobacz w sklepie' link". That link is now only in the price row, so reword it.
 
+### Phase 4
+
+- **Unique ids for several sections: `NaturaSection` takes an optional `idPrefix`, defaulting to `"natura"`** (Phase 4 contract, Natura). It prefixes `<prefix>-heading` and `<prefix>-candidate-<n>`. The product page passes none, so its ids are what they were, and each kitchen-sink instance passes its own.
+- **The not-found and failed branches are one component, `src/components/watchlist/ProductUnavailable.astro`** (Phase 4 contract, page branches; lesson "Define shared constants and helpers once").
+  - The page renders it where the branches were, with the same output. The 404/503 status codes and the title logic stay in the page.
+  - Its props are a union, so only the not-found branch takes the decision error.
+- **How the fixtures are built** (`src/dev/fixtures.ts`):
+  - The `choose` options come from the real `pickMatch` (`matching.ts`, no I/O). The fixture throws if the rule wouldn't offer a choice, so the kitchen sink can't show one the page never would.
+  - Every product and form uses the made-up id `00000000-0000-4000-8000-000000000000`.
+  - The only images are the app's own `/favicon.png`.
+  - The kitchen sink uses the page's own wrapper, and each page-branch instance sits in a `flex flex-col gap-6` wrapper, the spacing the page's column gives it.
+- **Imports and copies the kitchen sink keeps:**
+  - `fixtures.ts` imports `matchErrorMessage` from `matches.ts`, a module that also holds data-access functions; the kitchen sink calls only the pure text lookup.
+  - Two copies remain: the `?matched` notice text, which the page defines inline, and the header card's markup.
+  - The page's `?prices=` notices aren't shown, since the contract doesn't list them; the Alert variants are in the showcase.
+- **Astro drops the space at a line break between text and an element.** The legend read "komponenty zsrc/components/ui" and "Natura ›read-failed" until explicit `{" "}` spaces went in. So text that runs into an element on the next line needs an explicit space.
+- **The owner's call at the Phase 4 gate: `ProductSummary` writes the space after the brand** (changes Phase 3's contract that `ProductSummary` changes only its tokens). Since S-01 (`15c0ffc`) it rendered "NIVEASoft" on the list, the product header and each candidate, because Astro drops the line break between two expressions. An explicit `{" "}` fixes it, with a comment saying why.
+- **The owner's call at the Phase 4 gate: always-underlined links get a hover.**
+  - `button.tsx` has a new variant, `underlined` (`text-link underline underline-offset-4 hover:decoration-2`), defined once.
+  - The rows' and the candidates' "Zobacz w sklepie" and "Pokaż zapisaną decyzję" use it, and the session alert's inline link gets `hover:decoration-2`.
+  - Today these links had no hover at all. The kitchen sink's showcase shows the variant, as a Button and as a link.
+- **Evidence for the matrix's hover and focus-visible cells.** A scratch script (not committed) drove the kitchen sink through the DevTools protocol:
+  - **hover, at 1280 px:** under a forced `:hover`, 62 of the 63 enabled controls change their colour, background or underline. The exception is the showcase's `destructive` Button, N/A: the registry's `dark:bg-destructive/60` outranks its hover, and the view never renders one.
+  - **focus-visible, at 390 px mobile:** a Tab pass reaches all 63 controls, and each draws a visible indicator after its 150 ms transition. The components draw a 3 px ring in purple-300 at 50%; the plain alert link draws the browser outline in the same colour.
+- **How the screenshots were taken:**
+  - The kitchen sink was captured at a true 390 px (13,656 px tall) and at 1280 px (12,935), through a device-metrics override.
+  - The viewport was sized to the whole page first, so the lazy images load.
+  - Astro's dev toolbar was off (`npx astro preferences disable devToolbar`, turned back on afterwards).
+- **The owner's call at the Phase 4 gate: the product-page captures are skipped** (changes criterion 4.5, which asks for the product page as well as the kitchen sink). The owner's "Etykiety i naklejki" redesign, planned as the next change, `etykiety-redesign`, replaces this look. So 4.5 closes with the kitchen sink's captures, which show every state of the same components.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -696,29 +726,29 @@ The contract outlives this session: a lint rule refuses literals in the cleaned 
 
 #### Automated
 
-- [x] 3.1 `npm run test` passes, including the natura-view tests and the reducer's read-failure tests
-- [x] 3.2 `npx astro sync && npx astro check` reports 0 errors
-- [x] 3.3 `npm run lint` passes
-- [x] 3.4 `npm run build` passes
-- [x] 3.5 The `/10x-ui` hardcoded-value scan finds 0 hits in `src/pages/watchlist/[id].astro`, `src/components/watchlist/*.astro` and `src/components/watchlist/*.tsx`
+- [x] 3.1 `npm run test` passes, including the natura-view tests and the reducer's read-failure tests — afad362
+- [x] 3.2 `npx astro sync && npx astro check` reports 0 errors — afad362
+- [x] 3.3 `npm run lint` passes — afad362
+- [x] 3.4 `npm run build` passes — afad362
+- [x] 3.5 The `/10x-ui` hardcoded-value scan finds 0 hits in `src/pages/watchlist/[id].astro`, `src/components/watchlist/*.astro` and `src/components/watchlist/*.tsx` — afad362
 
 #### Manual
 
-- [x] 3.6 A phone-viewport walk-through on the dev server: each shop once, decision feedback in the Natura section, a double tap saves once, "Jeszcze bez ceny" for a row not fetched yet
-- [x] 3.7 The list page's product summaries and its "Odśwież ceny" guard work as before
+- [x] 3.6 A phone-viewport walk-through on the dev server: each shop once, decision feedback in the Natura section, a double tap saves once, "Jeszcze bez ceny" for a row not fetched yet — afad362
+- [x] 3.7 The list page's product summaries and its "Odśwież ceny" guard work as before — afad362
 
 ### Phase 4: States and the visual gate
 
 #### Automated
 
-- [ ] 4.1 `npx astro sync && npx astro check` reports 0 errors
-- [ ] 4.2 `npm run lint` passes
-- [ ] 4.3 The hardcoded-value scan finds 0 hits in `src/dev/`
+- [x] 4.1 `npx astro sync && npx astro check` reports 0 errors
+- [x] 4.2 `npm run lint` passes
+- [x] 4.3 The hardcoded-value scan finds 0 hits in `src/dev/`
 
 #### Manual
 
-- [ ] 4.4 The 7-state matrix is complete for the view's controls, each cell shown in the kitchen sink or marked N/A with its reason
-- [ ] 4.5 The screenshots are saved at 1280 and 390 px for the kitchen sink and the product page
+- [x] 4.4 The 7-state matrix is complete for the view's controls, each cell shown in the kitchen sink or marked N/A with its reason
+- [x] 4.5 The screenshots are saved at 1280 and 390 px for the kitchen sink and the product page
 
 ### Phase 5: The guard and the docs
 

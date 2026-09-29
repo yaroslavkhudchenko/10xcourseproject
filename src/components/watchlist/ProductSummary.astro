@@ -29,7 +29,12 @@ const { brand, name: productName, caption, sizeText, imageUrl, detail } = Astro.
   )}
   <div class="min-w-0">
     <p class="font-medium">
-      {brand && <span class="text-muted-foreground">{brand}</span>}
+      {/* Astro drops the line break between two expressions, so the space after the brand is written out. */}
+      {brand && (
+        <>
+          <span class="text-muted-foreground">{brand}</span>{" "}
+        </>
+      )}
       {productName}
     </p>
     {caption && <p class="line-clamp-2 text-sm text-muted-foreground">{caption}</p>}
