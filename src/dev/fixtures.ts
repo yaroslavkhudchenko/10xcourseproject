@@ -12,6 +12,7 @@ import {
   type PriceComparisonState,
   type RefreshResult,
 } from "@/components/watchlist/price-comparison-state";
+import { DECISION_NOTICES } from "@/lib/notices";
 import { matchErrorMessage } from "@/lib/services/matches";
 import { pickMatch } from "@/lib/services/matching";
 import {
@@ -229,11 +230,17 @@ export const PRICE_FIXTURES: PriceFixture[] = [
   },
   {
     code: "read-failed-one-answered",
-    text: "po odpowiedzi Natury: jej wiersz ma cenę, a Rossmann wciąż się odświeża",
+    text: "po odpowiedzi Natury: jej wiersz ma cenę, ale bez „Najtaniej”, bo Rossmann wciąż się odświeża",
     state: unread(
       ...REFETCH,
       done("natura", { kind: "price", offer: NATURA_PROMO, checkedAt: CHECKED_AT, saved: true }, ANSWERED_AT),
     ),
+  },
+  {
+    code: "read-failed-one-shop",
+    text: "nie udało się odczytać zapisanej ceny Natury: Rossmann ma cenę, ale bez „Najtaniej”, dopóki Natura nie odpowie",
+    // The page read the stored prices, but Natura's row came back odd, so it hands that shop over unread.
+    state: island([ROSSMANN_CHECKED, { ...row("natura", null), readFailed: true }]),
   },
 ];
 
@@ -319,13 +326,22 @@ export const NATURA_FIXTURES: NaturaFixture[] = [
     error: null,
   },
   {
+    code: "matched + unsaved",
+    text: "dopasowane automatycznie, ale zapis się nie udał: bez wiersza ceny sekcja pokazuje pozycję z Natury",
+    idPrefix: "natura-auto-unsaved",
+    view: matchedView(NATURA_ITEM, "auto", PRODUCT, { unsaved: true }),
+    unsaved: true,
+    notice: null,
+    error: null,
+  },
+  {
     code: "matched + notice",
     text: "potwierdzone przez Ciebie w innym rozmiarze, zaraz po zapisie",
     idPrefix: "natura-confirmed",
     view: storedView(CONFIRMED, PRODUCT),
     unsaved: false,
     // The page's notice for `?matched`.
-    notice: "Zapisano dopasowanie.",
+    notice: DECISION_NOTICES.matched,
     error: null,
   },
   {

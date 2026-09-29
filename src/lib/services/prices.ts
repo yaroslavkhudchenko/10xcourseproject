@@ -89,9 +89,15 @@ const LATEST_COLUMNS =
 // A time the page can show: an unreadable one would make its clock throw.
 const timestamp = z.string().refine((value) => !Number.isNaN(Date.parse(value)));
 
-const checkColumns = {
+// The item a row is about. An odd row is read for these alone too, so it can still say whose price couldn't be read.
+const keyColumns = {
   shop_id: z.enum(SHOP_IDS),
   shop_item_id: z.string(),
+};
+const rowKeySchema = z.object(keyColumns);
+
+const checkColumns = {
+  ...keyColumns,
   last_checked_at: timestamp,
 };
 
@@ -122,13 +128,54 @@ const latestRowSchema = z.union([
 
 /**
  * The latest state of the shop items the user watches: every one RLS lets them see without `keys`, as the list needs,
- * or only the given ones, as a product's page needs. Odd rows are dropped and logged. Null when the prices couldn't be
- * read.
+ * or only the given ones. Odd rows are dropped and logged. Null when the prices couldn't be read.
  */
 export async function listLatestPrices(supabase: SupabaseClient, keys?: PriceKey[]): Promise<LatestPrice[] | null> {
   if (keys?.length === 0) {
     return [];
   }
+  const rows = await readLatestRows(supabase, keys);
+  return rows === null ? null : rows.prices;
+}
+
+/** The latest prices of the items a product's page asked for, and the asked-for items whose rows couldn't be read. */
+export interface LatestPricesRead {
+  prices: LatestPrice[];
+  unread: PriceKey[];
+}
+
+/**
+ * The latest state of the given shop items, as a product's page needs it: their prices, and the items whose rows came
+ * back odd, so the page never shows such an item as one that was never checked. Odd rows are logged. Null when the
+ * prices couldn't be read, and when an odd row can't even say which item it's about, since it could be any of them.
+ */
+export async function readLatestPrices(supabase: SupabaseClient, keys: PriceKey[]): Promise<LatestPricesRead | null> {
+  if (keys.length === 0) {
+    return { prices: [], unread: [] };
+  }
+  const rows = await readLatestRows(supabase, keys);
+  if (rows === null || rows.unattributed > 0) {
+    return null;
+  }
+  return { prices: rows.prices, unread: rows.unread };
+}
+
+/**
+ * What one read of the latest rows came to: the prices of the items asked for, the items asked for whose rows couldn't
+ * be read, and how many odd rows couldn't say which item they're about.
+ */
+interface LatestRows {
+  prices: LatestPrice[];
+  unread: PriceKey[];
+  unattributed: number;
+}
+
+/**
+ * Reads the latest rows of the given items, or of every item RLS lets the user see without `keys`, in one query within
+ * a time limit. Each row is checked on its own, so one odd row doesn't hide the other prices. Null when the rows
+ * couldn't be read at all.
+ */
+async function readLatestRows(supabase: SupabaseClient, keys?: PriceKey[]): Promise<LatestRows | null> {
   // The filter is on the item id alone, which two shops could share, so each row is matched to its key below.
   const select = supabase.from(LATEST_VIEW).select(LATEST_COLUMNS);
   const itemIds = keys?.map((key) => key.shopItemId);
@@ -144,24 +191,33 @@ export async function listLatestPrices(supabase: SupabaseClient, keys?: PriceKey
     return null;
   }
   const wanted = keys === undefined ? null : new Set(keys.map(keyText));
-  // Each row is checked on its own, so one odd row doesn't hide the other prices.
-  const prices: LatestPrice[] = [];
+  const isWanted = (key: PriceKey) => wanted === null || wanted.has(keyText(key));
+  const read: LatestRows = { prices: [], unread: [], unattributed: 0 };
   let dropped = 0;
   for (const raw of rows) {
     const row = latestRowSchema.safeParse(raw);
-    if (!row.success) {
-      dropped++;
+    if (row.success) {
+      const latest = toLatestPrice(row.data);
+      if (isWanted(latest)) {
+        read.prices.push(latest);
+      }
       continue;
     }
-    const latest = toLatestPrice(row.data);
-    if (wanted === null || wanted.has(keyText(latest))) {
-      prices.push(latest);
+    dropped++;
+    const key = rowKeySchema.safeParse(raw);
+    if (!key.success) {
+      read.unattributed++;
+      continue;
+    }
+    const item: PriceKey = { shop: key.data.shop_id, shopItemId: key.data.shop_item_id };
+    if (isWanted(item)) {
+      read.unread.push(item);
     }
   }
   if (dropped > 0) {
     logFailure("unexpected rows dropped", String(dropped));
   }
-  return prices;
+  return read;
 }
 
 function toLatestPrice(row: z.infer<typeof latestRowSchema>): LatestPrice {

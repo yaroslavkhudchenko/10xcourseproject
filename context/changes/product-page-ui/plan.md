@@ -708,6 +708,51 @@ The contract outlives this session: a lint rule refuses literals in the cleaned 
 - **The roadmap's S-07 gets the C5 carry-over bullet** between Risk and Status. It names the session link at `PriceComparisonView.tsx`, where Phase 3 moved it from the research's `PriceComparison.tsx:97`. `updated:` was already today's date. `AGENTS.md` now reads "Every project rule is in `CLAUDE.md`, so read it before any work in this repository."
 - **For `etykiety-redesign`: the owner's untracked design folders break `npm run lint` locally.** `design_handoff_etykiety/` and its copy in `Drogeria Radar redesign/` hold `support.js`, which gives `eslint .` 3,026 problems and `astro check` 8 hints. CI's clean checkout doesn't have them, so 5.1 and 5.4 were judged on the tracked tree, with `--ignore-pattern` for both folders: 0 problems and 0 hints. When the redesign moves the handoff into its change folder, ESLint's ignores and the tsconfig must exclude it.
 
+### Implementation review fixes
+
+The full review (`reviews/impl-review.md`, all 5 phases) found 4 warnings and 6 observations. The owner fixed all 10, F4 through its Fix A; the deferred items are in `follow-ups/review-fixes.md`.
+
+- **F1:** a price the page can't read no longer leads to a claim.
+  - `src/lib/services/prices.ts` gains a keyed `readLatestPrices`, which returns `{ prices, unread }`. It shares one query and one per-row parser (`readLatestRows`) with `listLatestPrices`, whose unkeyed callers are unchanged. The key schema is built from the same columns as the full schema.
+  - A dropped row whose key reads goes into `unread`. One whose key doesn't read, including a shop outside `SHOP_IDS`, makes the read `null`.
+  - The page marks each `unread` shop `readFailed`, through the new optional `PriceComparisonShop.readFailed`.
+  - `compareRows` in the state module makes the rows and the live region name no shop cheapest while any row is unread. `compareShops` is unchanged.
+  - The kitchen sink adds `read-failed-one-shop`.
+- **F2:** forced-colors focus. Button keeps `outline-none` and adds `focus-visible:outline-hidden`; Badge adds `focus-visible:outline-hidden`. Tailwind compiles it to a transparent 2 px outline under `forced-colors: active`.
+- **F3:** `tokenConfig` covers the other colour utilities, the new palettes and arbitrary colours.
+  - Prefixes: `border` with its sides, `ring` and `ring-offset`, `outline`, `decoration`, `caret`, `accent` and `placeholder`.
+  - Palettes: `mauve`, `mist`, `olive` and `taupe`.
+  - Arbitrary colours: a third pattern, `-\[(#|rgba?\(|hsla?\(|oklch\(|oklab\()`.
+  - The comment and CLAUDE.md now say what it doesn't cover: plain hex strings, `style` attributes and client scripts.
+- **F4 (Fix A):** each of these exists once now:
+  - `src/components/watchlist/ShopLink.tsx`, the one "Zobacz w sklepie" link, with `rel="noopener noreferrer"`. It's used by the price rows, the candidates and F5's item.
+  - The Button's `inline` size (`min-h-11 px-0 py-2`), which replaces the three `touch` + `px-0` recipes.
+  - `src/lib/notices.ts`, with the notice parameters and the decision texts. It's shared by the page's frontmatter and its address-bar script, `natura-view`'s tested `decisionNotice`, `NaturaSection` and the fixtures.
+  - `src/components/watchlist/ProductHeader.astro`, used by the page and the kitchen sink.
+  - `productFullName` in `src/lib/services/watchlist.ts`, tested.
+- **F5:** while an automatic match isn't saved, the section shows the candidate.
+  - `matchedView(item, decidedBy, own, { unsaved })` carries the item's summary (brand, name, size text, photo, page) only then. This supersedes the Phase 3 note that it takes only the item's size.
+  - `NaturaSection` renders it as a Card with `ProductSummary` and `ShopLink`.
+  - The kitchen sink adds `matched + unsaved`.
+- **F6:** the contrast check's pairs.
+  - Added: the warning Badge on the canvas, at 10.86:1 or better.
+  - Dropped: the `link` pair on the warning alert and the `destructive` pair on the canvas, since the page renders neither.
+  - The check now prints 58 lines. `alert.tsx`, `badge.tsx` and `button.tsx` note that the script mirrors their opacities, and CLAUDE.md and `global.css` say "the pairs listed in it".
+- **F7:** `SubmitOnce` groups. A named `data-submit-once` group disables every form in it on one submit, and the Natura decision forms share `natura-decision`. The list's form is unchanged.
+- **F8:** the island's import guard also covers the ui components, `src/lib/utils.ts`, `ShopLink.tsx` and `src/lib/notices.ts`. Its message says "runs … in the browser", since `notices.ts` serves the page's script.
+- **F9:** the size-warning and flag Badges wrap (`whitespace-normal`).
+- **F10:**
+  - `button.tsx` gains a header saying where it came from and every change from the registry.
+  - CLAUDE.md's file shorthand matches the lint globs, and it now names the page's shared pieces.
+  - `[id].astro` passes `SHOP_LABELS.natura.name` instead of the literal "Natura".
+  - The island's chunk grows by about 2–3 KB gzipped, not the few hundred bytes Performance Considerations estimated: it now loads the Button and Badge chunk, with Radix Slot and cva.
+- **How the fixes were verified:**
+  - Tests: 616, 20 of them new.
+  - Lint: 0 problems on the tracked tree. `astro check`: 0 errors and 0 warnings, its hints only in the untracked design folders.
+  - Build: passes, with the forced-colors outline present in its CSS. Contrast: 58 of 58 PASS. Scans: 0 hits.
+  - Deliberate breaks: 5, each red and then restored — the unread key, no cheapest while unread, the unsaved item, the notice order, and three new lint families.
+  - The kitchen sink's captures were retaken after the fixes: 14,533 px tall at 390 and 13,764 at 1280.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.

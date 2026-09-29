@@ -1,7 +1,7 @@
 import { useId } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   comparisonOf,
@@ -10,6 +10,7 @@ import {
   type ComparedRow,
   type PriceComparisonState,
 } from "@/components/watchlist/price-comparison-state";
+import ShopLink from "@/components/watchlist/ShopLink";
 import { ageText, formatDay, formatPrice, SHOP_LABELS } from "@/lib/services/price-comparison";
 import { priceMissingText, priceUnavailableText } from "@/lib/shop-messages";
 import { cn } from "@/lib/utils";
@@ -34,7 +35,7 @@ export default function PriceComparisonView({ itemId, state, onRefresh }: Props)
   const { rows } = comparisonOf(state);
   // One refetch per shop at a time: a second tap while one runs would only spend the cap again.
   const refreshing = state.rows.some((row) => row.pending);
-  // The page couldn't read the stored prices, and some shop hasn't answered since.
+  // The page couldn't read some shop's stored price, and that shop hasn't answered since: no row is marked cheapest.
   const readFailed = state.rows.some((row) => row.readFailed);
 
   return (
@@ -152,17 +153,7 @@ function PriceRow({ row, now }: PriceRowProps) {
             {priceUnavailableText(label.name, row.notice.reason, row.notice.until, hasPrice)}
           </p>
         )}
-        {row.productUrl && (
-          <a
-            href={row.productUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-describedby={nameId}
-            className={cn(buttonVariants({ variant: "underlined", size: "touch" }), "self-start px-0")}
-          >
-            Zobacz w sklepie<span className="sr-only"> (otwiera się w nowej karcie)</span>
-          </a>
-        )}
+        {row.productUrl && <ShopLink href={row.productUrl} describedBy={nameId} className="self-start" />}
       </Card>
     </li>
   );

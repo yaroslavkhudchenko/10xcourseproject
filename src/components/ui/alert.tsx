@@ -11,6 +11,7 @@ const alertVariants = cva(
     variants: {
       variant: {
         default: "bg-card text-card-foreground",
+        // scripts/check-token-contrast.mjs mirrors the /10 fills and /90 descriptions below: change it with them.
         // Tinted like the status variants below, so an error reads as one at a glance (the registry uses bg-card).
         destructive:
           "border-destructive/30 bg-destructive/10 text-destructive *:data-[slot=alert-description]:text-destructive/90 [&>svg]:text-current",

@@ -1,10 +1,12 @@
+import { DECISION_CODES, DECISION_NOTICES } from "@/lib/notices";
 import { sizesEqual } from "@/lib/services/matching";
 import { formatPrice, SHOP_LABELS } from "@/lib/services/price-comparison";
 import type { CandidateOption, MatchedItem, ShopCandidate, ShopMatch, Size, WatchlistProduct } from "@/types";
 
 // What a product's page shows in its Natura section, without I/O: the stored decision, the lookup's outcome, or why
-// there's neither. The page and the dev kitchen sink build their views here, so both show the same texts. Times are
-// shown on the shopper's own clock in Poland, and each builder takes the times it shows as arguments.
+// there's neither, and the notice of a decision just saved. The page and the dev kitchen sink build their views here,
+// so both show the same texts. Times are shown on the shopper's own clock in Poland, and each builder takes the times
+// it shows as arguments.
 
 const clock = new Intl.DateTimeFormat("pl-PL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" });
 const dayAndTime = new Intl.DateTimeFormat("pl-PL", {
@@ -19,6 +21,9 @@ const UNIT_NAMES = { ml: "ml", g: "g", pcs: "szt." } as const;
 
 /** A size as a shop wrote it, and parsed when that was possible. */
 type Sized = Pick<MatchedItem, "sizeText" | "size">;
+
+/** A Natura item as the section shows it: its photo, its name and size, and its page in the shop. */
+export type NaturaItemSummary = Pick<MatchedItem, "brand" | "name" | "sizeText" | "imageUrl" | "productUrl">;
 
 /** The watched product, as far as the section looks at it: the id its links lead to, and its size. */
 export type NaturaProduct = Pick<WatchlistProduct, "id" | "sizeText" | "size">;
@@ -39,10 +44,16 @@ export interface NaturaOption {
 /**
  * What the Natura section shows: the stored decision, the lookup's outcome, or why there's neither. A match shows only
  * how it was decided and whether its size differs: its price and its page are in its price row, so each shop appears
- * once on the page.
+ * once on the page. A match the page couldn't save has no price row, so it carries its item too.
  */
 export type NaturaView =
-  | { kind: "matched"; note: string; sizeWarning: string | null }
+  | {
+      kind: "matched";
+      note: string;
+      sizeWarning: string | null;
+      /** Only while the match isn't saved: it has no price row then, so the section shows the item in its place. */
+      item?: NaturaItemSummary;
+    }
   | { kind: "unmatched" }
   | { kind: "not-found"; text: string; href: string }
   | { kind: "choose"; intro: string; options: NaturaOption[] }
@@ -64,14 +75,25 @@ export function otherSize(item: Sized, own: Sized): string {
   return `Inny rozmiar: ${sizeLabel(item.sizeText, item.size)} zamiast ${sizeLabel(own.sizeText, own.size)}`;
 }
 
-/** A match: how it was decided, with its size flagged whenever both sizes are known and differ. */
-export function matchedView(item: Sized, decidedBy: "auto" | "user", own: NaturaProduct): NaturaView {
+/**
+ * A match: how it was decided, with its size flagged whenever both sizes are known and differ. A match the page
+ * couldn't save (`unsaved`) has no price row, so it carries the item's summary for the section to show; a saved or
+ * stored match carries none.
+ */
+export function matchedView(
+  item: NaturaItemSummary & Sized,
+  decidedBy: "auto" | "user",
+  own: NaturaProduct,
+  { unsaved = false }: { unsaved?: boolean } = {},
+): NaturaView {
   const differs = own.size !== null && item.size !== null && !sizesEqual(own.size, item.size);
-  return {
-    kind: "matched",
-    note: decidedBy === "auto" ? "Dopasowano automatycznie: ten sam EAN i rozmiar." : "Potwierdzone przez Ciebie.",
-    sizeWarning: differs ? otherSize(item, own) : null,
-  };
+  const note = decidedBy === "auto" ? "Dopasowano automatycznie: ten sam EAN i rozmiar." : "Potwierdzone przez Ciebie.";
+  const sizeWarning = differs ? otherSize(item, own) : null;
+  if (!unsaved) {
+    return { kind: "matched", note, sizeWarning };
+  }
+  const { brand, name, sizeText, imageUrl, productUrl } = item;
+  return { kind: "matched", note, sizeWarning, item: { brand, name, sizeText, imageUrl, productUrl } };
 }
 
 /** A lookup that found nothing at `checkedAt`, with the link that looks the product up again. */
@@ -143,4 +165,13 @@ export function chooseView(
 export function promptView(own: NaturaProduct, retrying: boolean): NaturaView {
   const pageUrl = `/watchlist/${own.id}`;
   return { kind: "prompt", href: retrying ? `${pageUrl}?retry=1` : pageUrl };
+}
+
+/**
+ * The notice of the Natura decision the page was sent back with (`?matched`, `?declined` or `?decided`), or null for
+ * none. Should several come at once, a match's notice wins, then a decline's.
+ */
+export function decisionNotice(params: URLSearchParams): string | null {
+  const code = DECISION_CODES.find((each) => params.has(each));
+  return code === undefined ? null : DECISION_NOTICES[code];
 }

@@ -1,13 +1,15 @@
 // shadcn/ui Badge, copied on 2026-09-29 from https://ui.shadcn.com/r/styles/new-york-v4/badge.json, with the success
-// and warning variants added. The registry imports `cn` from the `cn` package and `Slot` from `radix-ui` (as
-// `Slot.Root`); here they come from @/lib/utils and @radix-ui/react-slot, which the project already has.
+// and warning variants added, and focus-visible:outline-hidden, as on the Button: forced-colors mode paints its
+// transparent outline where it drops the focus ring's box-shadow. The registry imports `cn` from the `cn` package and
+// `Slot` from `radix-ui` (as `Slot.Root`); here they come from @/lib/utils and @radix-ui/react-slot, which the project
+// already has.
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { Slot } from "@radix-ui/react-slot";
 
 const badgeVariants = cva(
-  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3",
+  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-hidden aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3",
   {
     variants: {
       variant: {
@@ -19,6 +21,7 @@ const badgeVariants = cva(
         ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         link: "text-primary underline-offset-4 [a&]:hover:underline",
         // Not in the registry: tinted status pills, read from the success and warning tokens.
+        // scripts/check-token-contrast.mjs mirrors their /15 fills: change it with them.
         success: "bg-success/15 text-success-foreground [a&]:hover:bg-success/25",
         warning: "bg-warning/15 text-warning-foreground [a&]:hover:bg-warning/25",
       },

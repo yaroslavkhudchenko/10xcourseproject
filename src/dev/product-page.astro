@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card";
 import NaturaSection from "@/components/watchlist/NaturaSection.astro";
 import PriceComparisonView from "@/components/watchlist/PriceComparisonView";
-import ProductSummary from "@/components/watchlist/ProductSummary.astro";
+import ProductHeader from "@/components/watchlist/ProductHeader.astro";
 import ProductUnavailable from "@/components/watchlist/ProductUnavailable.astro";
 import { GONE_ERROR, HEADER_FIXTURES, HERE, NATURA_FIXTURES, PRICE_FIXTURES, PRODUCT_ID } from "@/dev/fixtures";
 import Layout from "@/layouts/Layout.astro";
@@ -122,9 +122,10 @@ const LINK_BUTTONS = [
             </dt>
             <dd class="text-sm text-muted-foreground">
               Destrukcyjny Alert przy przyciskach Natury: Natura › <code>choose + error</code>. Alert „Nie udało się
-              wczytać cen.”: Ceny › <code>read-failed</code> i <code>read-failed-one-answered</code>. Komunikaty
-              wierszy: Ceny › <code>notice-busy-paused</code> i <code>notice-stopped-failed</code>. Do tego Natura ›{" "}
-              <code>read-failed</code> i Gałęzie strony › <code>not-found + error</code>.
+              wczytać cen.”: Ceny › <code>read-failed</code>, <code>read-failed-one-answered</code> i{" "}
+              <code>read-failed-one-shop</code>. Komunikaty wierszy: Ceny › <code>notice-busy-paused</code> i{" "}
+              <code>notice-stopped-failed</code>. Do tego Natura › <code>read-failed</code> i Gałęzie strony ›{" "}
+              <code>not-found + error</code>.
             </dd>
           </div>
           <div class="flex flex-col gap-1">
@@ -158,16 +159,8 @@ const LINK_BUTTONS = [
               <p class="text-xs text-muted-foreground">
                 <code>{code}</code> · {text}
               </p>
-              {/* The page's header card: a Card around the product's summary. */}
-              <Card className="flex-row items-center gap-3 p-3">
-                <ProductSummary
-                  brand={product.brand}
-                  name={product.name}
-                  caption={product.caption}
-                  sizeText={product.sizeText}
-                  imageUrl={product.imageUrl}
-                />
-              </Card>
+              {/* The page's own header, with its heading for screen readers. */}
+              <ProductHeader product={product} />
             </div>
           ))}
         </div>
@@ -220,7 +213,7 @@ const LINK_BUTTONS = [
               {view.kind === "choose" && (
                 <div class="flex flex-col gap-1">
                   <p class="text-xs text-muted-foreground">
-                    <code>{code}</code>, po wysłaniu · SubmitOnce wyłącza przyciski wysłanego formularza
+                    <code>{code}</code>, po wysłaniu · SubmitOnce wyłącza przyciski wszystkich formularzy decyzji
                   </p>
                   {/* The candidate's own row of buttons, as the section lays it out. */}
                   <div class="flex flex-wrap items-center gap-x-4 gap-y-2">

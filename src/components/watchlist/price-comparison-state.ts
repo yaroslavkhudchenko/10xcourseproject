@@ -12,8 +12,9 @@ import type { LatestPrice, PriceRefreshAnswer, SearchUnavailableReason, ShopOffe
 
 // The product page's price island, without React: each matched shop's latest price, whether its refetch runs, why the
 // last one gave no answer, whether the page couldn't read its stored price, and what screen readers hear of the
-// answers. Every change goes through the reducer, and the order and marks always come from compareShops, so Vitest can
-// check them in Node. It runs in the browser, so it imports nothing server-only.
+// answers. Every change goes through the reducer, and the order and marks always come from compareShops, withheld while
+// a stored price is unread (compareRows), so Vitest can check them in Node. It runs in the browser, so it imports
+// nothing server-only.
 
 /** The route that refetches one shop of one product (src/pages/api/watchlist/prices.ts). */
 export const PRICES_ROUTE = "/api/watchlist/prices";
@@ -23,11 +24,16 @@ export const REFRESH_FORM_ROUTE = "/api/watchlist/refresh";
 // never waits for good.
 const REFRESH_TIMEOUT_MS = 20_000;
 
-/** One matched shop as the page hands it to the island: the shop, its item's page, and its stored price, if any. */
+/**
+ * One matched shop as the page hands it to the island: the shop, its item's page, its stored price, if any, and whether
+ * the page couldn't read that price.
+ */
 export interface PriceComparisonShop {
   shop: PricedShop;
   productUrl: string | null;
   latest: LatestPrice | null;
+  /** The page read the stored prices, but not this shop's: its row came back odd. */
+  readFailed?: boolean;
 }
 
 /** What one refetch came to: the route's answer, or that the session ended and the user has to sign in again. */
@@ -50,8 +56,9 @@ export interface ShopRow {
   pending: boolean;
   notice: RefreshNotice | null;
   /**
-   * The page couldn't read the stored prices, and the shop hasn't answered with a price or a missing item since. The
-   * row has no check to show, yet the item may well have been checked, so it never reads as one that never was.
+   * The page couldn't read the stored prices, or this shop's, and the shop hasn't answered with a price or a missing
+   * item since. The row has no check to show, yet the item may well have been checked, so it never reads as one that
+   * never was. While any row is marked, no shop is named cheapest: the price that couldn't be read may be the lowest.
    */
   readFailed: boolean;
 }
@@ -93,7 +100,8 @@ export function tick(now: number): PriceComparisonAction {
 /**
  * The state the page renders with: the stored prices, nothing running, on the server's clock (`now`, an ISO
  * timestamp), so the browser's first render matches the page's HTML. With `pricesFailed`, the page couldn't read the
- * stored prices, and every row starts marked `readFailed`.
+ * stored prices, and every row starts marked `readFailed`; otherwise only the rows of the shops handed over with
+ * `readFailed` do.
  */
 export function initialState({
   shops,
@@ -105,13 +113,13 @@ export function initialState({
   pricesFailed?: boolean;
 }): PriceComparisonState {
   return {
-    rows: shops.map(({ shop, productUrl, latest }) => ({
+    rows: shops.map(({ shop, productUrl, latest, readFailed }) => ({
       shop,
       productUrl,
       latest,
       pending: false,
       notice: null,
-      readFailed: pricesFailed,
+      readFailed: pricesFailed || readFailed === true,
     })),
     now: Date.parse(now),
     sessionEnded: false,
@@ -152,8 +160,8 @@ export function priceComparisonReducer(
 
 /**
  * What the live region says about one shop's answer, judged on the rows that answer made, at `now`: the new price, and
- * whether it's now the cheapest, or the text the row shows next to the last known price. Null for an ended session,
- * which the page's own alert announces with its link to sign in.
+ * whether it's now the cheapest, as the rows mark it, or the text the row shows next to the last known price. Null for
+ * an ended session, which the page's own alert announces with its link to sign in.
  */
 function announcement(rows: ShopRow[], now: number, shop: PricedShop, result: RefreshResult): string | null {
   const { name } = SHOP_LABELS[shop];
@@ -161,7 +169,7 @@ function announcement(rows: ShopRow[], now: number, shop: PricedShop, result: Re
   const hasPrice = (rows.find((row) => row.shop === shop)?.latest?.offer ?? null) !== null;
   switch (result.kind) {
     case "price": {
-      const cheapest = compareShops(rows, now).rows.some((row) => row.shop === shop && row.cheapest);
+      const cheapest = compareRows(rows, now).rows.some((row) => row.shop === shop && row.cheapest);
       return `${name}: ${formatPrice(result.offer.price)}${cheapest ? ", najtaniej" : ""}`;
     }
     case "missing":
@@ -223,9 +231,25 @@ export function gapText(row: Pick<ShopRow, "shop" | "latest" | "readFailed">): s
   return `Brak ceny online w ${SHOP_LABELS[row.shop].site}`;
 }
 
-/** The rows in their order with their marks, and the summary, at the state's time. */
+/** The rows in their order with their marks, and the summary, at the state's time, as compareRows gives them. */
 export function comparisonOf(state: PriceComparisonState): Comparison<ShopRow> {
-  return compareShops(state.rows, state.now);
+  return compareRows(state.rows, state.now);
+}
+
+/**
+ * The rows compared at `now`: compareShops' order, marks and summary, unless some row's stored price couldn't be read.
+ * That price may be the lowest, so then no row is marked cheapest, in the rows or in what screen readers hear, and a
+ * summary that would name the cheapest names none. Each row keeps its order, its state and whether it's eligible.
+ */
+function compareRows(rows: readonly ShopRow[], now: number): Comparison<ShopRow> {
+  const comparison = compareShops(rows, now);
+  if (!rows.some((row) => row.readFailed)) {
+    return comparison;
+  }
+  return {
+    rows: comparison.rows.map((row) => ({ ...row, cheapest: false })),
+    summary: comparison.summary.kind === "cheapest" ? { kind: "none" } : comparison.summary,
+  };
 }
 
 /** A row as the island renders it, with its verdict. */

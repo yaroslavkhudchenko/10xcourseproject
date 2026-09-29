@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   chooseView,
+  decisionNotice,
   matchedView,
   notFoundView,
   optionView,
@@ -113,6 +114,29 @@ describe("matchedView: the size warning", () => {
   });
 });
 
+describe("matchedView: a match the page couldn't save", () => {
+  it("carries the item's summary, since no price row shows it, and nothing else of the candidate", () => {
+    // The lookup's candidate, as the page hands it over, with its offer and its EANs.
+    expect(matchedView(candidate("300 ml"), "auto", product, { unsaved: true })).toEqual({
+      kind: "matched",
+      note: "Dopasowano automatycznie: ten sam EAN i rozmiar.",
+      sizeWarning: null,
+      item: {
+        brand: "NIVEA",
+        name: "NIVEA SOFT krem intensywnie nawilżający",
+        sizeText: "300 ml",
+        imageUrl: null,
+        productUrl: "https://www.drogerienatura.pl/nivea-soft",
+      },
+    });
+  });
+
+  it("carries no item once the match is saved", () => {
+    expect(matchedView(candidate("300 ml"), "auto", product, { unsaved: false })).not.toHaveProperty("item");
+    expect(matchedView(candidate("300 ml"), "auto", product)).not.toHaveProperty("item");
+  });
+});
+
 describe("optionView: the flags", () => {
   it.each<{ why: string; verdict: CandidateVerdict; sizeText: string | null; flags: CandidateFlag[] }>([
     {
@@ -183,6 +207,26 @@ describe("promptView", () => {
   it("links to the product's page, keeping a retry", () => {
     expect(promptView(product, false)).toEqual({ kind: "prompt", href: `/watchlist/${ITEM_ID}` });
     expect(promptView(product, true)).toEqual({ kind: "prompt", href: `/watchlist/${ITEM_ID}?retry=1` });
+  });
+});
+
+describe("decisionNotice", () => {
+  it.each<{ query: string; notice: string }>([
+    { query: "matched=1", notice: "Zapisano dopasowanie." },
+    { query: "declined=1", notice: "Zapisano: brak w Naturze." },
+    { query: "decided=1", notice: "Ten produkt ma już zapisaną decyzję." },
+  ])("gives the page's notice for ?$query", ({ query, notice }) => {
+    expect(decisionNotice(new URLSearchParams(query))).toBe(notice);
+  });
+
+  it("gives a match's notice first, then a decline's, when several come at once", () => {
+    expect(decisionNotice(new URLSearchParams("decided=1&declined=1&matched=1"))).toBe("Zapisano dopasowanie.");
+    expect(decisionNotice(new URLSearchParams("decided=1&declined=1"))).toBe("Zapisano: brak w Naturze.");
+  });
+
+  it("gives none without a decision's code, whatever else the address holds", () => {
+    expect(decisionNotice(new URLSearchParams())).toBeNull();
+    expect(decisionNotice(new URLSearchParams("error=failed&prices=done&retry=1"))).toBeNull();
   });
 });
 

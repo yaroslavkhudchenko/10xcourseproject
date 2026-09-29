@@ -1,14 +1,17 @@
 ---
 // A product's Natura section, rendered from the view its page builds (src/lib/services/natura-view.ts), so the page and
 // the dev kitchen sink show it the same way. A decision's notice or error sits at its top, next to the buttons that
-// caused it, and each decision form is sent once.
+// caused it, and the decision forms are one submit-once group, so one tap sends one decision, whichever button it was.
 import SubmitOnce from "@/components/SubmitOnce.astro";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import ProductSummary from "@/components/watchlist/ProductSummary.astro";
+import ShopLink from "@/components/watchlist/ShopLink";
+import { DECISION_NOTICES } from "@/lib/notices";
 import type { NaturaView } from "@/lib/services/natura-view";
+import { productFullName } from "@/lib/services/watchlist";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -32,9 +35,8 @@ interface Props {
 const { view, productId, unsaved, notice, error, idPrefix = "natura" } = Astro.props;
 
 const headingId = `${idPrefix}-heading`;
-
-// A text link, flush with the text around it and underlined like the page's other links.
-const textLink = cn(buttonVariants({ variant: "underlined", size: "touch" }), "px-0");
+// The id of the hidden name that describes the link of a match not saved yet.
+const itemNameId = `${idPrefix}-item`;
 
 // Every candidate's buttons read the same words, so each is described by its candidate's name, which a hidden element
 // holds under an id of its own.
@@ -43,7 +45,7 @@ const candidates =
     ? view.options.map((option, index) => ({
         ...option,
         nameId: `${idPrefix}-candidate-${index}`,
-        fullName: [option.candidate.brand, option.candidate.name].filter((part) => part !== null).join(" "),
+        fullName: productFullName(option.candidate),
       }))
     : [];
 ---
@@ -66,8 +68,32 @@ const candidates =
 
   {view?.kind === "matched" && (
     <div class="flex flex-col gap-2">
+      {/* A match not saved yet has no price row, so the section shows its item and its page in the shop instead. */}
+      {view.item && (
+        <Card className="gap-3 p-3">
+          <ProductSummary
+            brand={view.item.brand}
+            name={view.item.name}
+            caption={null}
+            sizeText={view.item.sizeText}
+            imageUrl={view.item.imageUrl}
+          />
+          {view.item.productUrl && (
+            <>
+              <span id={itemNameId} hidden>
+                {productFullName(view.item)}
+              </span>
+              <ShopLink href={view.item.productUrl} describedBy={itemNameId} className="self-start" />
+            </>
+          )}
+        </Card>
+      )}
       {/* A suspicious match stands out with the same pill its candidate's flag had before it was confirmed. */}
-      {view.sizeWarning && <Badge variant="warning">{view.sizeWarning}</Badge>}
+      {view.sizeWarning && (
+        <Badge variant="warning" className="whitespace-normal">
+          {view.sizeWarning}
+        </Badge>
+      )}
       <p class="text-sm text-success-foreground">{view.note}</p>
     </div>
   )}
@@ -104,14 +130,16 @@ const candidates =
                 <ul class="flex flex-wrap gap-2" aria-label="Porównanie z Twoim produktem">
                   {flags.map((flag) => (
                     <li class="flex">
-                      <Badge variant={flag.warning ? "warning" : "success"}>{flag.text}</Badge>
+                      <Badge variant={flag.warning ? "warning" : "success"} className="whitespace-normal">
+                        {flag.text}
+                      </Badge>
                     </li>
                   ))}
                 </ul>
               )}
               <p class="text-sm text-muted-foreground">{price}</p>
               <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-                <form method="POST" action="/api/watchlist/matches" data-submit-once>
+                <form method="POST" action="/api/watchlist/matches" data-submit-once="natura-decision">
                   <input type="hidden" name="itemId" value={productId} />
                   <input type="hidden" name="shop" value="natura" />
                   <input type="hidden" name="action" value="confirm" />
@@ -128,23 +156,13 @@ const candidates =
                     To ten produkt
                   </Button>
                 </form>
-                {candidate.productUrl && (
-                  <a
-                    href={candidate.productUrl}
-                    target="_blank"
-                    rel="noopener"
-                    aria-describedby={nameId}
-                    class:list={textLink}
-                  >
-                    Zobacz w sklepie<span class="sr-only"> (otwiera się w nowej karcie)</span>
-                  </a>
-                )}
+                {candidate.productUrl && <ShopLink href={candidate.productUrl} describedBy={nameId} />}
               </div>
             </Card>
           </li>
         ))}
       </ul>
-      <form method="POST" action="/api/watchlist/matches" data-submit-once>
+      <form method="POST" action="/api/watchlist/matches" data-submit-once="natura-decision">
         <input type="hidden" name="itemId" value={productId} />
         <input type="hidden" name="shop" value="natura" />
         <input type="hidden" name="action" value="decline" />
@@ -173,9 +191,12 @@ const candidates =
   {view?.kind === "decided" && (
     <div class="flex flex-col gap-2">
       <p role="status" class="text-sm text-muted-foreground">
-        Ten produkt ma już zapisaną decyzję.
+        {DECISION_NOTICES.decided}
       </p>
-      <a href={`/watchlist/${productId}`} class:list={cn(textLink, "self-start")}>
+      <a
+        href={`/watchlist/${productId}`}
+        class:list={cn(buttonVariants({ variant: "underlined", size: "inline" }), "self-start")}
+      >
         Pokaż zapisaną decyzję
       </a>
     </div>

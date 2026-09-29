@@ -1,30 +1,31 @@
 ---
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import NaturaSection from "@/components/watchlist/NaturaSection.astro";
 import PriceComparison from "@/components/watchlist/PriceComparison";
 import type { PriceComparisonShop } from "@/components/watchlist/price-comparison-state";
-import ProductSummary from "@/components/watchlist/ProductSummary.astro";
+import ProductHeader from "@/components/watchlist/ProductHeader.astro";
 import ProductUnavailable from "@/components/watchlist/ProductUnavailable.astro";
 import Layout from "@/layouts/Layout.astro";
+import { ERROR_PARAM, PRICES_PARAM } from "@/lib/notices";
 import { decideMatchStep } from "@/lib/services/match-step";
 import { listMatches, matchErrorMessage, recordLookup } from "@/lib/services/matches";
 import {
   chooseView,
+  decisionNotice,
   matchedView,
   notFoundView,
   promptView,
   storedView,
   type NaturaView,
 } from "@/lib/services/natura-view";
-import { keyText, type PricedShop } from "@/lib/services/price-comparison";
+import { keyText, SHOP_LABELS, type PricedShop } from "@/lib/services/price-comparison";
 import { parsePriceRefreshCode, type PriceRefreshCode } from "@/lib/services/price-refresh";
-import { listLatestPrices, recordPriceChecks } from "@/lib/services/prices";
+import { readLatestPrices, recordPriceChecks } from "@/lib/services/prices";
 import { isOwnNavigation } from "@/lib/services/search-query";
 import { shopGateFor } from "@/lib/services/shop-gate";
 import { lookupInNatura } from "@/lib/services/shop-matching";
-import { getWatchlistProduct, parseWatchlistItemId } from "@/lib/services/watchlist";
+import { getWatchlistProduct, parseWatchlistItemId, productFullName } from "@/lib/services/watchlist";
 import { shopUnavailableText } from "@/lib/shop-messages";
 import { cn } from "@/lib/utils";
 import type { MatchedItem, ShopMatch, WatchlistProduct } from "@/types";
@@ -92,7 +93,8 @@ if (supabase && product !== null && product !== "failed") {
         // Another tab stored a decision meanwhile; it stands.
         natura = { kind: "decided" };
       } else if (lookup.kind === "accepted") {
-        natura = matchedView(lookup.candidate, "auto", product);
+        // A match that wasn't saved has no price row, so the section shows its item.
+        natura = matchedView(lookup.candidate, "auto", product, { unsaved });
       } else {
         natura = notFoundView(fetchedAt, product);
       }
@@ -100,7 +102,10 @@ if (supabase && product !== null && product !== "failed") {
       natura = chooseView(lookup.options, lookup.via, fetchedAt, product);
     } else {
       // Nothing is stored: Natura can be asked again later.
-      natura = { kind: "unavailable", message: shopUnavailableText("Natura", lookup.reason, lookup.until) };
+      natura = {
+        kind: "unavailable",
+        message: shopUnavailableText(SHOP_LABELS.natura.name, lookup.reason, lookup.until),
+      };
     }
   }
 }
@@ -117,37 +122,32 @@ if (supabase && product !== null && product !== "failed") {
   if (naturaItem !== null) {
     matched.push({ shop: "natura", shopItemId: naturaItem.shopItemId, productUrl: naturaItem.productUrl });
   }
-  const prices = await listLatestPrices(
+  const read = await readLatestPrices(
     supabase,
     matched.map(({ shop, shopItemId }) => ({ shop, shopItemId })),
   );
   // Without the stored prices the island still shows every shop, each saying its price couldn't be read until its
-  // shop answers.
-  pricesFailed = prices === null;
-  const latest = new Map((prices ?? []).map((price) => [keyText(price), price] as const));
-  priceShops = matched.map(({ shop, shopItemId, productUrl }) => ({
-    shop,
-    productUrl,
-    latest: latest.get(keyText({ shop, shopItemId })) ?? null,
-  }));
+  // shop answers; a shop whose own row couldn't be read says so too. Either way no shop is named cheapest meanwhile.
+  pricesFailed = read === null;
+  const latest = new Map((read?.prices ?? []).map((price) => [keyText(price), price] as const));
+  const unread = new Set((read?.unread ?? []).map(keyText));
+  priceShops = matched.map(({ shop, shopItemId, productUrl }) => {
+    const key = keyText({ shop, shopItemId });
+    return { shop, productUrl, latest: latest.get(key) ?? null, readFailed: unread.has(key) };
+  });
 }
 // The server's time for the island's first render, so the ages it shows match this page's HTML.
 const renderedAt = new Date().toISOString();
 
-const productTitle =
-  product !== null && product !== "failed"
-    ? [product.brand, product.name].filter((part) => part !== null).join(" ")
-    : null;
-const title = productTitle ?? (product === null ? "Nie znaleziono produktu" : "Nie udało się wczytać produktu");
+const title =
+  product === null
+    ? "Nie znaleziono produktu"
+    : product === "failed"
+      ? "Nie udało się wczytać produktu"
+      : productFullName(product);
 // A decision's notice and error, which the Natura section shows next to its buttons.
-const notice = params.has("matched")
-  ? "Zapisano dopasowanie."
-  : params.has("declined")
-    ? "Zapisano: brak w Naturze."
-    : params.has("decided")
-      ? "Ten produkt ma już zapisaną decyzję."
-      : null;
-const error = matchErrorMessage(params.get("error"));
+const notice = decisionNotice(params);
+const error = matchErrorMessage(params.get(ERROR_PARAM));
 
 // What "Odśwież ceny" came to when its form was posted without JavaScript, in the page's own words: a code the app
 // didn't send shows nothing.
@@ -160,14 +160,14 @@ const PRICE_NOTICES: Record<PriceRefreshCode, { text: string; warning: boolean }
   none: { text: "Nic do odświeżenia.", warning: false },
   failed: { text: "Nie udało się odświeżyć cen. Spróbuj ponownie za chwilę.", warning: true },
 };
-const pricesCode = parsePriceRefreshCode(params.get("prices"));
+const pricesCode = parsePriceRefreshCode(params.get(PRICES_PARAM));
 const pricesNotice = pricesCode === null ? null : PRICE_NOTICES[pricesCode];
 ---
 
 <Layout title={`${title} · Drogeria Radar`} lang="pl">
   <div class="bg-cosmic min-h-screen p-4 text-foreground sm:p-8">
     <main class="mx-auto flex max-w-lg flex-col gap-6">
-      <a href="/watchlist" class:list={cn(buttonVariants({ variant: "link", size: "touch" }), "self-start px-0")}>
+      <a href="/watchlist" class:list={cn(buttonVariants({ variant: "link", size: "inline" }), "self-start")}>
         ← Moja lista
       </a>
 
@@ -177,18 +177,7 @@ const pricesNotice = pricesCode === null ? null : PRICE_NOTICES[pricesCode];
         <ProductUnavailable reason="failed" />
       ) : (
         <>
-          <header class="flex flex-col gap-3">
-            <h1 class="sr-only">{productTitle}</h1>
-            <Card className="flex-row items-center gap-3 p-3">
-              <ProductSummary
-                brand={product.brand}
-                name={product.name}
-                caption={product.caption}
-                sizeText={product.sizeText}
-                imageUrl={product.imageUrl}
-              />
-            </Card>
-          </header>
+          <ProductHeader product={product} />
 
           <section aria-labelledby="prices-heading" class="flex flex-col gap-3">
             <h2 id="prices-heading" class="text-lg font-semibold">
@@ -218,13 +207,16 @@ const pricesNotice = pricesCode === null ? null : PRICE_NOTICES[pricesCode];
     </main>
   </div>
   <script>
+    // The codes are the ones the frontmatter reads its notices by, from a module that imports nothing, so this script
+    // ships no server code.
+    import { NOTICE_PARAMS } from "@/lib/notices";
+
     // A notice shows once: the address bar forgets the code that brought it, a decision's (matched, declined, decided,
     // error) or the no-JavaScript refresh's (prices), so a reload or a copied link doesn't show it again. Every other
     // parameter and the hash stay.
-    const NOTICE_CODES = ["matched", "declined", "decided", "error", "prices"];
     const url = new URL(window.location.href);
-    if (NOTICE_CODES.some((code) => url.searchParams.has(code))) {
-      for (const code of NOTICE_CODES) {
+    if (NOTICE_PARAMS.some((code) => url.searchParams.has(code))) {
+      for (const code of NOTICE_PARAMS) {
         url.searchParams.delete(code);
       }
       history.replaceState(history.state, "", url);

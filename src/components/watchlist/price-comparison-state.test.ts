@@ -257,6 +257,52 @@ describe("a price read that failed", () => {
       ["natura", true],
     ]);
   });
+
+  it("marks only the row of a shop whose own stored price the page couldn't read", () => {
+    const state = initialState({ shops: [rossmann(), { ...natura(null), readFailed: true }], now: RENDERED });
+
+    expect(failedReads(state)).toEqual([
+      ["rossmann", false],
+      ["natura", true],
+    ]);
+  });
+
+  it("names no shop cheapest while a row's stored price is unread, in the rows or aloud", () => {
+    // Rossmann's stored price is fresh, but Natura's, which may be lower, couldn't be read.
+    const before = initialState({ shops: [rossmann(), { ...natura(null), readFailed: true }], now: RENDERED });
+    expect(marks(before)).toEqual([
+      ["rossmann", false],
+      ["natura", false],
+    ]);
+    expect(comparisonOf(before).summary).toEqual({ kind: "none" });
+
+    const state = run(before, start("rossmann"), done("rossmann", priceAnswer(12.99), ANSWERED_AT));
+
+    expect(marks(state)).toEqual([
+      ["rossmann", false],
+      ["natura", false],
+    ]);
+    expect(state.announcements).toEqual([`Rossmann: 12,99${NO_BREAK_SPACE}zł`]);
+  });
+
+  it("names none cheapest when one shop answers after a failed read, and marks the cheapest once both have", () => {
+    let state = run(unread(), start("rossmann"), start("natura"), done("natura", priceAnswer(26.49), ANSWERED_AT));
+    expect(marks(state)).toEqual([
+      ["natura", false],
+      ["rossmann", false],
+    ]);
+
+    state = run(state, done("rossmann", priceAnswer(16.99), ANSWERED_AT + 1));
+
+    expect(marks(state)).toEqual([
+      ["rossmann", true],
+      ["natura", false],
+    ]);
+    expect(state.announcements).toEqual([
+      `Natura: 26,49${NO_BREAK_SPACE}zł`,
+      `Rossmann: 16,99${NO_BREAK_SPACE}zł, najtaniej`,
+    ]);
+  });
 });
 
 describe("gapText", () => {

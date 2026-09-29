@@ -12,6 +12,7 @@ import {
   listWatchlist,
   parseWatchlistForm,
   parseWatchlistItemId,
+  productFullName,
   watchlistErrorMessage,
   WATCHLIST_ERRORS,
 } from "@/lib/services/watchlist";
@@ -163,6 +164,13 @@ describe("watchlistErrorMessage", () => {
       expect(watchlistErrorMessage(code)).toBeNull();
     },
   );
+});
+
+describe("productFullName", () => {
+  it("reads the brand, then the name, and the name alone without a brand", () => {
+    expect(productFullName({ brand: "NIVEA", name: "Soft" })).toBe("NIVEA Soft");
+    expect(productFullName({ brand: null, name: "Krem nawilżający" })).toBe("Krem nawilżający");
+  });
 });
 
 describe("addToWatchlist", () => {

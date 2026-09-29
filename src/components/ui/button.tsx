@@ -1,3 +1,9 @@
+// shadcn/ui Button, as the 10x-astro-starter shipped it from https://ui.shadcn.com/r/styles/new-york-v4/button.json.
+// That copy is older than the registry's current one, which differs in its imports (`cn` from the `cn` package, `Slot`
+// from `radix-ui`), its shadows and sizes, and its data-variant and data-size attributes; this one imports them from
+// @/lib/utils and @radix-ui/react-slot. Changed here: the link variant reads text-link instead of text-primary, the
+// underlined variant and the touch and inline sizes are added, and the base adds focus-visible:outline-hidden, whose
+// transparent outline forced-colors mode paints where it drops the focus ring's box-shadow.
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -5,10 +11,11 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:outline-hidden focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
   {
     variants: {
       variant: {
+        // scripts/check-token-contrast.mjs mirrors the default and outline variants' opacities: change it with them.
         default: "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
         destructive:
           "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
@@ -27,6 +34,8 @@ const buttonVariants = cva(
         icon: "size-9",
         // At least 44 px tall, the tap target of a phone held at the shelf.
         touch: "min-h-11 px-4 py-2 has-[>svg]:px-3",
+        // A text link flush with the text beside it, with the same 44 px tap target.
+        inline: "min-h-11 px-0 py-2 has-[>svg]:px-0",
       },
     },
     defaultVariants: {

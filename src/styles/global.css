@@ -50,7 +50,7 @@
 /* The theme every page renders in (<html class="dark">): the navy-and-purple "cosmic" look the pages painted with
    palette classes, as tokens. A value taken from the pages names in its comment the Tailwind palette colour or the hex
    gradient stop it replaces; the others keep shadcn's neutral dark values. scripts/check-token-contrast.mjs reads this
-   block and checks the contrast of every pair the product page renders. */
+   block and checks the contrast of the text and focus pairs listed in it. */
 .dark {
   color-scheme: dark;
   --background: oklch(0.1663 0.0262 269.371); /* #0a0e1a */

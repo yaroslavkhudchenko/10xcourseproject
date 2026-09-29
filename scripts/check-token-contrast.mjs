@@ -1,7 +1,8 @@
-// Design token contrast check: proves that the dark theme in src/styles/global.css keeps every text and focus ring the
-// product page renders readable, by WCAG 2's contrast ratio: 4.5:1 for text (1.4.3) and 3:1 for the focus ring
-// (1.4.11). Each pair is measured at the opacity its component renders it with, over both stops of the page's
-// bg-cosmic gradient.
+// Design token contrast check: proves that the dark theme in src/styles/global.css keeps the text and focus-ring pairs
+// listed in PAIRS below, the ones the product page renders, readable by WCAG 2's contrast ratio: 4.5:1 for text (1.4.3)
+// and 3:1 for the focus ring (1.4.11). Each pair is measured at the opacity its component renders it with, as SURFACES
+// copies it from src/components/ui, over both stops of the page's bg-cosmic gradient. A pair the page starts to render
+// joins PAIRS, and a changed opacity in a component changes here too.
 // Run: node scripts/check-token-contrast.mjs
 // It reads only the CSS file, so it needs no server, no browser and no dependency.
 
@@ -108,6 +109,7 @@ const SURFACES = {
   "success alert": [["success", 10]], // Alert success: bg-success/10
   "warning alert": [["warning", 10]], // Alert warning: bg-warning/10
   "success badge in a card": [...CARD, ["success", 15]], // Badge success: bg-success/15
+  "warning badge": [["warning", 15]], // Badge warning on the canvas: a match's size warning
   "warning badge in a card": [...CARD, ["warning", 15]], // Badge warning: bg-warning/15
   primary: [["primary", 100]], // Button default: bg-primary
   "primary in a card": [...CARD, ["primary", 100]],
@@ -129,10 +131,10 @@ const PAIRS = [
   // Hints, sizes, and each price's source and age.
   ["muted-foreground", 100, "canvas", TEXT],
   ["muted-foreground", 100, "card", TEXT],
-  // Text links: "← Moja lista" on the canvas, "Zobacz w sklepie" in a card, the session alert's sign-in link.
+  // Text links: "← Moja lista" on the canvas, "Zobacz w sklepie" in a card. The session alert's sign-in link takes the
+  // alert description's warning-foreground/90, measured with the warnings below.
   ["link", 100, "canvas", TEXT],
   ["link", 100, "card", TEXT],
-  ["link", 100, "warning alert", TEXT],
   // Primary buttons at rest and on hover: "Dopasuj w Naturze" on the canvas, "To ten produkt" in a candidate's card.
   ["primary-foreground", 100, "primary", TEXT],
   ["primary-foreground", 100, "primary in a card", TEXT],
@@ -141,8 +143,7 @@ const PAIRS = [
   // Outline buttons ("Odśwież ceny", "Żaden z nich"): the text inherits the page's, and hover sets accent-foreground.
   ["foreground", 100, "outline button", TEXT],
   ["accent-foreground", 100, "outline button hover", TEXT],
-  // Errors: bare error text, and the destructive Alert's text and its description at /90.
-  ["destructive", 100, "canvas", TEXT],
+  // Errors: the destructive Alert's text and its description at /90. The page shows no error text outside an Alert.
   ["destructive", 100, "destructive alert", TEXT],
   ["destructive", 90, "destructive alert", TEXT],
   // Success: a note on the canvas or in a card, the Alert's text and description, and "Najtaniej" as a Badge.
@@ -151,11 +152,13 @@ const PAIRS = [
   ["success-foreground", 100, "success alert", TEXT],
   ["success-foreground", 90, "success alert", TEXT],
   ["success-foreground", 100, "success badge in a card", TEXT],
-  // Warnings: the same, with a price row's notices in its card and "nieaktualna" as a Badge.
+  // Warnings: the same, with a price row's notices in its card, "nieaktualna" as a Badge in a card, and a match's size
+  // warning as a Badge on the canvas.
   ["warning-foreground", 100, "canvas", TEXT],
   ["warning-foreground", 100, "card", TEXT],
   ["warning-foreground", 100, "warning alert", TEXT],
   ["warning-foreground", 90, "warning alert", TEXT],
+  ["warning-foreground", 100, "warning badge", TEXT],
   ["warning-foreground", 100, "warning badge in a card", TEXT],
   // The focus ring, the base layer's outline-ring/50 and the components' ring-ring/50, around a control on each surface.
   ["ring", 50, "canvas", FOCUS],
