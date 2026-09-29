@@ -1,10 +1,10 @@
 ---
 change_id: cheapest-shop-today
 title: See which shop is cheapest today, on the watchlist and on each product
-status: impl_reviewed
+status: archived
 created: 2026-09-28
 updated: 2026-09-29
-archived_at: null
+archived_at: 2026-09-29T14:19:35Z
 ---
 
 ## Notes
