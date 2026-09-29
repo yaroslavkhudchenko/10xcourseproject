@@ -1,0 +1,354 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { listLatestPrices, recordPriceChecks } from "@/lib/services/prices";
+import type { LatestPrice, PriceKey, ShopOffer } from "@/types";
+
+// Felix at Rossmann during a promotion, and Nivea Soft at Natura, with the offers the 2026-09-28 requests answered
+// (research, Follow-up requests 1 and 4), and a second Natura item.
+const FELIX: PriceKey = { shop: "rossmann", shopItemId: "131225" };
+const SOFT: PriceKey = { shop: "natura", shopItemId: "NV89063" };
+const OTHER: PriceKey = { shop: "natura", shopItemId: "NV81063" };
+
+const felixOffer: ShopOffer = {
+  price: 5.99,
+  regularPrice: 9.99,
+  lowestPrice30d: 6.39,
+  promoEndsOn: "2026-09-30",
+  available: true,
+};
+const softOffer: ShopOffer = {
+  price: 16.99,
+  regularPrice: 22.99,
+  lowestPrice30d: 17.99,
+  promoEndsOn: null,
+  available: true,
+};
+
+// The rows the inserts carry: what the check found, and nothing the database sets itself.
+const FELIX_PRICE_ROW = {
+  shop_id: "rossmann",
+  shop_item_id: "131225",
+  status: "price",
+  price: 5.99,
+  regular_price: 9.99,
+  lowest_price_30d: 6.39,
+  promo_ends_on: "2026-09-30",
+  available: true,
+};
+const SOFT_PRICE_ROW = {
+  shop_id: "natura",
+  shop_item_id: "NV89063",
+  status: "price",
+  price: 16.99,
+  regular_price: 22.99,
+  lowest_price_30d: 17.99,
+  promo_ends_on: null,
+  available: true,
+};
+const missingRow = ({ shop, shopItemId }: PriceKey) => ({
+  shop_id: shop,
+  shop_item_id: shopItemId,
+  status: "missing",
+  price: null,
+  regular_price: null,
+  lowest_price_30d: null,
+  promo_ends_on: null,
+  available: null,
+});
+
+/** One builder call a query made, such as `["in", "shop_item_id", ["131225"]]`. */
+type Call = [method: string, ...args: unknown[]];
+
+interface Answer {
+  data?: unknown;
+  // An answer that isn't PostgREST's own, such as a gateway's HTML page, comes back without a code.
+  error?: { code?: string; message: string };
+}
+
+interface QueryStub {
+  insert: (rows: unknown) => QueryStub;
+  select: (columns: string) => QueryStub;
+  in: (column: string, values: unknown[]) => QueryStub;
+  abortSignal: (signal: AbortSignal) => Promise<{ data: unknown; error: Answer["error"] | null }>;
+}
+
+/**
+ * A client whose queries get `answers` in turn. Every builder call is recorded, so a test sees each query's table,
+ * rows, filters and time limit: a query ends with `["abortSignal", true]` when it was given an AbortSignal.
+ */
+function stubClient(...answers: Answer[]) {
+  const queries: Call[][] = [];
+  const from = (table: string): QueryStub => {
+    const answer = answers.at(queries.length) ?? { error: { code: "stub", message: "no answer for this query" } };
+    const calls: Call[] = [["from", table]];
+    queries.push(calls);
+    const query: QueryStub = {
+      insert: (rows) => {
+        calls.push(["insert", rows]);
+        return query;
+      },
+      select: (columns) => {
+        calls.push(["select", columns]);
+        return query;
+      },
+      in: (column, values) => {
+        calls.push(["in", column, values]);
+        return query;
+      },
+      abortSignal: (signal) => {
+        calls.push(["abortSignal", signal instanceof AbortSignal]);
+        return Promise.resolve({ data: answer.data ?? null, error: answer.error ?? null });
+      },
+    };
+    return query;
+  };
+  return { client: { from } as unknown as SupabaseClient, queries };
+}
+
+/** The one log line a test expects, parsed. */
+function loggedLine(warn: { mock: { calls: unknown[][] } }): unknown {
+  expect(warn.mock.calls).toHaveLength(1);
+  return JSON.parse(String(warn.mock.calls[0][0]));
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe("recordPriceChecks", () => {
+  it("stores a price and a missing item with a single insert, within a time limit", async () => {
+    const { client, queries } = stubClient({});
+
+    const result = await recordPriceChecks(client, [
+      { key: FELIX, check: { kind: "price", offer: felixOffer } },
+      { key: SOFT, check: { kind: "missing" } },
+    ]);
+
+    expect(result).toBe("saved");
+    expect(queries).toEqual([
+      [
+        ["from", "price_observations"],
+        ["insert", [FELIX_PRICE_ROW, missingRow(SOFT)]],
+        ["abortSignal", true],
+      ],
+    ]);
+  });
+
+  it("leaves the time, source and recording user to the database, with the same columns in every row", async () => {
+    const { client, queries } = stubClient({});
+
+    await recordPriceChecks(client, [
+      { key: FELIX, check: { kind: "price", offer: felixOffer } },
+      { key: SOFT, check: { kind: "missing" } },
+      { key: OTHER, check: { kind: "price", offer: { ...softOffer, regularPrice: null, lowestPrice30d: null } } },
+    ]);
+
+    expect(queries).toHaveLength(1);
+    const [, [method, rows]] = queries[0];
+    expect(method).toBe("insert");
+    expect(rows).toHaveLength(3);
+    for (const row of rows as Record<string, unknown>[]) {
+      expect(Object.keys(row).sort()).toEqual(Object.keys(FELIX_PRICE_ROW).sort());
+      for (const column of ["id", "observed_at", "source", "recorded_by"]) {
+        expect(row).not.toHaveProperty(column);
+      }
+    }
+  });
+
+  it("serves several checks with one insert, leaving out the shops that gave no answer", async () => {
+    const { client, queries } = stubClient({});
+
+    const result = await recordPriceChecks(client, [
+      { key: FELIX, check: { kind: "unavailable", reason: "busy" } },
+      { key: SOFT, check: { kind: "price", offer: softOffer } },
+      { key: OTHER, check: { kind: "missing" } },
+    ]);
+
+    expect(result).toBe("saved");
+    expect(queries).toHaveLength(1);
+    expect(queries[0]).toContainEqual(["insert", [SOFT_PRICE_ROW, missingRow(OTHER)]]);
+  });
+
+  it("sends nothing when no shop gave an answer, or there are no checks", async () => {
+    const { client, queries } = stubClient();
+
+    const result = await recordPriceChecks(client, [
+      { key: FELIX, check: { kind: "unavailable", reason: "stopped" } },
+      { key: SOFT, check: { kind: "unavailable", reason: "paused", until: "2026-09-28T02:00:00.000Z" } },
+    ]);
+
+    expect(result).toBe("none");
+    expect(await recordPriceChecks(client, [])).toBe("none");
+    expect(queries).toEqual([]);
+  });
+
+  it.each<{ answer: string; error: NonNullable<Answer["error"]>; detail: string }>([
+    {
+      answer: "a refusal by RLS",
+      error: { code: "42501", message: 'new row violates row-level security policy for table "price_observations"' },
+      detail: "42501",
+    },
+    {
+      answer: "a check that refuses a row",
+      error: {
+        code: "23514",
+        message: 'new row for relation "price_observations" violates check constraint: (natura, NV89063, price, 0.00)',
+      },
+      detail: "23514",
+    },
+    { answer: "a timeout", error: { code: "", message: "AbortError: This operation was aborted" }, detail: "no code" },
+    { answer: "an answer without a code", error: { message: "<html>502 Bad Gateway</html>" }, detail: "no code" },
+  ])("reports $answer as failed, and logs only its code", async ({ error, detail }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({ error });
+
+    const result = await recordPriceChecks(client, [{ key: SOFT, check: { kind: "price", offer: softOffer } }]);
+
+    expect(result).toBe("failed");
+    expect(loggedLine(warn)).toEqual({ event: "price-observations", reason: "insert failed", detail });
+  });
+});
+
+describe("listLatestPrices", () => {
+  const COLUMNS =
+    "shop_id, shop_item_id, last_checked_at, last_status, price, regular_price, lowest_price_30d, promo_ends_on, " +
+    "available, priced_at";
+  const CHECKED_AT = "2026-09-28T00:32:10.123456+00:00";
+  const PRICED_AT = "2026-09-27T20:04:06.654321+00:00";
+
+  // Felix, last checked with a price.
+  const felixRow = {
+    shop_id: "rossmann",
+    shop_item_id: "131225",
+    last_checked_at: CHECKED_AT,
+    last_status: "price",
+    price: 5.99,
+    regular_price: 9.99,
+    lowest_price_30d: 6.39,
+    promo_ends_on: "2026-09-30",
+    available: true,
+    priced_at: CHECKED_AT,
+  };
+  const felix: LatestPrice = {
+    ...FELIX,
+    lastCheckedAt: CHECKED_AT,
+    lastStatus: "price",
+    offer: { ...felixOffer, pricedAt: CHECKED_AT },
+  };
+  // Nivea Soft, last checked when Natura answered without it: the price from before stays, with its own time.
+  const softRow = {
+    shop_id: "natura",
+    shop_item_id: "NV89063",
+    last_checked_at: CHECKED_AT,
+    last_status: "missing",
+    price: 16.99,
+    regular_price: 22.99,
+    lowest_price_30d: 17.99,
+    promo_ends_on: null,
+    available: true,
+    priced_at: PRICED_AT,
+  };
+  const soft: LatestPrice = {
+    ...SOFT,
+    lastCheckedAt: CHECKED_AT,
+    lastStatus: "missing",
+    offer: { ...softOffer, pricedAt: PRICED_AT },
+  };
+  // An item no check has found a price for.
+  const otherRow = {
+    shop_id: "natura",
+    shop_item_id: "NV81063",
+    last_checked_at: CHECKED_AT,
+    last_status: "missing",
+    price: null,
+    regular_price: null,
+    lowest_price_30d: null,
+    promo_ends_on: null,
+    available: null,
+    priced_at: null,
+  };
+  const other: LatestPrice = { ...OTHER, lastCheckedAt: CHECKED_AT, lastStatus: "missing", offer: null };
+
+  it("reads every item the user can see for the list, with one unfiltered query within a time limit", async () => {
+    const { client, queries } = stubClient({ data: [felixRow, softRow, otherRow] });
+
+    expect(await listLatestPrices(client)).toEqual([felix, soft, other]);
+    expect(queries).toEqual([
+      [
+        ["from", "latest_price_observations"],
+        ["select", COLUMNS],
+        ["abortSignal", true],
+      ],
+    ]);
+  });
+
+  it("filters to the given items for a product's page", async () => {
+    const { client, queries } = stubClient({ data: [felixRow, softRow] });
+
+    expect(await listLatestPrices(client, [FELIX, SOFT])).toEqual([felix, soft]);
+    expect(queries).toEqual([
+      [
+        ["from", "latest_price_observations"],
+        ["select", COLUMNS],
+        ["in", "shop_item_id", ["131225", "NV89063"]],
+        ["abortSignal", true],
+      ],
+    ]);
+  });
+
+  it("keeps only the items asked for when another shop's item has the same id", async () => {
+    const { client } = stubClient({ data: [felixRow, { ...felixRow, shop_id: "natura" }] });
+
+    expect(await listLatestPrices(client, [FELIX])).toEqual([felix]);
+  });
+
+  it("reads nothing for an empty list of items", async () => {
+    const { client, queries } = stubClient();
+
+    expect(await listLatestPrices(client, [])).toEqual([]);
+    expect(queries).toEqual([]);
+  });
+
+  it("drops odd rows and keeps the rest, and logs how many", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({
+      data: [
+        { ...felixRow, shop_id: "dm" },
+        { ...felixRow, last_checked_at: "wczoraj" },
+        { ...felixRow, price: "5.99" },
+        { ...felixRow, promo_ends_on: "30.09.2026" },
+        // A last check that found a price, but no price.
+        { ...otherRow, last_status: "price" },
+        // A price without the time it was fetched.
+        { ...softRow, priced_at: null },
+        felixRow,
+        otherRow,
+      ],
+    });
+
+    expect(await listLatestPrices(client)).toEqual([felix, other]);
+    expect(loggedLine(warn)).toMatchObject({ reason: "unexpected rows dropped", detail: "6" });
+  });
+
+  it("drops an odd row for a product's page too, keeping the other shop's price", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({ data: [{ ...felixRow, available: "yes" }, softRow] });
+
+    expect(await listLatestPrices(client, [FELIX, SOFT])).toEqual([soft]);
+  });
+
+  it.each<{ answer: string; result: Answer; detail: string }>([
+    {
+      answer: "a failed query",
+      result: { error: { code: "PGRST100", message: 'failed to parse filter (in.(131225,NV89063"' } },
+      detail: "PGRST100",
+    },
+    { answer: "an answer that isn't a list", result: { data: { rows: [] } }, detail: "object" },
+  ])("gives null for $answer, and logs it without the query's items", async ({ result, detail }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient(result);
+
+    expect(await listLatestPrices(client, [FELIX, SOFT])).toBeNull();
+    expect(loggedLine(warn)).toMatchObject({ event: "price-observations", detail });
+  });
+});

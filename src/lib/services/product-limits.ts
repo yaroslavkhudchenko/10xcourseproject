@@ -11,3 +11,9 @@ export const PRODUCT_LIMITS = {
   shopItemId: 40,
   productUrl: 500,
 } as const;
+
+// The highest price in złoty that a price observation holds: public.price_observations checks the same bound, a price
+// below 100000 in numeric(10, 2) (supabase/migrations/20260928011450_price_observations.sql).
+export const PRICE_LIMITS = {
+  max: 99999.99,
+} as const;

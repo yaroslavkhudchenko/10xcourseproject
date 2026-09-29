@@ -178,8 +178,8 @@ const bRetry = await b.client
   .eq("id", notFound.data?.id)
   .select("id");
 check("user B can't change user A's not-found row", !bRetry.error && bRetry.data?.length === 0, show(bRetry));
-// Even its owner can't move it off their own product (the composite key) or out of their name (RLS), and a refused
-// update leaves the row as it was.
+// Even its owner can't move it off their own product or out of their name: since S-03 the update grant, which covers
+// only the decision's columns, refuses both. A refused update leaves the row as it was.
 const readNotFound = () =>
   a.client.from("watchlist_matches").select("watchlist_item_id, user_id, state").eq("id", notFound.data?.id);
 const stillNotFound = (row) =>
@@ -194,7 +194,7 @@ const repointed = await a.client
 const afterRepoint = await readNotFound();
 check(
   "user A can't point their not-found row at user B's product",
-  repointed.error?.code === "23503" && stillNotFound(afterRepoint),
+  repointed.error?.code === "42501" && stillNotFound(afterRepoint),
   `update ${show(repointed)}, row ${show(afterRepoint)}`,
 );
 const handedOver = await a.client.from("watchlist_matches").update({ user_id: b.id }).eq("id", notFound.data?.id);

@@ -5,7 +5,7 @@ import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import { isNaturaImage, isNaturaProductUrl } from "@/lib/services/shops/natura";
 import { parseSize } from "@/lib/services/size";
 import { watchlistItemIdSchema } from "@/lib/services/watchlist";
-import { SHOP_IDS, type MatchedItem, type MatchState, type ShopId, type ShopLookup, type ShopMatch } from "@/types";
+import { SHOP_IDS, type MatchedItem, type ShopId, type ShopLookup, type ShopMatch, type ShopMatchState } from "@/types";
 
 // Each watched product's decision per shop (public.watchlist_matches), private to its user. Every read and write goes
 // through the user's own client, so RLS does the enforcing: a user reads and adds only their own decisions, and
@@ -263,32 +263,37 @@ export async function listMatches(supabase: SupabaseClient, itemId?: string): Pr
   return read.rows.map(toMatch);
 }
 
-// Only the columns the list shows: which product, which shop, and where the product stands there.
-const stateRowSchema = z.object({
-  watchlist_item_id: z.string(),
-  shop_id: z.enum(SHOP_IDS),
-  state: z.enum(["matched", "unmatched", "not_found"]),
-});
+// Only the columns the list needs: which product, which shop, where the product stands there, and a match's item, whose
+// prices the list shows.
+const stateColumns = { watchlist_item_id: z.string(), shop_id: z.enum(SHOP_IDS) };
+const stateRowSchema = z.discriminatedUnion("state", [
+  z.object({ ...stateColumns, state: z.literal("matched"), shop_item_id: z.string() }),
+  z.object({ ...stateColumns, state: z.enum(["unmatched", "not_found"]) }),
+]);
 
 /**
- * Where each product on the user's list stands in each shop, read with one query for the whole list and only the
- * columns the list shows. Odd rows are dropped and logged. Null when the decisions couldn't be read.
+ * Where each product on the user's list stands in each shop, with a match's item id, read with one query for the whole
+ * list and only the columns the list needs. Odd rows, such as a match without its item, are dropped and logged. Null
+ * when the decisions couldn't be read.
  */
-export async function listMatchStates(
-  supabase: SupabaseClient,
-): Promise<{ watchlistItemId: string; shop: ShopId; state: MatchState }[] | null> {
+export async function listMatchStates(supabase: SupabaseClient): Promise<ShopMatchState[] | null> {
   const { data, error } = await supabase
     .from(TABLE)
-    .select("watchlist_item_id, shop_id, state")
+    .select("watchlist_item_id, shop_id, state, shop_item_id")
     .abortSignal(AbortSignal.timeout(DATABASE_TIMEOUT_MS));
   if (error) {
     logFailure("list failed", error.message);
     return null;
   }
   const read = parseRows(data, stateRowSchema);
-  return (
-    read?.rows.map((row) => ({ watchlistItemId: row.watchlist_item_id, shop: row.shop_id, state: row.state })) ?? null
-  );
+  return read?.rows.map(toMatchState) ?? null;
+}
+
+function toMatchState(row: z.infer<typeof stateRowSchema>): ShopMatchState {
+  const decision = { watchlistItemId: row.watchlist_item_id, shop: row.shop_id };
+  return row.state === "matched"
+    ? { ...decision, state: "matched", shopItemId: row.shop_item_id }
+    : { ...decision, state: row.state, shopItemId: null };
 }
 
 /**

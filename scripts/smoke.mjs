@@ -20,8 +20,8 @@ function storeCookies(response) {
   }
 }
 
-// Every request comes from the app's own origin unless a step says otherwise.
-async function request(path, { method = "GET", form, origin = BASE_URL } = {}) {
+// Every request comes from the app's own origin unless a step says otherwise. A body is a form or JSON.
+async function request(path, { method = "GET", form, json, origin = BASE_URL } = {}) {
   const response = await fetch(BASE_URL + path, {
     method,
     redirect: "manual",
@@ -29,8 +29,9 @@ async function request(path, { method = "GET", form, origin = BASE_URL } = {}) {
       Cookie: cookieHeader(),
       Origin: origin,
       ...(form ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
+      ...(json ? { "Content-Type": "application/json" } : {}),
     },
-    body: form ? new URLSearchParams(form).toString() : undefined,
+    body: form ? new URLSearchParams(form).toString() : json ? JSON.stringify(json) : undefined,
   });
   storeCookies(response);
   return {
@@ -44,12 +45,27 @@ async function request(path, { method = "GET", form, origin = BASE_URL } = {}) {
 const missingProductId = "00000000-0000-4000-8000-000000000000";
 const missingProduct = `/watchlist/${missingProductId}`;
 
-// No step searches (no `q`) or opens a product that exists, so the smoke test never calls a shop.
+// The product page island's price refresh. Every post names the product no one has, so none reaches a shop.
+const pricesRoute = "/api/watchlist/prices";
+const priceRefresh = (options) => request(pricesRoute, { method: "POST", ...options });
+const missingProductPrice = { itemId: missingProductId, shop: "rossmann" };
+
+// The list's "Odśwież ceny", a plain form post. The smoke user's list stays empty, so it has nothing to refresh.
+const listRefresh = (options) => request("/api/watchlist/refresh", { method: "POST", form: {}, ...options });
+
+// No step searches (no `q`), opens a product that exists or refreshes its price, and the list refresh runs on an empty
+// list, so the smoke test never calls a shop.
 const steps = [
   ["home renders", () => request("/"), { status: 200 }],
   ["dashboard redirects anonymous user", () => request("/dashboard"), { status: 302, location: "/auth/signin" }],
   ["watchlist redirects anonymous user", () => request("/watchlist"), { status: 302, location: "/auth/signin" }],
   ["product page redirects anonymous user", () => request(missingProduct), { status: 302, location: "/auth/signin" }],
+  [
+    "price refresh redirects anonymous user",
+    () => priceRefresh({ json: missingProductPrice }),
+    { status: 302, location: "/auth/signin" },
+  ],
+  ["list price refresh redirects anonymous user", () => listRefresh(), { status: 302, location: "/auth/signin" }],
   [
     "signup creates account",
     () => request("/api/auth/signup", { method: "POST", form: { email, password } }),
@@ -83,6 +99,39 @@ const steps = [
   ],
   ["product page answers 404 for a product that doesn't exist", () => request(missingProduct), { status: 404 }],
   ["product page answers 404 for an id that isn't a UUID", () => request("/watchlist/not-a-uuid"), { status: 404 }],
+  [
+    // Posted from the app's own origin, so Astro's checkOrigin lets the form through and the route refuses its type.
+    "price refresh refuses a form body",
+    () => priceRefresh({ form: missingProductPrice }),
+    { status: 415 },
+  ],
+  [
+    "price refresh refuses a body that isn't a product and a shop",
+    () => priceRefresh({ json: { itemId: "not-a-uuid", shop: "dm" } }),
+    { status: 400 },
+  ],
+  [
+    "price refresh answers 404 for a product that doesn't exist, and isn't cacheable",
+    () => priceRefresh({ json: missingProductPrice }),
+    { status: 404, cacheControl: "no-store" },
+  ],
+  [
+    // Astro's checkOrigin lets JSON through whatever its origin, so the route refuses other sites itself.
+    "price refresh posted from another site is refused",
+    () => priceRefresh({ json: missingProductPrice, origin: "https://example.org" }),
+    { status: 403 },
+  ],
+  [
+    "list price refresh of an empty list refreshes nothing",
+    () => listRefresh(),
+    { status: 302, location: "/watchlist?prices=none" },
+  ],
+  [
+    // Astro's checkOrigin is the refresh route's only defence against a form posted from another site.
+    "list price refresh posted from another site is refused",
+    () => listRefresh({ origin: "https://evil.example" }),
+    { status: 403 },
+  ],
   ["dashboard renders for signed-in user", () => request("/dashboard"), { status: 200 }],
   ["signout clears session", () => request("/api/auth/signout", { method: "POST" }), { status: 302, location: "/" }],
   ["dashboard redirects after signout", () => request("/dashboard"), { status: 302, location: "/auth/signin" }],

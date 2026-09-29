@@ -29,7 +29,7 @@ function candidate(shopItemId: string, eans: string[], sizeText: string | null):
     eans,
     productUrl: null,
     imageUrl: null,
-    price: 16.99,
+    offer: { price: 16.99, regularPrice: null, lowestPrice30d: null, promoEndsOn: null, available: true },
   };
 }
 

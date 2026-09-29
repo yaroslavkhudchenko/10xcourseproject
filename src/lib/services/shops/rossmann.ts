@@ -1,18 +1,25 @@
 import { z } from "astro/zod";
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import type { ShopGate } from "@/lib/services/shop-gate";
+import { storableOffer } from "@/lib/services/shops/shop-offer";
 import { gateUnavailable } from "@/lib/services/shops/shop-outcome";
 import { parseSize } from "@/lib/services/size";
-import type { ProductCandidate, ProductSearch } from "@/types";
+import type { PriceCheck, ProductCandidate, ProductSearch, ShopOffer } from "@/types";
 
 // Rossmann's own product search (research note §2.1): text only, one page of up to 24 items, several EANs per item.
 const SEARCH_URL = "https://www.rossmann.pl/products/v4/api/Products";
+// One product's detail by its id (research note §2.1), with its current offer: Rossmann has no batch route, so a
+// pinned product's price is asked for one product per request.
+const DETAIL_URL = "https://www.rossmann.pl/products/v2/api/Products";
 // Each item's `navigateUrl` is a path on this site, such as "/Produkt/Kremy-do-twarzy/NIVEA-Soft-…,26900,13049".
 const SITE_URL = "https://www.rossmann.pl";
 const SITE_HOST = "www.rossmann.pl";
 const PAGE_SIZE = 24;
-// A search the user waits for gives up after 5 s, well inside the gate's own 8 s limit.
+// A search the user waits for gives up after 5 s, well inside the gate's own 8 s limit, and so does a price check.
 const SEARCH_TIMEOUT_MS = 5000;
+const PRICE_TIMEOUT_MS = 5000;
+// Rossmann's product id, such as "26900". A stored id becomes a path, so only digits: never a dot segment like "..".
+const PRODUCT_ID = /^\d{1,12}$/;
 
 // Only the fields the watchlist uses; Rossmann sends many more, which are ignored. Pictures and EANs are checked one by
 // one, so an odd value costs a thumbnail or an EAN, never the whole item.
@@ -33,6 +40,20 @@ const responseSchema = z.object({
   data: z.object({ items: z.array(z.unknown()), spellCheckHint: z.unknown() }),
 });
 
+// Only the fields an offer uses; the detail carries many more, which are ignored. The product's id and a numeric price
+// are required. The other fields are read one by one, so an odd value costs only that value, never the offer.
+const detailSchema = z.object({
+  data: z.object({
+    id: z.union([z.number(), z.string()]),
+    price: z.number(),
+    oldPrice: z.unknown().optional(),
+    lastLowestPrice: z.unknown().optional(),
+    promotionTo: z.unknown().optional(),
+    availability: z.unknown().optional(),
+  }),
+});
+const isoDate = z.iso.date();
+
 /**
  * Searches Rossmann through the gate. Resolves to the candidates (possibly none) with Rossmann's spelling hint, or to
  * `unavailable` with the reason: the gate skipped or refused the call, the call failed, or the answer wasn't readable.
@@ -48,34 +69,59 @@ export async function searchRossmann(gate: ShopGate, query: string): Promise<Pro
     // The gate has already logged why.
     return gateUnavailable(outcome);
   }
-
-  let body: unknown;
-  try {
-    // Read the body right away: the time limits cover it too.
-    body = await outcome.response.json();
-  } catch (error) {
-    // Only the error's name: a parse error quotes the body, which can echo the user's search.
-    logFailure("unreadable body", error instanceof Error ? error.name : typeof error);
-    return { kind: "unavailable", reason: "failed" };
-  }
-  const parsed = responseSchema.safeParse(body);
-  if (!parsed.success) {
-    // Where the shape differs, not what the answer holds, for the same reason.
-    const issues = parsed.error.issues.map((issue) => `${issue.path.map(String).join(".")} ${issue.code}`);
-    logFailure("unexpected response shape", issues.join("; "));
+  const body = await readBody(outcome.response, responseSchema, "rossmann-search");
+  if (body === null) {
     return { kind: "unavailable", reason: "failed" };
   }
 
   // Each item is checked on its own, so one odd item doesn't blank the whole search.
-  const candidates = parsed.data.data.items.flatMap((item) => {
+  const candidates = body.data.items.flatMap((item) => {
     const candidate = toCandidate(item);
     return candidate ? [candidate] : [];
   });
-  const rawHint = parsed.data.data.spellCheckHint;
+  const rawHint = body.data.spellCheckHint;
   const hint = typeof rawHint === "string" ? clean(rawHint) : null;
   // Rossmann answers a misspelling with results for its correction; a hint equal to the query says nothing new.
   const spellingHint = hint && hint.toLowerCase() !== query.toLowerCase() ? hint : null;
   return { kind: "results", candidates, spellingHint };
+}
+
+/**
+ * Fetches a pinned Rossmann product's current offer by its id, through the gate. Resolves to the offer, to `missing`
+ * when Rossmann answers that it has no such product (a 404, as rossmann-detail-unknown.json recorded), or to
+ * `unavailable` with the reason: the id isn't one of Rossmann's, the gate skipped or refused the call, the call failed,
+ * or the answer wasn't readable. It never throws. The stored id is checked again here, before it becomes a path.
+ */
+export async function fetchRossmannPrice(gate: ShopGate, sourceItemId: string): Promise<PriceCheck> {
+  if (!PRODUCT_ID.test(sourceItemId)) {
+    // Never the id itself: it names the product.
+    logFailure("rossmann-price", "invalid product id", "not 1-12 digits, not sent");
+    return { kind: "unavailable", reason: "failed" };
+  }
+  const outcome = await gate.fetch("rossmann", `${DETAIL_URL}/${sourceItemId}?shopNumber=null`, {
+    headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(PRICE_TIMEOUT_MS),
+  });
+  if (outcome.kind !== "ok") {
+    // The gate has already logged why. Only Rossmann's 404 says the product is gone; any other refusal is no answer.
+    return outcome.kind === "failed" && outcome.status === 404 ? { kind: "missing" } : gateUnavailable(outcome);
+  }
+  const body = await readBody(outcome.response, detailSchema, "rossmann-price");
+  if (body === null) {
+    return { kind: "unavailable", reason: "failed" };
+  }
+  const item = body.data;
+  // An answer about another product would put its price on this one.
+  if (String(item.id) !== sourceItemId) {
+    logFailure("rossmann-price", "unexpected product", "the answer's id isn't the one asked for");
+    return { kind: "unavailable", reason: "failed" };
+  }
+  const offer = toOffer(item);
+  if (offer === null) {
+    logFailure("rossmann-price", "unexpected offer", "price not above 0 and within PRICE_LIMITS");
+    return { kind: "unavailable", reason: "failed" };
+  }
+  return { kind: "price", offer };
 }
 
 /** True for an https URL on a rossmann.pl host: the only images the watchlist shows. */
@@ -98,6 +144,54 @@ export function isRossmannProductUrl(url: string): boolean {
   }
 }
 
+/** Where a log line comes from: a search or a price check. */
+type LogEvent = "rossmann-search" | "rossmann-price";
+
+/**
+ * An `ok` answer's body in the given shape, or null when it isn't JSON of that shape. Either is logged without the
+ * answer's content, which can echo the user's search or name the product.
+ */
+async function readBody<T>(response: Response, schema: z.ZodType<T>, event: LogEvent): Promise<T | null> {
+  let body: unknown;
+  try {
+    // Read the body right away: the time limits cover it too.
+    body = await response.json();
+  } catch (error) {
+    // Only the error's name: a parse error quotes the body.
+    logFailure(event, "unreadable body", error instanceof Error ? error.name : typeof error);
+    return null;
+  }
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    // Where the shape differs, not what the answer holds, for the same reason.
+    const issues = parsed.error.issues.map((issue) => `${issue.path.map(String).join(".")} ${issue.code}`);
+    logFailure(event, "unexpected response shape", issues.join("; "));
+    return null;
+  }
+  return parsed.data;
+}
+
+/**
+ * A detail's offer as it can be stored, or null when its price can't be. `oldPrice` is the price before a reduction
+ * and `lastLowestPrice` the 30-day low, as rossmann-detail-reduced.json shows; an item without a reduction carries
+ * neither. `promotionTo` has no UTC offset, so only its date is kept.
+ */
+function toOffer(item: z.infer<typeof detailSchema>["data"]): ShopOffer | null {
+  return storableOffer({
+    price: item.price,
+    regularPrice: typeof item.oldPrice === "number" ? item.oldPrice : null,
+    lowestPrice30d: typeof item.lastLowestPrice === "number" ? item.lastLowestPrice : null,
+    promoEndsOn: dateOf(item.promotionTo),
+    available: item.availability === "available",
+  });
+}
+
+/** The date of a time such as "2026-09-30T00:00:00", when it's a real date; null for anything else. */
+function dateOf(value: unknown): string | null {
+  const date = typeof value === "string" ? /^(\d{4}-\d{2}-\d{2})(?:T|$)/.exec(value.trim())?.[1] : undefined;
+  return date !== undefined && isoDate.safeParse(date).success ? date : null;
+}
+
 /** A Rossmann item as a candidate within PRODUCT_LIMITS, so it can always be added; null when it can't be one. */
 function toCandidate(raw: unknown): ProductCandidate | null {
   const parsed = itemSchema.safeParse(raw);
@@ -108,7 +202,7 @@ function toCandidate(raw: unknown): ProductCandidate | null {
   const sourceItemId = String(item.id);
   // Some items carry an empty name and keep it in fallbackName instead.
   const name = clean(item.name) ?? clean(item.fallbackName);
-  if (!/^\d{1,12}$/.test(sourceItemId) || name === null) {
+  if (!PRODUCT_ID.test(sourceItemId) || name === null) {
     return null;
   }
   const sizeText = within(clean(item.unit), PRODUCT_LIMITS.sizeText);
@@ -173,7 +267,7 @@ function within(value: string | null, max: number): string | null {
   return value !== null && value.length <= max ? value : null;
 }
 
-function logFailure(reason: string, detail: string): void {
-  // eslint-disable-next-line no-console -- one line per unreadable Rossmann answer; Workers observability collects it.
-  console.warn(JSON.stringify({ event: "rossmann-search", reason, detail: detail.slice(0, 300) }));
+function logFailure(event: LogEvent, reason: string, detail: string): void {
+  // eslint-disable-next-line no-console -- one line per unusable Rossmann answer; Workers observability collects it.
+  console.warn(JSON.stringify({ event, reason, detail: detail.slice(0, 300) }));
 }

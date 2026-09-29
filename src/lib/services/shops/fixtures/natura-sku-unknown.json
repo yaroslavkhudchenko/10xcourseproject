@@ -1,0 +1,16 @@
+{
+  "results": {
+    "query": "",
+    "corrected_query": null,
+    "filters": ["type:product", "sku:ZZ00000000"],
+    "filters_negative": [],
+    "accepted_filters": [],
+    "hits": [],
+    "quicksearch_hits": [],
+    "facets": [],
+    "suggested_facet": "null",
+    "total_hits": 0
+  },
+  "next_page": null,
+  "guid": "a4a7743d-a6ad-4faa-bcb4-ecb89f5efad3"
+}

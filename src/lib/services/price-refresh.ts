@@ -1,0 +1,136 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { keyText } from "@/lib/services/price-comparison";
+import { recordPriceChecks, type PriceRecordResult } from "@/lib/services/prices";
+import type { ShopGate } from "@/lib/services/shop-gate";
+import { fetchNaturaPrices } from "@/lib/services/shops/natura";
+import { fetchRossmannPrice } from "@/lib/services/shops/rossmann";
+import { isRefusal } from "@/lib/services/shops/shop-outcome";
+import type { PriceCheck, PriceKey, ShopId, ShopUnavailable } from "@/types";
+
+// Refreshing pinned items' prices, for a product's page and for the list: every request goes through the gate, and
+// every price or missing item the shops answer with is stored as a shared observation (prices.ts).
+
+/** What a refresh came to: each shop item's check, in the order the items were given, and how storing them went. */
+export interface PriceRefresh {
+  results: { key: PriceKey; check: PriceCheck }[];
+  saved: PriceRecordResult;
+}
+
+/** One shop's part of a refresh: its checks by its own id for each item, and how storing them went. */
+interface ShopRefresh {
+  checks: Map<string, PriceCheck>;
+  saved: PriceRecordResult;
+}
+
+/**
+ * Fetches the current offer of each shop item through the gate. Each shop's prices and missing items are stored with
+ * an insert of their own as soon as that shop is done, so a refresh cut short keeps what the shops have already
+ * answered; an item the shop gave no answer for stores nothing and keeps its last price with its age. `saved` is
+ * `failed` when an insert failed, `saved` when every insert sent was stored, and `none` when there was nothing to store.
+ *
+ * Rossmann has no batch route, so it's asked one product per request, one at a time in the order given: callers pass
+ * the oldest check first, and the cap cuts off the newest. Natura's SKUs are asked for together, 50 per request,
+ * alongside Rossmann's. Once a shop refuses, busy under the cap, paused or stopped, its remaining items get that same
+ * answer with no request and no reservation. Each item is checked once, however often it's given, and an item in a
+ * shop S-03 doesn't fetch yet is `unavailable`.
+ */
+export async function refreshPrices(
+  gate: ShopGate,
+  supabase: SupabaseClient,
+  targets: PriceKey[],
+): Promise<PriceRefresh> {
+  const keys = distinct(targets);
+  const idsIn = (shop: ShopId) => keys.filter((key) => key.shop === shop).map((key) => key.shopItemId);
+  const [rossmann, natura] = await Promise.all([
+    fetchRossmannPrices(gate, idsIn("rossmann")).then((checks) => stored(supabase, "rossmann", checks)),
+    fetchNaturaPrices(gate, idsIn("natura")).then((checks) => stored(supabase, "natura", checks)),
+  ]);
+  const fetched: Partial<Record<ShopId, Map<string, PriceCheck>>> = {
+    rossmann: rossmann.checks,
+    natura: natura.checks,
+  };
+  const results = keys.map((key) => ({ key, check: fetched[key.shop]?.get(key.shopItemId) ?? notFetched() }));
+  return { results, saved: overall([rossmann.saved, natura.saved]) };
+}
+
+/**
+ * Asks Rossmann for each product's offer, one request at a time in the order given. Once Rossmann refuses, the
+ * products after it get that same answer with no request and no reservation. A failed request, or an answer that
+ * can't be read, doesn't stop the next one.
+ */
+async function fetchRossmannPrices(gate: ShopGate, ids: string[]): Promise<Map<string, PriceCheck>> {
+  const checks = new Map<string, PriceCheck>();
+  let refusal: ShopUnavailable | null = null;
+  for (const id of ids) {
+    if (refusal !== null) {
+      checks.set(id, { ...refusal });
+      continue;
+    }
+    const check = await fetchRossmannPrice(gate, id);
+    if (isRefusal(check)) {
+      refusal = check;
+    }
+    checks.set(id, check);
+  }
+  return checks;
+}
+
+/** One shop's checks, stored once the shop is done: recordPriceChecks leaves out the items it gave no answer for. */
+async function stored(supabase: SupabaseClient, shop: ShopId, checks: Map<string, PriceCheck>): Promise<ShopRefresh> {
+  const rows = [...checks].map(([shopItemId, check]) => ({ key: { shop, shopItemId }, check }));
+  return { checks, saved: await recordPriceChecks(supabase, rows) };
+}
+
+/** How storing went for the refresh as a whole, from each shop's insert. */
+function overall(results: PriceRecordResult[]): PriceRecordResult {
+  if (results.includes("failed")) {
+    return "failed";
+  }
+  // A shop with nothing to store sent no insert, which neither saves nor fails anything.
+  return results.includes("saved") ? "saved" : "none";
+}
+
+/** The shop items once each, in the order they first appear. */
+function distinct(targets: PriceKey[]): PriceKey[] {
+  const seen = new Set<string>();
+  return targets.filter((key) => {
+    const text = keyText(key);
+    if (seen.has(text)) {
+      return false;
+    }
+    seen.add(text);
+    return true;
+  });
+}
+
+/** The check of an item in a shop whose prices S-03 doesn't fetch. */
+function notFetched(): PriceCheck {
+  return { kind: "unavailable", reason: "failed" };
+}
+
+/** The codes the refresh form's route redirects with, as `?prices=<code>`, which each page turns into its own text. */
+export const PRICE_REFRESH_CODES = ["done", "partial", "none", "failed"] as const;
+
+/**
+ * What a refresh from the form came to: `done` when every item got a price or a missing check and all were stored,
+ * `partial` when some got no answer or the answers couldn't be stored, `none` when nothing needed refreshing, and
+ * `failed` when no item got an answer.
+ */
+export type PriceRefreshCode = (typeof PRICE_REFRESH_CODES)[number];
+
+/** The code for what a refresh came to. A refresh of no items asked no shop, so nothing needed refreshing. */
+export function refreshCodeOf({ results, saved }: PriceRefresh): PriceRefreshCode {
+  if (results.length === 0) {
+    return "none";
+  }
+  const answered = results.filter(({ check }) => check.kind !== "unavailable").length;
+  if (answered === 0) {
+    return "failed";
+  }
+  return answered === results.length && saved === "saved" ? "done" : "partial";
+}
+
+/** A `?prices=` code, or null for anything the app didn't send itself, so a link can't put words on a page. */
+export function parsePriceRefreshCode(value: string | null): PriceRefreshCode | null {
+  return PRICE_REFRESH_CODES.find((code) => code === value) ?? null;
+}

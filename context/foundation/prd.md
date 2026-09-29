@@ -161,6 +161,7 @@ The shopper meets the rule by opening a watched product: progress appears per sh
 - Sign-up: invite-only. The owner creates accounts or hands out invite links; there is no open registration.
 - Roles: flat. Every signed-in user has the same capabilities: manage their own watchlist, confirm product matches, and see the shared price observations. Recording manual prices (FR-009) and viewing the status page (FR-014) are nice-to-have capabilities and follow the same flat model when they exist.
 - Data separation: watchlists are private per user; price observations are shared by all users of the deployment.
+  > Update 2026-09-28: S-03 (`cheapest-shop-today`) narrows the sharing to each shop item's watchers. A user reads and adds the observations of an item only while they watch it, either as their product's own item or through a confirmed match. The users watching the same item share its prices, and no one can list what others watch. Accepted risk: people watching the same item see each other's check times, which can show that someone else watches it.
 - Unauthenticated visitors: behaviour on a gated page not yet decided (Open Questions 1).
 
 ## Non-Goals

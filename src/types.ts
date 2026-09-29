@@ -104,6 +104,14 @@ export type ShopMatch = {
 } & ({ state: "matched"; item: MatchedItem } | { state: "unmatched" | "not_found"; item: null });
 
 /**
+ * Where a watched product stands in one shop, as the list reads it: the decision, and for a match the shop's own id for
+ * the matched item, such as Natura's SKU, which the product's prices there are observed by.
+ */
+export type ShopMatchState = { watchlistItemId: string; shop: ShopId } & (
+  { state: "matched"; shopItemId: string } | { state: "unmatched" | "not_found"; shopItemId: null }
+);
+
+/**
  * Why a shop search produced nothing to show: the shop's cap was reached (`busy`), the shop asked for a pause
  * (`paused`, with its end), the shop blocked us and stays stopped until the owner re-enables it (`stopped`), or the call
  * failed (`failed`).
@@ -123,7 +131,8 @@ export type ProductSearch =
 
 /**
  * One item a shop's search returned, as a candidate for a watched product's match in that shop. Once confirmed, the
- * item is the product's anchor in that shop (FR-004). Its price is only shown while the user decides.
+ * item is the product's anchor in that shop (FR-004). Its offer is shown while the user decides, and it's the whole
+ * offer, so an automatic match can store the price the shop sent with it.
  */
 export interface ShopCandidate {
   shop: ShopId;
@@ -138,8 +147,8 @@ export interface ShopCandidate {
   /** The item's page in the shop. */
   productUrl: string | null;
   imageUrl: string | null;
-  /** The shop's current online price in złoty, never a shelf price. */
-  price: number | null;
+  /** The shop's current online offer, never a shelf price; null when it sent no price that can be stored. */
+  offer: ShopOffer | null;
 }
 
 /** How a candidate compares with the watched product: a shared EAN, and whether the sizes agree when both are known. */
@@ -165,4 +174,53 @@ export type ShopLookup =
   | { kind: "accepted"; candidate: ShopCandidate }
   | { kind: "choose"; options: CandidateOption[]; via: "ean" | "name" }
   | { kind: "not-found" }
+  | ShopUnavailable;
+
+/** What a shop offers an item for online, in złoty: an online price, never a shelf price. */
+export interface ShopOffer {
+  price: number;
+  /** The price before a promotion, only while one runs. */
+  regularPrice: number | null;
+  /** The lowest price of the last 30 days, as the shop reports it. */
+  lowestPrice30d: number | null;
+  /** When the promotion ends, as `YYYY-MM-DD`, when the shop says. */
+  promoEndsOn: string | null;
+  /** Whether the item can be ordered online. */
+  available: boolean;
+}
+
+/**
+ * What one check of a shop item came to: the item's offer, `missing` when the shop answered without the item, or why
+ * the shop gave no answer. Only a price or a missing item is stored.
+ */
+export type PriceCheck = { kind: "price"; offer: ShopOffer } | { kind: "missing" } | ShopUnavailable;
+
+/**
+ * A shop item whose prices are observed: the shop and its own id for the item, such as Rossmann's product id or
+ * Natura's SKU. Observations are shared by everyone who watches the item.
+ */
+export interface PriceKey {
+  shop: ShopId;
+  shopItemId: string;
+}
+
+/**
+ * A shop item's latest state: when it was last checked and what that check found, with the latest price and when it
+ * was fetched. A check that found the item missing keeps the price from before; `offer` is null only when no check has
+ * found a price yet. Times are ISO timestamps.
+ */
+export type LatestPrice = PriceKey & {
+  lastCheckedAt: string;
+  lastStatus: "price" | "missing";
+  offer: (ShopOffer & { pricedAt: string }) | null;
+};
+
+/**
+ * What `/api/watchlist/prices` answers when it refreshed one shop of a watched product: the offer it fetched, that the
+ * shop answered without the item, or why the shop gave no answer. `checkedAt` is the server's time after the check, as
+ * an ISO timestamp, and `saved` says whether the check was stored.
+ */
+export type PriceRefreshAnswer =
+  | { kind: "price"; offer: ShopOffer; checkedAt: string; saved: boolean }
+  | { kind: "missing"; checkedAt: string; saved: boolean }
   | ShopUnavailable;
