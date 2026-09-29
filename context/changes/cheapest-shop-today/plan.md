@@ -874,6 +874,9 @@ Where the shipped code differs from the phase contracts above, and why. The phas
   - **A second list refresh within 15 minutes:** it gave `none` with no request.
   - **The product page's form** (in its server-rendered HTML, as a browser without JavaScript gets it) gave `done` for one Rossmann and one Natura request.
   - **A second user** watching NIVEA Soft saw the owner's refreshed line. A user watching nothing saw no row, and the view gave that user `[]`.
+- **Phase 5, beyond the docs contract (the owner's calls, 2026-09-29):**
+  - CLAUDE.md's non-negotiable now says price observations are shared by the item's watchers and hidden from everyone else. The PRD's access-control line gets a dated update note to match.
+  - The `npm run dev` bullet now describes how to start the dev server under an agent: `ASTRO_DEV_BACKGROUND=1 npx astro dev` as a background task, and one more start after the Vite cache race.
 
 ### Accepted during implementation (the owner's call, 2026-09-28)
 
@@ -930,25 +933,25 @@ Where the shipped code differs from the phase contracts above, and why. The phas
 
 #### Automated
 
-- [x] 4.1 `npm run test` passes, including the list text and refresh target tests
-- [x] 4.2 `npx astro sync && npx astro check` reports 0 errors
-- [x] 4.3 `npm run lint` passes
-- [x] 4.4 `npm run build` passes
-- [ ] 4.5 CI `ci` and `smoke` jobs are green on the PR, including the refresh route smoke steps
+- [x] 4.1 `npm run test` passes, including the list text and refresh target tests — 5dee998
+- [x] 4.2 `npx astro sync && npx astro check` reports 0 errors — 5dee998
+- [x] 4.3 `npm run lint` passes — 5dee998
+- [x] 4.4 `npm run build` passes — 5dee998
+- [x] 4.5 CI `ci` and `smoke` jobs are green on the PR, including the refresh route smoke steps — 5dee998
 
 #### Manual
 
-- [x] 4.6 Phone-viewport walk-through against `npm run dev` with the local Supabase: each matched product's row shows the cheapest shop, its price, the difference and the age; a product matched only in Rossmann shows "Tylko w Rossmannie"; viewing the list makes no shop request; "Odśwież ceny" refreshes only products checked more than 15 minutes ago and shows the result notice; the product page's button works with JavaScript off; a second user watching the same Rossmann item sees the shared price, and a user who doesn't watch it sees none
+- [x] 4.6 Phone-viewport walk-through against `npm run dev` with the local Supabase: each matched product's row shows the cheapest shop, its price, the difference and the age; a product matched only in Rossmann shows "Tylko w Rossmannie"; viewing the list makes no shop request; "Odśwież ceny" refreshes only products checked more than 15 minutes ago and shows the result notice; the product page's button works with JavaScript off; a second user watching the same Rossmann item sees the shared price, and a user who doesn't watch it sees none — 5dee998
 
 ### Phase 5: Docs and production rollout
 
 #### Automated
 
 - [ ] 5.1 CI `ci` and `smoke` jobs are green on the PR after the documentation changes
-- [ ] 5.2 `npx supabase migration list --linked` shows the price migration with a remote version
+- [x] 5.2 `npx supabase migration list --linked` shows the price migration with a remote version
 
 #### Manual
 
-- [ ] 5.3 Owner ran `npx supabase db push` (the dry run listed only the price migration) and it reported success
-- [ ] 5.4 Supabase dashboard shows `price_observations` with RLS on and its two policies, and `latest_price_observations`; Security Advisor shows no errors
-- [ ] 5.5 CLAUDE.md and research note updates reviewed
+- [x] 5.3 Owner ran `npx supabase db push` (the dry run listed only the price migration) and it reported success
+- [x] 5.4 Supabase dashboard shows `price_observations` with RLS on and its two policies, and `latest_price_observations`; Security Advisor shows no errors
+- [x] 5.5 CLAUDE.md and research note updates reviewed

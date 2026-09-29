@@ -47,8 +47,13 @@ GET https://www.rossmann.pl/products/api/Categories
 
 - Query parameters accepted by `v4/api/Products` (from the bundle): `search, page, pageSize, sortOrder, categoryId, brandIds, priceFrom, priceTo, recommendedTags, promotionTags, dynamicTags, seasonalCampaignsIds, campaign, clientUUID, retailerVisitorId, customerId, deviceType`.
 - Response shape: `data.{ filters, items[], recommendedProducts, totalPages, totalCount, correlationId, spellCheckHint }`.
-- `items[]` fields: `id, rossnetId, brand, brandId, name, caption, fallbackName, fallbackCaption, unit, price, pricePerUnit, vat, eanNumber[], navigateUrl, pictures[], promotion, availability, category, attributes, badges, averageRating, totalReviews, dimensional, hasRichContent, isInOut`.
-- Product detail (`v2/api/Products/{id}`) adds: `promotions[], availability ("available"), differentPricesInShop (bool), colorVariants, variants, shelvesNavigateUrl, brandUrls`. `shopNumber=<store id>` should give store-specific price/stock.
+- `items[]` fields: `id, rossnetId, brand, brandId, name, caption, fallbackName, fallbackCaption, unit, price, pricePerUnit, vat, eanNumber[], navigateUrl, pictures[], promotion, availability, category, attributes, badges, averageRating, totalReviews, dimensional, hasRichContent, isInOut`. A reduced item also carries the price fields below.
+- Product detail (`v2/api/Products/{id}?shopNumber=null`), one product per request (see Limitations): `data` holds the product's `id`, the same price fields as a search item (next bullet), and `promotions[], availability ("available"), differentPricesInShop (bool), colorVariants, variants, shelvesNavigateUrl, brandUrls`. `promotions[]` names campaigns, like `promotion`: the unreduced 26900 has three "seasonal" ones. An id Rossmann doesn't have answers HTTP 404 `application/problem+json`, and the endpoint answers from Cloudflare Workers too (both 2026-09-28; §9). `shopNumber=<store id>` should give store-specific price/stock.
+- Price fields (recordings of 2026-09-27, live requests of 2026-09-28), the same in `items[]`, `recommendedProducts` and the detail:
+  - `price` is the current price: the promo price while a reduction runs. An item without a reduction carries none of the fields below.
+  - A reduced item adds `oldPrice`, the regular price before the reduction; `lastLowestPrice` (equal to `lastLowestPriceV2`, with `lastLowestPriceType` "basic"), the Omnibus 30-day low; and `promotionFrom` / `promotionTo`, the reduction's window, without a UTC offset (`"2026-09-30T00:00:00"`).
+  - `oldPrice` is not the 30-day low: Purina Felix Fantastic (131225) has `price` 5.99, `oldPrice` 9.99 and `lastLowestPrice` 6.39.
+  - `promotion{type, redirectUrl}` tags a campaign (`seasonal`, `rossmann`, `rossne`, `mega`) and appears on items with no reduction too, so it says nothing about the price.
 - Other routes seen in the bundle, not tested: `/v4/api/Products/filters`, `/api/Products/{id}/additionals`, `/api/shops/{shopNumber}/products/stocks?productsIds=...`, `/api/Shops?...`, `/api/v3/Suggestion?Search=...` (different base), `/api/v1/Catalog?...` (alternative catalog base).
 - Limitations: **text search only**. `search=4005900009319` returns 0 items, so resolve by name and filter on `eanNumber` client-side. `v2/api/Products?ids=26900&ids=11790` returned HTTP 400 (parameter format not figured out).
 - Sample item (trimmed):
@@ -186,6 +191,15 @@ GET https://live.luigisbox.com/search?tracker_id=703598-939363&q=4005900009319  
 }
 ```
 
+- Pinned items by SKU (2026-09-28): `f[]=type:product&f[]=sku:NV89063` without `q` returns exactly that item, and a SKU Natura doesn't have gives 0 hits. Luigi's Box combines filters on the same field with OR ([Search API docs](https://docs.luigisbox.com/search/api/v1/search/)), so one repeated `f[]=sku:<SKU>` per SKU returns several items in one request. Verified with two SKUs; the docs allow `size` up to 200, and larger batches are untested.
+
+```
+GET https://live.luigisbox.com/search?tracker_id=703598-939363&f[]=type:product&f[]=sku:NV89063&f[]=sku:NV81063&size=2&hit_fields=sku,price_amount,price_old_amount,lowest_price,availability
+```
+
+- `hit_fields` returns only the attributes it names, plus `title`: a hit shrinks from about 20 KB to about 350 characters.
+- `lowest_price` is reported without a promotion too: NV81063 has `price_amount` 17.99, no `price_old_amount` and `lowest_price` `["10.990000"]`. Whether it covers the 30 days before a reduction or a rolling 30 days is unconfirmed.
+
 ### 2.6 Ziko Dermo (zikodermo.pl)
 
 - Platform: AptusShop. Search `https://www.zikodermo.pl/szukaj?controller=search&s=<q>` returns server-rendered HTML with `class="product-name"`, `class="price-value"` (current) and `class="price-crossed"` (old price). Small chain; plain HTML scraping is enough if needed.
@@ -248,7 +262,7 @@ GET https://live.luigisbox.com/search?tracker_id=703598-939363&q=4005900009319  
 4. Super-Pharm: Algolia text search, filter by brand + `farmax_capacity`, confirm via product page `gtin13` when ambiguous.
 5. Normalise sizes before comparing: Rossmann `"300 ml"`, Hebe litres `"0.300"`, Natura `size`+`size_unit`, Super-Pharm `"300 ml"` / `300`, dm text inside `title`. Convert to ml / g / pcs.
 6. Fallback matching when EAN data is missing or wrong (seen at Hebe): brand + normalised name tokens + size within ±5 %.
-7. Keep Omnibus / promo fields separately: Hebe `price_sale`, `price_omnibus`; Natura `price_old_amount`, `lowest_price`; Super-Pharm `default_historical_min_price_formated`; Rossmann `promotion`.
+7. Keep Omnibus / promo fields separately: Hebe `price_sale`, `price_omnibus`; Natura `price_old_amount`, `lowest_price`; Super-Pharm `default_historical_min_price_formated`; Rossmann `oldPrice`, `lastLowestPrice`, `promotionFrom` / `promotionTo` (not `promotion`, which tags a campaign; §2.1).
 
 ## 7. Caveats
 
@@ -271,10 +285,12 @@ GET https://live.luigisbox.com/search?tracker_id=703598-939363&q=4005900009319  
   - One request per target, 2 s apart, no retries.
   - User-Agent `DrogeriaRadar/0.1 (+https://github.com/yaroslavkhudchenko/10xcourseproject)`, the descriptive one §7 recommends.
   - Every request ran in the WAW (Warsaw) data center.
+  - The Rossmann detail row came later, on 2026-09-28: one request from a second throwaway Worker on the same account, with the same User-Agent and no redirects followed, also deleted afterwards.
 
 | Target               | Request                                              | Status              | Time   | Expected field       | Notes                                 |
 | -------------------- | ---------------------------------------------------- | ------------------- | ------ | -------------------- | ------------------------------------- |
 | Rossmann             | `v4/api/Products?search=nivea%20soft&pageSize=1`     | 200 JSON            | 172 ms | `items` ✓            |                                       |
+| Rossmann detail      | `v2/api/Products/26900?shopNumber=null`              | 200 JSON            | –      | `price` ✓            | 2026-09-28; time not recorded         |
 | Hebe (Luigi's Box)   | `live.luigisbox.com/search`, tracker `421168-505233` | 200 JSON            | 346 ms | `hits` ✓             |                                       |
 | Natura (Luigi's Box) | `live.luigisbox.com/search`, tracker `703598-939363` | 200 JSON            | 279 ms | `hits` ✓             |                                       |
 | dm                   | `product-search.services.dmtech.com/pl/search`       | **403** HTML, 134 B | 345 ms | ✗                    | no redirect to `/crawl`; see below    |
