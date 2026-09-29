@@ -92,6 +92,7 @@ const islandConfig = defineConfig({
     "src/lib/json-request.ts",
     "src/components/watchlist/price-comparison-state.ts",
     "src/components/watchlist/PriceComparison.tsx",
+    "src/components/watchlist/PriceComparisonView.tsx",
   ],
   rules: {
     "no-restricted-imports": [

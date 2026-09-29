@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   comparisonOf,
   done,
+  gapText,
   initialState,
   parseRefreshAnswer,
   priceComparisonReducer,
@@ -210,6 +211,76 @@ describe("price comparison state", () => {
       ["natura", true],
       ["rossmann", false],
     ]);
+  });
+});
+
+describe("a price read that failed", () => {
+  // The page couldn't read the stored prices, so it hands the island every shop without one.
+  const unread = () => initialState({ shops: [rossmann(null), natura(null)], now: RENDERED, pricesFailed: true });
+  const failedReads = (state: PriceComparisonState) => state.rows.map(({ shop, readFailed }) => [shop, readFailed]);
+
+  it("marks every row when the read failed, and none when it didn't", () => {
+    expect(failedReads(unread())).toEqual([
+      ["rossmann", true],
+      ["natura", true],
+    ]);
+    expect(failedReads(initialState({ shops: [rossmann(), natura(null)], now: RENDERED }))).toEqual([
+      ["rossmann", false],
+      ["natura", false],
+    ]);
+  });
+
+  it.each<{ kind: string; result: RefreshResult }>([
+    { kind: "price", result: priceAnswer(16.99) },
+    { kind: "missing", result: { kind: "missing", checkedAt: CHECKED_AT, saved: true } },
+  ])("clears the mark of the row whose shop answered with a $kind, and only that row", ({ result }) => {
+    const state = run(unread(), start("rossmann"), start("natura"), done("natura", result, ANSWERED_AT));
+
+    expect(failedReads(state)).toEqual([
+      ["rossmann", true],
+      ["natura", false],
+    ]);
+  });
+
+  it.each<{ kind: string; result: RefreshResult }>([
+    { kind: "unavailable", result: { kind: "unavailable", reason: "failed" } },
+    {
+      kind: "unavailable (paused)",
+      result: { kind: "unavailable", reason: "paused", until: "2026-09-28T12:15:00.000Z" },
+    },
+    { kind: "session-ended", result: { kind: "session-ended" } },
+  ])("keeps the mark when the shop's answer is $kind", ({ result }) => {
+    const state = run(unread(), start("natura"), done("natura", result, ANSWERED_AT));
+
+    expect(failedReads(state)).toEqual([
+      ["rossmann", true],
+      ["natura", true],
+    ]);
+  });
+});
+
+describe("gapText", () => {
+  it("says the price couldn't be read while the row's read failed", () => {
+    const [row] = initialState({ shops: [rossmann(null)], now: RENDERED, pricesFailed: true }).rows;
+
+    expect(gapText(row)).toBe("Nie udało się wczytać ceny.");
+  });
+
+  it("says there's no price yet for a row never checked, while it's being fetched too", () => {
+    const state = initialState({ shops: [rossmann(null)], now: RENDERED });
+
+    expect(gapText(state.rows[0])).toBe("Jeszcze bez ceny");
+    expect(gapText(run(state, start("rossmann")).rows[0])).toBe("Jeszcze bez ceny");
+  });
+
+  it("says the shop has no online price once it answered without one", () => {
+    const answered = run(
+      initialState({ shops: [natura(null)], now: RENDERED, pricesFailed: true }),
+      start("natura"),
+      done("natura", { kind: "missing", checkedAt: CHECKED_AT, saved: true }, ANSWERED_AT),
+    );
+
+    expect(gapText(answered.rows[0])).toBe("Brak ceny online w drogerienatura.pl");
   });
 });
 

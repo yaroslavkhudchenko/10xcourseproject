@@ -633,6 +633,31 @@ The contract outlives this session: a lint rule refuses literals in the cleaned 
 - **Not checked, because the view doesn't render them:** the `destructive` Button and Badge fills (`dark:bg-destructive/60` under white text). They measure 4.59:1 on the base stop and 4.41:1 on the glow, below 4.5:1, so a view that starts using them needs a pair in the check first. Nor is the registry's Badge `link` variant checked. It reads `text-primary`, now purple-600, at about 3.5:1 on the canvas, so a view that uses it should switch it to `text-link`, as the Button's link variant already reads.
 - **The gradient's stops are `oklch()` now, so browsers interpolate it in Oklab rather than sRGB.** Both stops round-trip to the same 8-bit hex, and the change isn't visible between colours this close.
 
+### Phase 3
+
+- **`natura-view.ts` has two builders beyond the plan's list, both tested** (Phase 3 contract, item 1). The page's view literals held logic, so it moved (lesson "Keep decision logic in tested services"):
+  - `chooseView(options, via, fetchedAt, own)` picks the EAN or name intro;
+  - `promptView(own, retrying)` keeps `?retry=1` in the prompt's link.
+
+  The `unavailable`, `decided` and `read-failed` views hold no logic, so they stay literals in the page.
+
+- **`natura-view.ts` reuses `formatPrice` and `SHOP_LABELS.natura.site` from `price-comparison.ts`** instead of moving the page's identical `pln` formatter and its `drogerienatura.pl` literal (lesson "Define shared constants and helpers once"). The output is identical.
+  - The builders take `NaturaProduct` (`Pick<WatchlistProduct, "id" | "sizeText" | "size">`), and `matchedView` takes only the item's `sizeText` and `size`.
+  - New exported types: `NaturaOption`, and `CandidateFlag` (the page's local `Flag`).
+- **The gap-text choice is `gapText(row)` in the browser-safe `price-comparison-state.ts`, with tests** (Phase 3 contract, item 6). It reads the site from `SHOP_LABELS`. The view computes the read-failure alert's condition inline, as it does `refreshing`, and renders that alert above the session alert, in today's order.
+- **Screen-reader descriptions:**
+  - Each price row's `aria-describedby` id comes from React's `useId`. Astro's React renderer passes a per-render prefix that hydration reuses, so the ids match across hydration and stay unique across several static views.
+  - Natura candidates use index-based ids (`natura-candidate-<n>`) on a `hidden` span holding the brand and name. A hidden element still counts when `aria-describedby` points at it, and `ProductSummary` itself stays unchanged beyond tokens.
+- **Text links are `cn(buttonVariants({ variant: "link", size: "touch" }), "px-0 …")`,** flush with the column. The links underlined today keep `underline`; "← Moja lista" underlines on hover only, as today.
+- **`SubmitOnce.astro` holds the list page's script unchanged apart from its comments.** `NaturaSection` renders it every time.
+- **Gate fix: the page no longer declares `pageUrl`.** Once `promptView` built the prompt's link, `astro check` flagged `pageUrl` as unused (hint ts(6133)): it doesn't count the frontmatter's `return Astro.redirect(pageUrl)` as a read. The redirect now builds its URL inline, and the check reports 0 hints.
+- **The owner's call at the Phase 3 gate: a match's size warning is a warning Badge** (Phase 3 contract, item 3; FR-007). The matched state has no card, so the warning ("Inny rozmiar: X zamiast Y") uses the same pill the candidate's flag had before it was confirmed, above the note as plain text. A suspicious match then stands out without a live region. The change landed after the walk-through, and Phase 4's kitchen sink shows it.
+- **Looks the components shift slightly:** `font-medium` on links and badges, `rounded-md` buttons (today's are `rounded-lg`), the Card's `shadow-sm`, and the badges' `py-0.5` (today's pills use `py-1`).
+- **For Phase 4:**
+  - Several `NaturaSection`s, or a price section beside a page, on one kitchen-sink page repeat `natura-heading`, `natura-candidate-<n>` and `prices-heading`. So the kitchen sink either renders one of each per page, or the components take an id prefix.
+  - The not-found and failed branches are still inline in `[id].astro`, as the contract left them. The kitchen sink needs its own copy of them or an extraction.
+- **For Phase 5:** CLAUDE.md's UI text still says the product page shows the Rossmann item "with its 'Zobacz w sklepie' link". That link is now only in the price row, so reword it.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -656,31 +681,31 @@ The contract outlives this session: a lint rule refuses literals in the cleaned 
 
 #### Automated
 
-- [x] 2.1 `node scripts/check-token-contrast.mjs` prints only PASS lines
-- [x] 2.2 `npm run test` passes
-- [x] 2.3 `npx astro sync && npx astro check` reports 0 errors
-- [x] 2.4 `npm run lint` passes
-- [x] 2.5 `npm run build` passes
+- [x] 2.1 `node scripts/check-token-contrast.mjs` prints only PASS lines — 12f2075
+- [x] 2.2 `npm run test` passes — 12f2075
+- [x] 2.3 `npx astro sync && npx astro check` reports 0 errors — 12f2075
+- [x] 2.4 `npm run lint` passes — 12f2075
+- [x] 2.5 `npm run build` passes — 12f2075
 
 #### Manual
 
-- [x] 2.6 Screenshots of the kitchen sink at 1280 and 390 px show the cosmic look with every component on tokens
-- [x] 2.7 The product page, the list and the sign-in page look as before, with a dark canvas, overscroll and scrollbar
+- [x] 2.6 Screenshots of the kitchen sink at 1280 and 390 px show the cosmic look with every component on tokens — 12f2075
+- [x] 2.7 The product page, the list and the sign-in page look as before, with a dark canvas, overscroll and scrollbar — 12f2075
 
 ### Phase 3: The product page on tokens and components
 
 #### Automated
 
-- [ ] 3.1 `npm run test` passes, including the natura-view tests and the reducer's read-failure tests
-- [ ] 3.2 `npx astro sync && npx astro check` reports 0 errors
-- [ ] 3.3 `npm run lint` passes
-- [ ] 3.4 `npm run build` passes
-- [ ] 3.5 The `/10x-ui` hardcoded-value scan finds 0 hits in `src/pages/watchlist/[id].astro`, `src/components/watchlist/*.astro` and `src/components/watchlist/*.tsx`
+- [x] 3.1 `npm run test` passes, including the natura-view tests and the reducer's read-failure tests
+- [x] 3.2 `npx astro sync && npx astro check` reports 0 errors
+- [x] 3.3 `npm run lint` passes
+- [x] 3.4 `npm run build` passes
+- [x] 3.5 The `/10x-ui` hardcoded-value scan finds 0 hits in `src/pages/watchlist/[id].astro`, `src/components/watchlist/*.astro` and `src/components/watchlist/*.tsx`
 
 #### Manual
 
-- [ ] 3.6 A phone-viewport walk-through on the dev server: each shop once, decision feedback in the Natura section, a double tap saves once, "Jeszcze bez ceny" for a row not fetched yet
-- [ ] 3.7 The list page's product summaries and its "Odśwież ceny" guard work as before
+- [x] 3.6 A phone-viewport walk-through on the dev server: each shop once, decision feedback in the Natura section, a double tap saves once, "Jeszcze bez ceny" for a row not fetched yet
+- [x] 3.7 The list page's product summaries and its "Odśwież ceny" guard work as before
 
 ### Phase 4: States and the visual gate
 

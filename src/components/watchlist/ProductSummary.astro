@@ -22,18 +22,18 @@ const { brand, name: productName, caption, sizeText, imageUrl, detail } = Astro.
       height="56"
       loading="lazy"
       decoding="async"
-      class="size-14 shrink-0 rounded-lg bg-white object-contain"
+      class="size-14 shrink-0 rounded-lg bg-thumbnail object-contain"
     />
   ) : (
-    <div aria-hidden="true" class="size-14 shrink-0 rounded-lg bg-white/10" />
+    <div aria-hidden="true" class="size-14 shrink-0 rounded-lg bg-muted" />
   )}
   <div class="min-w-0">
     <p class="font-medium">
-      {brand && <span class="text-blue-100/70">{brand}</span>}
+      {brand && <span class="text-muted-foreground">{brand}</span>}
       {productName}
     </p>
-    {caption && <p class="line-clamp-2 text-sm text-blue-100/70">{caption}</p>}
-    <p class="text-sm text-blue-100/60">
+    {caption && <p class="line-clamp-2 text-sm text-muted-foreground">{caption}</p>}
+    <p class="text-sm text-muted-foreground">
       {sizeText ?? "rozmiar nieznany"}
       {detail && <span> · {detail}</span>}
     </p>

@@ -11,9 +11,9 @@ import { priceMissingText, priceUnavailableText } from "@/lib/shop-messages";
 import type { LatestPrice, PriceRefreshAnswer, SearchUnavailableReason, ShopOffer } from "@/types";
 
 // The product page's price island, without React: each matched shop's latest price, whether its refetch runs, why the
-// last one gave no answer, and what screen readers hear of the answers. Every change goes through the reducer, and the
-// order and marks always come from compareShops, so Vitest can check them in Node. It runs in the browser, so it
-// imports nothing server-only.
+// last one gave no answer, whether the page couldn't read its stored price, and what screen readers hear of the
+// answers. Every change goes through the reducer, and the order and marks always come from compareShops, so Vitest can
+// check them in Node. It runs in the browser, so it imports nothing server-only.
 
 /** The route that refetches one shop of one product (src/pages/api/watchlist/prices.ts). */
 export const PRICES_ROUTE = "/api/watchlist/prices";
@@ -39,13 +39,21 @@ export interface RefreshNotice {
   until?: string;
 }
 
-/** One shop's row: its item's page, its latest check, whether a refetch runs, and why the last one gave no answer. */
+/**
+ * One shop's row: its item's page, its latest check, whether a refetch runs, why the last one gave no answer, and
+ * whether the page couldn't read its stored price.
+ */
 export interface ShopRow {
   shop: PricedShop;
   productUrl: string | null;
   latest: LatestCheck | null;
   pending: boolean;
   notice: RefreshNotice | null;
+  /**
+   * The page couldn't read the stored prices, and the shop hasn't answered with a price or a missing item since. The
+   * row has no check to show, yet the item may well have been checked, so it never reads as one that never was.
+   */
+  readFailed: boolean;
 }
 
 export interface PriceComparisonState {
@@ -84,11 +92,27 @@ export function tick(now: number): PriceComparisonAction {
 
 /**
  * The state the page renders with: the stored prices, nothing running, on the server's clock (`now`, an ISO
- * timestamp), so the browser's first render matches the page's HTML.
+ * timestamp), so the browser's first render matches the page's HTML. With `pricesFailed`, the page couldn't read the
+ * stored prices, and every row starts marked `readFailed`.
  */
-export function initialState({ shops, now }: { shops: PriceComparisonShop[]; now: string }): PriceComparisonState {
+export function initialState({
+  shops,
+  now,
+  pricesFailed = false,
+}: {
+  shops: PriceComparisonShop[];
+  now: string;
+  pricesFailed?: boolean;
+}): PriceComparisonState {
   return {
-    rows: shops.map(({ shop, productUrl, latest }) => ({ shop, productUrl, latest, pending: false, notice: null })),
+    rows: shops.map(({ shop, productUrl, latest }) => ({
+      shop,
+      productUrl,
+      latest,
+      pending: false,
+      notice: null,
+      readFailed: pricesFailed,
+    })),
     now: Date.parse(now),
     sessionEnded: false,
     announcements: [],
@@ -149,7 +173,10 @@ function announcement(rows: ShopRow[], now: number, shop: PricedShop, result: Re
   }
 }
 
-/** A row once its refetch came back. */
+/**
+ * A row once its refetch came back. Only the shop's own answer, a price or a missing item, replaces a stored price the
+ * page couldn't read; an answer that came to nothing leaves the row saying the read failed.
+ */
 function settled(row: ShopRow, result: RefreshResult): ShopRow {
   const idle = { ...row, pending: false };
   switch (result.kind) {
@@ -158,6 +185,7 @@ function settled(row: ShopRow, result: RefreshResult): ShopRow {
       return {
         ...idle,
         notice: null,
+        readFailed: false,
         latest: { lastCheckedAt: checkedAt, lastStatus: "price", offer: { ...offer, pricedAt: checkedAt } },
       };
     }
@@ -166,6 +194,7 @@ function settled(row: ShopRow, result: RefreshResult): ShopRow {
       return {
         ...idle,
         notice: null,
+        readFailed: false,
         latest: { lastCheckedAt: result.checkedAt, lastStatus: "missing", offer: row.latest?.offer ?? null },
       };
     case "unavailable":
@@ -177,6 +206,21 @@ function settled(row: ShopRow, result: RefreshResult): ShopRow {
     case "session-ended":
       return idle;
   }
+}
+
+/**
+ * What a row without a price says in its place: that its stored price couldn't be read, until its shop answers; that
+ * it has no price yet, when it was never checked; or that the shop's last answer had no online price. A price the page
+ * couldn't read never reads as one that was never fetched.
+ */
+export function gapText(row: Pick<ShopRow, "shop" | "latest" | "readFailed">): string {
+  if (row.readFailed) {
+    return "Nie udało się wczytać ceny.";
+  }
+  if (row.latest === null) {
+    return "Jeszcze bez ceny";
+  }
+  return `Brak ceny online w ${SHOP_LABELS[row.shop].site}`;
 }
 
 /** The rows in their order with their marks, and the summary, at the state's time. */

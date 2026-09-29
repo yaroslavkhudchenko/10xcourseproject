@@ -1,0 +1,26 @@
+---
+// Sends every form marked `data-submit-once` on the page once: a submit disables the form's buttons. The list's
+// "Odśwież ceny" and a product's Natura decisions use it. Astro includes the script once per page, however many times
+// the component renders.
+---
+
+<script>
+  // Each form is sent once. A second tap on the list's "Odśwież ceny" while it refreshes would ask the shops again for
+  // the same items, from the cap everyone shares, and a second tap on a Natura decision would find the product already
+  // decided. Without JavaScript the form still posts.
+  for (const form of document.querySelectorAll<HTMLFormElement>("form[data-submit-once]")) {
+    form.addEventListener("submit", () => {
+      for (const button of form.querySelectorAll("button")) {
+        button.disabled = true;
+      }
+    });
+  }
+  // A page the browser restores with its back button gets its button back.
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) {
+      for (const button of document.querySelectorAll<HTMLButtonElement>("form[data-submit-once] button")) {
+        button.disabled = false;
+      }
+    }
+  });
+</script>
