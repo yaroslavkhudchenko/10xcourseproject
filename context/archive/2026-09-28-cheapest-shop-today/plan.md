@@ -896,6 +896,20 @@ Where the shipped code differs from the phase contracts above, and why. The phas
 - **Rossmann product ids in the gate's log:** the F-01 gate logs the path of every request that doesn't succeed, and Rossmann's detail path carries the product id. Accepted for now, since only the owner reads the Workers logs. Phase 3 blanks the id out of the gate's log line.
 - **Any Rossmann 404 counts as missing:** the gate drops the bodies of error answers, so a 404 from a moved API would look like a product that's gone. Every Rossmann price would then show as stale, never as a wrong current price, and the logs would show the 404s.
 
+### Production rollout
+
+- **Merged on 2026-09-29** as `0e60bea` (PR #9), after the implementation review's fixes (`0de341b`).
+  - The price migration was already on production, confirmed with `npx supabase migration list --linked` before the merge.
+  - Workers Builds deployed the merge at 14:12 UTC, and `ci` and `smoke` passed on `main`.
+- **The owner's phone check on production passed** the same day (Manual Testing Steps, step 2). It covered a matched product's prices arriving, reopening within 15 minutes, the list's price lines, and "Odśwież ceny".
+
+### For S-04 and later
+
+- **The view:** `latest_price_observations` reads the whole table (review F4). S-04's migration drives it from the caller's watched items.
+- **The migrations:** the next one that touches `price_observations` bounds `regular_price` and `lowest_price_30d` (review F6). Both are in `follow-ups/review-fixes.md`, with the stop after two failed requests in a row.
+- **The accepted risks:** revisit them before inviting more people: fake prices on any item, co-watchers' check times, and F-01's direct RPC.
+- **Other shops:** S-05 and S-06 add their shops to `PRICED_SHOPS` and `SHOP_LABELS`, a price lookup through the gate, and `refreshPrices`. The comparison rules, the island and the list take them without other changes.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
