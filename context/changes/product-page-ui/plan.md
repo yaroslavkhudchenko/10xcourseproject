@@ -599,7 +599,39 @@ The contract outlives this session: a lint rule refuses literals in the cleaned 
 - **The kitchen sink shows two disabled Buttons and three button-styled links** (Phase 1 contract: "a disabled Button" and "an `<a>` styled with `buttonVariants()`"). These are the controls the view actually uses: default "To ten produkt", outline "Odśwież ceny", and the default, outline and link `<a>`s.
 - **For Phase 2, the status surfaces render at these opacities:** Alert `success`/`warning` with borders at `/30`, fills at `/10` and the description at `/90`; Badge `success`/`warning` with fills at `/15`, and `/25` on hover as a link. The contrast check measures these, and Phase 2 may tune them. The provisional `.dark` values are purple-300, emerald-400/200 and amber-400/200; in `:root` they are purple-700, emerald-600/800 and amber-500/800.
 - **For Phase 3, Alert text goes inside `AlertDescription` or `AlertTitle`.** The Alert's grid is `grid-cols-[0_1fr]`, so bare text passed straight to `<Alert>` lands in the zero-width first column.
-- **For Phase 4, headless Chrome can't lay a page out at 390 px** (Phase 4 screenshot contract). At `--window-size=390`, Chrome 153's `--headless=new` lays the page out 504 px wide (`innerWidth=504`, its minimum window width) and crops the capture to 390. A true 390 px capture needs the DevTools device toolbar, or a DevTools-protocol device-metrics override (`Emulation.setDeviceMetricsOverride`). A capture made that way measured `innerWidth` = `scrollWidth` = 390 on the Phase 1 page, so nothing overflows. Astro's dev toolbar is fixed to the bottom of the viewport and lands on top of full-page captures, so hide it for the gate's screenshots.
+- **For Phase 4, headless Chrome can't lay a page out at 390 px** (Phase 4 screenshot contract). At `--window-size=390`, Chrome 153's `--headless=new` lays the page out 504 px wide (`innerWidth=504`, its minimum window width) and crops the capture to 390. A true 390 px capture needs the DevTools device toolbar, or a DevTools-protocol device-metrics override (`Emulation.setDeviceMetricsOverride`). A capture made that way measured `innerWidth` = `scrollWidth` = 390 on the Phase 1 page, so nothing overflows. Astro's dev toolbar is fixed to the bottom of the viewport and lands on top of full-page captures, so hide it for the gate's screenshots. Removing its element after the page loads isn't enough, since a hot reload can bring it back (seen at Phase 2). Turn it off on the machine with `npx astro preferences disable devToolbar` for the captures, and back on with `enable` afterwards.
+
+### Phase 2
+
+- **The contrast check measures more than the plan's minimum list** (Phase 2 contract, "What it checks"). It runs 60 lines: 30 pairs, each over both of `bg-cosmic`'s stops (`--background` and `--background-glow`). Beyond the plan's pairs, it adds:
+  - `card-foreground` on a card;
+  - the primary button in a card and on hover (`/90`);
+  - the outline button (`input/30`) and its hover (`input/50`, `accent-foreground`);
+  - the Alert descriptions at `/90`;
+  - the status Badges at `/15` in a card;
+  - a warning Alert as a surface, for the session-ended alert's sign-in link and the focus ring around it.
+
+  A passing run prints only PASS lines; a failing run adds "N check(s) failed" and exits 1.
+
+- **The check is strict about `.dark`** (Phase 2 contract, lesson "Never read an unreadable answer as missing"):
+  - Every custom property in `.dark` must read as `oklch(L C H)` or `oklch(L C H / A)`, or it fails by name.
+  - A missing or unreadable token fails every pair that needs it.
+  - Both canvas stops must be opaque.
+  - So a future non-colour custom property belongs outside `.dark`.
+- **Focus reaches 3:1 through `--ring` alone:** purple-300, drawn at 50%. No component or base-layer opacity changed. The margins are the tightest in the check: 3.23:1 at worst, on a warning Alert over the glow stop. purple-200 would give about 4:1, but would no longer match the links.
+- **`--muted-foreground` is blue-100 at 80% alpha**, the opacity 12 of the 16 uses had. The 2 uses at `/70` and the 2 at `/60` become slightly brighter once Phase 3 moves them to the token.
+- **`--accent-foreground` keeps shadcn's `oklch(0.985 0 0)`.** The plan's table doesn't list it, but the outline button's hover reads it: 13.20:1 at the lowest.
+- **Looks that shift in Phase 3, when the view moves to the components:**
+  - Warning fills (amber-400 at `/10`) are slightly more olive than today's amber-900 at `/30`.
+  - The primary button darkens on hover (`bg-primary/90`) instead of lightening to purple-500.
+  - Outline buttons gain a 6% white fill (`dark:bg-input/30`).
+  - shadcn's `destructive` Alert had no red tint: `bg-card` with red text, where today's error boxes are red-tinted. The owner settled it at the Phase 2 gate, in the next note.
+- **The owner's call at the Phase 2 gate: errors are tinted like the other statuses** (changes Phase 1's contract that the copies equal the registry apart from the added variants). The Alert's `destructive` variant is now `border-destructive/30 bg-destructive/10 text-destructive`, where the registry draws it on `bg-card`.
+  - Errors keep today's red box and match the success and warning Alerts.
+  - `alert.tsx`'s header comment records the change.
+  - The contrast check measures that surface as `destructive` at 10% over the canvas: 6.69:1 at the lowest, for the `/90` description over the glow stop.
+- **Not checked, because the view doesn't render them:** the `destructive` Button and Badge fills (`dark:bg-destructive/60` under white text). They measure 4.59:1 on the base stop and 4.41:1 on the glow, below 4.5:1, so a view that starts using them needs a pair in the check first. Nor is the registry's Badge `link` variant checked. It reads `text-primary`, now purple-600, at about 3.5:1 on the canvas, so a view that uses it should switch it to `text-link`, as the Button's link variant already reads.
+- **The gradient's stops are `oklch()` now, so browsers interpolate it in Oklab rather than sRGB.** Both stops round-trip to the same 8-bit hex, and the change isn't visible between colours this close.
 
 ## Progress
 
@@ -609,31 +641,31 @@ The contract outlives this session: a lint rule refuses literals in the cleaned 
 
 #### Automated
 
-- [x] 1.1 `npm run test` passes
-- [x] 1.2 `npx astro sync && npx astro check` reports 0 errors
-- [x] 1.3 `npm run lint` passes
-- [x] 1.4 `npm run build` passes, and no file under `dist/` mentions `dev/product-page`
-- [x] 1.5 With the dev server started as `ASTRO_DEV_BACKGROUND=1 npx astro dev`, `curl` of `http://localhost:4321/dev/product-page` answers 200
+- [x] 1.1 `npm run test` passes — ce3f433
+- [x] 1.2 `npx astro sync && npx astro check` reports 0 errors — ce3f433
+- [x] 1.3 `npm run lint` passes — ce3f433
+- [x] 1.4 `npm run build` passes, and no file under `dist/` mentions `dev/product-page` — ce3f433
+- [x] 1.5 With the dev server started as `ASTRO_DEV_BACKGROUND=1 npx astro dev`, `curl` of `http://localhost:4321/dev/product-page` answers 200 — ce3f433
 
 #### Manual
 
-- [x] 1.6 The kitchen sink shows each component variant, including the new ones, and the disabled Button
-- [x] 1.7 A diff against the registry JSON shows only the rewritten imports and the added variants and size
+- [x] 1.6 The kitchen sink shows each component variant, including the new ones, and the disabled Button — ce3f433
+- [x] 1.7 A diff against the registry JSON shows only the rewritten imports and the added variants and size — ce3f433
 
 ### Phase 2: Token values
 
 #### Automated
 
-- [ ] 2.1 `node scripts/check-token-contrast.mjs` prints only PASS lines
-- [ ] 2.2 `npm run test` passes
-- [ ] 2.3 `npx astro sync && npx astro check` reports 0 errors
-- [ ] 2.4 `npm run lint` passes
-- [ ] 2.5 `npm run build` passes
+- [x] 2.1 `node scripts/check-token-contrast.mjs` prints only PASS lines
+- [x] 2.2 `npm run test` passes
+- [x] 2.3 `npx astro sync && npx astro check` reports 0 errors
+- [x] 2.4 `npm run lint` passes
+- [x] 2.5 `npm run build` passes
 
 #### Manual
 
-- [ ] 2.6 Screenshots of the kitchen sink at 1280 and 390 px show the cosmic look with every component on tokens
-- [ ] 2.7 The product page, the list and the sign-in page look as before, with a dark canvas, overscroll and scrollbar
+- [x] 2.6 Screenshots of the kitchen sink at 1280 and 390 px show the cosmic look with every component on tokens
+- [x] 2.7 The product page, the list and the sign-in page look as before, with a dark canvas, overscroll and scrollbar
 
 ### Phase 3: The product page on tokens and components
 

@@ -8,6 +8,7 @@
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
+  --background-glow: oklch(0.97 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -20,6 +21,7 @@
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
+  --thumbnail: oklch(1 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
@@ -45,30 +47,39 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/* The theme every page renders in (<html class="dark">): the navy-and-purple "cosmic" look the pages painted with
+   palette classes, as tokens. A value taken from the pages names in its comment the Tailwind palette colour or the hex
+   gradient stop it replaces; the others keep shadcn's neutral dark values. scripts/check-token-contrast.mjs reads this
+   block and checks the contrast of every pair the product page renders. */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
+  color-scheme: dark;
+  --background: oklch(0.1663 0.0262 269.371); /* #0a0e1a */
+  --background-glow: oklch(0.2014 0.0412 269.806); /* #0f1529 */
+  --foreground: oklch(1 0 0); /* white */
+  --card: oklch(1 0 0 / 5%); /* white/5 */
+  --card-foreground: oklch(1 0 0); /* white */
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --link: oklch(0.827 0.119 306.383);
+  --primary: oklch(0.558 0.288 302.321); /* purple-600 */
+  --primary-foreground: oklch(1 0 0); /* white */
+  --link: oklch(0.827 0.119 306.383); /* purple-300 */
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --muted: oklch(1 0 0 / 10%); /* white/10 */
+  /* One value for blue-100 at 80, 70 and 60%: 80%, which 12 of the 16 uses had. */
+  --muted-foreground: oklch(0.932 0.032 255.585 / 80%); /* blue-100/80 */
+  --thumbnail: oklch(1 0 0); /* white, behind product photos */
+  --accent: oklch(1 0 0 / 10%); /* white/10 */
   --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --success: oklch(0.765 0.177 163.223);
-  --success-foreground: oklch(0.905 0.093 164.15);
-  --warning: oklch(0.828 0.189 84.429);
-  --warning-foreground: oklch(0.924 0.12 95.746);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --destructive: oklch(0.808 0.114 19.571); /* red-300 */
+  --success: oklch(0.765 0.177 163.223); /* emerald-400 */
+  --success-foreground: oklch(0.905 0.093 164.15); /* emerald-200 */
+  --warning: oklch(0.828 0.189 84.429); /* amber-400 */
+  --warning-foreground: oklch(0.924 0.12 95.746); /* amber-200 */
+  --border: oklch(1 0 0 / 10%); /* white/10 */
+  --input: oklch(1 0 0 / 20%); /* white/20 */
+  /* Drawn at 50% (outline-ring/50, ring-ring/50), where it still reaches 3:1 against the canvas and a card. */
+  --ring: oklch(0.827 0.119 306.383); /* purple-300 */
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -90,6 +101,7 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --color-background: var(--background);
+  --color-background-glow: var(--background-glow);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
@@ -102,6 +114,7 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-thumbnail: var(--thumbnail);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
@@ -128,7 +141,7 @@
 }
 
 @utility bg-cosmic {
-  background-image: linear-gradient(to bottom, #0a0e1a, #0f1529, #0a0e1a);
+  background-image: linear-gradient(to bottom, var(--background), var(--background-glow), var(--background));
 }
 
 @layer base {
