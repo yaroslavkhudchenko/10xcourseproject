@@ -45,16 +45,20 @@ const NAME_QUERY = "nivea soft 300 ml";
 const SOFT_PAGE = "https://drogerienatura.pl/produkt/nivea-soft-krem-intensywnie-nawilzajacy-300-ml-4005900009319";
 const IMAGE_HOST = "https://media.drogerienatura.pl";
 
-/** A real gate that allows every reservation, over a fetch that answers only the given recordings. */
+/**
+ * A real gate that gives every reservation the same answer, allowed by default, over a fetch that answers only the
+ * given recordings. `reserve` shows how many slots were asked for.
+ */
 function setup(entries: ReplayEntry[], reservation: unknown = { outcome: "allowed" }) {
   const fetchMock = vi.fn(createReplayFetch(entries));
+  const reserve = vi.fn(() => Promise.resolve(reservation));
   const gate = createShopGate({
-    reserve: () => Promise.resolve(reservation),
+    reserve,
     reportBlock: () => Promise.resolve(),
     fetch: fetchMock,
     log: () => undefined,
   });
-  return { gate, fetchMock };
+  return { gate, fetchMock, reserve };
 }
 
 /** Every URL the fetch was asked for, so a test can't pass on the wrong request. */
@@ -641,6 +645,64 @@ describe("Natura prices: why they're unavailable", () => {
       ]),
     );
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  // Nivea Soft first, then 50 SKUs Natura doesn't have: two requests' worth.
+  const manySkus = ["NV89063", ...Array.from({ length: 50 }, (_, i) => `ZZ${String(i).padStart(8, "0")}`)];
+  const firstBatch = priceUrl(manySkus.slice(0, 50));
+  const secondBatch = priceUrl(manySkus.slice(50));
+
+  it.each([
+    {
+      refusal: "busy under the cap",
+      entries: [],
+      reservation: { outcome: "capped" },
+      requested: [],
+      expected: { kind: "unavailable", reason: "busy" },
+    },
+    {
+      refusal: "paused",
+      entries: [],
+      reservation: { outcome: "paused", until: "2026-09-28T12:15:00.000Z" },
+      requested: [],
+      expected: { kind: "unavailable", reason: "paused", until: "2026-09-28T12:15:00.000Z" },
+    },
+    {
+      refusal: "stopped by a 403",
+      entries: [{ url: firstBatch, status: 403 }],
+      reservation: { outcome: "allowed" },
+      requested: [firstBatch],
+      expected: { kind: "unavailable", reason: "stopped" },
+    },
+  ])(
+    "stops once Natura is $refusal: the next request's SKUs get the same answer, unasked and unreserved",
+    async ({ entries, reservation, requested, expected }) => {
+      const { gate, fetchMock, reserve } = setup(entries, reservation);
+
+      const checks = await fetchNaturaPrices(gate, manySkus);
+
+      expect(reserve).toHaveBeenCalledTimes(1);
+      expect(requestedUrls(fetchMock)).toEqual(requested);
+      expect(checks.size).toBe(51);
+      for (const sku of manySkus) {
+        expect(checks.get(sku), sku).toEqual(expected);
+      }
+    },
+  );
+
+  it("goes on to the next request after one that failed", async () => {
+    const { gate, fetchMock } = setup([
+      { url: firstBatch, status: 500 },
+      { url: secondBatch, status: 200, body: JSON.stringify(skuUnknown) },
+    ]);
+
+    const checks = await fetchNaturaPrices(gate, manySkus);
+
+    expect(requestedUrls(fetchMock)).toEqual([firstBatch, secondBatch]);
+    for (const sku of manySkus.slice(0, 50)) {
+      expect(checks.get(sku), sku).toEqual(FAILED);
+    }
+    expect(checks.get(manySkus[50])).toEqual({ kind: "missing" });
   });
 
   it.each([

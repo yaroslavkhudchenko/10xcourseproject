@@ -2,7 +2,7 @@ import { z } from "astro/zod";
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import type { ShopGate } from "@/lib/services/shop-gate";
 import { storableOffer } from "@/lib/services/shops/shop-offer";
-import { gateUnavailable } from "@/lib/services/shops/shop-outcome";
+import { gateUnavailable, isRefusal } from "@/lib/services/shops/shop-outcome";
 import { parseSize } from "@/lib/services/size";
 import type { GateOutcome, PriceCheck, ShopCandidate, ShopOffer, ShopSearch, ShopUnavailable, Size } from "@/types";
 
@@ -92,9 +92,10 @@ export async function searchNatura(gate: ShopGate, query: string, size: number):
 
 /**
  * Fetches the offers of pinned Natura items by SKU through the gate: one request per 50 SKUs, each after the one
- * before, so a request Natura refuses stops the gate from sending the next. Resolves to a check for every SKU given:
- * its offer, `missing` when Natura answered without it, or `unavailable` when the SKU can't go into a filter, the gate
- * skipped or refused its request, or the answer wasn't readable. It never throws.
+ * before. Once Natura refuses, busy under the cap, paused or stopped, the SKUs of the requests after it get that same
+ * answer with no request and no reservation. Resolves to a check for every SKU given: its offer, `missing` when Natura
+ * answered without it, or `unavailable` when the SKU can't go into a filter, the gate skipped or refused its request,
+ * or the answer wasn't readable. It never throws.
  */
 export async function fetchNaturaPrices(gate: ShopGate, skus: string[]): Promise<Map<string, PriceCheck>> {
   // Every SKU starts as unanswered, once each, in the order given; each SKU that's sent gets its request's answer.
@@ -111,9 +112,21 @@ export async function fetchNaturaPrices(gate: ShopGate, skus: string[]): Promise
     // How many, never which: a SKU names the product.
     logFailure("natura-prices", "invalid SKUs", `${unsent} of ${checks.size} SKUs not sent`);
   }
+  // A failed request doesn't stop the next one; a refusal does.
+  let refusal: ShopUnavailable | null = null;
   for (let start = 0; start < sendable.length; start += SKUS_PER_REQUEST) {
-    for (const [sku, check] of await fetchPriceBatch(gate, sendable.slice(start, start + SKUS_PER_REQUEST))) {
+    const batch = sendable.slice(start, start + SKUS_PER_REQUEST);
+    if (refusal !== null) {
+      for (const sku of batch) {
+        checks.set(sku, { ...refusal });
+      }
+      continue;
+    }
+    for (const [sku, check] of await fetchPriceBatch(gate, batch)) {
       checks.set(sku, check);
+      if (isRefusal(check)) {
+        refusal = check;
+      }
     }
   }
   return checks;

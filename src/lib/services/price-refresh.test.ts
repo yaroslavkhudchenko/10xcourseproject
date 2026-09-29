@@ -80,22 +80,64 @@ const menOffer: ShopOffer = {
 };
 const FAILED: PriceCheck = { kind: "unavailable", reason: "failed" };
 const BUSY: PriceCheck = { kind: "unavailable", reason: "busy" };
+const STOPPED: PriceCheck = { kind: "unavailable", reason: "stopped" };
+const PAUSE_END = "2026-09-28T12:15:00.000Z";
 
-/** A real gate over a fetch that answers only the given recordings; `reserve` answers each reservation. */
-function setup(entries: ReplayEntry[], reserve: (shop: ShopId) => unknown = () => ({ outcome: "allowed" })) {
-  const fetchMock = vi.fn(createReplayFetch(entries));
+/** The URL a fetch was asked for. */
+function urlOf(input: RequestInfo | URL): string {
+  return input instanceof Request ? input.url : new URL(input).href;
+}
+
+/**
+ * A real gate over `fetchMock`; `reserve` answers each reservation. Every reservation is recorded by shop, so a test
+ * sees which shops' slots were asked for.
+ */
+function gateOver(fetchMock: typeof fetch, reserve: (shop: ShopId) => unknown = () => ({ outcome: "allowed" })) {
+  const reservations: ShopId[] = [];
   const gate = createShopGate({
-    reserve: (shop) => Promise.resolve(reserve(shop)),
+    reserve: (shop) => {
+      reservations.push(shop);
+      return Promise.resolve(reserve(shop));
+    },
     reportBlock: () => Promise.resolve(),
     fetch: fetchMock,
     log: () => undefined,
   });
-  return { gate, fetchMock };
+  return { gate, reservations };
+}
+
+/** A real gate over a fetch that answers only the given recordings; `reserve` answers each reservation. */
+function setup(entries: ReplayEntry[], reserve?: (shop: ShopId) => unknown) {
+  const fetchMock = vi.fn(createReplayFetch(entries));
+  return { ...gateOver(fetchMock, reserve), fetchMock };
+}
+
+/**
+ * A fetch that serves the given recordings a moment after each request, so requests sent together would overlap, and
+ * keeps the most requests in flight at once, in all and to Rossmann.
+ */
+function slowReplay(entries: ReplayEntry[]) {
+  const replay = createReplayFetch(entries);
+  const inFlight: string[] = [];
+  const most = { all: 0, rossmann: 0 };
+  const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+    const { host } = new URL(urlOf(input));
+    inFlight.push(host);
+    most.all = Math.max(most.all, inFlight.length);
+    most.rossmann = Math.max(most.rossmann, inFlight.filter((entry) => entry === "www.rossmann.pl").length);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return await replay(input, init);
+    } finally {
+      inFlight.splice(inFlight.indexOf(host), 1);
+    }
+  });
+  return { fetchMock, most };
 }
 
 /** Every URL the fetch was asked for: a miss would look like a network failure, so each test checks its requests. */
 function requestedUrls(fetchMock: Mock<typeof fetch>): string[] {
-  return fetchMock.mock.calls.map(([input]) => (input instanceof Request ? input.url : new URL(input).href));
+  return fetchMock.mock.calls.map(([input]) => urlOf(input));
 }
 
 /** One builder call a query made, such as `["insert", rows]`. */
@@ -106,23 +148,28 @@ interface QueryStub {
   abortSignal: (signal: AbortSignal) => Promise<{ data: null; error: { code: string; message: string } | null }>;
 }
 
+const RLS_REFUSAL = { code: "42501", message: "new row violates row-level security policy" };
+
 /**
- * A client whose inserts succeed, or fail with `error`. Every builder call is recorded, so a test sees each query's
- * table, rows and time limit: a query ends with `["abortSignal", true]` when it was given an AbortSignal.
+ * A client whose inserts succeed, except those carrying rows of the `failing` shops, which RLS refuses. Every builder
+ * call is recorded, so a test sees each query's table, rows and time limit: a query ends with `["abortSignal", true]`
+ * when it was given an AbortSignal.
  */
-function stubClient(error: { code: string; message: string } | null = null) {
+function stubClient(failing: ShopId[] = []) {
   const queries: Call[][] = [];
   const from = (table: string): QueryStub => {
     const calls: Call[] = [["from", table]];
     queries.push(calls);
+    let refused = false;
     const query: QueryStub = {
       insert: (rows) => {
         calls.push(["insert", rows]);
+        refused = (rows as { shop_id: ShopId }[]).some((row) => failing.includes(row.shop_id));
         return query;
       },
       abortSignal: (signal) => {
         calls.push(["abortSignal", signal instanceof AbortSignal]);
-        return Promise.resolve({ data: null, error });
+        return Promise.resolve({ data: null, error: refused ? RLS_REFUSAL : null });
       },
     };
     return query;
@@ -152,13 +199,11 @@ const missingRow = ({ shop, shopItemId }: PriceKey) => ({
   available: null,
 });
 
-/** The single insert that stores a refresh's checks, with the given rows. */
-const oneInsert = (rows: unknown[]): Call[][] => [
-  [
-    ["from", "price_observations"],
-    ["insert", rows],
-    ["abortSignal", true],
-  ],
+/** The insert that stores one shop's checks, with the given rows. */
+const insertOf = (rows: unknown[]): Call[] => [
+  ["from", "price_observations"],
+  ["insert", rows],
+  ["abortSignal", true],
 ];
 
 afterEach(() => {
@@ -166,7 +211,7 @@ afterEach(() => {
 });
 
 describe("refreshPrices: fetching", () => {
-  it("fetches Rossmann per product and Natura's SKUs in one request, then stores every check at once", async () => {
+  it("fetches Rossmann per product and Natura's SKUs in one request, and stores each shop's checks on its own", async () => {
     const { gate, fetchMock } = setup([answers.felix, answers.nivea, answers.softAndMen]);
     const { client, queries } = stubClient();
 
@@ -176,6 +221,11 @@ describe("refreshPrices: fetching", () => {
     expect(new Set(requestedUrls(fetchMock))).toEqual(
       new Set([answers.felix.url, answers.nivea.url, answers.softAndMen.url]),
     );
+    // Rossmann's products are asked for in the order given.
+    expect(requestedUrls(fetchMock).filter((url) => url.startsWith("https://www.rossmann.pl/"))).toEqual([
+      answers.felix.url,
+      answers.nivea.url,
+    ]);
     expect(refresh).toEqual({
       results: [
         { key: FELIX, check: { kind: "price", offer: felixOffer } },
@@ -185,12 +235,12 @@ describe("refreshPrices: fetching", () => {
       ],
       saved: "saved",
     });
+    // One insert per shop, whichever shop is done first.
+    expect(queries).toHaveLength(2);
     expect(queries).toEqual(
-      oneInsert([
-        priceRow(FELIX, felixOffer),
-        priceRow(SOFT, softOffer),
-        priceRow(NIVEA, niveaOffer),
-        priceRow(MEN, menOffer),
+      expect.arrayContaining([
+        insertOf([priceRow(FELIX, felixOffer), priceRow(NIVEA, niveaOffer)]),
+        insertOf([priceRow(SOFT, softOffer), priceRow(MEN, menOffer)]),
       ]),
     );
   });
@@ -207,66 +257,114 @@ describe("refreshPrices: fetching", () => {
       { key: NIVEA, check: { kind: "price", offer: niveaOffer } },
       { key: SOFT, check: { kind: "price", offer: softOffer } },
     ]);
-    expect(queries).toEqual(oneInsert([priceRow(NIVEA, niveaOffer), priceRow(SOFT, softOffer)]));
+    expect(queries).toHaveLength(2);
+    expect(queries).toEqual(
+      expect.arrayContaining([insertOf([priceRow(NIVEA, niveaOffer)]), insertOf([priceRow(SOFT, softOffer)])]),
+    );
   });
 
-  it("runs at most 5 Rossmann requests at once, starting them in the order given", async () => {
-    // Each request waits until the test answers it.
-    const pending: { url: string; answer: (response: Response) => void }[] = [];
-    const fetchMock = vi.fn<typeof fetch>(
-      (input) =>
-        new Promise<Response>((resolve) => {
-          pending.push({ url: input instanceof Request ? input.url : new URL(input).href, answer: resolve });
-        }),
-    );
-    const gate = createShopGate({
-      reserve: () => Promise.resolve({ outcome: "allowed" }),
-      reportBlock: () => Promise.resolve(),
-      fetch: fetchMock,
-      log: () => undefined,
-    });
+  it("asks Rossmann one product at a time in the order given, with Natura's request alongside", async () => {
+    const { fetchMock, most } = slowReplay([answers.gone, answers.felix, answers.nivea, answers.soft]);
+    const { gate } = gateOver(fetchMock);
     const { client } = stubClient();
-    const ids = ["1", "2", "3", "4", "5", "6", "7"];
-    // Rossmann's recorded answer to an id it doesn't have.
-    const gone = () =>
-      new Response(unknownProduct.body, {
-        status: unknownProduct.status,
-        headers: { "Content-Type": unknownProduct.contentType },
+
+    const refresh = await refreshPrices(gate, client, [GONE, FELIX, SOFT, NIVEA]);
+
+    expect(requestedUrls(fetchMock).filter((url) => url.startsWith("https://www.rossmann.pl/"))).toEqual([
+      answers.gone.url,
+      answers.felix.url,
+      answers.nivea.url,
+    ]);
+    expect(requestedUrls(fetchMock)).toContain(answers.soft.url);
+    expect(most.rossmann).toBe(1);
+    expect(most.all).toBe(2);
+    expect(refresh.results.map(({ key, check }) => [key.shopItemId, check.kind])).toEqual([
+      ["999999999", "missing"],
+      ["131225", "price"],
+      ["NV89063", "price"],
+      ["26900", "price"],
+    ]);
+  });
+});
+
+describe("refreshPrices: when Rossmann refuses", () => {
+  it.each<{ refusal: string; reservation: unknown; check: PriceCheck }>([
+    { refusal: "busy under the cap", reservation: { outcome: "capped" }, check: BUSY },
+    {
+      refusal: "paused",
+      reservation: { outcome: "paused", until: PAUSE_END },
+      check: { kind: "unavailable", reason: "paused", until: PAUSE_END },
+    },
+  ])(
+    "stops once Rossmann is $refusal: the products after it get the same answer, unasked",
+    async ({ reservation, check }) => {
+      // The cap leaves room for two more Rossmann requests; the third reservation is refused.
+      let allowed = 2;
+      const { gate, fetchMock, reservations } = setup([answers.felix, answers.nivea, answers.gone], () => {
+        allowed -= 1;
+        return allowed >= 0 ? { outcome: "allowed" } : reservation;
       });
+      const { client, queries } = stubClient();
+      const other: PriceKey = { shop: "rossmann", shopItemId: "11790" };
 
-    const refresh = refreshPrices(
-      gate,
-      client,
-      ids.map((shopItemId): PriceKey => ({ shop: "rossmann", shopItemId })),
-    );
+      const refresh = await refreshPrices(gate, client, [FELIX, NIVEA, GONE, other]);
 
-    await vi.waitFor(() => {
-      expect(pending).toHaveLength(5);
-    });
-    // Nothing else starts until one of the five answers.
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(pending.map((request) => request.url)).toEqual(ids.slice(0, 5).map(detailUrl));
-    pending[0].answer(gone());
-    await vi.waitFor(() => {
-      expect(pending).toHaveLength(6);
-    });
-    expect(pending[5].url).toBe(detailUrl("6"));
-    for (const request of pending.slice(1)) {
-      request.answer(gone());
-    }
-    await vi.waitFor(() => {
-      expect(pending).toHaveLength(7);
-    });
-    expect(pending[6].url).toBe(detailUrl("7"));
-    pending[6].answer(gone());
+      // The fourth product is neither reserved nor asked for.
+      expect(reservations).toEqual(["rossmann", "rossmann", "rossmann"]);
+      expect(requestedUrls(fetchMock)).toEqual([answers.felix.url, answers.nivea.url]);
+      expect(refresh.results).toEqual([
+        { key: FELIX, check: { kind: "price", offer: felixOffer } },
+        { key: NIVEA, check: { kind: "price", offer: niveaOffer } },
+        { key: GONE, check },
+        { key: other, check },
+      ]);
+      // The products Rossmann didn't answer for store nothing, so they keep their last price.
+      expect(queries).toEqual([insertOf([priceRow(FELIX, felixOffer), priceRow(NIVEA, niveaOffer)])]);
+    },
+  );
 
-    const { results } = await refresh;
-    expect(results.map(({ check }) => check)).toEqual(ids.map(() => ({ kind: "missing" })));
+  it("stops once Rossmann answers 403: the products after it are stopped too, unasked and unreserved", async () => {
+    const { gate, fetchMock, reservations } = setup([
+      answers.felix,
+      { url: answers.nivea.url, status: 403 },
+      answers.gone,
+    ]);
+    const { client, queries } = stubClient();
+
+    const refresh = await refreshPrices(gate, client, [FELIX, NIVEA, GONE]);
+
+    expect(reservations).toEqual(["rossmann", "rossmann"]);
+    expect(requestedUrls(fetchMock)).toEqual([answers.felix.url, answers.nivea.url]);
+    expect(refresh.results).toEqual([
+      { key: FELIX, check: { kind: "price", offer: felixOffer } },
+      { key: NIVEA, check: STOPPED },
+      { key: GONE, check: STOPPED },
+    ]);
+    expect(queries).toEqual([insertOf([priceRow(FELIX, felixOffer)])]);
+  });
+
+  it.each<{ failure: string; answer: ReplayEntry }>([
+    { failure: "an error status", answer: { url: answers.nivea.url, status: 500 } },
+    { failure: "a network error", answer: { url: answers.nivea.url, error: "network" } },
+    { failure: "an answer it can't read", answer: { url: answers.nivea.url, status: 200, body: "Przerwa techniczna" } },
+  ])("goes on to the next product after $failure", async ({ answer }) => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { gate, fetchMock } = setup([answer, answers.felix]);
+    const { client, queries } = stubClient();
+
+    const refresh = await refreshPrices(gate, client, [NIVEA, FELIX]);
+
+    expect(requestedUrls(fetchMock)).toEqual([answers.nivea.url, answers.felix.url]);
+    expect(refresh.results).toEqual([
+      { key: NIVEA, check: FAILED },
+      { key: FELIX, check: { kind: "price", offer: felixOffer } },
+    ]);
+    expect(queries).toEqual([insertOf([priceRow(FELIX, felixOffer)])]);
   });
 });
 
 describe("refreshPrices: storing", () => {
-  it("stores only the prices and missing items, with one insert", async () => {
+  it("stores only the prices and missing items, each shop's with an insert of its own", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { gate, fetchMock } = setup([answers.felix, answers.gone, answers.unknownSku]);
     const { client, queries } = stubClient();
@@ -290,33 +388,39 @@ describe("refreshPrices: storing", () => {
       ],
       saved: "saved",
     });
-    expect(queries).toEqual(oneInsert([priceRow(FELIX, felixOffer), missingRow(GONE), missingRow(UNKNOWN_SKU)]));
+    expect(queries).toHaveLength(2);
+    expect(queries).toEqual(
+      expect.arrayContaining([
+        insertOf([priceRow(FELIX, felixOffer), missingRow(GONE)]),
+        insertOf([missingRow(UNKNOWN_SKU)]),
+      ]),
+    );
   });
 
-  it("stores nothing for the Rossmann products past the cap, which keep their last price", async () => {
-    // The cap leaves room for two more Rossmann requests.
-    let reserved = 0;
-    const { gate, fetchMock } = setup([answers.felix, answers.nivea, answers.gone], (shop) => {
-      if (shop !== "rossmann") {
-        return { outcome: "allowed" };
-      }
-      reserved += 1;
-      return { outcome: reserved <= 2 ? "allowed" : "capped" };
-    });
+  it("stores Rossmann's checks as soon as Rossmann is done, while Natura is still answering", async () => {
+    // Natura's request waits until the test answers it.
+    const replay = createReplayFetch([answers.felix]);
+    const pending: ((response: Response) => void)[] = [];
+    const fetchMock = vi.fn<typeof fetch>((input, init) =>
+      urlOf(input) === answers.soft.url
+        ? new Promise<Response>((resolve) => {
+            pending.push(resolve);
+          })
+        : replay(input, init),
+    );
+    const { gate } = gateOver(fetchMock);
     const { client, queries } = stubClient();
-    const other: PriceKey = { shop: "rossmann", shopItemId: "11790" };
 
-    const refresh = await refreshPrices(gate, client, [FELIX, NIVEA, GONE, other]);
+    const refresh = refreshPrices(gate, client, [FELIX, SOFT]);
 
-    // The first two in the order given are asked; the others never reach Rossmann.
-    expect(requestedUrls(fetchMock)).toEqual([answers.felix.url, answers.nivea.url]);
-    expect(refresh.results).toEqual([
-      { key: FELIX, check: { kind: "price", offer: felixOffer } },
-      { key: NIVEA, check: { kind: "price", offer: niveaOffer } },
-      { key: GONE, check: BUSY },
-      { key: other, check: BUSY },
-    ]);
-    expect(queries).toEqual(oneInsert([priceRow(FELIX, felixOffer), priceRow(NIVEA, niveaOffer)]));
+    await vi.waitFor(() => {
+      expect(pending).toHaveLength(1);
+      expect(queries).toEqual([insertOf([priceRow(FELIX, felixOffer)])]);
+    });
+    pending[0](new Response(JSON.stringify(oneSku), { status: 200 }));
+
+    expect((await refresh).saved).toBe("saved");
+    expect(queries).toEqual([insertOf([priceRow(FELIX, felixOffer)]), insertOf([priceRow(SOFT, softOffer)])]);
   });
 
   it("sends no insert when no shop answered", async () => {
@@ -346,13 +450,45 @@ describe("refreshPrices: storing", () => {
   it("says when the insert failed, and still gives every check", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { gate } = setup([answers.nivea]);
-    const { client, queries } = stubClient({ code: "42501", message: "new row violates row-level security policy" });
+    const { client, queries } = stubClient(["rossmann"]);
 
     expect(await refreshPrices(gate, client, [NIVEA])).toEqual({
       results: [{ key: NIVEA, check: { kind: "price", offer: niveaOffer } }],
       saved: "failed",
     });
-    expect(queries).toEqual(oneInsert([priceRow(NIVEA, niveaOffer)]));
+    expect(queries).toEqual([insertOf([priceRow(NIVEA, niveaOffer)])]);
+  });
+
+  it("says storing failed when one shop's insert failed, though the other shop's was stored", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { gate } = setup([answers.felix, answers.soft]);
+    const { client, queries } = stubClient(["natura"]);
+
+    expect(await refreshPrices(gate, client, [FELIX, SOFT])).toEqual({
+      results: [
+        { key: FELIX, check: { kind: "price", offer: felixOffer } },
+        { key: SOFT, check: { kind: "price", offer: softOffer } },
+      ],
+      saved: "failed",
+    });
+    expect(queries).toHaveLength(2);
+    expect(queries).toEqual(
+      expect.arrayContaining([insertOf([priceRow(FELIX, felixOffer)]), insertOf([priceRow(SOFT, softOffer)])]),
+    );
+  });
+
+  it("says saved when one shop's checks were stored and the other shop had none to store", async () => {
+    const { gate } = setup([answers.soft], (shop) => ({ outcome: shop === "rossmann" ? "capped" : "allowed" }));
+    const { client, queries } = stubClient();
+
+    expect(await refreshPrices(gate, client, [NIVEA, SOFT])).toEqual({
+      results: [
+        { key: NIVEA, check: BUSY },
+        { key: SOFT, check: { kind: "price", offer: softOffer } },
+      ],
+      saved: "saved",
+    });
+    expect(queries).toEqual([insertOf([priceRow(SOFT, softOffer)])]);
   });
 });
 
@@ -400,6 +536,14 @@ describe("refreshCodeOf", () => {
     const { client } = stubClient();
 
     expect(refreshCodeOf(await refreshPrices(gate, client, [FELIX, NIVEA]))).toBe("partial");
+  });
+
+  it("gives partial when one shop's checks couldn't be stored", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { gate } = setup([answers.felix, answers.soft]);
+    const { client } = stubClient(["rossmann"]);
+
+    expect(refreshCodeOf(await refreshPrices(gate, client, [FELIX, SOFT]))).toBe("partial");
   });
 });
 

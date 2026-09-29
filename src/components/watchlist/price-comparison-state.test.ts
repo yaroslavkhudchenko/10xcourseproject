@@ -26,6 +26,8 @@ const RENDERED_AT = Date.parse(RENDERED);
 const CHECKED_AT = "2026-09-28T12:00:02.000Z";
 const ANSWERED_AT = Date.parse("2026-09-28T12:00:03.000Z");
 const MINUTE = 60 * 1000;
+// Intl writes Polish prices with a no-break space before "zł".
+const NO_BREAK_SPACE = String.fromCharCode(0xa0);
 
 const ago = (ms: number) => new Date(RENDERED_AT - ms).toISOString();
 
@@ -208,6 +210,127 @@ describe("price comparison state", () => {
       ["natura", true],
       ["rossmann", false],
     ]);
+  });
+});
+
+describe("what screen readers hear", () => {
+  /** A message as the plan spells it, with the no-break space Intl writes before "zł". */
+  const said = (text: string) => text.replaceAll(" zł", `${NO_BREAK_SPACE}zł`);
+
+  it("says nothing before any answer", () => {
+    expect(initialState({ shops: [rossmann(), natura()], now: RENDERED }).announcements).toEqual([]);
+  });
+
+  it("says a shop's new price, and that it's now the cheapest", () => {
+    const state = run(
+      initialState({ shops: [rossmann(), natura()], now: RENDERED }),
+      start("natura"),
+      done("natura", priceAnswer(16.99), ANSWERED_AT),
+    );
+
+    expect(state.announcements).toEqual([said("Natura: 16,99 zł, najtaniej")]);
+  });
+
+  it("says a new price that isn't the cheapest without the mark", () => {
+    // Rossmann's 26,99 zł stays the lowest.
+    const state = run(
+      initialState({ shops: [rossmann(), natura()], now: RENDERED }),
+      start("natura"),
+      done("natura", priceAnswer(27.49), ANSWERED_AT),
+    );
+
+    expect(state.announcements).toEqual([said("Natura: 27,49 zł")]);
+  });
+
+  it("says each answer of a refresh in the order the answers came", () => {
+    const state = run(
+      initialState({ shops: [rossmann(null), natura(null)], now: RENDERED }),
+      start("rossmann"),
+      start("natura"),
+      done("natura", priceAnswer(16.99), ANSWERED_AT),
+      done("rossmann", priceAnswer(26.49), ANSWERED_AT + 1),
+    );
+
+    expect(state.announcements).toEqual([said("Natura: 16,99 zł, najtaniej"), said("Rossmann: 26,49 zł")]);
+  });
+
+  it("says why a shop gave no answer, in the words its row shows", () => {
+    // 12:15 UTC is 14:15 in Poland.
+    const paused = run(
+      initialState({ shops: [rossmann(), natura()], now: RENDERED }),
+      start("rossmann"),
+      done("rossmann", { kind: "unavailable", reason: "paused", until: "2026-09-28T12:15:00.000Z" }, ANSWERED_AT),
+    );
+    // A shop with no price to keep showing promises none.
+    const busy = run(
+      initialState({ shops: [rossmann(), natura(null)], now: RENDERED }),
+      start("natura"),
+      done("natura", { kind: "unavailable", reason: "busy" }, ANSWERED_AT),
+    );
+
+    expect(paused.announcements).toEqual([
+      "Sklep Rossmann poprosił o przerwę do około 14:15. Pokazujemy ostatnią znaną cenę.",
+    ]);
+    expect(busy.announcements).toEqual(["Sklep Natura jest teraz zajęty. Spróbuj za minutę."]);
+  });
+
+  it("says the shop no longer returns the item, mentioning a price only when one is left", () => {
+    const missing = { kind: "missing", checkedAt: CHECKED_AT, saved: true } as const;
+    const withPrice = run(
+      initialState({ shops: [rossmann(), natura()], now: RENDERED }),
+      start("natura"),
+      done("natura", missing, ANSWERED_AT),
+    );
+    const withoutPrice = run(
+      initialState({ shops: [rossmann(), natura(null)], now: RENDERED }),
+      start("natura"),
+      done("natura", missing, ANSWERED_AT),
+    );
+
+    expect(withPrice.announcements).toEqual(["Natura: Sklep nie zwraca już tego produktu. Cena może być nieaktualna."]);
+    expect(withoutPrice.announcements).toEqual(["Natura: Sklep nie zwraca tego produktu."]);
+  });
+
+  it("leaves an ended session to the page's alert, so it isn't announced twice", () => {
+    const state = run(
+      initialState({ shops: [rossmann(), natura()], now: RENDERED }),
+      start("rossmann"),
+      start("natura"),
+      done("rossmann", { kind: "session-ended" }, ANSWERED_AT),
+      done("natura", priceAnswer(16.99), ANSWERED_AT + 1),
+    );
+
+    expect(state.sessionEnded).toBe(true);
+    expect(state.announcements).toEqual([said("Natura: 16,99 zł, najtaniej")]);
+  });
+
+  it("clears what the last refresh said when a new one starts, but not while one still runs", () => {
+    let state = run(
+      initialState({ shops: [rossmann(), natura()], now: RENDERED }),
+      start("rossmann"),
+      start("natura"),
+      done("rossmann", priceAnswer(26.49), ANSWERED_AT),
+    );
+    // Natura still runs, so a start now belongs to the same refresh.
+    state = run(state, start("rossmann"));
+    expect(state.announcements).toEqual([said("Rossmann: 26,49 zł, najtaniej")]);
+
+    state = run(
+      state,
+      done("rossmann", priceAnswer(26.49), ANSWERED_AT + 1),
+      done("natura", priceAnswer(16.99), ANSWERED_AT + 2),
+    );
+    expect(state.announcements).toEqual([
+      said("Rossmann: 26,49 zł, najtaniej"),
+      said("Rossmann: 26,49 zł, najtaniej"),
+      said("Natura: 16,99 zł, najtaniej"),
+    ]);
+
+    // "Odśwież ceny" again, with nothing running: a new refresh.
+    state = run(state, start("rossmann"), start("natura"));
+    expect(state.announcements).toEqual([]);
+    state = run(state, done("natura", priceAnswer(15.99), ANSWERED_AT + 3));
+    expect(state.announcements).toEqual([said("Natura: 15,99 zł, najtaniej")]);
   });
 });
 

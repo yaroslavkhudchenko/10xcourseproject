@@ -80,6 +80,50 @@ const scriptsConfig = defineConfig({
   rules: { "no-console": "off" },
 });
 
+// The product page's island runs these modules in the browser, so none may import server-only code: a well-meant
+// import would pull zod, Supabase or the shop gate into the page's JavaScript. Type-only imports are erased from the
+// bundle, so they stay allowed. The names below are the `@/` ones, so a relative path, which would slip past them, has
+// to go through the alias too.
+const ISLAND_MESSAGE = "The product page's island imports this file, so it must stay free of server-only code.";
+const islandConfig = defineConfig({
+  files: [
+    "src/lib/services/price-comparison.ts",
+    "src/lib/shop-messages.ts",
+    "src/lib/json-request.ts",
+    "src/components/watchlist/price-comparison-state.ts",
+    "src/components/watchlist/PriceComparison.tsx",
+  ],
+  rules: {
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: [
+          {
+            // Every service is server-side except the comparison rules, which the island shares with the pages.
+            group: [
+              "zod",
+              "zod/*",
+              "astro/zod",
+              "@supabase/*",
+              "astro:*",
+              "@/lib/supabase",
+              "@/lib/services/*",
+              "!@/lib/services/price-comparison",
+            ],
+            message: ISLAND_MESSAGE,
+            allowTypeImports: true,
+          },
+          {
+            regex: "^\\.\\.?/",
+            message: `${ISLAND_MESSAGE} Import through the @/ alias, which this check reads.`,
+            allowTypeImports: true,
+          },
+        ],
+      },
+    ],
+  },
+});
+
 // unbound-method reads expect(mock.fn) assertions as detached methods, but a vi.fn() mock never relies on `this`.
 const testConfig = defineConfig({
   files: ["**/*.test.ts"],
@@ -96,6 +140,7 @@ export default defineConfig(
   eslintPluginAstro.configs["flat/jsx-a11y-recommended"],
   astroConfig,
   scriptsConfig,
+  islandConfig,
   testConfig,
   eslintPluginPrettier,
 );

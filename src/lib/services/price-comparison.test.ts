@@ -36,20 +36,37 @@ interface CheckOptions {
   status?: "price" | "missing";
   checkedAgo?: number;
   pricedAgo?: number;
+  promoEndsOn?: string | null;
 }
 
-/** An item last checked `checkedAgo` before NOW, with a price fetched `pricedAgo` before NOW (by default, then). */
+/**
+ * An item last checked `checkedAgo` before NOW, with a price fetched `pricedAgo` before NOW (by default, then), on a
+ * promotion ending on `promoEndsOn` when one is given.
+ */
 function check({
   price = 16.99,
   available = true,
   status = "price",
   checkedAgo = 5 * MINUTE,
   pricedAgo = checkedAgo,
+  promoEndsOn = null,
 }: CheckOptions = {}): LatestCheck {
   return {
     lastCheckedAt: ago(checkedAgo),
     lastStatus: status,
-    offer: { price, regularPrice: null, lowestPrice30d: null, promoEndsOn: null, available, pricedAt: ago(pricedAgo) },
+    offer: { price, regularPrice: null, lowestPrice30d: null, promoEndsOn, available, pricedAt: ago(pricedAgo) },
+  };
+}
+
+// NOW is 14:00 on 28 September in Poland. A promotion that ended the day before:
+const ENDED_YESTERDAY = "2026-09-27";
+
+/** A promotion's price checked at `at`, an ISO timestamp, whose promotion ends on `promoEndsOn`. */
+function promoCheck(at: string, promoEndsOn: string): LatestCheck {
+  return {
+    lastCheckedAt: at,
+    lastStatus: "price",
+    offer: { price: 5.99, regularPrice: 9.99, lowestPrice30d: null, promoEndsOn, available: true, pricedAt: at },
   };
 }
 
@@ -77,6 +94,27 @@ describe("needsRefetch", () => {
     expect(needsRefetch({ ...neverPriced, lastCheckedAt: ago(MINUTE) }, NOW)).toBe(false);
     expect(needsRefetch(check({ status: "missing", checkedAgo: MINUTE, pricedAgo: 3 * DAY }), NOW)).toBe(false);
   });
+
+  it("fetches a price again at once when its promotion ended after the check, however recent the check", () => {
+    // 23:55 in Poland on the promotion's last day, then 00:05 the next day: the check is ten minutes old.
+    const pastMidnight = Date.parse("2026-09-28T22:05:00.000Z");
+
+    expect(needsRefetch(promoCheck("2026-09-28T21:55:00.000Z", "2026-09-28"), pastMidnight)).toBe(true);
+    // On the promotion's last day the price still holds.
+    expect(needsRefetch(check({ checkedAgo: MINUTE, promoEndsOn: "2026-09-28" }), NOW)).toBe(false);
+  });
+
+  it("waits the 15 minutes after a check made once the promotion had ended: the shop already answered", () => {
+    // The shop still sends an end date that has passed. Asking again at once would only repeat the same answer.
+    expect(needsRefetch(check({ checkedAgo: MINUTE, promoEndsOn: ENDED_YESTERDAY }), NOW)).toBe(false);
+    expect(needsRefetch(check({ checkedAgo: REFETCH_AFTER_MS + 1, promoEndsOn: ENDED_YESTERDAY }), NOW)).toBe(true);
+  });
+
+  it("waits the 15 minutes after a check that found the item missing, whatever the last price's promotion", () => {
+    const missing = check({ status: "missing", checkedAgo: MINUTE, pricedAgo: 3 * DAY, promoEndsOn: "2026-09-20" });
+
+    expect(needsRefetch(missing, NOW)).toBe(false);
+  });
 });
 
 describe("priceState", () => {
@@ -93,6 +131,24 @@ describe("priceState", () => {
   it("is missing when the last check found no item, however fresh the price", () => {
     expect(priceState(check({ status: "missing", checkedAgo: MINUTE, pricedAgo: 2 * MINUTE }), NOW)).toBe("missing");
     expect(priceState(check({ status: "missing", pricedAgo: 3 * DAY }), NOW)).toBe("missing");
+    expect(priceState(check({ status: "missing", promoEndsOn: ENDED_YESTERDAY }), NOW)).toBe("missing");
+  });
+
+  it("is fresh on a promotion's last day, and stale once that day is over", () => {
+    expect(priceState(check({ promoEndsOn: "2026-09-29" }), NOW)).toBe("fresh");
+    expect(priceState(check({ promoEndsOn: "2026-09-28" }), NOW)).toBe("fresh");
+    expect(priceState(check({ promoEndsOn: ENDED_YESTERDAY }), NOW)).toBe("stale");
+  });
+
+  it("ends a promotion's last day at midnight in Poland, not in UTC", () => {
+    // Summer time: 21:59 UTC is 23:59 in Poland, and 22:30 UTC is already 00:30 on 29 September. The price itself is
+    // under 24 hours old at both times.
+    const lastMinute = Date.parse("2026-09-28T21:59:00.000Z");
+    const pastMidnight = Date.parse("2026-09-28T22:30:00.000Z");
+
+    expect(priceState(check({ promoEndsOn: "2026-09-28" }), lastMinute)).toBe("fresh");
+    expect(priceState(check({ promoEndsOn: "2026-09-28" }), pastMidnight)).toBe("stale");
+    expect(priceState(check({ promoEndsOn: "2026-09-29" }), pastMidnight)).toBe("fresh");
   });
 });
 
@@ -175,6 +231,23 @@ describe("compareShops", () => {
       ["rossmann", false],
     ]);
     expect(summary).toMatchObject({ kind: "cheapest", shops: ["natura"], savings: null });
+  });
+
+  it("never names a price whose promotion has ended cheapest, even when it's lower", () => {
+    const { rows, summary } = compareShops(
+      [row("rossmann", check({ price: 5.99, promoEndsOn: ENDED_YESTERDAY })), row("natura", check({ price: 16.99 }))],
+      NOW,
+    );
+
+    expect(marks(rows)).toEqual([
+      ["natura", true],
+      ["rossmann", false],
+    ]);
+    expect(rows.map(({ shop, state }) => [shop, state])).toEqual([
+      ["natura", "fresh"],
+      ["rossmann", "stale"],
+    ]);
+    expect(summary).toMatchObject({ kind: "cheapest", shops: ["natura"], price: 16.99, savings: null });
   });
 
   it("marks both shops of a tie, with the older price's age", () => {
@@ -381,6 +454,17 @@ describe("staleTargets", () => {
     ]);
   });
 
+  it("takes a price whose promotion ended after its check, however recent the check", () => {
+    // Both checked at 23:55 in Poland on 28 September, ten minutes before the list refresh at 00:05.
+    const pastMidnight = Date.parse("2026-09-28T22:05:00.000Z");
+    const entries = [
+      priced("rossmann", "1", promoCheck("2026-09-28T21:55:00.000Z", "2026-09-28")),
+      priced("rossmann", "2", promoCheck("2026-09-28T21:55:00.000Z", "2026-09-29")),
+    ];
+
+    expect(staleTargets(entries, pastMidnight)).toEqual([{ shop: "rossmann", shopItemId: "1" }]);
+  });
+
   it("takes nothing when every item was checked in the last 15 minutes, or there are none", () => {
     expect(staleTargets([priced("rossmann", "1", check({ checkedAgo: MINUTE }))], NOW)).toEqual([]);
     expect(staleTargets([], NOW)).toEqual([]);
@@ -407,6 +491,11 @@ describe("listSummaryText", () => {
 
   it.each<{ why: string; latest: LatestCheck | null; note: string }>([
     { why: "an out-of-date price", latest: check({ price: 12.99, checkedAgo: 2 * DAY }), note: "cena nieaktualna" },
+    {
+      why: "a promotion that has ended",
+      latest: check({ price: 12.99, promoEndsOn: ENDED_YESTERDAY }),
+      note: "cena nieaktualna",
+    },
     {
       why: "an item it no longer returns",
       latest: check({ price: 12.99, status: "missing", checkedAgo: MINUTE, pricedAgo: HOUR }),
@@ -440,6 +529,11 @@ describe("listSummaryText", () => {
       why: "out of date",
       latest: check({ price: 26.99, checkedAgo: 2 * DAY }),
       text: "Tylko w Rossmannie: 26,99 zł · 2 dni temu · nieaktualna",
+    },
+    {
+      why: "out of date after its promotion ended",
+      latest: check({ price: 5.99, promoEndsOn: ENDED_YESTERDAY }),
+      text: "Tylko w Rossmannie: 5,99 zł · 5 min temu · nieaktualna",
     },
     {
       why: "for an item the shop no longer returns",

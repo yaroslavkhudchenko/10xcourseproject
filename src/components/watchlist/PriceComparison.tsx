@@ -105,6 +105,10 @@ export default function PriceComparison({ itemId, shops, autoRefresh, now }: Pro
           <PriceRow key={row.shop} row={row} now={state.now} />
         ))}
       </ul>
+      {/* Screen readers hear each shop's answer here, outside the list, so nothing live moves when the rows re-sort. */}
+      <p role="status" aria-live="polite" className="sr-only">
+        {state.announcements.join(" ")}
+      </p>
       <form
         method="POST"
         action={REFRESH_FORM_ROUTE}
@@ -149,9 +153,7 @@ function PriceRow({ row, now }: PriceRowProps) {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-baseline gap-2">
           <h3 className="font-semibold">{label.name}</h3>
-          <span aria-live="polite" className="text-sm text-blue-100/80">
-            {row.pending ? "Odświeżam…" : null}
-          </span>
+          <span className="text-sm text-blue-100/80">{row.pending ? "Odświeżam…" : null}</span>
         </div>
         {row.cheapest && (
           <span className="rounded-full bg-emerald-900/40 px-2 py-1 text-xs font-medium text-emerald-200">

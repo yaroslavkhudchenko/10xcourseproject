@@ -1,9 +1,9 @@
 import type { LatestPrice, PriceKey, ShopId, ShopMatchState, ShopOffer, WatchlistItem } from "@/types";
 
 // The rules that name the cheapest shop today, in one place for the product page, its island and the list, so the
-// server and the browser never disagree: when an item is fetched again, when a price is too old to count, which shops
-// win, how prices and ages read, and what the list says and refreshes. It imports nothing server-only, because the
-// island runs it in the browser too.
+// server and the browser never disagree: when an item is fetched again, when a price no longer counts (too old, or its
+// promotion over), which shops win, how prices and ages read, and what the list says and refreshes. It imports nothing
+// server-only, because the island runs it in the browser too.
 
 /** An item is fetched again once its last check is more than 15 minutes old, so reopening a page costs no request. */
 export const REFETCH_AFTER_MS = 15 * 60 * 1000;
@@ -13,6 +13,14 @@ export const STALE_AFTER_MS = 24 * 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
+
+// The calendar a promotion's end is read on: the shopper's own date in Poland, whatever the server's or the browser's.
+const polishCalendar = new Intl.DateTimeFormat("pl-PL", {
+  timeZone: "Europe/Warsaw",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
 
 /** The shops whose prices are fetched and compared. */
 export const PRICED_SHOPS = ["rossmann", "natura"] as const satisfies readonly ShopId[];
@@ -40,13 +48,15 @@ type PricedOffer = ShopOffer & { pricedAt: string };
 
 /**
  * Where a shop's price stands: `none` without a price yet, `missing` when the last check found the item missing however
- * old the price is, `stale` when the price is more than 24 hours old, and `fresh` otherwise.
+ * old the price is, `stale` when the price is more than 24 hours old or its promotion ended before today in Poland,
+ * and `fresh` otherwise.
  */
 export type PriceState = "none" | "missing" | "stale" | "fresh";
 
 /**
- * True when the item has never been checked, or its last check is more than 15 minutes old. `now` is a time in
- * milliseconds, as `Date.now()` gives it.
+ * True when the item has never been checked, its last check is more than 15 minutes old, or that check found a price
+ * whose promotion has ended since, which is out of date however recent. `now` is a time in milliseconds, as
+ * `Date.now()` gives it.
  */
 export function needsRefetch(latest: LatestCheck | null, now: number): boolean {
   if (latest === null) {
@@ -54,10 +64,24 @@ export function needsRefetch(latest: LatestCheck | null, now: number): boolean {
   }
   const age = now - Date.parse(latest.lastCheckedAt);
   // A time that doesn't parse counts as old.
-  return Number.isNaN(age) || age > REFETCH_AFTER_MS;
+  if (Number.isNaN(age) || age > REFETCH_AFTER_MS) {
+    return true;
+  }
+  // A check that found the item missing waits its 15 minutes, whatever the price from before: asking again sooner
+  // wouldn't bring that price back. So does a check made after the promotion had ended: it already holds the shop's
+  // latest answer, and asking again sooner would only repeat it.
+  return (
+    latest.lastStatus === "price" &&
+    promotionEnded(latest.offer, now) &&
+    !promotionEnded(latest.offer, Date.parse(latest.lastCheckedAt))
+  );
 }
 
-/** Where a shop's price stands at `now`. A price exactly 24 hours old is still fresh. */
+/**
+ * Where a shop's price stands at `now`. A price exactly 24 hours old is still fresh, and so is a promotion's price on
+ * the promotion's last day in Poland: a shop's end date may name the last day or the day after, so only the day after
+ * it counts as ended.
+ */
 export function priceState(latest: LatestCheck | null, now: number): PriceState {
   if (!latest?.offer) {
     return "none";
@@ -66,7 +90,24 @@ export function priceState(latest: LatestCheck | null, now: number): PriceState 
     return "missing";
   }
   const age = now - Date.parse(latest.offer.pricedAt);
-  return Number.isNaN(age) || age > STALE_AFTER_MS ? "stale" : "fresh";
+  if (Number.isNaN(age) || age > STALE_AFTER_MS) {
+    return "stale";
+  }
+  return promotionEnded(latest.offer, now) ? "stale" : "fresh";
+}
+
+/** True when the offer's promotion ended before today's date in Poland at `now`: its price is no longer the shop's. */
+function promotionEnded(offer: Pick<ShopOffer, "promoEndsOn"> | null, now: number): boolean {
+  const endsOn = offer?.promoEndsOn ?? null;
+  // Both are `YYYY-MM-DD`, so comparing them as text compares the dates.
+  return endsOn !== null && endsOn < polishDate(now);
+}
+
+/** The date in Poland at `now`, as `YYYY-MM-DD`. It's read part by part, so no locale's order of parts matters. */
+function polishDate(now: number): string {
+  const parts = polishCalendar.formatToParts(now);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((entry) => entry.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
 /** A shop's row to compare: which shop, and its item's latest check, if any. */
@@ -272,11 +313,11 @@ export function listPricedItems(
       naturaSkus.set(match.watchlistItemId, match.shopItemId);
     }
   }
-  const latest = new Map(prices.map((price) => [itemText(price), price] as const));
+  const latest = new Map(prices.map((price) => [keyText(price), price] as const));
   const items = new Map<string, PricedItem[]>();
   for (const product of products) {
     const keys = productPriceKeys(product, naturaSkus.get(product.id) ?? null);
-    const withLatest = keys.map((key) => ({ ...key, latest: latest.get(itemText(key)) ?? null }));
+    const withLatest = keys.map((key) => ({ ...key, latest: latest.get(keyText(key)) ?? null }));
     items.set(product.id, withLatest);
   }
   return items;
@@ -292,7 +333,7 @@ export function staleTargets(entries: readonly PricedItem[], now: number): Price
   const seen = new Set<string>();
   const targets: PriceKey[] = [];
   for (const { shop, shopItemId } of stale) {
-    const text = itemText({ shop, shopItemId });
+    const text = keyText({ shop, shopItemId });
     // Two products matched to the same item fetch it once.
     if (!seen.has(text)) {
       seen.add(text);
@@ -318,8 +359,12 @@ function lastCheckTime(latest: LatestCheck | null): number {
   return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
 }
 
-/** One text per shop item, to find an item's latest state and to take each item once. */
-function itemText({ shop, shopItemId }: PriceKey): string {
+/**
+ * One text per shop item, to find an item's latest state, to match stored rows to the items asked for, and to take each
+ * item once. No shop id holds a "/", so the first one ends the shop. It lives here, where the island can import it, and
+ * the server's modules import it from here too.
+ */
+export function keyText({ shop, shopItemId }: PriceKey): string {
   return `${shop}/${shopItemId}`;
 }
 

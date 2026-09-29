@@ -250,10 +250,10 @@ const addedOn = new Intl.DateTimeFormat("pl-PL", { dateStyle: "long", timeZone: 
             Obserwowane produkty
           </h2>
           {items !== null && items.length > 0 && (
-            <form method="POST" action="/api/watchlist/refresh" class="shrink-0">
+            <form method="POST" action="/api/watchlist/refresh" class="shrink-0" data-submit-once>
               <button
                 type="submit"
-                class="min-h-11 rounded-lg border border-white/20 px-3 text-sm transition-colors hover:bg-white/10"
+                class="min-h-11 rounded-lg border border-white/20 px-3 text-sm transition-colors hover:bg-white/10 disabled:opacity-60"
               >
                 Odśwież ceny
               </button>
@@ -322,4 +322,23 @@ const addedOn = new Intl.DateTimeFormat("pl-PL", { dateStyle: "long", timeZone: 
       </section>
     </main>
   </div>
+  <script>
+    // "Odśwież ceny" is sent once: a second tap while the list refreshes would ask the shops again for the same items,
+    // from the cap everyone shares. Without JavaScript the form still posts.
+    for (const form of document.querySelectorAll<HTMLFormElement>("form[data-submit-once]")) {
+      form.addEventListener("submit", () => {
+        for (const button of form.querySelectorAll("button")) {
+          button.disabled = true;
+        }
+      });
+    }
+    // A page the browser restores with its back button gets its button back.
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) {
+        for (const button of document.querySelectorAll<HTMLButtonElement>("form[data-submit-once] button")) {
+          button.disabled = false;
+        }
+      }
+    });
+  </script>
 </Layout>

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "astro/zod";
+import { keyText } from "@/lib/services/price-comparison";
 import { SHOP_IDS, type LatestPrice, type PriceCheck, type PriceKey, type ShopId } from "@/types";
 
 // Every price check of a shop item (public.price_observations), shared by the item's watchers: a user reads and adds
@@ -161,11 +162,6 @@ export async function listLatestPrices(supabase: SupabaseClient, keys?: PriceKey
     logFailure("unexpected rows dropped", String(dropped));
   }
   return prices;
-}
-
-/** One text per shop item, to match rows to keys. No shop id holds a "/", so the first one ends the shop. */
-export function keyText({ shop, shopItemId }: PriceKey): string {
-  return `${shop}/${shopItemId}`;
 }
 
 function toLatestPrice(row: z.infer<typeof latestRowSchema>): LatestPrice {

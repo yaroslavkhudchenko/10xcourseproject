@@ -1,6 +1,15 @@
-import type { GateOutcome, ShopUnavailable } from "@/types";
+import type { GateOutcome, PriceCheck, ShopUnavailable } from "@/types";
 
 // Shared by the shop adapters, so every shop explains a refused or failed call in the same terms.
+
+/**
+ * True for an answer that says the shop can't be asked now: busy under the cap, paused or stopped. A price refresh
+ * asks that shop nothing more, since the next request could only be refused, or reach a shop that has just refused. A
+ * failed call isn't one: the next request may still get through.
+ */
+export function isRefusal(check: PriceCheck): check is ShopUnavailable {
+  return check.kind === "unavailable" && check.reason !== "failed";
+}
 
 /** Says why the gate produced no answer, in the terms the page explains to the user. */
 export function gateUnavailable(outcome: Exclude<GateOutcome, { kind: "ok" }>): ShopUnavailable {

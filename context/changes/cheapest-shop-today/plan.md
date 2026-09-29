@@ -93,7 +93,7 @@ Prices come from Rossmann's product detail by id and from Natura's search filter
 
 **Accepted risks** (recorded here and in CLAUDE.md, like F-01's):
 
-1. An invited user can write a plausible fake price for an item they watch, because the app has no server-only key.
+1. An invited user can write a plausible fake price for an item they watch, because the app has no server-only key. Watching is self-service, through any Rossmann result or a matched decision with any SKU, so this reaches any item. A fake row also counts as the item's last check, so its watchers' automatic refresh waits up to 15 minutes, and only a product page's button fetches it at once. (Widened after the implementation review, F6.)
 2. People watching the same item see each other's fetch times.
 
 Revisit both before inviting more people.
@@ -787,7 +787,7 @@ Record the new rules and shop facts, get the migration onto production before th
 - **Waiting:**
   - The product page adds one database read after the product and its matches; the refetches happen after the page is shown.
   - Each JSON refresh is one invocation of about six subrequests: `getUser`, two reads, the gate's reservation, the shop and the insert. Rossmann answered in about 100-250 ms and Natura in about 120-230 ms in the research.
-- **Database:** `latest_price_observations` scans the rows the caller can see, and the history grows with every fetch. At a handful of users that is a few thousand rows. S-04 revisits this if the history needs aggregating.
+- **Database:** `latest_price_observations` reads every observation in the table and filters it by RLS, not only the rows the caller can see. The implementation review (F4) measured all 62 local rows read for a user with 5 items. The history grows with every fetch and has no retention. At 0.7 ms today the read is far from its 2 s limit. S-04 rewrites the view from the caller's watched items (`follow-ups/review-fixes.md`).
 - **Client:** the product page starts loading the React chunks the sign-in page already uses, about 260 KB uncompressed in the current build.
 
 ## Migration Notes
@@ -843,6 +843,7 @@ Where the shipped code differs from the phase contracts above, and why. The phas
   - It judges the first refetch on the server's render time, as the page does.
   - "Odśwież ceny" is disabled while any shop's refetch runs, and a request gives up after 20 s.
   - The route's answers are checked by hand rather than with zod, which keeps zod out of the page's JavaScript.
+  - A non-JSON answer with an error status, such as a gateway's 5xx page, is a failed refetch. Only a redirect, or a non-JSON page that loaded fine, means the session ended (review F10).
 - **Phase 3, the gate's log:** every all-digit path segment is logged as `:id`, so Rossmann product ids no longer reach the log (the first accepted risk below).
 - **Phase 3, smoke:** Astro's `checkOrigin` lets a same-origin form through, so the route itself answers the form post with 415. The 404 step also checks `no-store`.
 - **Phase 3, the walk-through (2026-09-28 and 29):** the owner checked 1-3 on the dev server in a phone viewport. At the owner's request, the agent checked 4-6 from the server side with a throwaway local user, reading the island's props, the rendered rows and the gate's `shop_requests`.
@@ -874,6 +875,18 @@ Where the shipped code differs from the phase contracts above, and why. The phas
   - **A second list refresh within 15 minutes:** it gave `none` with no request.
   - **The product page's form** (in its server-rendered HTML, as a browser without JavaScript gets it) gave `done` for one Rossmann and one Natura request.
   - **A second user** watching NIVEA Soft saw the owner's refreshed line. A user watching nothing saw no row, and the view gave that user `[]`.
+- **Implementation review fixes (2026-09-29, `reviews/impl-review.md`; the owner chose each):**
+  - **F1, an ended promotion's price counts as stale:**
+    - `promoEndsOn` before today's date in Poland makes a price `stale`, so it can't be named cheapest and the list reads it as out of date. The end day itself stays fresh.
+    - `needsRefetch` also fetches such a price again at once, but only if its check was made before the promotion ended. A check made after the end already holds the shop's answer and waits the usual 15 minutes, so a shop that keeps sending a passed end date isn't asked on every open.
+  - **F2, screen readers hear each shop's answer:** one hidden live region outside the sorted list announces each answer, such as "Natura: 16,99 zł, najtaniej" or the row's unavailable or missing text. The row's "Odświeżam…" is visible only, and an ended session is left to the page's own alert.
+  - **F3, one request at a time:** Rossmann's detail requests go out one at a time, replacing phase 2's "at most 5 at a time".
+    - Once a shop answers busy, paused or stopped, its remaining targets in that refresh get the same answer with no request or reservation. The Natura batches got this rule too, since they didn't stop before.
+    - A failed request doesn't stop the loop. A hanging Rossmann now costs its 5 s timeout per product.
+  - **F7, per-shop inserts:** a refresh stores each shop's checks as soon as that shop is done, so at most two inserts, replacing phase 2's single call. The list's "Odśwież ceny" is disabled once its form is sent when JavaScript runs.
+  - **F8, targets in a tested service:** which shop items a refresh fetches is decided in `src/lib/services/price-targets.ts` and unit-tested. The routes keep their behaviour.
+  - **F9, one `keyText` and an ESLint guard:** `keyText` lives in `price-comparison.ts`. ESLint refuses non-type imports of server-only code in the island's five modules: zod, Supabase, `astro:*`, and every `@/lib/services/*` module except `price-comparison`. It also refuses relative imports in them.
+  - **F4, F5, F6 and F10** are notes. The view rewrite and the amount bounds wait in `follow-ups/review-fixes.md`.
 - **Phase 5, beyond the docs contract (the owner's calls, 2026-09-29):**
   - CLAUDE.md's non-negotiable now says price observations are shared by the item's watchers and hidden from everyone else. The PRD's access-control line gets a dated update note to match.
   - The `npm run dev` bullet now describes how to start the dev server under an agent: `ASTRO_DEV_BACKGROUND=1 npx astro dev` as a background task, and one more start after the Vite cache race.
