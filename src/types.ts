@@ -206,3 +206,13 @@ export type LatestPrice = PriceKey & {
   lastStatus: "price" | "missing";
   offer: (ShopOffer & { pricedAt: string }) | null;
 };
+
+/**
+ * What `/api/watchlist/prices` answers when it refreshed one shop of a watched product: the offer it fetched, that the
+ * shop answered without the item, or why the shop gave no answer. `checkedAt` is the server's time after the check, as
+ * an ISO timestamp, and `saved` says whether the check was stored.
+ */
+export type PriceRefreshAnswer =
+  | { kind: "price"; offer: ShopOffer; checkedAt: string; saved: boolean }
+  | { kind: "missing"; checkedAt: string; saved: boolean }
+  | ShopUnavailable;

@@ -833,6 +833,23 @@ Where the shipped code differs from the phase contracts above, and why. The phas
   - Rossmann, an unknown id: HTTP 404 `application/problem+json`.
   - Natura: one SKU, two SKUs, and an unknown SKU with 0 hits.
   - The two research answers for Rossmann's detail are reused as they were.
+- **Phase 3, the price route's answers:**
+  - A failed read of the product or its matches answers `503 { error: "failed" }`.
+  - The refusals carry `{ error: "forbidden" }` (403) and `{ error: "unsupported" }` (415).
+  - The JSON checks live in `src/lib/json-request.ts`, which the island also uses to read answers. An `Origin` of `null` counts as another site.
+- **Phase 3, a lone shop is never marked "Najtaniej":** with one row nothing is compared, so its summary is `only` and no row is marked. A tie's age is that of its oldest price.
+- **Phase 3, texts with no price to keep:** `priceUnavailableText` and `priceMissingText` take `lastKnown`. When no price is left to show, the busy and paused texts don't promise one ("Spróbuj za minutę.", "Spróbuj później."), and the missing text doesn't mention one. `ageText` reads a time that doesn't parse as "czas nieznany".
+- **Phase 3, the island:**
+  - It judges the first refetch on the server's render time, as the page does.
+  - "Odśwież ceny" is disabled while any shop's refetch runs, and a request gives up after 20 s.
+  - The route's answers are checked by hand rather than with zod, which keeps zod out of the page's JavaScript.
+- **Phase 3, the gate's log:** every all-digit path segment is logged as `:id`, so Rossmann product ids no longer reach the log (the first accepted risk below).
+- **Phase 3, smoke:** Astro's `checkOrigin` lets a same-origin form through, so the route itself answers the form post with 415. The 404 step also checks `no-store`.
+- **Phase 3, the walk-through (2026-09-28 and 29):** the owner checked 1-3 on the dev server in a phone viewport. At the owner's request, the agent checked 4-6 from the server side with a throwaway local user, reading the island's props, the rendered rows and the gate's `shop_requests`.
+  - The first open of an added NIVEA Soft 300 ml made one Natura request. The automatic match stored its price, so Natura needed no refetch.
+  - Opening it from another site made no request and turned `autoRefresh` off.
+  - A Natura price moved back 25 hours showed "nieaktualna" and lost the mark to Rossmann.
+  - Node's `fetch` sends `Sec-Fetch-Mode: cors` whatever a script sets, and Astro's dev server answers cross-site requests that aren't navigations with 403. The cross-site checks therefore used `node:http`.
 
 ### Accepted during implementation (the owner's call, 2026-09-28)
 
@@ -862,28 +879,28 @@ Where the shipped code differs from the phase contracts above, and why. The phas
 
 #### Automated
 
-- [x] 2.1 `npm run test` passes, including the Rossmann and Natura price tests and the refresh service tests
-- [x] 2.2 `npx astro sync && npx astro check` reports 0 errors
-- [x] 2.3 `npm run lint` passes
-- [x] 2.4 `npm run build` passes
+- [x] 2.1 `npm run test` passes, including the Rossmann and Natura price tests and the refresh service tests — bffd267
+- [x] 2.2 `npx astro sync && npx astro check` reports 0 errors — bffd267
+- [x] 2.3 `npm run lint` passes — bffd267
+- [x] 2.4 `npm run build` passes — bffd267
 
 #### Manual
 
-- [x] 2.5 Fixture review: every new recording used the gate's User-Agent, went at least 2 s apart, is trimmed to the fields the adapters read, and holds no cookies or personal data; the unknown-id and unknown-SKU recordings show what "not found" looks like
+- [x] 2.5 Fixture review: every new recording used the gate's User-Agent, went at least 2 s apart, is trimmed to the fields the adapters read, and holds no cookies or personal data; the unknown-id and unknown-SKU recordings show what "not found" looks like — bffd267
 
 ### Phase 3: Product page prices
 
 #### Automated
 
-- [ ] 3.1 `npm run test` passes, including the comparison, wording and island state tests
-- [ ] 3.2 `npx astro sync && npx astro check` reports 0 errors
-- [ ] 3.3 `npm run lint` passes
-- [ ] 3.4 `npm run build` passes
+- [x] 3.1 `npm run test` passes, including the comparison, wording and island state tests
+- [x] 3.2 `npx astro sync && npx astro check` reports 0 errors
+- [x] 3.3 `npm run lint` passes
+- [x] 3.4 `npm run build` passes
 - [ ] 3.5 CI `ci` and `smoke` jobs are green on the PR, including the new price route smoke steps
 
 #### Manual
 
-- [ ] 3.6 Phone-viewport walk-through against `npm run dev` with the local Supabase: opening a matched product shows the stored prices at once, then each shop updating as it answers, ordered, with the cheapest marked; reopening within 15 minutes makes no shop request; "Odśwież ceny" refetches both shops; a link from another site shows the prices without a refetch and offers the button; a price made 25 hours old in the local database shows "nieaktualna" and loses the mark; an automatic Natura match shows its price with no extra Natura request
+- [x] 3.6 Phone-viewport walk-through against `npm run dev` with the local Supabase: opening a matched product shows the stored prices at once, then each shop updating as it answers, ordered, with the cheapest marked; reopening within 15 minutes makes no shop request; "Odśwież ceny" refetches both shops; a link from another site shows the prices without a refetch and offers the button; a price made 25 hours old in the local database shows "nieaktualna" and loses the mark; an automatic Natura match shows its price with no extra Natura request
 
 ### Phase 4: Watchlist prices and refresh
 

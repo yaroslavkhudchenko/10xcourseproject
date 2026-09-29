@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { createShopGate, shopGateFor, type ShopGateDeps, type ShopGateLogEntry } from "@/lib/services/shop-gate";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
+import type { ShopId } from "@/types";
 
 // Every shop answer here is synthetic and served by the replay fetch; no test reaches a live shop.
 const USER_AGENT = "DrogeriaRadar/0.1 (+https://github.com/yaroslavkhudchenko/10xcourseproject)";
@@ -225,6 +226,30 @@ describe("shop gate: failures", () => {
     expect(await gate.fetch("rossmann", ROSSMANN_SEARCH)).toEqual({ kind: "failed", reason: "network" });
     // An unrecorded URL would end as a network failure too, so check that the recorded one was requested.
     expect(requestedUrl(fetchMock)).toBe(ROSSMANN_SEARCH);
+  });
+});
+
+describe("shop gate: log", () => {
+  it.each<{ request: string; shopId: ShopId; url: string; path: string }>([
+    {
+      request: "a Rossmann price, without the product id",
+      shopId: "rossmann",
+      url: "https://www.rossmann.pl/products/v2/api/Products/131225?shopNumber=null",
+      path: "/products/v2/api/Products/:id",
+    },
+    {
+      request: "a Rossmann search as it is",
+      shopId: "rossmann",
+      url: ROSSMANN_SEARCH,
+      path: "/products/v4/api/Products",
+    },
+    { request: "a Natura search as it is", shopId: "natura", url: NATURA_SEARCH, path: "/search" },
+  ])("logs the path of $request, and never the query", async ({ shopId, url, path }) => {
+    const { gate, log } = setup({ entries: [{ url, status: 500 }] });
+
+    expect(await gate.fetch(shopId, url)).toEqual({ kind: "failed", reason: "http", status: 500 });
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log.mock.calls[0][0]).toMatchObject({ host: new URL(url).hostname, path });
   });
 });
 

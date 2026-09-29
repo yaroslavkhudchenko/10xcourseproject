@@ -1,9 +1,13 @@
 ---
+import PriceComparison from "@/components/watchlist/PriceComparison";
+import type { PriceComparisonShop } from "@/components/watchlist/price-comparison-state";
 import ProductSummary from "@/components/watchlist/ProductSummary.astro";
 import Layout from "@/layouts/Layout.astro";
 import { sizesEqual } from "@/lib/services/matching";
 import { decideMatchStep } from "@/lib/services/match-step";
 import { listMatches, matchErrorMessage, recordLookup } from "@/lib/services/matches";
+import type { PricedShop } from "@/lib/services/price-comparison";
+import { keyText, listLatestPrices, recordPriceChecks } from "@/lib/services/prices";
 import { isOwnNavigation } from "@/lib/services/search-query";
 import { shopGateFor } from "@/lib/services/shop-gate";
 import { lookupInNatura } from "@/lib/services/shop-matching";
@@ -13,6 +17,9 @@ import type { CandidateOption, MatchedItem, ShopCandidate, ShopMatch, Size, Watc
 
 const { supabase } = Astro.locals;
 const params = Astro.url.searchParams;
+// A link on another site or a prefetch must not spend the cap everyone shares: only the user's own navigation may make
+// opening the page ask a shop, for a Natura lookup or a price.
+const ownNavigation = isOwnNavigation(Astro.request.headers);
 
 // Only a UUID reaches the database, and another user's product reads as no product at all (RLS): neither makes a shop
 // call. The product and its stored decisions need only the id, so both are read at once; the decisions count only
@@ -126,22 +133,19 @@ const retrying = params.get("retry") === "1";
 let natura: NaturaView | null = null;
 // Set when the lookup's own outcome couldn't be stored: the next visit then looks the product up again.
 let unsaved = false;
+// The product's stored match in Natura, or the one this render just stored: its prices are shown next to Rossmann's.
+let naturaItem: MatchedItem | null = null;
 if (supabase && product !== null && product !== "failed") {
   const pageUrl = `/watchlist/${product.id}`;
-  const step = decideMatchStep({
-    matches,
-    shop: "natura",
-    retrying,
-    ownNavigation: isOwnNavigation(Astro.request.headers),
-  });
+  const step = decideMatchStep({ matches, shop: "natura", retrying, ownNavigation });
   if (step.kind === "read-failed") {
     // Without the stored decision, a lookup could ask again about what the user has already settled.
     natura = { kind: "read-failed" };
   } else if (step.kind === "stored") {
     natura = storedView(step.match, product);
+    naturaItem = step.match.item;
   } else if (step.kind === "prompt") {
-    // A link on another site or a prefetch must not spend the cap everyone shares: only the user's own navigation looks
-    // it up.
+    // A link on another site or a prefetch only gets the button.
     natura = { kind: "prompt", href: retrying ? `${pageUrl}?retry=1` : pageUrl };
   } else {
     const lookup = await lookupInNatura(shopGateFor(supabase), product);
@@ -149,6 +153,15 @@ if (supabase && product !== null && product !== "failed") {
     if (lookup.kind === "accepted" || lookup.kind === "not-found") {
       // What the rule settles on its own is stored during this render; the user's picks go through the form.
       const result = await recordLookup(supabase, product.id, "natura", lookup);
+      if (lookup.kind === "accepted" && result === "saved") {
+        naturaItem = lookup.candidate;
+        const { shopItemId, offer } = lookup.candidate;
+        if (offer !== null) {
+          // The price Natura sent with the match is its first stored price, so the island needn't ask Natura again.
+          // A failed insert is logged, and the island then asks.
+          await recordPriceChecks(supabase, [{ key: { shop: "natura", shopItemId }, check: { kind: "price", offer } }]);
+        }
+      }
       if (step.retry && result === "saved") {
         // The plain URL shows the stored outcome, so a `?retry=1` left in the address bar can't repeat the lookup.
         return Astro.redirect(pageUrl);
@@ -177,6 +190,34 @@ if (supabase && product !== null && product !== "failed") {
     }
   }
 }
+
+// The prices of the product's matched shops: its own Rossmann item, where it was picked, and its Natura match. They're
+// read after the Natura step, so a match it has just stored comes with the price it was found with.
+let priceShops: PriceComparisonShop[] = [];
+let pricesFailed = false;
+if (supabase && product !== null && product !== "failed") {
+  const matched: { shop: PricedShop; shopItemId: string; productUrl: string | null }[] = [];
+  if (product.source === "rossmann") {
+    matched.push({ shop: "rossmann", shopItemId: product.sourceItemId, productUrl: product.productUrl });
+  }
+  if (naturaItem !== null) {
+    matched.push({ shop: "natura", shopItemId: naturaItem.shopItemId, productUrl: naturaItem.productUrl });
+  }
+  const prices = await listLatestPrices(
+    supabase,
+    matched.map(({ shop, shopItemId }) => ({ shop, shopItemId })),
+  );
+  // Without the stored prices the island still shows every shop, as a gap until it answers.
+  pricesFailed = prices === null;
+  const latest = new Map((prices ?? []).map((price) => [keyText(price), price] as const));
+  priceShops = matched.map(({ shop, shopItemId, productUrl }) => ({
+    shop,
+    productUrl,
+    latest: latest.get(keyText({ shop, shopItemId })) ?? null,
+  }));
+}
+// The server's time for the island's first render, so the ages it shows match this page's HTML.
+const renderedAt = new Date().toISOString();
 
 const productTitle =
   product !== null && product !== "failed"
@@ -242,6 +283,24 @@ const error = matchErrorMessage(params.get("error"));
               {error}
             </p>
           )}
+
+          <section aria-labelledby="prices-heading" class="flex flex-col gap-3">
+            <h2 id="prices-heading" class="text-lg font-semibold">
+              Ceny
+            </h2>
+            {pricesFailed && (
+              <p role="alert" class="rounded-lg border border-red-500/30 bg-red-900/30 px-3 py-2 text-sm text-red-300">
+                Nie udało się wczytać cen.
+              </p>
+            )}
+            <PriceComparison
+              client:load
+              itemId={product.id}
+              shops={priceShops}
+              autoRefresh={ownNavigation}
+              now={renderedAt}
+            />
+          </section>
 
           <section
             aria-labelledby="rossmann-heading"

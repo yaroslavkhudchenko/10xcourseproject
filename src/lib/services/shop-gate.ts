@@ -25,11 +25,15 @@ const COUNTER_TIMEOUT_MS = 2000;
 /** A refusal as report_shop_block records it: `rate_limited` pauses the shop, `blocked` stops it. */
 export type ShopBlockKind = "rate_limited" | "blocked";
 
-/** The log entry for a gate call that didn't end in `ok`. The query string is left out: it can hold a user's search. */
+/**
+ * The log entry for a gate call that didn't end in `ok`. The query string is left out, since it can hold a user's
+ * search, and every all-digit path segment is logged as `:id`, since Rossmann's product id names a product.
+ */
 export interface ShopGateLogEntry {
   event: "shop-gate";
   shopId: ShopId;
   host: string;
+  /** The URL's path with every all-digit segment as `:id`, such as `/products/v2/api/Products/:id`. */
   path: string;
   outcome: Exclude<GateOutcome, { kind: "ok" }>;
   /** Why the gate failed closed, what the request failed with, or why reporting a block failed. */
@@ -87,7 +91,7 @@ export function createShopGate(deps: ShopGateDeps): ShopGate {
         throw new TypeError(`${target.protocol}//${target.host} is not a ${shopId} URL`);
       }
       const settle = (outcome: ShopGateLogEntry["outcome"], note?: string): GateOutcome => {
-        log({ event: "shop-gate", shopId, host: target.hostname, path: target.pathname, outcome, note });
+        log({ event: "shop-gate", shopId, host: target.hostname, path: loggedPath(target.pathname), outcome, note });
         return outcome;
       };
 
@@ -229,6 +233,14 @@ function parseRetryAfter(header: string | null): number {
 /** Frees the connection behind a response the caller never gets. A body that can't be cancelled is left alone. */
 function discard(response: Response): void {
   response.body?.cancel().catch(() => undefined);
+}
+
+/** A path as the log shows it: every all-digit segment, such as a product id, becomes `:id`. */
+function loggedPath(pathname: string): string {
+  return pathname
+    .split("/")
+    .map((segment) => (/^\d+$/.test(segment) ? ":id" : segment))
+    .join("/");
 }
 
 /** Names where a redirect the gate didn't follow pointed. Only the host: the rest of a Location can hold a search. */
