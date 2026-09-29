@@ -125,6 +125,29 @@ const islandConfig = defineConfig({
   },
 });
 
+// The product page, its components and its kitchen sink are built from the design tokens in src/styles/global.css and
+// the components in src/components/ui only, so a Tailwind palette class or an arbitrary px/rem value in any string there
+// fails: a class, class:list or className value, a cn() argument or a template literal. The patterns are the /10x-ui
+// scan's, and neither has a "/", which would end the selector's regex. A view cleaned later joins `files`; a glob reads
+// brackets as a character class, so [id] is escaped. No other config sets no-restricted-syntax for these files, and one
+// that did would replace these selectors rather than add to them.
+const PALETTE_CLASS = String.raw`\b(bg|text|border|ring|outline|from|via|to|fill|stroke|shadow|divide)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|white|black)\b`;
+const ARBITRARY_VALUE = String.raw`-\[[0-9.]+(px|rem)\]`;
+const TOKEN_MESSAGE =
+  "Use a design token from src/styles/global.css (for example bg-card or text-muted-foreground) or a component from src/components/ui, not a Tailwind palette class or an arbitrary value.";
+const tokenConfig = defineConfig({
+  files: ["src/pages/watchlist/\\[id\\].astro", "src/components/watchlist/**/*.{astro,tsx}", "src/dev/**/*.{astro,ts}"],
+  rules: {
+    "no-restricted-syntax": [
+      "error",
+      ...[PALETTE_CLASS, ARBITRARY_VALUE].flatMap((pattern) => [
+        { selector: `Literal[value=/${pattern}/]`, message: TOKEN_MESSAGE },
+        { selector: `TemplateElement[value.raw=/${pattern}/]`, message: TOKEN_MESSAGE },
+      ]),
+    ],
+  },
+});
+
 // unbound-method reads expect(mock.fn) assertions as detached methods, but a vi.fn() mock never relies on `this`.
 const testConfig = defineConfig({
   files: ["**/*.test.ts"],
@@ -142,6 +165,7 @@ export default defineConfig(
   astroConfig,
   scriptsConfig,
   islandConfig,
+  tokenConfig,
   testConfig,
   eslintPluginPrettier,
 );

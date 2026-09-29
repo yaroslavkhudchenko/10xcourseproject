@@ -688,6 +688,26 @@ The contract outlives this session: a lint rule refuses literals in the cleaned 
   - Astro's dev toolbar was off (`npx astro preferences disable devToolbar`, turned back on afterwards).
 - **The owner's call at the Phase 4 gate: the product-page captures are skipped** (changes criterion 4.5, which asks for the product page as well as the kitchen sink). The owner's "Etykiety i naklejki" redesign, planned as the next change, `etykiety-redesign`, replaces this look. So 4.5 closes with the kitchen sink's captures, which show every state of the same components.
 
+### Phase 5
+
+- **The rule is `tokenConfig` in `eslint.config.js`:** four `no-restricted-syntax` selectors built from two constants, `PALETTE_CLASS` and `ARBITRARY_VALUE`. Each is written as `Literal[value=/…/]` and `TemplateElement[value.raw=/…/]`, with one message pointing at `src/styles/global.css` and `src/components/ui`.
+  - How the Astro parser presents class attributes: a quoted `class="…"` reaches ESLint as a `JSXAttribute` whose value is a `Literal`; `class:list={…}` strings are `Literal`s; a backtick attribute holds a `TemplateLiteral`. So the two selectors cover `.astro` and `.tsx` alike.
+  - The glob escapes `[id]` as `\\[id\\]`. Unescaped, minimatch reads it as a character class matching `i.astro` or `d.astro`.
+  - No other config set `no-restricted-syntax`. A later one would replace these selectors rather than add to them, which the rule's comment says.
+- **Where the rule doesn't reach** (the plan's scope, left as is):
+  - An `.astro` file's client `<script>` blocks, which ESLint lints as virtual `<file>.astro/N_M.ts` files; the page's only script touches no classes.
+  - The `.ts` files in `src/components/watchlist/`, since the glob is `{astro,tsx}` there. CLAUDE.md's shorthand `src/components/watchlist/*` is slightly broader than the glob.
+- **The deliberate break (5.2)** planted a palette class in `[id].astro`, a palette class in `PriceComparisonView.tsx` and an arbitrary `p-[13px]` in `NaturaSection.astro`. Lint then failed with exactly those 3 errors, and after the restore it passed.
+- **CLAUDE.md's UI bullet adds three facts beyond the contract's list**, all from the Phase 1–2 notes:
+  - the contrast check refuses a `.dark` custom property that isn't `oklch()`;
+  - a copied component records its registry URL, the copy date and every change in a header comment;
+  - bare Alert text lands in the zero-width icon column.
+
+  The bullet also names `tokenConfig`, and the Rossmann sentence now says each matched shop appears once, as its price row. The diff is that one line; the course block's hash (`41403fd5…`) is unchanged.
+
+- **The roadmap's S-07 gets the C5 carry-over bullet** between Risk and Status. It names the session link at `PriceComparisonView.tsx`, where Phase 3 moved it from the research's `PriceComparison.tsx:97`. `updated:` was already today's date. `AGENTS.md` now reads "Every project rule is in `CLAUDE.md`, so read it before any work in this repository."
+- **For `etykiety-redesign`: the owner's untracked design folders break `npm run lint` locally.** `design_handoff_etykiety/` and its copy in `Drogeria Radar redesign/` hold `support.js`, which gives `eslint .` 3,026 problems and `astro check` 8 hints. CI's clean checkout doesn't have them, so 5.1 and 5.4 were judged on the tracked tree, with `--ignore-pattern` for both folders: 0 problems and 0 hints. When the redesign moves the handoff into its change folder, ESLint's ignores and the tsconfig must exclude it.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -741,26 +761,26 @@ The contract outlives this session: a lint rule refuses literals in the cleaned 
 
 #### Automated
 
-- [x] 4.1 `npx astro sync && npx astro check` reports 0 errors
-- [x] 4.2 `npm run lint` passes
-- [x] 4.3 The hardcoded-value scan finds 0 hits in `src/dev/`
+- [x] 4.1 `npx astro sync && npx astro check` reports 0 errors — 9c41de4
+- [x] 4.2 `npm run lint` passes — 9c41de4
+- [x] 4.3 The hardcoded-value scan finds 0 hits in `src/dev/` — 9c41de4
 
 #### Manual
 
-- [x] 4.4 The 7-state matrix is complete for the view's controls, each cell shown in the kitchen sink or marked N/A with its reason
-- [x] 4.5 The screenshots are saved at 1280 and 390 px for the kitchen sink and the product page
+- [x] 4.4 The 7-state matrix is complete for the view's controls, each cell shown in the kitchen sink or marked N/A with its reason — 9c41de4
+- [x] 4.5 The screenshots are saved at 1280 and 390 px for the kitchen sink and the product page — 9c41de4
 
 ### Phase 5: The guard and the docs
 
 #### Automated
 
-- [ ] 5.1 `npm run lint` passes
-- [ ] 5.2 A deliberate break fails lint: a palette class planted in a cleaned file makes `npm run lint` fail, and the file is restored afterwards
-- [ ] 5.3 `npm run test` passes
-- [ ] 5.4 `npx astro sync && npx astro check` reports 0 errors
+- [x] 5.1 `npm run lint` passes
+- [x] 5.2 A deliberate break fails lint: a palette class planted in a cleaned file makes `npm run lint` fail, and the file is restored afterwards
+- [x] 5.3 `npm run test` passes
+- [x] 5.4 `npx astro sync && npx astro check` reports 0 errors
 - [ ] 5.5 CI `ci` and `smoke` jobs are green on the PR
 
 #### Manual
 
-- [ ] 5.6 The CLAUDE.md UI bullet, `AGENTS.md` and the S-07 carry-over read correctly
-- [ ] 5.7 The course block in CLAUDE.md is byte-identical
+- [x] 5.6 The CLAUDE.md UI bullet, `AGENTS.md` and the S-07 carry-over read correctly
+- [x] 5.7 The course block in CLAUDE.md is byte-identical
