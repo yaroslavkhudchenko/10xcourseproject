@@ -82,3 +82,30 @@ async function mapAtMost<T, R>(limit: number, items: T[], task: (item: T) => Pro
 function notFetched(): PriceCheck {
   return { kind: "unavailable", reason: "failed" };
 }
+
+/** The codes the refresh form's route redirects with, as `?prices=<code>`, which each page turns into its own text. */
+export const PRICE_REFRESH_CODES = ["done", "partial", "none", "failed"] as const;
+
+/**
+ * What a refresh from the form came to: `done` when every item got a price or a missing check and all were stored,
+ * `partial` when some got no answer or the answers couldn't be stored, `none` when nothing needed refreshing, and
+ * `failed` when no item got an answer.
+ */
+export type PriceRefreshCode = (typeof PRICE_REFRESH_CODES)[number];
+
+/** The code for what a refresh came to. A refresh of no items asked no shop, so nothing needed refreshing. */
+export function refreshCodeOf({ results, saved }: PriceRefresh): PriceRefreshCode {
+  if (results.length === 0) {
+    return "none";
+  }
+  const answered = results.filter(({ check }) => check.kind !== "unavailable").length;
+  if (answered === 0) {
+    return "failed";
+  }
+  return answered === results.length && saved === "saved" ? "done" : "partial";
+}
+
+/** A `?prices=` code, or null for anything the app didn't send itself, so a link can't put words on a page. */
+export function parsePriceRefreshCode(value: string | null): PriceRefreshCode | null {
+  return PRICE_REFRESH_CODES.find((code) => code === value) ?? null;
+}

@@ -8,6 +8,8 @@ import type { LatestPrice, PriceRefreshAnswer, SearchUnavailableReason, ShopOffe
 
 /** The route that refetches one shop of one product (src/pages/api/watchlist/prices.ts). */
 export const PRICES_ROUTE = "/api/watchlist/prices";
+/** The form route that refreshes a product's prices when JavaScript doesn't run (src/pages/api/watchlist/refresh.ts). */
+export const REFRESH_FORM_ROUTE = "/api/watchlist/refresh";
 // A refetch gives up after 20 s, past the route's own worst case (its database calls and the gate's 8 s), so a row
 // never waits for good.
 const REFRESH_TIMEOUT_MS = 20_000;

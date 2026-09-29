@@ -1,6 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
-import { refreshPrices } from "@/lib/services/price-refresh";
+import {
+  parsePriceRefreshCode,
+  PRICE_REFRESH_CODES,
+  refreshCodeOf,
+  refreshPrices,
+  type PriceRefresh,
+  type PriceRefreshCode,
+} from "@/lib/services/price-refresh";
 import { createShopGate } from "@/lib/services/shop-gate";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
 import type { PriceCheck, PriceKey, ShopId, ShopOffer } from "@/types";
@@ -347,4 +354,66 @@ describe("refreshPrices: storing", () => {
     });
     expect(queries).toEqual(oneInsert([priceRow(NIVEA, niveaOffer)]));
   });
+});
+
+describe("refreshCodeOf", () => {
+  const felixPrice = { key: FELIX, check: { kind: "price", offer: felixOffer } } as const;
+
+  it.each<{ why: string; refresh: PriceRefresh; code: PriceRefreshCode }>([
+    { why: "no item needed refreshing", refresh: { results: [], saved: "none" }, code: "none" },
+    {
+      why: "every item got a price or a missing check, all stored",
+      refresh: { results: [felixPrice, { key: GONE, check: { kind: "missing" } }], saved: "saved" },
+      code: "done",
+    },
+    {
+      why: "an item got no answer",
+      refresh: { results: [felixPrice, { key: NIVEA, check: BUSY }], saved: "saved" },
+      code: "partial",
+    },
+    {
+      why: "the answers couldn't be stored",
+      refresh: { results: [felixPrice, { key: GONE, check: { kind: "missing" } }], saved: "failed" },
+      code: "partial",
+    },
+    {
+      why: "no item got an answer",
+      refresh: {
+        results: [
+          { key: NIVEA, check: BUSY },
+          { key: SOFT, check: FAILED },
+        ],
+        saved: "none",
+      },
+      code: "failed",
+    },
+  ])("gives $code when $why", ({ refresh, code }) => {
+    expect(refreshCodeOf(refresh)).toBe(code);
+  });
+
+  it("gives partial for the Rossmann products past the cap", async () => {
+    let reserved = 0;
+    const { gate } = setup([answers.felix], () => {
+      reserved += 1;
+      return { outcome: reserved <= 1 ? "allowed" : "capped" };
+    });
+    const { client } = stubClient();
+
+    expect(refreshCodeOf(await refreshPrices(gate, client, [FELIX, NIVEA]))).toBe("partial");
+  });
+});
+
+describe("parsePriceRefreshCode", () => {
+  it("reads every code the route sends", () => {
+    for (const code of PRICE_REFRESH_CODES) {
+      expect(parsePriceRefreshCode(code)).toBe(code);
+    }
+  });
+
+  it.each([null, "", "DONE", "done ", "Kliknij tutaj, by odebrać nagrodę", "toString", "__proto__"])(
+    "reads nothing from %j, which the route never sends",
+    (value) => {
+      expect(parsePriceRefreshCode(value)).toBeNull();
+    },
+  );
 });

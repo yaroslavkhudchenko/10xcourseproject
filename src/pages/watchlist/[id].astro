@@ -7,6 +7,7 @@ import { sizesEqual } from "@/lib/services/matching";
 import { decideMatchStep } from "@/lib/services/match-step";
 import { listMatches, matchErrorMessage, recordLookup } from "@/lib/services/matches";
 import type { PricedShop } from "@/lib/services/price-comparison";
+import { parsePriceRefreshCode, type PriceRefreshCode } from "@/lib/services/price-refresh";
 import { keyText, listLatestPrices, recordPriceChecks } from "@/lib/services/prices";
 import { isOwnNavigation } from "@/lib/services/search-query";
 import { shopGateFor } from "@/lib/services/shop-gate";
@@ -232,6 +233,20 @@ const notice = params.has("matched")
       ? "Ten produkt ma już zapisaną decyzję."
       : null;
 const error = matchErrorMessage(params.get("error"));
+
+// What "Odśwież ceny" came to when its form was posted without JavaScript, in the page's own words: a code the app
+// didn't send shows nothing.
+const PRICE_NOTICES: Record<PriceRefreshCode, { text: string; warning: boolean }> = {
+  done: { text: "Ceny odświeżone.", warning: false },
+  partial: {
+    text: "Nie wszystkie ceny udało się odświeżyć. Tam, gdzie się nie udało, widać ostatnią znaną cenę i jej wiek.",
+    warning: true,
+  },
+  none: { text: "Nic do odświeżenia.", warning: false },
+  failed: { text: "Nie udało się odświeżyć cen. Spróbuj ponownie za chwilę.", warning: true },
+};
+const pricesCode = parsePriceRefreshCode(params.get("prices"));
+const pricesNotice = pricesCode === null ? null : PRICE_NOTICES[pricesCode];
 ---
 
 <Layout title={`${title} · Drogeria Radar`} lang="pl">
@@ -288,6 +303,22 @@ const error = matchErrorMessage(params.get("error"));
             <h2 id="prices-heading" class="text-lg font-semibold">
               Ceny
             </h2>
+            {pricesNotice &&
+              (pricesNotice.warning ? (
+                <p
+                  role="alert"
+                  class="rounded-lg border border-amber-400/30 bg-amber-900/30 px-3 py-2 text-sm text-amber-200"
+                >
+                  {pricesNotice.text}
+                </p>
+              ) : (
+                <p
+                  role="status"
+                  class="rounded-lg border border-emerald-400/30 bg-emerald-900/30 px-3 py-2 text-sm text-emerald-200"
+                >
+                  {pricesNotice.text}
+                </p>
+              ))}
             {pricesFailed && (
               <p role="alert" class="rounded-lg border border-red-500/30 bg-red-900/30 px-3 py-2 text-sm text-red-300">
                 Nie udało się wczytać cen.

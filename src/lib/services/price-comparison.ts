@@ -1,8 +1,9 @@
-import type { LatestPrice, PriceKey, ShopId, ShopOffer } from "@/types";
+import type { LatestPrice, PriceKey, ShopId, ShopMatchState, ShopOffer, WatchlistItem } from "@/types";
 
 // The rules that name the cheapest shop today, in one place for the product page, its island and the list, so the
 // server and the browser never disagree: when an item is fetched again, when a price is too old to count, which shops
-// win, and how prices and ages read. It imports nothing server-only, because the island runs it in the browser too.
+// win, how prices and ages read, and what the list says and refreshes. It imports nothing server-only, because the
+// island runs it in the browser too.
 
 /** An item is fetched again once its last check is more than 15 minutes old, so reopening a page costs no request. */
 export const REFETCH_AFTER_MS = 15 * 60 * 1000;
@@ -226,4 +227,176 @@ export function formatPrice(amount: number): string {
 export function formatDay(isoDate: string): string {
   const date = /^\d{4}-(\d{2})-(\d{2})$/.exec(isoDate);
   return date === null ? isoDate : `${date[2]}.${date[1]}`;
+}
+
+/** A shop item a watched product's prices come from: a shop whose prices are fetched, and the shop's own id for it. */
+export interface PricedKey extends PriceKey {
+  shop: PricedShop;
+}
+
+/** A priced shop item with its latest check, if any: a row the comparison judges, and an item a refresh may fetch. */
+export type PricedItem = PricedKey & ShopPrice;
+
+/**
+ * The shop items a watched product's prices come from, in the pages' order: its own item, where it was picked, when
+ * that's Rossmann, then its match's SKU in Natura, when it has one.
+ */
+export function productPriceKeys(
+  product: { source: ShopId; sourceItemId: string },
+  naturaSku: string | null,
+): PricedKey[] {
+  const keys: PricedKey[] = [];
+  if (product.source === "rossmann") {
+    keys.push({ shop: "rossmann", shopItemId: product.sourceItemId });
+  }
+  if (naturaSku !== null) {
+    keys.push({ shop: "natura", shopItemId: naturaSku });
+  }
+  return keys;
+}
+
+/**
+ * Each listed product's priced shop items with their latest checks, by the product's id: what its row on the list
+ * compares, and what the list's refresh picks the stale items from. `matches` are the list's decisions, of which only
+ * a match in Natura adds an item, and `prices` the latest states the user can see; an item without one was never
+ * checked.
+ */
+export function listPricedItems(
+  products: readonly Pick<WatchlistItem, "id" | "source" | "sourceItemId">[],
+  matches: readonly ShopMatchState[],
+  prices: readonly LatestPrice[],
+): Map<string, PricedItem[]> {
+  const naturaSkus = new Map<string, string>();
+  for (const match of matches) {
+    if (match.shop === "natura" && match.state === "matched") {
+      naturaSkus.set(match.watchlistItemId, match.shopItemId);
+    }
+  }
+  const latest = new Map(prices.map((price) => [itemText(price), price] as const));
+  const items = new Map<string, PricedItem[]>();
+  for (const product of products) {
+    const keys = productPriceKeys(product, naturaSkus.get(product.id) ?? null);
+    const withLatest = keys.map((key) => ({ ...key, latest: latest.get(itemText(key)) ?? null }));
+    items.set(product.id, withLatest);
+  }
+  return items;
+}
+
+/**
+ * What the list's "Odśwież ceny" fetches: every priced item whose last check is more than 15 minutes old, once each,
+ * the items never checked first and then the oldest check first, so the gate's cap cuts off the latest checks. Items
+ * that tie keep their order.
+ */
+export function staleTargets(entries: readonly PricedItem[], now: number): PriceKey[] {
+  const stale = entries.filter((entry) => needsRefetch(entry.latest, now)).sort(byOldestCheck);
+  const seen = new Set<string>();
+  const targets: PriceKey[] = [];
+  for (const { shop, shopItemId } of stale) {
+    const text = itemText({ shop, shopItemId });
+    // Two products matched to the same item fetch it once.
+    if (!seen.has(text)) {
+      seen.add(text);
+      targets.push({ shop, shopItemId });
+    }
+  }
+  return targets;
+}
+
+/** Orders items by their last check, the items never checked first. */
+function byOldestCheck(a: PricedItem, b: PricedItem): number {
+  const first = lastCheckTime(a.latest);
+  const second = lastCheckTime(b.latest);
+  if (first === second) {
+    return 0;
+  }
+  return first < second ? -1 : 1;
+}
+
+/** When an item was last checked, in milliseconds. Never, or a time that doesn't parse, comes before any time. */
+function lastCheckTime(latest: LatestCheck | null): number {
+  const time = latest === null ? Number.NaN : Date.parse(latest.lastCheckedAt);
+  return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
+}
+
+/** One text per shop item, to find an item's latest state and to take each item once. */
+function itemText({ shop, shopItemId }: PriceKey): string {
+  return `${shop}/${shopItemId}`;
+}
+
+const NO_PRICES_YET = "Jeszcze bez cen. Otwórz produkt, aby je pobrać.";
+
+/**
+ * A watched product's comparison as its row on the list says it, in one line with the price's age:
+ *
+ * - the cheapest shop or shops and their price, how much less it is than the next shop that can be compared, and why
+ *   each other shop can't be: its price is out of date ("cena nieaktualna"), it can't be ordered online, or it has no
+ *   price
+ * - the only shop's price, marked "nieaktualna" when it's out of date or the shop no longer returns the item, or
+ *   "niedostępny online"
+ * - that no shop's price can be named cheapest, or that no price has been fetched yet
+ *
+ * `summary` and `rows` are what compareShops gave at `now`.
+ */
+export function listSummaryText(
+  summary: ComparisonSummary,
+  rows: readonly (ShopPrice & ShopVerdict)[],
+  now: number,
+): string {
+  switch (summary.kind) {
+    case "cheapest": {
+      const shops = namesOf(summary.shops);
+      const price = formatPrice(summary.price);
+      // A tie names several shops, so a comma sets their price apart.
+      const head = summary.shops.length > 1 ? `Najtaniej: ${shops}, ${price}` : `Najtaniej: ${shops} ${price}`;
+      const savings =
+        summary.savings === null
+          ? ""
+          : `, o ${formatPrice(summary.savings.amount)} taniej niż ${SHOP_LABELS[summary.savings.than].name}`;
+      const others = rows
+        .filter((row) => !row.eligible)
+        .map((row) => `${SHOP_LABELS[row.shop].name}: ${whyNotCompared(row.state)}`);
+      return [`${head}${savings}`, ageText(summary.ageFrom, now), ...others].join(" · ");
+    }
+    case "only": {
+      const row = rows.find((candidate) => candidate.shop === summary.shop);
+      const offer = row?.latest?.offer ?? null;
+      if (row === undefined || offer === null) {
+        return NO_PRICES_YET;
+      }
+      const line = [`Tylko ${SHOP_LABELS[row.shop].in}: ${formatPrice(offer.price)}`, ageText(offer.pricedAt, now)];
+      if (row.state === "stale" || row.state === "missing") {
+        line.push("nieaktualna");
+      } else if (!offer.available) {
+        line.push("niedostępny online");
+      }
+      return line.join(" · ");
+    }
+    case "none":
+      return rows.every((row) => row.state === "none")
+        ? NO_PRICES_YET
+        : "Ceny nieaktualne. Odśwież ceny lub otwórz produkt.";
+  }
+}
+
+/** Shop names as a line lists them: "Natura", "Rossmann i Natura", "Rossmann, Hebe i Natura". */
+function namesOf(shops: readonly PricedShop[]): string {
+  const names = shops.map((shop) => SHOP_LABELS[shop].name);
+  const last = names.pop() ?? "";
+  return names.length === 0 ? last : `${names.join(", ")} i ${last}`;
+}
+
+/**
+ * Why a shop's price can't be named cheapest, as a line says it after the shop's name: an item the shop no longer
+ * returns counts as out of date, and a fresh price that can't win is one that can't be ordered online.
+ */
+function whyNotCompared(state: PriceState): string {
+  switch (state) {
+    case "none":
+      return "brak ceny";
+    case "stale":
+    case "missing":
+      return "cena nieaktualna";
+    case "fresh":
+      return "niedostępny online";
+  }
 }

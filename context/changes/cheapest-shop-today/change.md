@@ -3,7 +3,7 @@ change_id: cheapest-shop-today
 title: See which shop is cheapest today, on the watchlist and on each product
 status: implementing
 created: 2026-09-28
-updated: 2026-09-28
+updated: 2026-09-29
 archived_at: null
 ---
 

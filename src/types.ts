@@ -104,6 +104,14 @@ export type ShopMatch = {
 } & ({ state: "matched"; item: MatchedItem } | { state: "unmatched" | "not_found"; item: null });
 
 /**
+ * Where a watched product stands in one shop, as the list reads it: the decision, and for a match the shop's own id for
+ * the matched item, such as Natura's SKU, which the product's prices there are observed by.
+ */
+export type ShopMatchState = { watchlistItemId: string; shop: ShopId } & (
+  { state: "matched"; shopItemId: string } | { state: "unmatched" | "not_found"; shopItemId: null }
+);
+
+/**
  * Why a shop search produced nothing to show: the shop's cap was reached (`busy`), the shop asked for a pause
  * (`paused`, with its end), the shop blocked us and stays stopped until the owner re-enables it (`stopped`), or the call
  * failed (`failed`).

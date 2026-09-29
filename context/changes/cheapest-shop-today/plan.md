@@ -850,6 +850,30 @@ Where the shipped code differs from the phase contracts above, and why. The phas
   - Opening it from another site made no request and turned `autoRefresh` off.
   - A Natura price moved back 25 hours showed "nieaktualna" and lost the mark to Rossmann.
   - Node's `fetch` sends `Sec-Fetch-Mode: cors` whatever a script sets, and Astro's dev server answers cross-site requests that aren't navigations with 403. The cross-site checks therefore used `node:http`.
+- **Phase 4, one choice of items for the list and its refresh:**
+  - `productPriceKeys` and `listPricedItems` in `price-comparison.ts` give each product's priced items with their latest checks. The list page and the refresh route both use them. `staleTargets` takes those items and fetches each only once.
+  - `listMatchStates` returns `ShopMatchState`, which carries a match's `shopItemId`. It drops a `matched` row without one.
+- **Phase 4, the list line's open cases:**
+  - A last check that found the item missing counts as out of date: "Rossmann: cena nieaktualna", and "· nieaktualna" for a lone shop (US-02, "marks the price stale").
+  - A lone fresh price that can't be ordered online gets "· niedostępny online".
+  - A lone row without a price gives "Jeszcze bez cen…".
+  - "Ceny nieaktualne…" also covers rows whose prices can't win only because they can't be ordered online.
+- **Phase 4, the refresh codes** live in `price-refresh.ts` (`refreshCodeOf`, `parsePriceRefreshCode`), and each page maps them to its own text.
+  - `partial` includes answers that couldn't be stored.
+  - A list, product or decisions read that fails gives `failed` before any shop request.
+  - Another user's product id comes back as `?prices=none` on a page that answers 404.
+- **Phase 4, the list page:**
+  - It shows no price lines when the Natura decisions can't be read, since "Tylko w Rossmannie" could then be wrong.
+  - A footnote, "Ceny online z rossmann.pl i drogerienatura.pl.", labels the prices as online.
+  - The refresh button sits next to the list's heading.
+- **Phase 4, the walk-through (2026-09-29):**
+  - **Checked by the owner:** 1 and 2 on the dev server.
+  - **Checked by the agent, at the owner's request, from the server side:** 3-6, using the gate's `shop_requests`, the stored observations and throwaway local users.
+  - **Viewing the list:** four list views made no request.
+  - **The first list refresh:** nine due items cost six requests, one per Rossmann product plus one Natura request for four SKUs.
+  - **A second list refresh within 15 minutes:** it gave `none` with no request.
+  - **The product page's form** (in its server-rendered HTML, as a browser without JavaScript gets it) gave `done` for one Rossmann and one Natura request.
+  - **A second user** watching NIVEA Soft saw the owner's refreshed line. A user watching nothing saw no row, and the view gave that user `[]`.
 
 ### Accepted during implementation (the owner's call, 2026-09-28)
 
@@ -892,29 +916,29 @@ Where the shipped code differs from the phase contracts above, and why. The phas
 
 #### Automated
 
-- [x] 3.1 `npm run test` passes, including the comparison, wording and island state tests
-- [x] 3.2 `npx astro sync && npx astro check` reports 0 errors
-- [x] 3.3 `npm run lint` passes
-- [x] 3.4 `npm run build` passes
-- [ ] 3.5 CI `ci` and `smoke` jobs are green on the PR, including the new price route smoke steps
+- [x] 3.1 `npm run test` passes, including the comparison, wording and island state tests — 61d1e5b
+- [x] 3.2 `npx astro sync && npx astro check` reports 0 errors — 61d1e5b
+- [x] 3.3 `npm run lint` passes — 61d1e5b
+- [x] 3.4 `npm run build` passes — 61d1e5b
+- [x] 3.5 CI `ci` and `smoke` jobs are green on the PR, including the new price route smoke steps — 61d1e5b
 
 #### Manual
 
-- [x] 3.6 Phone-viewport walk-through against `npm run dev` with the local Supabase: opening a matched product shows the stored prices at once, then each shop updating as it answers, ordered, with the cheapest marked; reopening within 15 minutes makes no shop request; "Odśwież ceny" refetches both shops; a link from another site shows the prices without a refetch and offers the button; a price made 25 hours old in the local database shows "nieaktualna" and loses the mark; an automatic Natura match shows its price with no extra Natura request
+- [x] 3.6 Phone-viewport walk-through against `npm run dev` with the local Supabase: opening a matched product shows the stored prices at once, then each shop updating as it answers, ordered, with the cheapest marked; reopening within 15 minutes makes no shop request; "Odśwież ceny" refetches both shops; a link from another site shows the prices without a refetch and offers the button; a price made 25 hours old in the local database shows "nieaktualna" and loses the mark; an automatic Natura match shows its price with no extra Natura request — 61d1e5b
 
 ### Phase 4: Watchlist prices and refresh
 
 #### Automated
 
-- [ ] 4.1 `npm run test` passes, including the list text and refresh target tests
-- [ ] 4.2 `npx astro sync && npx astro check` reports 0 errors
-- [ ] 4.3 `npm run lint` passes
-- [ ] 4.4 `npm run build` passes
+- [x] 4.1 `npm run test` passes, including the list text and refresh target tests
+- [x] 4.2 `npx astro sync && npx astro check` reports 0 errors
+- [x] 4.3 `npm run lint` passes
+- [x] 4.4 `npm run build` passes
 - [ ] 4.5 CI `ci` and `smoke` jobs are green on the PR, including the refresh route smoke steps
 
 #### Manual
 
-- [ ] 4.6 Phone-viewport walk-through against `npm run dev` with the local Supabase: each matched product's row shows the cheapest shop, its price, the difference and the age; a product matched only in Rossmann shows "Tylko w Rossmannie"; viewing the list makes no shop request; "Odśwież ceny" refreshes only products checked more than 15 minutes ago and shows the result notice; the product page's button works with JavaScript off; a second user watching the same Rossmann item sees the shared price, and a user who doesn't watch it sees none
+- [x] 4.6 Phone-viewport walk-through against `npm run dev` with the local Supabase: each matched product's row shows the cheapest shop, its price, the difference and the age; a product matched only in Rossmann shows "Tylko w Rossmannie"; viewing the list makes no shop request; "Odśwież ceny" refreshes only products checked more than 15 minutes ago and shows the result notice; the product page's button works with JavaScript off; a second user watching the same Rossmann item sees the shared price, and a user who doesn't watch it sees none
 
 ### Phase 5: Docs and production rollout
 

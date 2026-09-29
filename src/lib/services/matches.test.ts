@@ -553,22 +553,22 @@ describe("listMatches", () => {
 });
 
 describe("listMatchStates", () => {
-  it("reads only the list's columns for every decision, with one query within a time limit", async () => {
+  it("reads only the list's columns for every decision, with a match's SKU, in one query within a time limit", async () => {
     const { client, queries } = stubClient({
       data: [
-        { watchlist_item_id: ITEM_ID, shop_id: "natura", state: "matched" },
-        { watchlist_item_id: OTHER_ITEM_ID, shop_id: "natura", state: "not_found" },
+        { watchlist_item_id: ITEM_ID, shop_id: "natura", state: "matched", shop_item_id: "NV89063" },
+        { watchlist_item_id: OTHER_ITEM_ID, shop_id: "natura", state: "not_found", shop_item_id: null },
       ],
     });
 
     expect(await listMatchStates(client)).toEqual([
-      { watchlistItemId: ITEM_ID, shop: "natura", state: "matched" },
-      { watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "not_found" },
+      { watchlistItemId: ITEM_ID, shop: "natura", state: "matched", shopItemId: "NV89063" },
+      { watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "not_found", shopItemId: null },
     ]);
     expect(queries).toEqual([
       [
         ["from", "watchlist_matches"],
-        ["select", "watchlist_item_id, shop_id, state"],
+        ["select", "watchlist_item_id, shop_id, state, shop_item_id"],
         ["abortSignal", true],
       ],
     ]);
@@ -578,14 +578,16 @@ describe("listMatchStates", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { client } = stubClient({
       data: [
-        { watchlist_item_id: ITEM_ID, shop_id: "natura", state: "repinned" },
-        { watchlist_item_id: ITEM_ID, shop_id: "dm", state: "matched" },
-        { watchlist_item_id: OTHER_ITEM_ID, shop_id: "natura", state: "unmatched" },
+        { watchlist_item_id: ITEM_ID, shop_id: "natura", state: "repinned", shop_item_id: null },
+        { watchlist_item_id: ITEM_ID, shop_id: "dm", state: "matched", shop_item_id: "NV89063" },
+        // A match without its item: the list couldn't find its prices.
+        { watchlist_item_id: ITEM_ID, shop_id: "natura", state: "matched", shop_item_id: null },
+        { watchlist_item_id: OTHER_ITEM_ID, shop_id: "natura", state: "unmatched", shop_item_id: null },
       ],
     });
 
     expect(await listMatchStates(client)).toEqual([
-      { watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "unmatched" },
+      { watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "unmatched", shopItemId: null },
     ]);
     expect(warn).toHaveBeenCalledTimes(1);
   });

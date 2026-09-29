@@ -2,6 +2,15 @@
 import ProductSummary from "@/components/watchlist/ProductSummary.astro";
 import Layout from "@/layouts/Layout.astro";
 import { listMatchStates } from "@/lib/services/matches";
+import {
+  compareShops,
+  listPricedItems,
+  listSummaryText,
+  PRICED_SHOPS,
+  SHOP_LABELS,
+} from "@/lib/services/price-comparison";
+import { parsePriceRefreshCode, type PriceRefreshCode } from "@/lib/services/price-refresh";
+import { listLatestPrices } from "@/lib/services/prices";
 import { shopGateFor } from "@/lib/services/shop-gate";
 import { isOwnNavigation, searchQuerySchema } from "@/lib/services/search-query";
 import { searchRossmann } from "@/lib/services/shops/rossmann";
@@ -20,11 +29,13 @@ const invalidQuery = parsedQuery !== null && !parsedQuery.success;
 // A link on another site only fills in the form: just the user's own navigation spends the shared cap.
 const searchAllowed = isOwnNavigation(Astro.request.headers);
 
-// The matches come from one query for the whole list, never one per product, and carry only what the list shows.
-const [search, items, matches] = await Promise.all([
+// The matches and the prices come from one query each for the whole list, never one per product, and carry only what
+// the list shows. The prices are the stored ones: viewing the list asks no shop.
+const [search, items, matches, prices] = await Promise.all([
   query === null || !searchAllowed ? null : searchRossmann(shopGateFor(supabase), query),
   supabase ? listWatchlist(supabase) : null,
   supabase ? listMatchStates(supabase) : null,
+  supabase ? listLatestPrices(supabase) : null,
 ]);
 
 const unavailableMessage =
@@ -46,6 +57,55 @@ const NATURA_STATUS: Record<MatchState | "none", { text: string; tone: string }>
 function naturaStatus(itemId: string) {
   return NATURA_STATUS[naturaStates.get(itemId) ?? "none"];
 }
+
+/** One line of text under a product on the list, with its colour. */
+interface RowLine {
+  text: string;
+  tone: string;
+}
+
+// Each product's shop items with their stored prices: its own Rossmann item and its Natura match, compared at the
+// time of this render. Without the prices or the Natura decisions a row can't say which shop is cheapest, so no row
+// gets a price line.
+const now = Date.now();
+const pricedItems =
+  items !== null && matches !== null && prices !== null ? listPricedItems(items, matches, prices) : null;
+const priceSites = PRICED_SHOPS.map((shop) => SHOP_LABELS[shop].site).join(" i ");
+
+/** A product's price line: the cheapest shop in green, the only shop's fresh, orderable price plainly, else a warning. */
+function priceLine(itemId: string): RowLine | null {
+  const rows = pricedItems?.get(itemId);
+  if (rows === undefined) {
+    return null;
+  }
+  const { summary, rows: compared } = compareShops(rows, now);
+  const current = summary.kind === "only" && compared.every((row) => row.eligible);
+  const tone = summary.kind === "cheapest" ? "text-emerald-200" : current ? "text-blue-100/80" : "text-amber-200";
+  return { text: listSummaryText(summary, compared, now), tone };
+}
+
+/** What a row shows under the product: its price line, then S-02's Natura status, which a match's price line replaces. */
+function rowLines(itemId: string): RowLine[] {
+  const price = priceLine(itemId);
+  const lines: RowLine[] = price === null ? [] : [price];
+  if (matches !== null && !(price !== null && naturaStates.get(itemId) === "matched")) {
+    lines.push(naturaStatus(itemId));
+  }
+  return lines;
+}
+
+// What the list's "Odśwież ceny" came to, in the page's own words: a code the app didn't send shows nothing.
+const PRICE_NOTICES: Record<PriceRefreshCode, { text: string; warning: boolean }> = {
+  done: { text: "Ceny odświeżone.", warning: false },
+  partial: {
+    text: "Nie wszystkie ceny udało się odświeżyć. Tam, gdzie się nie udało, widać ostatnią znaną cenę i jej wiek.",
+    warning: true,
+  },
+  none: { text: "Nic do odświeżenia: ceny sprawdzono w ciągu ostatnich 15 minut.", warning: false },
+  failed: { text: "Nie udało się odświeżyć cen. Spróbuj ponownie za chwilę.", warning: true },
+};
+const pricesCode = parsePriceRefreshCode(params.get("prices"));
+const pricesNotice = pricesCode === null ? null : PRICE_NOTICES[pricesCode];
 
 const notice = params.has("exists") ? "Ten produkt jest już na Twojej liście." : null;
 const error = watchlistErrorMessage(params.get("error"));
@@ -185,9 +245,37 @@ const addedOn = new Intl.DateTimeFormat("pl-PL", { dateStyle: "long", timeZone: 
       )}
 
       <section aria-labelledby="list-heading" class="flex flex-col gap-3">
-        <h2 id="list-heading" class="text-lg font-semibold">
-          Obserwowane produkty
-        </h2>
+        <div class="flex items-center justify-between gap-3">
+          <h2 id="list-heading" class="text-lg font-semibold">
+            Obserwowane produkty
+          </h2>
+          {items !== null && items.length > 0 && (
+            <form method="POST" action="/api/watchlist/refresh" class="shrink-0">
+              <button
+                type="submit"
+                class="min-h-11 rounded-lg border border-white/20 px-3 text-sm transition-colors hover:bg-white/10"
+              >
+                Odśwież ceny
+              </button>
+            </form>
+          )}
+        </div>
+        {pricesNotice &&
+          (pricesNotice.warning ? (
+            <p
+              role="alert"
+              class="rounded-lg border border-amber-400/30 bg-amber-900/30 px-3 py-2 text-sm text-amber-200"
+            >
+              {pricesNotice.text}
+            </p>
+          ) : (
+            <p
+              role="status"
+              class="rounded-lg border border-emerald-400/30 bg-emerald-900/30 px-3 py-2 text-sm text-emerald-200"
+            >
+              {pricesNotice.text}
+            </p>
+          ))}
         {items === null ? (
           <p role="alert" class="text-sm text-red-300">
             Nie udało się wczytać listy. Odśwież stronę.
@@ -199,6 +287,11 @@ const addedOn = new Intl.DateTimeFormat("pl-PL", { dateStyle: "long", timeZone: 
             {matches === null && (
               <p role="alert" class="text-sm text-red-300">
                 Nie udało się wczytać dopasowań w Naturze. Odśwież stronę.
+              </p>
+            )}
+            {prices === null && (
+              <p role="alert" class="text-sm text-red-300">
+                Nie udało się wczytać cen. Odśwież stronę.
               </p>
             )}
             <ul class="flex flex-col gap-2">
@@ -216,13 +309,14 @@ const addedOn = new Intl.DateTimeFormat("pl-PL", { dateStyle: "long", timeZone: 
                       imageUrl={item.imageUrl}
                       detail={`dodano ${addedOn.format(new Date(item.addedAt))}`}
                     />
-                    {matches !== null && (
-                      <span class:list={["text-sm", naturaStatus(item.id).tone]}>{naturaStatus(item.id).text}</span>
-                    )}
+                    {rowLines(item.id).map((line) => (
+                      <span class:list={["text-sm", line.tone]}>{line.text}</span>
+                    ))}
                   </a>
                 </li>
               ))}
             </ul>
+            {pricedItems !== null && <p class="text-xs text-blue-100/50">Ceny online z {priceSites}.</p>}
           </>
         )}
       </section>

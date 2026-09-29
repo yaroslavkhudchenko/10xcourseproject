@@ -50,7 +50,11 @@ const pricesRoute = "/api/watchlist/prices";
 const priceRefresh = (options) => request(pricesRoute, { method: "POST", ...options });
 const missingProductPrice = { itemId: missingProductId, shop: "rossmann" };
 
-// No step searches (no `q`), opens a product that exists or refreshes its price, so the smoke test never calls a shop.
+// The list's "Odśwież ceny", a plain form post. The smoke user's list stays empty, so it has nothing to refresh.
+const listRefresh = (options) => request("/api/watchlist/refresh", { method: "POST", form: {}, ...options });
+
+// No step searches (no `q`), opens a product that exists or refreshes its price, and the list refresh runs on an empty
+// list, so the smoke test never calls a shop.
 const steps = [
   ["home renders", () => request("/"), { status: 200 }],
   ["dashboard redirects anonymous user", () => request("/dashboard"), { status: 302, location: "/auth/signin" }],
@@ -61,6 +65,7 @@ const steps = [
     () => priceRefresh({ json: missingProductPrice }),
     { status: 302, location: "/auth/signin" },
   ],
+  ["list price refresh redirects anonymous user", () => listRefresh(), { status: 302, location: "/auth/signin" }],
   [
     "signup creates account",
     () => request("/api/auth/signup", { method: "POST", form: { email, password } }),
@@ -114,6 +119,17 @@ const steps = [
     // Astro's checkOrigin lets JSON through whatever its origin, so the route refuses other sites itself.
     "price refresh posted from another site is refused",
     () => priceRefresh({ json: missingProductPrice, origin: "https://example.org" }),
+    { status: 403 },
+  ],
+  [
+    "list price refresh of an empty list refreshes nothing",
+    () => listRefresh(),
+    { status: 302, location: "/watchlist?prices=none" },
+  ],
+  [
+    // Astro's checkOrigin is the refresh route's only defence against a form posted from another site.
+    "list price refresh posted from another site is refused",
+    () => listRefresh({ origin: "https://evil.example" }),
     { status: 403 },
   ],
   ["dashboard renders for signed-in user", () => request("/dashboard"), { status: 200 }],

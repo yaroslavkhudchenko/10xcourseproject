@@ -4,6 +4,7 @@ import {
   done,
   initialState,
   priceComparisonReducer,
+  REFRESH_FORM_ROUTE,
   requestRefresh,
   start,
   tick,
@@ -37,7 +38,8 @@ interface Props {
 
 // A product's prices in its matched shops, ordered and with the cheapest marked, shown at once from the stored prices.
 // Each shop is refetched on its own through /api/watchlist/prices, and its row, the order and the marks change as it
-// answers.
+// answers. Without JavaScript, "Odśwież ceny" posts its form to /api/watchlist/refresh, and the page comes back with
+// the refreshed prices.
 export default function PriceComparison({ itemId, shops, autoRefresh, now }: Props) {
   const [state, dispatch] = useReducer(priceComparisonReducer, { shops, now }, initialState);
 
@@ -103,18 +105,26 @@ export default function PriceComparison({ itemId, shops, autoRefresh, now }: Pro
           <PriceRow key={row.shop} row={row} now={state.now} />
         ))}
       </ul>
-      <button
-        type="button"
-        onClick={() => {
+      <form
+        method="POST"
+        action={REFRESH_FORM_ROUTE}
+        onSubmit={(event) => {
+          // With JavaScript each shop is refetched here, and its row updates as it answers, in place of the post.
+          event.preventDefault();
           for (const row of state.rows) {
             refresh(row.shop);
           }
         }}
-        disabled={refreshing}
-        className="min-h-11 w-full rounded-lg border border-white/20 px-4 text-sm transition-colors hover:bg-white/10 disabled:opacity-60"
       >
-        Odśwież ceny
-      </button>
+        <input type="hidden" name="itemId" value={itemId} />
+        <button
+          type="submit"
+          disabled={refreshing}
+          className="min-h-11 w-full rounded-lg border border-white/20 px-4 text-sm transition-colors hover:bg-white/10 disabled:opacity-60"
+        >
+          Odśwież ceny
+        </button>
+      </form>
     </div>
   );
 }
