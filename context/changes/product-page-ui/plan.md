@@ -774,13 +774,13 @@ The contract outlives this session: a lint rule refuses literals in the cleaned 
 
 #### Automated
 
-- [x] 5.1 `npm run lint` passes
-- [x] 5.2 A deliberate break fails lint: a palette class planted in a cleaned file makes `npm run lint` fail, and the file is restored afterwards
-- [x] 5.3 `npm run test` passes
-- [x] 5.4 `npx astro sync && npx astro check` reports 0 errors
-- [ ] 5.5 CI `ci` and `smoke` jobs are green on the PR
+- [x] 5.1 `npm run lint` passes — 2a449e5
+- [x] 5.2 A deliberate break fails lint: a palette class planted in a cleaned file makes `npm run lint` fail, and the file is restored afterwards — 2a449e5
+- [x] 5.3 `npm run test` passes — 2a449e5
+- [x] 5.4 `npx astro sync && npx astro check` reports 0 errors — 2a449e5
+- [x] 5.5 CI `ci` and `smoke` jobs are green on the PR — 2a449e5
 
 #### Manual
 
-- [x] 5.6 The CLAUDE.md UI bullet, `AGENTS.md` and the S-07 carry-over read correctly
-- [x] 5.7 The course block in CLAUDE.md is byte-identical
+- [x] 5.6 The CLAUDE.md UI bullet, `AGENTS.md` and the S-07 carry-over read correctly — 2a449e5
+- [x] 5.7 The course block in CLAUDE.md is byte-identical — 2a449e5
