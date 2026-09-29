@@ -947,11 +947,11 @@ Where the shipped code differs from the phase contracts above, and why. The phas
 
 #### Automated
 
-- [ ] 5.1 CI `ci` and `smoke` jobs are green on the PR after the documentation changes
-- [x] 5.2 `npx supabase migration list --linked` shows the price migration with a remote version
+- [x] 5.1 CI `ci` and `smoke` jobs are green on the PR after the documentation changes — 28d48c4
+- [x] 5.2 `npx supabase migration list --linked` shows the price migration with a remote version — 28d48c4
 
 #### Manual
 
-- [x] 5.3 Owner ran `npx supabase db push` (the dry run listed only the price migration) and it reported success
-- [x] 5.4 Supabase dashboard shows `price_observations` with RLS on and its two policies, and `latest_price_observations`; Security Advisor shows no errors
-- [x] 5.5 CLAUDE.md and research note updates reviewed
+- [x] 5.3 Owner ran `npx supabase db push` (the dry run listed only the price migration) and it reported success — 28d48c4
+- [x] 5.4 Supabase dashboard shows `price_observations` with RLS on and its two policies, and `latest_price_observations`; Security Advisor shows no errors — 28d48c4
+- [x] 5.5 CLAUDE.md and research note updates reviewed — 28d48c4
