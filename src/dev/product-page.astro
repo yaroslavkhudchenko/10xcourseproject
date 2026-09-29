@@ -1,0 +1,176 @@
+---
+// The product page's kitchen sink: its components in each variant, from fixtures, for review and screenshots. Only
+// `astro dev` serves it (astro.config.mjs), and it imports nothing that reaches Supabase or a shop. Tailwind doesn't
+// scan this folder (global.css), so its markup uses only classes the app itself uses.
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import Layout from "@/layouts/Layout.astro";
+
+// Every link leads back here, so a stray tap goes nowhere.
+const HERE = "/dev/product-page";
+
+const BADGES = [
+  { variant: "default", text: "Na liście" },
+  { variant: "secondary", text: "Rossmann" },
+  { variant: "destructive", text: "Nie znaleziono" },
+  { variant: "outline", text: "Drogerie Natura" },
+  { variant: "ghost", text: "rossmann.pl" },
+  { variant: "link", text: "Zobacz w sklepie" },
+  { variant: "success", text: "Najtaniej" },
+  { variant: "warning", text: "nieaktualna" },
+] as const;
+
+const BUTTONS = [
+  { variant: "default", text: "To ten produkt" },
+  { variant: "destructive", text: "Wyloguj" },
+  { variant: "outline", text: "Żaden z nich" },
+  { variant: "secondary", text: "Szukaj" },
+  { variant: "ghost", text: "Moja lista" },
+  { variant: "link", text: "Pokaż zapisaną decyzję" },
+] as const;
+
+const LINK_BUTTONS = [
+  { variant: "default", text: "Dopasuj w Naturze" },
+  { variant: "outline", text: "Szukaj ponownie" },
+  { variant: "link", text: "Zobacz w sklepie" },
+] as const;
+---
+
+<Layout title="Kitchen sink · Drogeria Radar" lang="pl">
+  <main class="mx-auto flex max-w-lg flex-col gap-6 p-4 sm:p-8">
+    <header class="flex flex-col gap-3">
+      <h1 class="text-2xl font-bold">Kitchen sink: strona produktu</h1>
+      <p class="text-sm text-muted-foreground">
+        Komponenty z <code>src/components/ui</code> w każdym wariancie, na danych przykładowych. Ta strona istnieje
+        tylko w <code>astro dev</code>.
+      </p>
+    </header>
+
+    <section aria-labelledby="card-heading" class="flex flex-col gap-3">
+      <h2 id="card-heading" class="text-lg font-semibold">
+        Card
+      </h2>
+      <Card>
+        <CardHeader>
+          <CardTitle>Drogerie Natura</CardTitle>
+          <CardDescription>cena online w drogerienatura.pl · 5 min temu</CardDescription>
+          <CardAction>
+            <Badge variant="success">Najtaniej</Badge>
+          </CardAction>
+        </CardHeader>
+        <CardContent>
+          <p class="text-2xl font-bold">22,99 zł</p>
+          <p class="text-sm text-muted-foreground">najniższa cena z 30 dni wg sklepu: 23,99 zł</p>
+        </CardContent>
+        <CardFooter>
+          <a href={HERE} class:list={buttonVariants({ variant: "link", size: "touch" })}>
+            Zobacz w sklepie
+          </a>
+        </CardFooter>
+      </Card>
+    </section>
+
+    <section aria-labelledby="alert-heading" class="flex flex-col gap-3">
+      <h2 id="alert-heading" class="text-lg font-semibold">
+        Alert
+      </h2>
+      <div class="flex flex-col gap-1">
+        <p class="text-xs text-muted-foreground">
+          <code>default</code>, <code>role="status"</code>
+        </p>
+        <Alert role="status">
+          <AlertDescription>Nic do odświeżenia: ceny sprawdzono w ciągu ostatnich 15 minut.</AlertDescription>
+        </Alert>
+      </div>
+      <div class="flex flex-col gap-1">
+        <p class="text-xs text-muted-foreground">
+          <code>success</code>, <code>role="status"</code>
+        </p>
+        <Alert variant="success" role="status">
+          <AlertDescription>Zapisano dopasowanie.</AlertDescription>
+        </Alert>
+      </div>
+      <div class="flex flex-col gap-1">
+        <p class="text-xs text-muted-foreground">
+          <code>warning</code>, domyślnie <code>role="alert"</code>
+        </p>
+        <Alert variant="warning">
+          <AlertDescription>
+            Nie wszystkie ceny udało się odświeżyć. Tam, gdzie się nie udało, widać ostatnią znaną cenę i jej wiek.
+          </AlertDescription>
+        </Alert>
+      </div>
+      <div class="flex flex-col gap-1">
+        <p class="text-xs text-muted-foreground">
+          <code>destructive</code>, domyślnie <code>role="alert"</code>
+        </p>
+        <Alert variant="destructive">
+          <AlertDescription>Nie udało się zapisać wyboru. Spróbuj ponownie.</AlertDescription>
+        </Alert>
+      </div>
+    </section>
+
+    <section aria-labelledby="badge-heading" class="flex flex-col gap-3">
+      <h2 id="badge-heading" class="text-lg font-semibold">
+        Badge
+      </h2>
+      <ul class="flex flex-col gap-3">
+        {BADGES.map(({ variant, text }) => (
+          <li class="flex flex-col items-start gap-1">
+            <code class="text-xs text-muted-foreground">{variant}</code>
+            <Badge variant={variant}>{text}</Badge>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section aria-labelledby="button-heading" class="flex flex-col gap-3">
+      <h2 id="button-heading" class="text-lg font-semibold">
+        Button
+      </h2>
+      <p class="text-sm text-muted-foreground">
+        Każdy wariant w rozmiarze <code>touch</code>, co najmniej 44 px.
+      </p>
+      <ul class="flex flex-col gap-3">
+        {BUTTONS.map(({ variant, text }) => (
+          <li class="flex flex-col items-start gap-1">
+            <code class="text-xs text-muted-foreground">{variant}</code>
+            <Button type="button" variant={variant} size="touch">
+              {text}
+            </Button>
+          </li>
+        ))}
+        <li class="flex flex-col items-start gap-1">
+          <code class="text-xs text-muted-foreground">default, disabled</code>
+          <Button type="button" size="touch" disabled>
+            To ten produkt
+          </Button>
+        </li>
+        <li class="flex flex-col items-start gap-1">
+          <code class="text-xs text-muted-foreground">outline, disabled</code>
+          <Button type="button" variant="outline" size="touch" disabled>
+            Odśwież ceny
+          </Button>
+        </li>
+        {LINK_BUTTONS.map(({ variant, text }) => (
+          <li class="flex flex-col items-start gap-1">
+            <code class="text-xs text-muted-foreground">{`<a>, buttonVariants: ${variant}`}</code>
+            <a href={HERE} class:list={buttonVariants({ variant, size: "touch" })}>
+              {text}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  </main>
+</Layout>

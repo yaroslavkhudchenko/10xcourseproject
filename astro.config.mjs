@@ -6,10 +6,24 @@ import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
 import cloudflare from "@astrojs/cloudflare";
 
+// The kitchen sink at /dev/product-page renders the product page's components and states from fixtures, for review
+// and screenshots. Only `astro dev` gets the route: the build never sees it, so no Worker serves it.
+/** @type {import("astro").AstroIntegration} */
+const devKitchenSink = {
+  name: "dev-kitchen-sink",
+  hooks: {
+    "astro:config:setup": ({ command, injectRoute }) => {
+      if (command === "dev") {
+        injectRoute({ pattern: "/dev/product-page", entrypoint: "./src/dev/product-page.astro" });
+      }
+    },
+  },
+};
+
 // https://astro.build/config
 export default defineConfig({
   output: "server",
-  integrations: [react(), sitemap()],
+  integrations: [react(), sitemap(), devKitchenSink],
   vite: {
     plugins: [tailwindcss()],
   },
