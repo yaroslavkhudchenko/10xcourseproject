@@ -23,6 +23,8 @@ jobs:
       - run: npx astro check
       - run: npm run test
       - run: npm run build
+      - name: Check the build shipped its web fonts
+        run: node scripts/check-built-fonts.mjs
 
   smoke:
     runs-on: ubuntu-latest

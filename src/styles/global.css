@@ -2,36 +2,63 @@
 @import "tw-animate-css";
 /* The dev-only kitchen sink adds no CSS, under astro dev too: its markup may use only classes the app already has. */
 @source not "../dev";
+/* The design handoff and the docs in context/ aren't the app: their HTML and scripts must not add classes to it. */
+@source not "../../context";
 
 @custom-variant dark (&:is(.dark *));
 
+/* The two themes, from the "Etykiety i naklejki" handoff (context/changes/etykiety-redesign/handoff/README.md): the
+   light one here in :root, the default, and the dark one in .dark, which the class on <html> switches on (Layout.astro
+   picks it). A value taken from the handoff names its colour there in a comment. Both blocks set every token, and a
+   var() in either names a token of its own block, so a .dark wrapper inside a light page switches them all. The
+   --chart-* and --sidebar-* tokens are unused and keep shadcn's values. scripts/check-token-contrast.mjs reads both
+   blocks and checks the contrast of the text, focus and field-border pairs listed in it, in each theme. */
 :root {
+  color-scheme: light;
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --background-glow: oklch(0.97 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --link: oklch(0.496 0.265 301.924);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --thumbnail: oklch(1 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --success: oklch(0.596 0.145 163.225);
-  --success-foreground: oklch(0.432 0.095 166.913);
-  --warning: oklch(0.769 0.188 70.08);
-  --warning-foreground: oklch(0.473 0.137 46.201);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --background: oklch(0.972 0.017 84.6); /* #FBF5E9, the paper */
+  --background-dot: oklch(0.236 0.034 293.8 / 7.5%); /* rgba(31,27,45,.075), the paper's dot grid */
+  --foreground: oklch(0.236 0.034 293.8); /* #1F1B2D, the ink */
+  --card: oklch(1 0 0); /* #FFFFFF */
+  --card-foreground: var(--foreground);
+  --popover: oklch(1 0 0); /* #FFFFFF */
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.236 0.034 293.8); /* #1F1B2D */
+  --primary-foreground: oklch(0.98 0.024 88.2); /* #FFF8E7 */
+  --primary-shadow: var(--sun);
+  --link: oklch(0.236 0.034 293.8); /* #1F1B2D */
+  --secondary: oklch(0.945 0.021 85.9); /* #F3ECDD */
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.945 0.021 85.9); /* #F3ECDD */
+  --muted-foreground: oklch(0.516 0.032 299); /* #6A6478 */
+  --thumbnail: oklch(1 0 0); /* #FFFFFF */
+  --accent: oklch(0.945 0.021 85.9); /* #F3ECDD */
+  --accent-foreground: var(--foreground);
+  /* shadcn's red-600, oklch(0.577 0.245 27.325), darkened with its hue and chroma kept: on this paper a destructive
+     Alert's description, at /90, reached only 3.11:1 over a dot of the grid, where it needs 4.5:1. */
+  --destructive: oklch(0.43 0.245 27.325);
+  --success: oklch(0.932 0.048 158.5); /* #CFF3DD */
+  --success-foreground: oklch(0.427 0.094 157.5); /* #0F5E3A */
+  --warning: oklch(0.897 0.058 46.4); /* #FFD2BD */
+  --warning-foreground: oklch(0.452 0.119 41.8); /* #8A3A17 */
+  --border: oklch(0.906 0.029 84.6); /* #E9DFCB */
+  --input: oklch(0.236 0.034 293.8); /* #1F1B2D */
+  --ring: oklch(0.236 0.034 293.8); /* #1F1B2D */
+  --sun: oklch(0.879 0.162 90.9); /* #FFD23F */
+  --label-ink: oklch(0.236 0.034 293.8); /* #1F1B2D */
+  --shadow-ink: oklch(0.236 0.034 293.8); /* #1F1B2D */
+  --tag-warn: oklch(0.897 0.058 46.4); /* #FFD2BD */
+  --tag-warn-border: oklch(0.781 0.113 45); /* #F4A07A */
+  --tag-plain: oklch(0.972 0.017 84.6); /* #FBF5E9 */
+  --shop-rossmann: oklch(0.871 0.064 259.4); /* #BCD6FF */
+  --shop-natura: oklch(0.898 0.074 157.9); /* #B5EDCB */
+  --sticker-info: oklch(0.917 0.04 258.8); /* #D4E5FF */
+  --sticker-plain: oklch(1 0 0); /* #FFFFFF */
+  --avatar: oklch(0.914 0.049 299.8); /* #E7DCFF */
+  --tile-1: oklch(0.925 0.036 268.3); /* #DCE6FF */
+  --tile-2: oklch(0.929 0.043 57.1); /* #FFE1CC */
+  --tile-3: oklch(0.942 0.044 128.4); /* #E3F2D3 */
+  --tile-4: oklch(0.921 0.041 318.4); /* #F1DDF7 */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -47,39 +74,52 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-/* The theme every page renders in (<html class="dark">): the navy-and-purple "cosmic" look the pages painted with
-   palette classes, as tokens. A value taken from the pages names in its comment the Tailwind palette colour or the hex
-   gradient stop it replaces; the others keep shadcn's neutral dark values. scripts/check-token-contrast.mjs reads this
-   block and checks the contrast of the text and focus pairs listed in it. */
+/* The labels, stickers, tiles and shop colours stay light in the dark theme, like the paper labels they are, and keep
+   their dark --label-ink text. */
 .dark {
   color-scheme: dark;
-  --background: oklch(0.1663 0.0262 269.371); /* #0a0e1a */
-  --background-glow: oklch(0.2014 0.0412 269.806); /* #0f1529 */
-  --foreground: oklch(1 0 0); /* white */
-  --card: oklch(1 0 0 / 5%); /* white/5 */
-  --card-foreground: oklch(1 0 0); /* white */
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.558 0.288 302.321); /* purple-600 */
-  --primary-foreground: oklch(1 0 0); /* white */
-  --link: oklch(0.827 0.119 306.383); /* purple-300 */
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(1 0 0 / 10%); /* white/10 */
-  /* One value for blue-100 at 80, 70 and 60%: 80%, which 12 of the 16 uses had. */
-  --muted-foreground: oklch(0.932 0.032 255.585 / 80%); /* blue-100/80 */
-  --thumbnail: oklch(1 0 0); /* white, behind product photos */
-  --accent: oklch(1 0 0 / 10%); /* white/10 */
-  --accent-foreground: oklch(0.985 0 0);
+  --background: oklch(0.203 0.02 293.7); /* #17151F, the paper */
+  --background-dot: oklch(0.96 0.021 85.9 / 6%); /* rgba(248,241,226,.06), the paper's dot grid */
+  --foreground: oklch(0.96 0.021 85.9); /* #F8F1E2, the ink */
+  --card: oklch(0.25 0.028 293.4); /* #221F2E */
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.25 0.028 293.4); /* #221F2E */
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.879 0.162 90.9); /* #FFD23F */
+  --primary-foreground: oklch(0.236 0.034 293.8); /* #1F1B2D */
+  --primary-shadow: oklch(0 0 0); /* #000000 */
+  --link: oklch(0.96 0.021 85.9); /* #F8F1E2 */
+  --secondary: oklch(0.296 0.033 291.9); /* #2D2A3C */
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.296 0.033 291.9); /* #2D2A3C */
+  --muted-foreground: oklch(0.774 0.032 302.2); /* #B9B1C7 */
+  --thumbnail: oklch(1 0 0); /* #FFFFFF, behind product photos */
+  --accent: oklch(0.296 0.033 291.9); /* #2D2A3C */
+  --accent-foreground: var(--foreground);
   --destructive: oklch(0.808 0.114 19.571); /* red-300 */
-  --success: oklch(0.765 0.177 163.223); /* emerald-400 */
-  --success-foreground: oklch(0.905 0.093 164.15); /* emerald-200 */
-  --warning: oklch(0.828 0.189 84.429); /* amber-400 */
-  --warning-foreground: oklch(0.924 0.12 95.746); /* amber-200 */
-  --border: oklch(1 0 0 / 10%); /* white/10 */
-  --input: oklch(1 0 0 / 20%); /* white/20 */
-  /* Drawn at 50% (outline-ring/50, ring-ring/50), where it still reaches 3:1 against the canvas and a card. */
-  --ring: oklch(0.827 0.119 306.383); /* purple-300 */
+  --success: oklch(0.332 0.042 166.2); /* #1F3D31 */
+  --success-foreground: oklch(0.86 0.112 160.3); /* #8BE8B8 */
+  --warning: oklch(0.308 0.044 39.2); /* #43281F */
+  --warning-foreground: oklch(0.841 0.095 46.6); /* #FFB896 */
+  --border: oklch(0.334 0.044 293); /* #37324B */
+  /* #6E6986, lighter than the handoff's #4A4560, which the field's border needs to reach 3:1 against the paper. */
+  --input: oklch(0.537 0.045 292.8);
+  --ring: oklch(0.879 0.162 90.9); /* #FFD23F */
+  --sun: oklch(0.879 0.162 90.9); /* #FFD23F */
+  --label-ink: oklch(0.236 0.034 293.8); /* #1F1B2D */
+  --shadow-ink: oklch(0 0 0); /* #000000 */
+  --tag-warn: oklch(0.897 0.058 46.4); /* #FFD2BD */
+  --tag-warn-border: oklch(0.781 0.113 45); /* #F4A07A */
+  --tag-plain: oklch(0.972 0.017 84.6); /* #FBF5E9 */
+  --shop-rossmann: oklch(0.871 0.064 259.4); /* #BCD6FF */
+  --shop-natura: oklch(0.898 0.074 157.9); /* #B5EDCB */
+  --sticker-info: oklch(0.917 0.04 258.8); /* #D4E5FF */
+  --sticker-plain: oklch(1 0 0); /* #FFFFFF */
+  --avatar: oklch(0.914 0.049 299.8); /* #E7DCFF */
+  --tile-1: oklch(0.925 0.036 268.3); /* #DCE6FF */
+  --tile-2: oklch(0.929 0.043 57.1); /* #FFE1CC */
+  --tile-3: oklch(0.942 0.044 128.4); /* #E3F2D3 */
+  --tile-4: oklch(0.921 0.041 318.4); /* #F1DDF7 */
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -96,12 +136,16 @@
 }
 
 @theme inline {
+  /* The web fonts, self-hosted through Astro's Fonts API (astro.config.mjs): <Font /> in Layout.astro sets the
+     variables. Bricolage Grotesque is every text's font, DM Mono the meta text's. */
+  --font-sans: var(--font-bricolage);
+  --font-mono: var(--font-dm-mono);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --color-background: var(--background);
-  --color-background-glow: var(--background-glow);
+  --color-background-dot: var(--background-dot);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
@@ -109,6 +153,7 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-shadow: var(--primary-shadow);
   --color-link: var(--link);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -125,6 +170,21 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-sun: var(--sun);
+  --color-label-ink: var(--label-ink);
+  --color-shadow-ink: var(--shadow-ink);
+  --color-tag-warn: var(--tag-warn);
+  --color-tag-warn-border: var(--tag-warn-border);
+  --color-tag-plain: var(--tag-plain);
+  --color-shop-rossmann: var(--shop-rossmann);
+  --color-shop-natura: var(--shop-natura);
+  --color-sticker-info: var(--sticker-info);
+  --color-sticker-plain: var(--sticker-plain);
+  --color-avatar: var(--avatar);
+  --color-tile-1: var(--tile-1);
+  --color-tile-2: var(--tile-2);
+  --color-tile-3: var(--tile-3);
+  --color-tile-4: var(--tile-4);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -140,8 +200,23 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* The redesigned pages' canvas: the paper, with its dot grid. */
+@utility bg-paper {
+  background-color: var(--background);
+  background-image: radial-gradient(var(--background-dot) 1px, transparent 1.4px);
+  background-size: 18px 18px;
+}
+
+/* The starter's navy gradient, which /, /dashboard and /auth/* paint with until S-07 restyles them. Its stops are the
+   old dark theme's --background and --background-glow, as fixed values, so those pages keep their look in the new
+   dark theme. */
 @utility bg-cosmic {
-  background-image: linear-gradient(to bottom, var(--background), var(--background-glow), var(--background));
+  background-image: linear-gradient(
+    to bottom,
+    oklch(0.1663 0.0262 269.371),
+    oklch(0.2014 0.0412 269.806),
+    oklch(0.1663 0.0262 269.371)
+  );
 }
 
 @layer base {

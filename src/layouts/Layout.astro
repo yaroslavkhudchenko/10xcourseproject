@@ -1,23 +1,48 @@
 ---
 import "../styles/global.css";
+import { Font } from "astro:assets";
 import Banner from "@/components/Banner.astro";
 import { missingConfigs } from "@/lib/config-status";
+import { DARK_THEME, LIGHT_THEME, THEME_STORAGE_KEY, type Theme } from "@/lib/theme";
 
 interface Props {
   title?: string;
   lang?: string;
+  /**
+   * The theme the page is drawn in. "user", the default, is the user's stored choice, else the system's, which a head
+   * script sets before the first paint. "dark" or "light" pins the page to that theme, with no script.
+   */
+  theme?: "user" | Theme;
 }
 
-const { title = "10x Astro Starter", lang = "en" } = Astro.props;
+const { title = "10x Astro Starter", lang = "en", theme = "user" } = Astro.props;
 ---
 
 <!doctype html>
-<html lang={lang} class="dark">
+<html lang={lang} class:list={{ [DARK_THEME]: theme === DARK_THEME }}>
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <title>{title}</title>
+    {theme === "user" && <script
+      is:inline
+      define:vars={{ storageKey: THEME_STORAGE_KEY, darkTheme: DARK_THEME, lightTheme: LIGHT_THEME }}
+    >
+      // Before the first paint, so the page never flashes the other theme: an inline script runs as the parser
+      // reaches it, ahead of the stylesheet, where a processed one would wait until the page has been read.
+      let stored = null;
+      try {
+        stored = localStorage.getItem(storageKey);
+      } catch {
+        // Storage can be blocked (a private window, a browser set to block site data): the system then decides.
+      }
+      const dark =
+        stored === darkTheme || (stored !== lightTheme && matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.classList.toggle(darkTheme, dark);
+    </script>}
+    <Font cssVariable="--font-bricolage" preload />
+    <Font cssVariable="--font-dm-mono" />
   </head>
   <body>
     {missingConfigs.map((cfg) => (

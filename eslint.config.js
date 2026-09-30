@@ -169,8 +169,9 @@ const testConfig = defineConfig({
 
 export default defineConfig(
   includeIgnoreFile(gitignorePath),
-  // Skills and their helper scripts are written by the 10x CLI, not project code.
-  globalIgnores([".claude/"]),
+  // Skills and their helper scripts are written by the 10x CLI, not project code, and a change's design handoff is a
+  // reference kept byte for byte as its designer sent it.
+  globalIgnores([".claude/", "context/**/handoff/"]),
   baseConfig,
   reactConfig,
   eslintPluginAstro.configs["flat/recommended"],
