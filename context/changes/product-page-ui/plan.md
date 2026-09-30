@@ -753,6 +753,14 @@ The full review (`reviews/impl-review.md`, all 5 phases) found 4 warnings and 6 
   - Deliberate breaks: 5, each red and then restored — the unread key, no cheapest while unread, the unsaved item, the notice order, and three new lint families.
   - The kitchen sink's captures were retaken after the fixes: 14,533 px tall at 390 and 13,764 at 1280.
 
+### Production rollout
+
+- **Merged on 2026-09-30** as `cc5cf70` (PR #13), after the implementation review's fixes (`7d7b68f`).
+  - No migration.
+  - Workers Builds deployed the merge at 08:43 UTC, and `ci` and `smoke` passed on `main`.
+- **The owner's phone check on production passed** the same day (Manual Testing Steps, step 3).
+- **Left for later changes:** `follow-ups/review-fixes.md`, with separate lists for a later change, for `etykiety-redesign` and for S-08.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
