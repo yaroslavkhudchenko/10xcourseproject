@@ -261,6 +261,29 @@ export function formatPrice(amount: number): string {
   return pln.format(amount);
 }
 
+/** An amount's złote and grosze as digits, apart, as a shelf label draws them. */
+export interface PriceParts {
+  zlote: string;
+  grosze: string;
+}
+
+/**
+ * An amount in złoty split as the price labels draw it: its złote, grouped with the no-break space formatPrice writes
+ * ("12 345"), and its grosze ("67"). It reads the parts formatPrice's own formatter writes, so both round alike.
+ */
+export function priceParts(amount: number): PriceParts {
+  let zlote = "";
+  let grosze = "";
+  for (const { type, value } of pln.formatToParts(amount)) {
+    if (type === "integer" || type === "group" || type === "minusSign") {
+      zlote += value;
+    } else if (type === "fraction") {
+      grosze += value;
+    }
+  }
+  return { zlote, grosze };
+}
+
 /**
  * A date such as "2026-09-30" as the pages show a promotion's end, "30.09". It's a calendar date without a time, so no
  * time zone can move it to another day; anything else is shown as it came.

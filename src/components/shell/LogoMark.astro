@@ -1,0 +1,45 @@
+---
+// The app's logo: the radar mark, a sun circle swept by the label ink (bg-radar in global.css) inside a 2 px ink edge,
+// with an inner ring and a dot, then the wordmark "Drogeria Radar", its "Radar" underlined in the sun. The mark is
+// decorative, and the wordmark names the app. "lg" is the desktop header's, "sm" a phone's.
+interface Props {
+  /** A 38 px mark with a 22 px wordmark ("lg"), or a 32 px mark with an 18 px one ("sm"). */
+  size: "lg" | "sm";
+}
+
+const { size } = Astro.props;
+
+const LOOKS = {
+  lg: {
+    gap: "gap-3",
+    mark: "size-9.5",
+    ring: "size-4.5",
+    dot: "size-1.25",
+    wordmark: "text-wordmark-lg",
+    underline: "decoration-5 underline-offset-5",
+  },
+  sm: {
+    gap: "gap-2.25",
+    mark: "size-8",
+    ring: "size-3.75",
+    dot: "size-1",
+    wordmark: "text-wordmark-sm",
+    underline: "decoration-4 underline-offset-4",
+  },
+};
+const look = LOOKS[size];
+---
+
+<span class:list={["flex items-center", look.gap]}>
+  <span
+    aria-hidden="true"
+    class:list={["grid shrink-0 place-items-center rounded-full border-2 border-label-ink bg-radar", look.mark]}
+  >
+    <span class:list={["grid place-items-center rounded-full border-2 border-label-ink", look.ring]}>
+      <span class:list={["rounded-full bg-label-ink", look.dot]}></span>
+    </span>
+  </span>
+  <span class:list={["font-extrabold tracking-wordmark whitespace-nowrap", look.wordmark]}>
+    Drogeria <span class:list={["underline decoration-sun", look.underline]}>Radar</span>
+  </span>
+</span>

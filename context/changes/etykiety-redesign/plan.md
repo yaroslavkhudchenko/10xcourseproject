@@ -977,6 +977,35 @@ Both kitchen sinks show every state in both themes. The screenshots and the hand
 - **`scripts/check-built-fonts.mjs`** expects `2 + 2 * 2` files, with the derivation in a comment. The `fonts` comment in `astro.config.mjs` says to change both together.
 - **Gates:** lint ran with `--ignore-pattern "Drogeria Radar redesign/**"`, for the owner's untracked duplicate of the handoff in the repo root. Its 4 `astro check` hints are the only ones, and none of them comes from the change folder.
 
+### Phase 2
+
+- **`src/lib/utils.ts`** (not in the phase's files): `cn()` uses `extendTailwindMerge` with every new `@theme` token.
+  - Without it, tailwind-merge 3.7 drops `text-price-hero` beside a colour class, and `border-hairline` beside `border-border`.
+  - `src/lib/utils.test.ts` reads global.css's `@theme` blocks and fails on any token `cn()` doesn't know.
+  - Phase 6's CLAUDE.md rewrite should say that a new `@theme` token also needs its name there.
+- **Tokens:**
+  - A size that's larger on desktop gets a second token ending in `-lg`, used as `lg:…` (`text-price-hero lg:text-price-hero-lg`).
+  - Beyond the plan's list: text sizes for the sticker, wordmark, title thumb and compact buttons; the `button-sm` and title-thumb radii and the phone card and hero radii; and a set of tracking tokens.
+  - The hairline is `--border-width-hairline: 1.5px`, which Tailwind 4.3 resolves for `border-hairline` and each side, so it needs no custom utility.
+- **`hit-area`:** `position: relative`, plus a centred `::after` of `max(100%, 44px)` each way. `[data-show-hit-areas]` outlines it, which is how the kitchen sink shows it.
+  - The Button's `default`, `sm` and `lg` sizes get it too (the orchestrator's call, after the owner's "the rules win"), so every size is 44 px to tap.
+- **Focus:** `:focus-visible` draws a 2 px `--ring` outline at a 2 px offset, and the base keeps `outline-ring` at full opacity. The Button's `transition-all` became `transition`: otherwise the outline animated in over 150 ms, and the handoff allows no motion besides the stamp, the row lift and the press.
+- **Alerts:** success and warning are filled with the solid `--success` and `--warning`, the handoff's alert fills, with descriptions in full colour and /30 borders. Destructive keeps its /10 tint and /90 description.
+- **Contrast check:** 124 checks. The two /90 pairs of the now-solid alerts are gone, and the outline Button's surfaces are shared, since the themes no longer differ there. It adds the destructive fill, its hover and its hover in a card.
+- **`--destructive-foreground`:** light `#FFF8E7`, dark `#1F1B2D`, at 6.2–8.7:1.
+- **Button:**
+  - The registry's base `rounded-md` moved into the variants: 14 for default; 12 for destructive, secondary and ghost, like outline; `rounded-sm` for the two links.
+  - The base reads `font-bold`, and no variant keeps `shadow-xs`.
+- **`src/components/auth/SubmitButton.tsx`** (not in the phase's files) gets `border-0 shadow-none active:translate-none`. The pinned sign-in page's purple button would otherwise take the new default's border, shadow and press.
+- **ThemeToggle** is a native `<button>` with `buttonVariants({ variant: "outline", size: "icon" })`, not `<Button>`: Astro wraps a static React component's children in `<astro-static-slot>`, which would put the icons in an inline wrapper.
+- **Sizes:** ProductThumb `title` has radius 16 on phones and 22 from `lg`, following the handoff's 56 px mobile thumb. The Badge `promo` uses `px-2.25` beside the base's 1 px transparent border, to draw the handoff's 3 × 10 px.
+- **Kitchen sink:** one `.map` draws every section twice, first light and then in a `dark bg-paper text-foreground rounded-card p-4` wrapper. The two sit side by side at 1280 px and stack on phones, and their ids are prefixed `light-` and `dark-`.
+- **`thumb-tile.ts`:**
+  - `tileOf` is an FNV-1a hash of the trimmed, lower-cased brand, with its high half folded in; the low bits alone put most brands on one tile. 30 real brands spread 8/5/8/9.
+  - `initialOf` returns the first letter or digit, else "?".
+- **`global.css`** gains `@source not "../../.claude"` (the orchestrator's call). Tailwind was scanning the parallel agent's worktree and the skills' docs there, so a local build could hide a class that CI's build lacks.
+- **Manual check 2.5** (the switch keeps the choice) needs a signed-in watchlist page. The kitchen sink is pinned light, so a reload shows it light again.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -985,11 +1014,11 @@ Both kitchen sinks show every state in both themes. The screenshots and the hand
 
 #### Automated
 
-- [x] 1.1 `npx astro sync && npx astro check` reports 0 errors and 0 warnings, and no hints from the handoff
-- [x] 1.2 `npm run lint` reports 0 problems with the handoff in place
-- [x] 1.3 `npm run test` passes
-- [x] 1.4 `node scripts/check-token-contrast.mjs` passes every pair in both themes, and a deliberate break in each theme turns it red
-- [x] 1.5 `npm run build` then `node scripts/check-built-fonts.mjs` finds every font file, and a deliberate break (a family Google doesn't have) turns it red
+- [x] 1.1 `npx astro sync && npx astro check` reports 0 errors and 0 warnings, and no hints from the handoff — f9d3d65
+- [x] 1.2 `npm run lint` reports 0 problems with the handoff in place — f9d3d65
+- [x] 1.3 `npm run test` passes — f9d3d65
+- [x] 1.4 `node scripts/check-token-contrast.mjs` passes every pair in both themes, and a deliberate break in each theme turns it red — f9d3d65
+- [x] 1.5 `npm run build` then `node scripts/check-built-fonts.mjs` finds every font file, and a deliberate break (a family Google doesn't have) turns it red — f9d3d65
 
 #### Manual
 
@@ -1001,9 +1030,9 @@ Both kitchen sinks show every state in both themes. The screenshots and the hand
 
 #### Automated
 
-- [ ] 2.1 `npm run test` passes, with new tests for `priceParts` and `tileOf`
-- [ ] 2.2 `npm run lint`, `npx astro check` and `npm run build` pass
-- [ ] 2.3 `node scripts/check-token-contrast.mjs` passes with the primitives' pairs added
+- [x] 2.1 `npm run test` passes, with new tests for `priceParts` and `tileOf`
+- [x] 2.2 `npm run lint`, `npx astro check` and `npm run build` pass
+- [x] 2.3 `node scripts/check-token-contrast.mjs` passes with the primitives' pairs added
 
 #### Manual
 

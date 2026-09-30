@@ -1,8 +1,14 @@
 ---
-// The product page's kitchen sink: the view in every state it can show and its components in each variant, from the
-// fixtures in fixtures.ts, for review and screenshots. Only `astro dev` serves it (astro.config.mjs). It hydrates
-// nothing, so no effect runs, and nothing it calls reaches Supabase or a shop. Tailwind doesn't scan this folder
-// (global.css), so its markup uses only classes the app itself uses.
+// The product page's kitchen sink: the view in every state it can show, and the pieces it's built from in each variant,
+// from the fixtures in fixtures.ts, for review and screenshots. Only `astro dev` serves it (astro.config.mjs). The page
+// is pinned to the light theme, and draws every section twice: in the light theme, then in a `dark` wrapper, whose
+// class switches the tokens for all it holds, so the two themes stand side by side on a wide screen. It hydrates
+// nothing, so no island effect runs, and nothing it calls reaches Supabase or a shop; its only scripts are the Natura
+// section's SubmitOnce and the theme switch's. Tailwind doesn't scan this folder (global.css), so its markup uses only
+// classes the app itself uses.
+import { RefreshCw } from "lucide-react";
+import LogoMark from "@/components/shell/LogoMark.astro";
+import ThemeToggle from "@/components/shell/ThemeToggle.astro";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -16,11 +22,41 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import NaturaSection from "@/components/watchlist/NaturaSection.astro";
+import Price from "@/components/watchlist/Price";
 import PriceComparisonView from "@/components/watchlist/PriceComparisonView";
 import ProductHeader from "@/components/watchlist/ProductHeader.astro";
+import ProductThumb from "@/components/watchlist/ProductThumb";
 import ProductUnavailable from "@/components/watchlist/ProductUnavailable.astro";
-import { GONE_ERROR, HEADER_FIXTURES, HERE, NATURA_FIXTURES, PRICE_FIXTURES, PRODUCT_ID } from "@/dev/fixtures";
+import Sticker from "@/components/watchlist/Sticker";
+import {
+  GONE_ERROR,
+  HEADER_FIXTURES,
+  HERE,
+  NATURA_FIXTURES,
+  PRICE_FIXTURES,
+  PRICE_SAMPLES,
+  PRODUCT_ID,
+  THUMB_FIXTURES,
+} from "@/dev/fixtures";
 import Layout from "@/layouts/Layout.astro";
+import { DARK_THEME, LIGHT_THEME } from "@/lib/theme";
+import { cn } from "@/lib/utils";
+
+// Each section's two copies: the page's own light theme, then the dark one in a wrapper that also paints its paper and
+// sets its text colour, which would otherwise come down from the light page.
+const COPIES = [
+  { theme: LIGHT_THEME, label: "Jasny motyw", wrapper: "" },
+  { theme: DARK_THEME, label: "Ciemny motyw", wrapper: "dark bg-paper text-foreground" },
+] as const;
+
+const PRICE_SIZES = ["hero", "card", "tag"] as const;
+
+const STICKERS = [
+  { kind: "one-shop", size: "lg" },
+  { kind: "one-shop", size: "sm" },
+  { kind: "stale", size: "lg" },
+  { kind: "stale", size: "sm" },
+] as const;
 
 const BADGES = [
   { variant: "default", text: "Na liście" },
@@ -31,6 +67,9 @@ const BADGES = [
   { variant: "link", text: "Zobacz w sklepie" },
   { variant: "success", text: "Najtaniej" },
   { variant: "warning", text: "nieaktualna" },
+  { variant: "promo", text: "promocja do 05.10" },
+  { variant: "tag-sun", text: "Najtaniej" },
+  { variant: "tag-warn", text: "Nieaktualna" },
 ] as const;
 
 const BUTTONS = [
@@ -43,6 +82,9 @@ const BUTTONS = [
   { variant: "underlined", text: "Pokaż zapisaną decyzję" },
 ] as const;
 
+// The registry's sizes, which no view uses: each draws below 44 px, with no hit area.
+const REGISTRY_SIZES = ["default", "sm", "lg"] as const;
+
 const LINK_BUTTONS = [
   { variant: "default", text: "Dopasuj w Naturze" },
   { variant: "outline", text: "Szukaj ponownie" },
@@ -51,16 +93,16 @@ const LINK_BUTTONS = [
 ] as const;
 ---
 
-<Layout title="Kitchen sink · Drogeria Radar" lang="pl">
-  {/* The product page's own canvas and column, so each state sits as it does there. */}
+<Layout title="Kitchen sink · Drogeria Radar" lang="pl" theme="light">
+  {/* The product page's own canvas; each copy below is as wide as its column. */}
   <div class="bg-paper min-h-screen p-4 text-foreground sm:p-8">
-    <main class="mx-auto flex max-w-lg flex-col gap-6">
-      <header class="flex flex-col gap-3">
+    <main class="flex flex-col gap-6">
+      <header class="flex max-w-lg flex-col gap-3">
         <h1 class="text-2xl font-bold">Kitchen sink: strona produktu</h1>
         <p class="text-sm text-muted-foreground">
-          Widok <code>/watchlist/[id]</code> w każdym stanie, jaki może pokazać, i komponenty z{" "}
-          <code>src/components/ui</code> w każdym wariancie, na danych z <code>src/dev/fixtures.ts</code>. Ta strona
-          istnieje tylko w <code>astro dev</code>.
+          Widok <code>/watchlist/[id]</code> w każdym stanie, jaki może pokazać, i elementy, z których jest zbudowany, w
+          każdym wariancie, na danych z <code>src/dev/fixtures.ts</code>. Każda sekcja jest dwa razy: w jasnym motywie i
+          w ciemnym. Ta strona istnieje tylko w <code>astro dev</code>.
         </p>
         <p class="text-sm text-muted-foreground">
           Formularze i linki prowadzą do zmyślonego produktu, którego nie ma na niczyjej liście, więc przypadkowe
@@ -68,7 +110,7 @@ const LINK_BUTTONS = [
         </p>
       </header>
 
-      <section aria-labelledby="legend-heading" class="flex flex-col gap-3">
+      <section aria-labelledby="legend-heading" class="flex max-w-lg flex-col gap-3">
         <h2 id="legend-heading" class="text-lg font-semibold">
           Macierz 7 stanów
         </h2>
@@ -83,7 +125,7 @@ const LINK_BUTTONS = [
             </dt>
             <dd class="text-sm text-muted-foreground">
               Każdy stan poniżej: tylko tokeny i komponenty z <code>src/components/ui</code>. Warianty samych
-              komponentów: sekcje Card, Alert, Badge i Button na końcu strony.
+              komponentów: sekcje od Price do Button w każdej kolumnie.
             </dd>
           </div>
           <div class="flex flex-col gap-1">
@@ -94,7 +136,8 @@ const LINK_BUTTONS = [
               N/A w statycznym widoku: <code>:hover</code> trzeba wymusić w DevTools, raz dla każdego typu kontrolki. To
               przyciski <code>default</code> („To ten produkt”) i <code>outline</code> („Odśwież ceny”, „Żaden z nich”),
               linki w stylu przycisku („Dopasuj w Naturze”, „Szukaj ponownie”, „Zobacz w sklepie”, „Pokaż zapisaną
-              decyzję”) i link w alercie („Zaloguj się ponownie”, Ceny › <code>session-ended</code>).
+              decyzję”), link w alercie („Zaloguj się ponownie”, Ceny › <code>session-ended</code>) i przełącznik
+              motywu.
             </dd>
           </div>
           <div class="flex flex-col gap-1">
@@ -102,8 +145,8 @@ const LINK_BUTTONS = [
               <code>focus-visible</code>
             </dt>
             <dd class="text-sm text-muted-foreground">
-              N/A w statycznym widoku: wymaga przejścia klawiaturą (Tab) przez te same kontrolki. Pierścień fokusu ma
-              być widoczny na każdej.
+              N/A w statycznym widoku: wymaga przejścia klawiaturą (Tab) przez te same kontrolki. Każda ma pokazać obrys
+              2 px w kolorze <code>--ring</code>, 2 px od krawędzi, w obu motywach.
             </dd>
           </div>
           <div class="flex flex-col gap-1">
@@ -149,236 +192,381 @@ const LINK_BUTTONS = [
         </dl>
       </section>
 
-      <section aria-labelledby="states-header-heading" class="flex flex-col gap-3">
-        <h2 id="states-header-heading" class="text-lg font-semibold">
-          Nagłówek
-        </h2>
-        <div class="flex flex-col gap-6">
-          {HEADER_FIXTURES.map(({ code, text, product }) => (
-            <div class="flex flex-col gap-1">
-              <p class="text-xs text-muted-foreground">
-                <code>{code}</code> · {text}
-              </p>
-              {/* The page's own header, with its heading for screen readers. */}
-              <ProductHeader product={product} />
-            </div>
-          ))}
-        </div>
-      </section>
+      <div class="flex flex-wrap items-start gap-6">
+        {COPIES.map(({ theme, label, wrapper }) => (
+          <div class:list={["flex w-full max-w-lg flex-col gap-6 rounded-card p-4", wrapper]}>
+            <p class="text-sm font-semibold">{label}</p>
 
-      <section aria-labelledby="states-prices-heading" class="flex flex-col gap-3">
-        <h2 id="states-prices-heading" class="text-lg font-semibold">
-          Ceny
-        </h2>
-        <p class="text-sm text-muted-foreground">
-          <code>PriceComparisonView</code> bez wyspy, w stanach zbudowanych jej reducerem. Bez <code>onRefresh</code>
-          „Odśwież ceny” wysyła formularz, jak bez JavaScriptu.
-        </p>
-        <div class="flex flex-col gap-6">
-          {PRICE_FIXTURES.map(({ code, text, state }) => (
-            <div class="flex flex-col gap-1">
-              <p class="text-xs text-muted-foreground">
-                <code>{code}</code> · {text}
-              </p>
-              <PriceComparisonView itemId={PRODUCT_ID} state={state} />
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section aria-labelledby="states-natura-heading" class="flex flex-col gap-3">
-        <h2 id="states-natura-heading" class="text-lg font-semibold">
-          Natura
-        </h2>
-        <p class="text-sm text-muted-foreground">
-          <code>NaturaSection</code> w każdym rodzaju widoku, z komunikatem o zapisie, błędem zapisu i niezapisanym
-          wynikiem wyszukiwania.
-        </p>
-        <div class="flex flex-col gap-6">
-          {NATURA_FIXTURES.map(({ code, text, idPrefix, view, unsaved, notice, error }) => (
-            <>
-              <div class="flex flex-col gap-1">
-                <p class="text-xs text-muted-foreground">
-                  <code>{code}</code> · {text}
-                </p>
-                <NaturaSection
-                  view={view}
-                  productId={PRODUCT_ID}
-                  unsaved={unsaved}
-                  notice={notice}
-                  error={error}
-                  idPrefix={idPrefix}
-                />
+            <section aria-labelledby={`${theme}-states-header-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-states-header-heading`} class="text-lg font-semibold">
+                Nagłówek
+              </h2>
+              <div class="flex flex-col gap-6">
+                {HEADER_FIXTURES.map(({ code, text, product }) => (
+                  <div class="flex flex-col gap-1">
+                    <p class="text-xs text-muted-foreground">
+                      <code>{code}</code> · {text}
+                    </p>
+                    {/* The page's own header, with its heading for screen readers. */}
+                    <ProductHeader product={product} />
+                  </div>
+                ))}
               </div>
-              {view.kind === "choose" && (
+            </section>
+
+            <section aria-labelledby={`${theme}-states-prices-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-states-prices-heading`} class="text-lg font-semibold">
+                Ceny
+              </h2>
+              <p class="text-sm text-muted-foreground">
+                <code>PriceComparisonView</code> bez wyspy, w stanach zbudowanych jej reducerem. Bez{" "}
+                <code>onRefresh</code> „Odśwież ceny” wysyła formularz, jak bez JavaScriptu.
+              </p>
+              <div class="flex flex-col gap-6">
+                {PRICE_FIXTURES.map(({ code, text, state }) => (
+                  <div class="flex flex-col gap-1">
+                    <p class="text-xs text-muted-foreground">
+                      <code>{code}</code> · {text}
+                    </p>
+                    <PriceComparisonView itemId={PRODUCT_ID} state={state} />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section aria-labelledby={`${theme}-states-natura-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-states-natura-heading`} class="text-lg font-semibold">
+                Natura
+              </h2>
+              <p class="text-sm text-muted-foreground">
+                <code>NaturaSection</code> w każdym rodzaju widoku, z komunikatem o zapisie, błędem zapisu i
+                niezapisanym wynikiem wyszukiwania.
+              </p>
+              <div class="flex flex-col gap-6">
+                {NATURA_FIXTURES.map(({ code, text, idPrefix, view, unsaved, notice, error }) => (
+                  <>
+                    <div class="flex flex-col gap-1">
+                      <p class="text-xs text-muted-foreground">
+                        <code>{code}</code> · {text}
+                      </p>
+                      <NaturaSection
+                        view={view}
+                        productId={PRODUCT_ID}
+                        unsaved={unsaved}
+                        notice={notice}
+                        error={error}
+                        idPrefix={`${theme}-${idPrefix}`}
+                      />
+                    </div>
+                    {view.kind === "choose" && (
+                      <div class="flex flex-col gap-1">
+                        <p class="text-xs text-muted-foreground">
+                          <code>{code}</code>, po wysłaniu · SubmitOnce wyłącza przyciski wszystkich formularzy decyzji
+                        </p>
+                        {/* The candidate's own row of buttons, as the section lays it out. */}
+                        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                          <Button type="button" size="touch" disabled>
+                            To ten produkt
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ))}
+              </div>
+            </section>
+
+            <section aria-labelledby={`${theme}-states-branches-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-states-branches-heading`} class="text-lg font-semibold">
+                Gałęzie strony
+              </h2>
+              <p class="text-sm text-muted-foreground">
+                <code>ProductUnavailable</code>, gdy nie ma produktu do pokazania, w odstępach kolumny strony.
+              </p>
+              <div class="flex flex-col gap-6">
                 <div class="flex flex-col gap-1">
                   <p class="text-xs text-muted-foreground">
-                    <code>{code}</code>, po wysłaniu · SubmitOnce wyłącza przyciski wszystkich formularzy decyzji
+                    <code>not-found</code> · produktu nie ma na Twojej liście (404)
                   </p>
-                  {/* The candidate's own row of buttons, as the section lays it out. */}
-                  <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-                    <Button type="button" size="touch" disabled>
-                      To ten produkt
-                    </Button>
+                  <div class="flex flex-col gap-6">
+                    <ProductUnavailable reason="not-found" />
                   </div>
                 </div>
-              )}
-            </>
-          ))}
-        </div>
-      </section>
+                <div class="flex flex-col gap-1">
+                  <p class="text-xs text-muted-foreground">
+                    <code>not-found + error</code> · wybór wysłany dla produktu, którego nie ma (
+                    <code>?error=gone</code>)
+                  </p>
+                  <div class="flex flex-col gap-6">
+                    <ProductUnavailable reason="not-found" error={GONE_ERROR} />
+                  </div>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <p class="text-xs text-muted-foreground">
+                    <code>failed</code> · nie udało się wczytać produktu (503)
+                  </p>
+                  <div class="flex flex-col gap-6">
+                    <ProductUnavailable reason="failed" />
+                  </div>
+                </div>
+              </div>
+            </section>
 
-      <section aria-labelledby="states-branches-heading" class="flex flex-col gap-3">
-        <h2 id="states-branches-heading" class="text-lg font-semibold">
-          Gałęzie strony
-        </h2>
-        <p class="text-sm text-muted-foreground">
-          <code>ProductUnavailable</code>, gdy nie ma produktu do pokazania, w odstępach kolumny strony.
-        </p>
-        <div class="flex flex-col gap-6">
-          <div class="flex flex-col gap-1">
-            <p class="text-xs text-muted-foreground">
-              <code>not-found</code> · produktu nie ma na Twojej liście (404)
-            </p>
-            <div class="flex flex-col gap-6">
-              <ProductUnavailable reason="not-found" />
-            </div>
+            <section aria-labelledby={`${theme}-price-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-price-heading`} class="text-lg font-semibold">
+                Price
+              </h2>
+              <p class="text-sm text-muted-foreground">
+                Cena jak na etykiecie: złote, grosze przy ich górze, podkreślone, i „zł” pod groszami. Czytnik ekranu
+                słyszy ją raz, tak jak zapisuje ją <code>formatPrice</code>. Hero i karta są mniejsze poniżej 1024 px.
+              </p>
+              {PRICE_SIZES.map((size) => (
+                <div class="flex flex-col gap-1">
+                  <code class="text-xs text-muted-foreground">{size}</code>
+                  <div class="flex flex-wrap items-start gap-6">
+                    {PRICE_SAMPLES[size].map((amount) => (
+                      <Price amount={amount} size={size} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <div class="flex flex-col gap-1">
+                <code class="text-xs text-muted-foreground">tag, na etykiecie w kolorze sun</code>
+                <div class="flex flex-wrap items-start gap-6">
+                  {PRICE_SAMPLES.tag.map((amount) => (
+                    <span class="rounded-button-sm bg-sun p-3 text-label-ink">
+                      <Price amount={amount} size="tag" />
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section aria-labelledby={`${theme}-sticker-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-sticker-heading`} class="text-lg font-semibold">
+                Sticker
+              </h2>
+              <p class="text-sm text-muted-foreground">
+                Naklejka mówi tylko fakt, do czasu reguły dobrej ceny (FR-012). Przy wczytaniu strony przybija się raz,
+                a przy ograniczonym ruchu pojawia się bez animacji.
+              </p>
+              <div class="flex flex-wrap items-center gap-6 p-4">
+                {STICKERS.map(({ kind, size }) => (
+                  <div class="flex flex-col items-center gap-3">
+                    <Sticker kind={kind} size={size} />
+                    <code class="text-xs text-muted-foreground">{`${kind}, ${size}`}</code>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section aria-labelledby={`${theme}-logo-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-logo-heading`} class="text-lg font-semibold">
+                LogoMark
+              </h2>
+              <div class="flex flex-col items-start gap-6">
+                <div class="flex flex-col gap-1">
+                  <code class="text-xs text-muted-foreground">lg · nagłówek na komputerze</code>
+                  <LogoMark size="lg" />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <code class="text-xs text-muted-foreground">sm · telefon</code>
+                  <LogoMark size="sm" />
+                </div>
+              </div>
+            </section>
+
+            <section aria-labelledby={`${theme}-thumb-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-thumb-heading`} class="text-lg font-semibold">
+                ProductThumb
+              </h2>
+              <p class="text-sm text-muted-foreground">
+                Zdjęcie na białym tle albo inicjał marki na jej kafelku (<code>tileOf</code>), w rozmiarze wiersza listy
+                i tytułu produktu. Oba są większe od 1024 px.
+              </p>
+              <ul class="flex flex-col gap-6">
+                {THUMB_FIXTURES.map(({ code, text, brand, imageUrl }) => (
+                  <li class="flex flex-col items-start gap-3">
+                    <p class="text-xs text-muted-foreground">
+                      <code>{code}</code> · {text}
+                    </p>
+                    <div class="flex items-center gap-6">
+                      <ProductThumb brand={brand} imageUrl={imageUrl} size="row" />
+                      <ProductThumb brand={brand} imageUrl={imageUrl} size="title" />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section aria-labelledby={`${theme}-toggle-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-toggle-heading`} class="text-lg font-semibold">
+                ThemeToggle
+              </h2>
+              <p class="text-sm text-muted-foreground">
+                Przełącza motyw całej strony i zapamiętuje wybór. Ta strona zawsze wczytuje się w jasnym motywie, więc
+                zapamiętany wybór widać po przeładowaniu stron listy i produktu. Bez JavaScriptu przycisk jest ukryty.
+              </p>
+              <div class="flex items-center gap-3">
+                <ThemeToggle />
+              </div>
+            </section>
+
+            <section aria-labelledby={`${theme}-card-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-card-heading`} class="text-lg font-semibold">
+                Card
+              </h2>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Drogerie Natura</CardTitle>
+                  <CardDescription>cena online w drogerienatura.pl · 5 min temu</CardDescription>
+                  <CardAction>
+                    <Badge variant="success">Najtaniej</Badge>
+                  </CardAction>
+                </CardHeader>
+                <CardContent>
+                  <Price amount={22.99} size="card" />
+                  <p class="text-sm text-muted-foreground">najniższa cena z 30 dni wg sklepu: 23,99 zł</p>
+                </CardContent>
+                <CardFooter>
+                  <a href={HERE} class:list={cn(buttonVariants({ variant: "underlined", size: "touch" }))}>
+                    Zobacz w sklepie
+                  </a>
+                </CardFooter>
+              </Card>
+            </section>
+
+            <section aria-labelledby={`${theme}-alert-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-alert-heading`} class="text-lg font-semibold">
+                Alert
+              </h2>
+              <div class="flex flex-col gap-1">
+                <p class="text-xs text-muted-foreground">
+                  <code>default</code>, <code>role="status"</code>
+                </p>
+                <Alert role="status">
+                  <AlertDescription>Nic do odświeżenia: ceny sprawdzono w ciągu ostatnich 15 minut.</AlertDescription>
+                </Alert>
+              </div>
+              <div class="flex flex-col gap-1">
+                <p class="text-xs text-muted-foreground">
+                  <code>success</code>, <code>role="status"</code>
+                </p>
+                <Alert variant="success" role="status">
+                  <AlertDescription>Zapisano dopasowanie.</AlertDescription>
+                </Alert>
+              </div>
+              <div class="flex flex-col gap-1">
+                <p class="text-xs text-muted-foreground">
+                  <code>warning</code>, domyślnie <code>role="alert"</code>
+                </p>
+                <Alert variant="warning">
+                  <AlertDescription>
+                    Nie wszystkie ceny udało się odświeżyć. Tam, gdzie się nie udało, widać ostatnią znaną cenę i jej
+                    wiek.
+                  </AlertDescription>
+                </Alert>
+              </div>
+              <div class="flex flex-col gap-1">
+                <p class="text-xs text-muted-foreground">
+                  <code>destructive</code>, domyślnie <code>role="alert"</code>
+                </p>
+                <Alert variant="destructive">
+                  <AlertDescription>Nie udało się zapisać wyboru. Spróbuj ponownie.</AlertDescription>
+                </Alert>
+              </div>
+            </section>
+
+            <section aria-labelledby={`${theme}-badge-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-badge-heading`} class="text-lg font-semibold">
+                Badge
+              </h2>
+              <ul class="flex flex-col gap-3">
+                {BADGES.map(({ variant, text }) => (
+                  <li class="flex flex-col items-start gap-1">
+                    <code class="text-xs text-muted-foreground">{variant}</code>
+                    <Badge variant={variant}>{text}</Badge>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section aria-labelledby={`${theme}-button-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-button-heading`} class="text-lg font-semibold">
+                Button
+              </h2>
+              <p class="text-sm text-muted-foreground">
+                Każdy wariant w rozmiarze <code>touch</code>, co najmniej 44 px, potem każdy rozmiar. Kreska obrysowuje
+                strefę dotyku 44 × 44 px, którą dostają <code>compact</code> i <code>icon</code>, mniejsze na ekranie.
+              </p>
+              <ul class="flex flex-col gap-3" data-show-hit-areas>
+                {BUTTONS.map(({ variant, text }) => (
+                  <li class="flex flex-col items-start gap-1">
+                    <code class="text-xs text-muted-foreground">{variant}</code>
+                    <Button type="button" variant={variant} size="touch">
+                      {text}
+                    </Button>
+                  </li>
+                ))}
+                <li class="flex flex-col items-start gap-1">
+                  <code class="text-xs text-muted-foreground">outline, compact · 38 px</code>
+                  <Button type="button" variant="outline" size="compact">
+                    Wyloguj
+                  </Button>
+                </li>
+                <li class="flex flex-col items-start gap-1">
+                  <code class="text-xs text-muted-foreground">outline, compact z ikoną · 38 px</code>
+                  <button type="button" class:list={cn(buttonVariants({ variant: "outline", size: "compact" }))}>
+                    <RefreshCw aria-hidden="true" strokeWidth={2.2} className="size-3.75" />
+                    Odśwież ceny
+                  </button>
+                </li>
+                <li class="flex flex-col items-start gap-1">
+                  <code class="text-xs text-muted-foreground">outline, icon · 42 px</code>
+                  <button type="button" class:list={cn(buttonVariants({ variant: "outline", size: "icon" }))}>
+                    <RefreshCw aria-hidden="true" strokeWidth={2.2} className="size-4.5" />
+                    <span class="sr-only">Odśwież ceny</span>
+                  </button>
+                </li>
+                <li class="flex flex-col items-start gap-1">
+                  <code class="text-xs text-muted-foreground">underlined, inline · link przy tekście</code>
+                  <Button type="button" variant="underlined" size="inline">
+                    Pokaż zapisaną decyzję
+                  </Button>
+                </li>
+                {REGISTRY_SIZES.map((size) => (
+                  <li class="flex flex-col items-start gap-1">
+                    <code class="text-xs text-muted-foreground">{`default, ${size} · z rejestru, bez strefy dotyku`}</code>
+                    <Button type="button" size={size}>
+                      To ten produkt
+                    </Button>
+                  </li>
+                ))}
+                <li class="flex flex-col items-start gap-1">
+                  <code class="text-xs text-muted-foreground">default, disabled</code>
+                  <Button type="button" size="touch" disabled>
+                    To ten produkt
+                  </Button>
+                </li>
+                <li class="flex flex-col items-start gap-1">
+                  <code class="text-xs text-muted-foreground">outline, disabled</code>
+                  <Button type="button" variant="outline" size="touch" disabled>
+                    Odśwież ceny
+                  </Button>
+                </li>
+                {LINK_BUTTONS.map(({ variant, text }) => (
+                  <li class="flex flex-col items-start gap-1">
+                    <code class="text-xs text-muted-foreground">{`<a>, buttonVariants: ${variant}`}</code>
+                    <a href={HERE} class:list={cn(buttonVariants({ variant, size: "touch" }))}>
+                      {text}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
           </div>
-          <div class="flex flex-col gap-1">
-            <p class="text-xs text-muted-foreground">
-              <code>not-found + error</code> · wybór wysłany dla produktu, którego nie ma (<code>?error=gone</code>)
-            </p>
-            <div class="flex flex-col gap-6">
-              <ProductUnavailable reason="not-found" error={GONE_ERROR} />
-            </div>
-          </div>
-          <div class="flex flex-col gap-1">
-            <p class="text-xs text-muted-foreground">
-              <code>failed</code> · nie udało się wczytać produktu (503)
-            </p>
-            <div class="flex flex-col gap-6">
-              <ProductUnavailable reason="failed" />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section aria-labelledby="card-heading" class="flex flex-col gap-3">
-        <h2 id="card-heading" class="text-lg font-semibold">
-          Card
-        </h2>
-        <Card>
-          <CardHeader>
-            <CardTitle>Drogerie Natura</CardTitle>
-            <CardDescription>cena online w drogerienatura.pl · 5 min temu</CardDescription>
-            <CardAction>
-              <Badge variant="success">Najtaniej</Badge>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            <p class="text-2xl font-bold">22,99 zł</p>
-            <p class="text-sm text-muted-foreground">najniższa cena z 30 dni wg sklepu: 23,99 zł</p>
-          </CardContent>
-          <CardFooter>
-            <a href={HERE} class:list={buttonVariants({ variant: "underlined", size: "touch" })}>
-              Zobacz w sklepie
-            </a>
-          </CardFooter>
-        </Card>
-      </section>
-
-      <section aria-labelledby="alert-heading" class="flex flex-col gap-3">
-        <h2 id="alert-heading" class="text-lg font-semibold">
-          Alert
-        </h2>
-        <div class="flex flex-col gap-1">
-          <p class="text-xs text-muted-foreground">
-            <code>default</code>, <code>role="status"</code>
-          </p>
-          <Alert role="status">
-            <AlertDescription>Nic do odświeżenia: ceny sprawdzono w ciągu ostatnich 15 minut.</AlertDescription>
-          </Alert>
-        </div>
-        <div class="flex flex-col gap-1">
-          <p class="text-xs text-muted-foreground">
-            <code>success</code>, <code>role="status"</code>
-          </p>
-          <Alert variant="success" role="status">
-            <AlertDescription>Zapisano dopasowanie.</AlertDescription>
-          </Alert>
-        </div>
-        <div class="flex flex-col gap-1">
-          <p class="text-xs text-muted-foreground">
-            <code>warning</code>, domyślnie <code>role="alert"</code>
-          </p>
-          <Alert variant="warning">
-            <AlertDescription>
-              Nie wszystkie ceny udało się odświeżyć. Tam, gdzie się nie udało, widać ostatnią znaną cenę i jej wiek.
-            </AlertDescription>
-          </Alert>
-        </div>
-        <div class="flex flex-col gap-1">
-          <p class="text-xs text-muted-foreground">
-            <code>destructive</code>, domyślnie <code>role="alert"</code>
-          </p>
-          <Alert variant="destructive">
-            <AlertDescription>Nie udało się zapisać wyboru. Spróbuj ponownie.</AlertDescription>
-          </Alert>
-        </div>
-      </section>
-
-      <section aria-labelledby="badge-heading" class="flex flex-col gap-3">
-        <h2 id="badge-heading" class="text-lg font-semibold">
-          Badge
-        </h2>
-        <ul class="flex flex-col gap-3">
-          {BADGES.map(({ variant, text }) => (
-            <li class="flex flex-col items-start gap-1">
-              <code class="text-xs text-muted-foreground">{variant}</code>
-              <Badge variant={variant}>{text}</Badge>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section aria-labelledby="button-heading" class="flex flex-col gap-3">
-        <h2 id="button-heading" class="text-lg font-semibold">
-          Button
-        </h2>
-        <p class="text-sm text-muted-foreground">
-          Każdy wariant w rozmiarze <code>touch</code>, co najmniej 44 px.
-        </p>
-        <ul class="flex flex-col gap-3">
-          {BUTTONS.map(({ variant, text }) => (
-            <li class="flex flex-col items-start gap-1">
-              <code class="text-xs text-muted-foreground">{variant}</code>
-              <Button type="button" variant={variant} size="touch">
-                {text}
-              </Button>
-            </li>
-          ))}
-          <li class="flex flex-col items-start gap-1">
-            <code class="text-xs text-muted-foreground">default, disabled</code>
-            <Button type="button" size="touch" disabled>
-              To ten produkt
-            </Button>
-          </li>
-          <li class="flex flex-col items-start gap-1">
-            <code class="text-xs text-muted-foreground">outline, disabled</code>
-            <Button type="button" variant="outline" size="touch" disabled>
-              Odśwież ceny
-            </Button>
-          </li>
-          {LINK_BUTTONS.map(({ variant, text }) => (
-            <li class="flex flex-col items-start gap-1">
-              <code class="text-xs text-muted-foreground">{`<a>, buttonVariants: ${variant}`}</code>
-              <a href={HERE} class:list={buttonVariants({ variant, size: "touch" })}>
-                {text}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </section>
+        ))}
+      </div>
     </main>
   </div>
 </Layout>

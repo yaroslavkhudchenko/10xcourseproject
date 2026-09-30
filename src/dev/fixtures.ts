@@ -1,7 +1,9 @@
 // The dev kitchen sink's fixtures (src/dev/product-page.astro): one made-up product in Rossmann and Natura, its stored
-// prices and its Natura decisions, on a fixed clock. Every state is built by the product page's own code, the price
-// island's reducer, the Natura view builders and the matching rule, so the kitchen sink shows only states the page can
-// reach. Nothing here is real user data, and nothing here asks Supabase or a shop.
+// prices and its Natura decisions, on a fixed clock, and the prices and brands its primitives are shown with. Every
+// state is built by the product page's own code, the price island's reducer, the Natura view builders and the matching
+// rule, so the kitchen sink shows only states the page can reach. Nothing here is real user data, and nothing here
+// asks Supabase or a shop.
+import type { PriceSize } from "@/components/watchlist/Price";
 import {
   done,
   initialState,
@@ -12,6 +14,7 @@ import {
   type PriceComparisonState,
   type RefreshResult,
 } from "@/components/watchlist/price-comparison-state";
+import { tileOf, TILES, type Tile } from "@/components/watchlist/thumb-tile";
 import { DECISION_NOTICES } from "@/lib/notices";
 import { matchErrorMessage } from "@/lib/services/matches";
 import { pickMatch } from "@/lib/services/matching";
@@ -420,3 +423,43 @@ export const NATURA_FIXTURES: NaturaFixture[] = [
 
 /** The page's text for `?error=gone`, which its not-found branch shows: a decision posted for a product not listed. */
 export const GONE_ERROR = matchErrorMessage("gone");
+
+/**
+ * The prices each size of Price is shown with: the handoff's 22,99 zł in every size, and between them a whole price, a
+ * price under 1 zł, a four-digit price, which Polish leaves ungrouped, and a five-digit one, grouped with a no-break
+ * space. The hero's are short enough for the kitchen sink's column.
+ */
+export const PRICE_SAMPLES: Record<PriceSize, number[]> = {
+  hero: [22.99, 1234.5],
+  card: [22.99, 26.99, 5],
+  tag: [22.99, 0.99, 12345.67],
+};
+
+/** One look of a product's thumbnail, with the kitchen sink's label for it. */
+export interface ThumbFixture {
+  code: string;
+  text: string;
+  brand: string | null;
+  imageUrl: string | null;
+}
+
+// Brands to show each tile with: the first that tileOf puts on it.
+const TILE_BRANDS = ["Nivea", "Isana", "Ziaja", "Colgate", "Garnier", "Dove", "Bielenda", "Eveline"];
+
+/** A brand that tileOf puts on `tile`, so the kitchen sink shows every tile. */
+function brandOn(tile: Tile): string {
+  const brand = TILE_BRANDS.find((candidate) => tileOf(candidate) === tile);
+  if (brand === undefined) {
+    throw new Error(`None of the kitchen sink's brands falls on tile ${tile}: add one that does.`);
+  }
+  return brand;
+}
+
+export const THUMB_FIXTURES: ThumbFixture[] = [
+  { code: "photo", text: "ze zdjęciem produktu", brand: PRODUCT.brand, imageUrl: PRODUCT.imageUrl },
+  ...TILES.map((tile) => {
+    const brand = brandOn(tile);
+    return { code: `tile-${tile}`, text: `bez zdjęcia: ${brand}`, brand, imageUrl: null };
+  }),
+  { code: "no-brand", text: "bez zdjęcia i bez marki", brand: null, imageUrl: null },
+];

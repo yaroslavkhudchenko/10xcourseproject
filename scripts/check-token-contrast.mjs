@@ -160,28 +160,28 @@ const SURFACES = {
   card: CARD, // Card and the default Alert: bg-card
   muted: [["muted", 100]], // the raised fills: bg-muted
   "destructive alert": [["destructive", 10]], // Alert destructive: bg-destructive/10
-  success: [["success", 100]], // the promo pill: bg-success
-  "success alert": [["success", 10]], // Alert success: bg-success/10
+  destructive: [["destructive", 100]], // Button and Badge destructive: bg-destructive
+  "destructive hover": [["destructive", 90]], // Button destructive, and a link's Badge: hover:bg-destructive/90
+  "destructive hover in a card": [...CARD, ["destructive", 90]],
+  success: [["success", 100]], // Badge promo, the promotion's pill: bg-success
+  "success alert": [["success", 100]], // Alert success: bg-success
   "success badge in a card": [...CARD, ["success", 15]], // Badge success: bg-success/15
   warning: [["warning", 100]], // a warning pill: bg-warning
-  "warning alert": [["warning", 10]], // Alert warning: bg-warning/10
+  "warning alert": [["warning", 100]], // Alert warning: bg-warning
   "warning badge": [["warning", 15]], // Badge warning on the paper: a match's size warning
   "warning badge in a card": [...CARD, ["warning", 15]], // Badge warning: bg-warning/15
   primary: [["primary", 100]], // Button default: bg-primary
   "primary hover": [["primary", 90]], // Button default: hover:bg-primary/90
   "primary hover in a card": [...CARD, ["primary", 90]],
+  "outline button": CARD, // Button outline, and the theme switch: bg-card
+  "outline button hover": [["accent", 100]], // Button outline: hover:bg-accent
   "active chip": [["foreground", 100]], // an active filter chip: bg-foreground
 };
-// Where a component's dark: variant draws another surface, each theme's own.
+// Where a component's dark: variant draws another surface, each theme's own. None does today: the outline Button's
+// dark: fills went with the redesign, which draws it on the card in both themes.
 const THEME_SURFACES = {
-  light: {
-    "outline button": [["background", 100]], // Button outline: bg-background
-    "outline button hover": [["accent", 100]], // Button outline: hover:bg-accent
-  },
-  dark: {
-    "outline button": [["input", 30]], // Button outline: dark:bg-input/30
-    "outline button hover": [["input", 50]], // Button outline: dark:hover:bg-input/50
-  },
+  light: {},
+  dark: {},
 };
 // The paper labels, which stay light in both themes and carry --label-ink: the price tags and the hero ("sun", "tag-warn"
 // and "tag-plain"), the stickers, the avatar's initial and a product's tile without a photo.
@@ -216,33 +216,38 @@ const PAIRS = [
   ["muted-foreground", 100, "paper", TEXT],
   ["muted-foreground", 100, "card", TEXT],
   ["muted-foreground", 100, "muted", TEXT],
-  // Text links: "← Moja lista" on the paper, "Zobacz w sklepie" in a card. The session alert's sign-in link takes the
-  // alert description's warning-foreground/90, measured with the warnings below.
+  // Text links, the Button's link and underlined variants and the Badge's link: "← Moja lista" on the paper, "Zobacz w
+  // sklepie" in a card. The session alert's sign-in link takes the alert description's warning-foreground, measured
+  // with the warnings below.
   ["link", 100, "paper", TEXT],
   ["link", 100, "card", TEXT],
-  // Primary buttons at rest and on hover: "Dopasuj w Naturze" on the paper, "To ten produkt" in a candidate's card.
+  // The default Button at rest and on hover: "Dopasuj w Naturze" on the paper, "To ten produkt" in a candidate's card.
   ["primary-foreground", 100, "primary", TEXT],
   ["primary-foreground", 100, "primary hover", TEXT],
   ["primary-foreground", 100, "primary hover in a card", TEXT],
-  // Outline buttons ("Odśwież ceny", "Żaden z nich"): the text inherits the page's, and hover sets accent-foreground.
+  // The outline Button ("Odśwież ceny", "Żaden z nich") and the theme switch's icon: text-foreground, and on hover
+  // accent-foreground.
   ["foreground", 100, "outline button", TEXT],
   ["accent-foreground", 100, "outline button hover", TEXT],
+  // The destructive Button and Badge, at rest and on hover.
+  ["destructive-foreground", 100, "destructive", TEXT],
+  ["destructive-foreground", 100, "destructive hover", TEXT],
+  ["destructive-foreground", 100, "destructive hover in a card", TEXT],
   // The filter chips: an inactive chip's label and its count at 70% on the paper, an active chip's on its fill.
   ["foreground", 70, "paper", TEXT],
   ["background", 100, "active chip", TEXT],
   ["background", 70, "active chip", TEXT],
-  // The paper labels' text.
+  // The paper labels' text: the hanging tags (Badge tag-sun and tag-warn) on sun and tag-warn among them.
   ...LABELS.map((label) => ["label-ink", 100, label, TEXT]),
   // Errors: the destructive Alert's text and its description at /90. The page shows no error text outside an Alert.
   ["destructive", 100, "destructive alert", TEXT],
   ["destructive", 90, "destructive alert", TEXT],
-  // Success: the promo pill, a note on the paper or in a card, the Alert's text and description, and "Najtaniej" as a
-  // Badge in a card.
+  // Success: the promotion's pill (Badge promo), a note on the paper or in a card, the Alert's text, whose description
+  // takes the same colour, and "Najtaniej" as a Badge in a card.
   ["success-foreground", 100, "success", TEXT],
   ["success-foreground", 100, "paper", TEXT],
   ["success-foreground", 100, "card", TEXT],
   ["success-foreground", 100, "success alert", TEXT],
-  ["success-foreground", 90, "success alert", TEXT],
   ["success-foreground", 100, "success badge in a card", TEXT],
   // Warnings: the same, with a warning pill, a price row's notices in its card, "nieaktualna" as a Badge in a card, and
   // a match's size warning as a Badge on the paper.
@@ -250,7 +255,6 @@ const PAIRS = [
   ["warning-foreground", 100, "paper", TEXT],
   ["warning-foreground", 100, "card", TEXT],
   ["warning-foreground", 100, "warning alert", TEXT],
-  ["warning-foreground", 90, "warning alert", TEXT],
   ["warning-foreground", 100, "warning badge", TEXT],
   ["warning-foreground", 100, "warning badge in a card", TEXT],
   // The focus outline, drawn in --ring at full opacity, around a control on each surface.

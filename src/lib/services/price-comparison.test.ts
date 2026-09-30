@@ -7,6 +7,7 @@ import {
   listPricedItems,
   listSummaryText,
   needsRefetch,
+  priceParts,
   priceState,
   productPriceKeys,
   REFETCH_AFTER_MS,
@@ -357,6 +358,38 @@ describe("formatting", () => {
     expect(formatDay("2026-09-30")).toBe("30.09");
     expect(formatDay("2027-01-05")).toBe("05.01");
   });
+});
+
+describe("priceParts", () => {
+  it("splits a price into its złote and its grosze", () => {
+    expect(priceParts(22.99)).toEqual({ zlote: "22", grosze: "99" });
+    expect(priceParts(0.99)).toEqual({ zlote: "0", grosze: "99" });
+  });
+
+  it("writes both grosze digits, even for a whole price", () => {
+    expect(priceParts(5)).toEqual({ zlote: "5", grosze: "00" });
+    expect(priceParts(12.5)).toEqual({ zlote: "12", grosze: "50" });
+  });
+
+  it("groups the złote as formatPrice does: with a no-break space, from five digits", () => {
+    // Polish leaves a four-digit amount ungrouped.
+    expect(priceParts(1234.56)).toEqual({ zlote: "1234", grosze: "56" });
+    expect(priceParts(12345.67)).toEqual({ zlote: `12${NO_BREAK_SPACE}345`, grosze: "67" });
+  });
+
+  it("rounds as formatPrice does, carrying into the złote", () => {
+    expect(priceParts(16.999)).toEqual({ zlote: "17", grosze: "00" });
+    expect(priceParts(2.675)).toEqual({ zlote: "2", grosze: "68" });
+  });
+
+  it.each([22.99, 5, 0.99, 1234.56, 12345.67, 16.999, 2.675])(
+    "reads %d as the parts of formatPrice's text",
+    (amount) => {
+      const { zlote, grosze } = priceParts(amount);
+
+      expect(`${zlote},${grosze}${NO_BREAK_SPACE}zł`).toBe(formatPrice(amount));
+    },
+  );
 });
 
 describe("productPriceKeys", () => {

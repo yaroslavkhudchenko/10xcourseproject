@@ -4,6 +4,8 @@
 @source not "../dev";
 /* The design handoff and the docs in context/ aren't the app: their HTML and scripts must not add classes to it. */
 @source not "../../context";
+/* Nor the 10x CLI's skills in .claude/, or an agent's git worktree there: a local build then scans what CI scans. */
+@source not "../../.claude";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -37,6 +39,8 @@
   /* shadcn's red-600, oklch(0.577 0.245 27.325), darkened with its hue and chroma kept: on this paper a destructive
      Alert's description, at /90, reached only 3.11:1 over a dot of the grid, where it needs 4.5:1. */
   --destructive: oklch(0.43 0.245 27.325);
+  /* The text on a destructive Button's or Badge's fill: #FFF8E7, as --primary-foreground. */
+  --destructive-foreground: oklch(0.98 0.024 88.2);
   --success: oklch(0.932 0.048 158.5); /* #CFF3DD */
   --success-foreground: oklch(0.427 0.094 157.5); /* #0F5E3A */
   --warning: oklch(0.897 0.058 46.4); /* #FFD2BD */
@@ -97,6 +101,8 @@
   --accent: oklch(0.296 0.033 291.9); /* #2D2A3C */
   --accent-foreground: var(--foreground);
   --destructive: oklch(0.808 0.114 19.571); /* red-300 */
+  /* The text on a destructive Button's or Badge's fill, which is light here: #1F1B2D, the light theme's ink. */
+  --destructive-foreground: oklch(0.236 0.034 293.8);
   --success: oklch(0.332 0.042 166.2); /* #1F3D31 */
   --success-foreground: oklch(0.86 0.112 160.3); /* #8BE8B8 */
   --warning: oklch(0.308 0.044 39.2); /* #43281F */
@@ -163,6 +169,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
@@ -200,6 +207,161 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* The handoff's scale (handoff/README.md: "Typography", "Radii", "Shadows", "Tilt"), so a view never needs an
+   arbitrary px value. Tailwind's own steps cover the rest: tracking-tighter (-0.05em, a card's złote), tracking-tight
+   (-0.025em, a shop's name) and tracking-widest (0.1em, the hero's eyebrow), text-xs to text-xl, and the spacing
+   scale's quarter steps, such as size-10.5 for 42 px. A role drawn larger on a desktop has a second token ending in
+   -lg, its value from lg (1024 px) up: text-price-hero lg:text-price-hero-lg. A token added here also joins cn()'s
+   names in src/lib/utils.ts, where src/lib/utils.test.ts checks it: tailwind-merge doesn't know it otherwise, and
+   would drop it next to a class it takes for the same kind, such as a text colour. */
+@theme {
+  /* A product's title. */
+  --text-product-title: 1.5625rem; /* 25 px */
+  --text-product-title--line-height: 1.08;
+  --text-product-title-lg: 2.5rem; /* 40 px */
+  --text-product-title-lg--line-height: 1.02;
+  /* "Moja lista", larger on a phone. */
+  --text-list-title: 2.375rem; /* 38 px */
+  --text-list-title--line-height: 1;
+  --text-list-title-lg: 2.125rem; /* 34 px */
+  --text-list-title-lg--line-height: 1;
+  /* The hero's shop, "w Naturze". */
+  --text-hero-shop: 1.375rem; /* 22 px */
+  --text-hero-shop--line-height: 1;
+  --text-hero-shop-lg: 2.25rem; /* 36 px */
+  --text-hero-shop-lg--line-height: 1;
+  /* The prices, as Price draws them: the złote, the grosze beside their top and "zł" under the grosze. */
+  --text-price-hero: 5.25rem; /* 84 px */
+  --text-price-hero--line-height: 0.8;
+  --text-price-hero-lg: 7.75rem; /* 124 px */
+  --text-price-hero-lg--line-height: 0.8;
+  --text-price-hero-grosze: 2.25rem; /* 36 px */
+  --text-price-hero-grosze--line-height: 0.85;
+  --text-price-hero-grosze-lg: 3.25rem; /* 52 px */
+  --text-price-hero-grosze-lg--line-height: 0.85;
+  --text-price-hero-unit: 1.125rem; /* 18 px */
+  --text-price-hero-unit--line-height: 1;
+  --text-price-hero-unit-lg: 1.5rem; /* 24 px */
+  --text-price-hero-unit-lg--line-height: 1;
+  --text-price-card: 2.875rem; /* 46 px */
+  --text-price-card--line-height: 0.82;
+  --text-price-card-lg: 3.5rem; /* 56 px */
+  --text-price-card-lg--line-height: 0.82;
+  --text-price-card-grosze: 1.25rem; /* 20 px */
+  --text-price-card-grosze--line-height: 0.85;
+  --text-price-card-grosze-lg: 1.5rem; /* 24 px */
+  --text-price-card-grosze-lg--line-height: 0.85;
+  --text-price-card-unit: 0.75rem; /* 12 px */
+  --text-price-card-unit--line-height: 1;
+  --text-price-card-unit-lg: 0.875rem; /* 14 px */
+  --text-price-card-unit-lg--line-height: 1;
+  /* A list row's price tag, the same on every screen. */
+  --text-price-tag: 1.375rem; /* 22 px */
+  --text-price-tag--line-height: 1;
+  --text-price-tag-grosze: 0.75rem; /* 12 px */
+  --text-price-tag-grosze--line-height: 1;
+  /* A shop's name in its card. */
+  --text-shop-name: 1.125rem; /* 18 px */
+  --text-shop-name-lg: 1.25rem; /* 20 px */
+  /* The wordmark and the sticker's label, in LogoMark's and Sticker's own two sizes. */
+  --text-wordmark-sm: 1.125rem; /* 18 px */
+  --text-wordmark-lg: 1.375rem; /* 22 px */
+  --text-sticker-sm: 0.9375rem; /* 15 px, 17 % of the 86 px sticker */
+  --text-sticker-sm--line-height: 1;
+  --text-sticker-lg: 1.375rem; /* 22 px, 17 % of the 128 px sticker */
+  --text-sticker-lg--line-height: 1;
+  /* The initial on a product title's tile. */
+  --text-thumb-title: 1.375rem; /* 22 px */
+  --text-thumb-title-lg: 2rem; /* 32 px */
+  /* The compact buttons' and the filter chips' labels. */
+  --text-compact: 0.8125rem; /* 13 px */
+
+  --tracking-price: -0.055em; /* the hero's złote */
+  --tracking-title: -0.04em; /* a product's title, and "Moja lista" on a phone */
+  --tracking-heading: -0.035em; /* "Moja lista", the hero's shop, and a product's title on a phone */
+  --tracking-wordmark: -0.03em; /* the wordmark, the price tag's złote and the hero's grosze */
+  --tracking-sticker: -0.02em; /* the sticker's label, and a track marker's price */
+  --tracking-meta: 0.04em; /* the source footer and the bottom bar's check, in DM Mono */
+  --tracking-eyebrow: 0.06em; /* a row's eyebrow, the price tag's label and the track's labels, in DM Mono */
+  --tracking-tag: 0.08em; /* the hanging tag, and a product's eyebrow */
+
+  --radius-tag: 0.5625rem; /* 9 px, the hanging tag */
+  --radius-button-sm: 0.75rem; /* 12 px, the outline button: the handoff's small buttons */
+  --radius-button: 0.875rem; /* 14 px, the primary button */
+  --radius-thumb: 0.875rem; /* 14 px, a list row's thumbnail */
+  --radius-thumb-title: 1rem; /* 16 px, a product title's thumbnail on a phone */
+  --radius-thumb-title-lg: 1.375rem; /* 22 px */
+  --radius-search: 1rem; /* 16 px, the search field */
+  --radius-row: 1.125rem; /* 18 px, a list row */
+  --radius-card: 1.25rem; /* 20 px, a card on a phone */
+  --radius-card-lg: 1.375rem; /* 22 px */
+  --radius-hero: 1.375rem; /* 22 px, the verdict's hero on a phone */
+  --radius-hero-lg: 1.625rem; /* 26 px */
+
+  /* The hairline: every 1.5 px border of the handoff, as border-hairline, or border-t-hairline and the other sides. */
+  --border-width-hairline: 1.5px;
+
+  /* The sticker's stamp as it appears: from 1.7 times its size, unseen, to its size. It scales through the scale
+     property, so the sticker's own rotate stays. Sticker plays it only as motion-safe:animate-stamp. */
+  --animate-stamp: stamp 550ms cubic-bezier(0.2, 1.5, 0.4, 1) both;
+
+  @keyframes stamp {
+    0% {
+      opacity: 0;
+      scale: 1.7;
+    }
+    55% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 1;
+      scale: 1;
+    }
+  }
+}
+
+/* The hard shadows, with no blur. They name theme colours, so they're inline: each utility then reads the colour where
+   it's drawn, and a .dark wrapper switches it too. */
+@theme inline {
+  --shadow-primary: 3px 3px 0 var(--primary-shadow); /* the primary button, which drops it while pressed */
+  --shadow-hero: 5px 5px 0 var(--shadow-ink); /* the verdict's hero on a phone */
+  --shadow-hero-lg: 6px 6px 0 var(--shadow-ink);
+  --shadow-selected: 4px 4px 0 var(--sun); /* the selected list row */
+}
+
+/* A control drawn below 44 × 44 px, the tap target of a phone held at the shelf, keeps its drawn size and gets a hit
+   area of at least 44 × 44 px centred on it: an ::after box, positioned from the control, so the layout never moves.
+   The control becomes position: relative. It must not clip its overflow, and its neighbours must leave the area room,
+   or a tap there reaches them instead. Inside an element with the data-show-hit-areas attribute, as in the kitchen
+   sink, each area is outlined. */
+@utility hit-area {
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, calc(var(--spacing) * 11));
+    height: max(100%, calc(var(--spacing) * 11));
+    translate: -50% -50%;
+  }
+
+  [data-show-hit-areas] &::after {
+    outline: 1px dashed var(--muted-foreground);
+  }
+}
+
+/* The logo's radar: the sun, swept across 62° by the label ink at 28 % (the handoff's rgba(31,27,45,.28)). */
+@utility bg-radar {
+  background-color: var(--sun);
+  background-image: conic-gradient(
+    from 20deg,
+    color-mix(in oklch, var(--label-ink) 28%, transparent) 0deg 62deg,
+    transparent 62deg
+  );
+}
+
 /* The redesigned pages' canvas: the paper, with its dot grid. */
 @utility bg-paper {
   background-color: var(--background);
@@ -220,8 +382,17 @@
 }
 
 @layer base {
+  /* Every element's outline is already in --ring, so a control's transition has no colour to fade when it gains
+     focus. */
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring;
+  }
+  /* The handoff's focus: a 2 px outline in --ring at full opacity, 2 px off the control, on every element a keyboard
+     reaches. The components draw no ring of their own. A real outline also shows in forced-colors mode, where a
+     box-shadow ring vanishes. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
   body {
     @apply bg-background text-foreground;
