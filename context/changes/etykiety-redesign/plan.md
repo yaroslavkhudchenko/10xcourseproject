@@ -1137,6 +1137,49 @@ They were built test-first in a parallel worktree and cherry-picked onto this br
 - **Local data:** throwaway users `p4-check-*@example.com`; made-up items (Rossmann 990000201 and 990000202, Natura NV99999201); three observations; one matched Natura decision. No shop request was made: the pages were loaded with `Purpose: prefetch`.
 - **Until phase 5,** the desktop product area spans the full width, with no link back to the list.
 
+### Phase 5
+
+- **New tested helpers:**
+  - In `natura-card.ts`: `naturaUnreadable(view)`, and a `NaturaCardInput` type, which is the island's `natura` prop.
+  - In `price-comparison-state.ts`:
+    - `verdictOfState(state, { naturaUnreadable })`: an unreadable match makes the verdict `unread`.
+    - `rowShopsOfIsland(rows, { naturaUnreadable })`: the `PRICES_EVENT` shops, with Natura marked `readFailed` when its match couldn't be read.
+    - `shopsOfPricesEvent(event, itemId)`: `RowTag`'s filter.
+    - A `NaturaRead` type.
+  - In `watchlist-rows.ts`: `listChipsOf(rows, readsWorked, raw)`, so both pages share the rule "chips only when all three reads worked and the list isn't empty".
+- **The selected row's first tag** comes from the product page's own reads (`rowTagOf(rowShopsOfIsland(initialState(…).rows, …))`), so the aside and the product agree from the first paint. The island sends `PRICES_EVENT` on every change of its rows: after hydration, when a refetch starts, and when it's answered.
+- **`refresh.ts`:** a crafted `back` on a whole-list refresh redirects to `/watchlist` before any refresh, so it costs no shop request. The product refresh uses `PRICES_PARAM`.
+- **Components:**
+  - `ShopCard.tsx` exports `SHOP_CARD` and `ShopHeader` and takes `children`, for Natura's footer and alerts.
+  - `PriceComparisonView` exports `ShopGrid`, and its `naturaUndecided` prop became `natura`.
+  - `ListHead` takes `level?: 1 | 2` (an `h2` in the aside) and `back?: string | null`, whose hidden field renders only when set.
+- **`ProductSummary.astro` is deleted:** only the old NaturaSection used it. The restyled choice uses the list-row look.
+- **The aside** shows on the not-found and failed branches too, with no selection and no `back`.
+- **Layout:**
+  - The prompt link is full width on phones and as wide as its text from `lg`, as the handoff draws it; the plan said full width.
+  - An unsaved match has no price row, so its item stands where the price would be, above the dashed footer.
+- **Contrast check:** a "destructive alert in a card" surface with its pairs, for 136 checks.
+- **CLAUDE.md:** the UI bullet's Natura sentence is corrected: each shop appears once, in its card; Natura's card comes from `natura-card.ts`; `NaturaSection.astro` holds only the choice.
+- **`scripts/smoke.mjs`:** the empty list's refresh now expects `/watchlist?list-prices=none`.
+- **Kitchen sinks:**
+  - The fixtures take `natura` (matched, declined, prompt), and there's a new `natura-read-failed` fixture. `NaturaFixture` is `{ code, text, idPrefix, natura, state }`.
+  - The Natura states are their own full-width section.
+  - `/dev/watchlist` has an "Obok produktu" section, where the selected rows' tags hydrate.
+- **For S-05 and S-06:** when Natura's match can't be read, only the verdict says unread. The cards' "Najtaniej" mark and the live region's ", najtaniej" aren't withheld. That can't happen with two shops, since an unmatched Natura has no price row, but it can once more shops join.
+- **For the owner's check:**
+  - Only the selected row's tag follows the refresh; its sr-only line, its flags and the chip counts stay as they were read.
+  - A filter that excludes the product shows no selected row.
+  - "Pokaż zapisaną decyzję" links without `?f=`.
+  - The read-failed text lost "Odśwież stronę.", and `unavailable` is a warning line rather than an Alert.
+  - The Colgate sample's "Stara cena" sticker touches its caption at 1280 px (phase 6's QA).
+- **Costs, verified:** the `shop_requests` max id was 85 before and after.
+  - Product views with a stored decision and fresh prices: 0.
+  - A chip click: one product view, 0.
+  - The live tag: 0.
+  - The list refresh from the aside, with nothing stale: 0.
+  - A crafted `back` goes to `/watchlist` with no refresh.
+- **Local data:** `p5-check-…@example.com`, with made-up products (Rossmann 990000501–503; Natura DEVNV0501) and 4 observations. Don't refresh them.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -1193,10 +1236,10 @@ They were built test-first in a parallel worktree and cherry-picked onto this br
 
 #### Automated
 
-- [x] 4.1 `npm run test` passes, with new tests for the hero, the track, the hint and the caption
-- [x] 4.2 `npm run lint`, `npx astro check` and `npm run build` pass
-- [x] 4.3 `node scripts/check-token-contrast.mjs` passes
-- [x] 4.4 Deliberate breaks in the hero, track and caption rules turn their tests red
+- [x] 4.1 `npm run test` passes, with new tests for the hero, the track, the hint and the caption — 5c1c302
+- [x] 4.2 `npm run lint`, `npx astro check` and `npm run build` pass — 5c1c302
+- [x] 4.3 `node scripts/check-token-contrast.mjs` passes — 5c1c302
+- [x] 4.4 Deliberate breaks in the hero, track and caption rules turn their tests red — 5c1c302
 
 #### Manual
 
@@ -1209,10 +1252,10 @@ They were built test-first in a parallel worktree and cherry-picked onto this br
 
 #### Automated
 
-- [ ] 5.1 `npm run test` passes, with new tests for the Natura card view, the list refresh's return path and the selected row's tag update
-- [ ] 5.2 `npm run lint`, `npx astro check` and `npm run build` pass
-- [ ] 5.3 `node scripts/check-token-contrast.mjs` passes
-- [ ] 5.4 `npm run smoke` passes against the dev server
+- [x] 5.1 `npm run test` passes, with new tests for the Natura card view, the list refresh's return path and the selected row's tag update
+- [x] 5.2 `npm run lint`, `npx astro check` and `npm run build` pass
+- [x] 5.3 `node scripts/check-token-contrast.mjs` passes
+- [x] 5.4 `npm run smoke` passes against the dev server
 
 #### Manual
 

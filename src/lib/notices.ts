@@ -18,7 +18,7 @@ export const DECISION_NOTICES: Record<DecisionCode, string> = {
 /** The parameter a decision that wasn't saved comes back with, holding its error's code (`?error=failed`). */
 export const ERROR_PARAM = "error";
 
-/** The parameter "Odśwież ceny" comes back with when its form was posted without JavaScript (`?prices=done`). */
+/** The parameter a product's own "Odśwież ceny" comes back with when posted without JavaScript (`?prices=done`). */
 export const PRICES_PARAM = "prices";
 
 /**

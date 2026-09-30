@@ -175,6 +175,9 @@ export const GALLERY_ROWS: ListRow[] = ROW_FIXTURES.filter((fixture) => fixture.
 /** How many of the gallery's rows each chip holds. */
 export const GALLERY_COUNTS = filterCounts(GALLERY_ROWS);
 
+/** The product whose page the gallery stands beside, as the list in its left column: the handoff's Nivea. */
+export const BESIDE_ID = NIVEA.id;
+
 // The whole list's three reads as the page gets them, from which the read failures are built: Nivea matched in Natura,
 // Ziaja still to match, Colgate declined there.
 const LIST: WatchlistItem[] = [NIVEA, ZIAJA, COLGATE];

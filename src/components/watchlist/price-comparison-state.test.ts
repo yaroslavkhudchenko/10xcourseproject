@@ -14,6 +14,8 @@ import {
   PRICES_ROUTE,
   readRefreshResponse,
   requestRefresh,
+  rowShopsOfIsland,
+  shopsOfPricesEvent,
   start,
   tick,
   trackHint,
@@ -918,6 +920,17 @@ describe("verdictOfState", () => {
     expect(verdictOfState(state).kind).toBe("unread");
     expect(verdictOfState(oneAnswered).kind).toBe("unread");
   });
+
+  it("is unread while Natura's match couldn't be read, beside Rossmann's fresh price, even after Rossmann answers", () => {
+    // Without the match there's no Natura row, and Rossmann's price would read as the only one.
+    const state = initialState({ shops: [rossmann()], now: RENDERED });
+    const answered = run(state, start("rossmann"), done("rossmann", priceAnswer(26.49), ANSWERED_AT));
+
+    expect(verdictOfState(state)).toMatchObject({ kind: "only", shop: "rossmann" });
+    expect(verdictOfState(state, { naturaUnreadable: true })).toEqual({ kind: "unread", at: RENDERED_AT });
+    expect(verdictOfState(answered, { naturaUnreadable: true })).toEqual({ kind: "unread", at: ANSWERED_AT });
+    expect(verdictOfState(state, { naturaUnreadable: false })).toEqual(verdictOfState(state));
+  });
 });
 
 describe("markerLabelSides", () => {
@@ -960,5 +973,76 @@ describe("PRICES_EVENT", () => {
 
     expect(PRICES_EVENT).toBe("drogeria:prices");
     expect(rowTagOf(detail.shops, state.now)).toEqual({ tone: "sun", price: 16.99, label: "Natura" });
+  });
+});
+
+describe("rowShopsOfIsland", () => {
+  it("gives each row's shop, latest check and read state, and nothing else of the row", () => {
+    const state = run(
+      initialState({ shops: [rossmann(), { ...natura(null), readFailed: true }], now: RENDERED }),
+      start("rossmann"),
+    );
+
+    expect(rowShopsOfIsland(state.rows)).toEqual([
+      { shop: "rossmann", latest: stored("rossmann", "26900", 26.99), readFailed: false },
+      { shop: "natura", latest: null, readFailed: true },
+    ]);
+  });
+
+  it("adds Natura as a price that couldn't be read while its match couldn't be, so no shop is named", () => {
+    const state = initialState({ shops: [rossmann()], now: RENDERED });
+    const shops = rowShopsOfIsland(state.rows, { naturaUnreadable: true });
+
+    expect(shops).toEqual([
+      { shop: "rossmann", latest: stored("rossmann", "26900", 26.99), readFailed: false },
+      { shop: "natura", latest: null, readFailed: true },
+    ]);
+    // The list's row would otherwise name Rossmann as the only shop.
+    expect(rowTagOf(rowShopsOfIsland(state.rows), RENDERED_AT)).toMatchObject({ label: "Tylko Rossmann" });
+    expect(rowTagOf(shops, RENDERED_AT)).toEqual({ tone: "outline", price: null, label: "Błąd odczytu" });
+  });
+
+  it("keeps a Natura row the island has, and adds none", () => {
+    const state = initialState({ shops: [rossmann(), natura()], now: RENDERED });
+
+    expect(rowShopsOfIsland(state.rows, { naturaUnreadable: true }).map(({ shop }) => shop)).toEqual([
+      "rossmann",
+      "natura",
+    ]);
+  });
+});
+
+describe("shopsOfPricesEvent and the selected row's tag", () => {
+  /** The event the island sends for `itemId` with its rows, as PriceComparison dispatches it. */
+  const sent = (itemId: string, shops: PricesEventDetail["shops"]) =>
+    new CustomEvent<PricesEventDetail>(PRICES_EVENT, { detail: { itemId, shops } });
+
+  it("recomputes the tag from the rows the island sends, before and after a shop answers", () => {
+    const before = initialState({ shops: [rossmann(), natura()], now: RENDERED });
+    const after = run(before, start("natura"), done("natura", priceAnswer(16.99), ANSWERED_AT));
+
+    const first = shopsOfPricesEvent(sent(ITEM_ID, rowShopsOfIsland(before.rows)), ITEM_ID);
+    const next = shopsOfPricesEvent(sent(ITEM_ID, rowShopsOfIsland(after.rows)), ITEM_ID);
+
+    expect(first).not.toBeNull();
+    expect(next).not.toBeNull();
+    // Rossmann's stored 26,99 zł beats Natura's stored 29,99 zł, until Natura answers with 16,99 zł.
+    expect(rowTagOf(first ?? [], RENDERED_AT)).toEqual({ tone: "sun", price: 26.99, label: "Rossmann" });
+    expect(rowTagOf(next ?? [], ANSWERED_AT)).toEqual({ tone: "sun", price: 16.99, label: "Natura" });
+  });
+
+  it("ignores an event about another product", () => {
+    const state = initialState({ shops: [rossmann()], now: RENDERED });
+
+    expect(shopsOfPricesEvent(sent("another-product", rowShopsOfIsland(state.rows)), ITEM_ID)).toBeNull();
+  });
+
+  it("ignores another event, and one without the island's detail", () => {
+    expect(shopsOfPricesEvent(new Event(PRICES_EVENT), ITEM_ID)).toBeNull();
+    expect(
+      shopsOfPricesEvent(new CustomEvent("drogeria:theme", { detail: { itemId: ITEM_ID, shops: [] } }), ITEM_ID),
+    ).toBeNull();
+    expect(shopsOfPricesEvent(new CustomEvent(PRICES_EVENT, { detail: { itemId: ITEM_ID } }), ITEM_ID)).toBeNull();
+    expect(shopsOfPricesEvent(new CustomEvent(PRICES_EVENT, { detail: null }), ITEM_ID)).toBeNull();
   });
 });

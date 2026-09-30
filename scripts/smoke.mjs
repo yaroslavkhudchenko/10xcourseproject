@@ -124,7 +124,7 @@ const steps = [
   [
     "list price refresh of an empty list refreshes nothing",
     () => listRefresh(),
-    { status: 302, location: "/watchlist?prices=none" },
+    { status: 302, location: "/watchlist?list-prices=none" },
   ],
   [
     // Astro's checkOrigin is the refresh route's only defence against a form posted from another site.

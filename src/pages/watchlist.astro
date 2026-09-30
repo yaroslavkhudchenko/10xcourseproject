@@ -7,7 +7,7 @@ import ListHead from "@/components/watchlist/ListHead.astro";
 import ListRows from "@/components/watchlist/ListRows.astro";
 import SearchResults from "@/components/watchlist/SearchResults.astro";
 import WatchlistShell from "@/layouts/WatchlistShell.astro";
-import { PRICES_PARAM } from "@/lib/notices";
+import { LIST_PRICES_PARAM } from "@/lib/notices";
 import { listMatchStates } from "@/lib/services/matches";
 import { SHOP_LABELS } from "@/lib/services/price-comparison";
 import { parsePriceRefreshCode } from "@/lib/services/price-refresh";
@@ -15,7 +15,7 @@ import { listLatestPrices } from "@/lib/services/prices";
 import { shopGateFor } from "@/lib/services/shop-gate";
 import { isOwnNavigation, searchQuerySchema } from "@/lib/services/search-query";
 import { searchRossmann } from "@/lib/services/shops/rossmann";
-import { filterCounts, listRowsOf, parseListFilter } from "@/lib/services/watchlist-rows";
+import { listChipsOf, listRowsOf } from "@/lib/services/watchlist-rows";
 import { listWatchlist, watchlistErrorMessage } from "@/lib/services/watchlist";
 import { shopUnavailableText } from "@/lib/shop-messages";
 
@@ -44,10 +44,8 @@ const unavailableMessage =
 
 // Each product's row, judged now: a product whose price or Natura decision couldn't be read says so.
 const rows = items === null ? null : listRowsOf(items, matchRead, priceRead, Date.now());
-// The chips, and the filter they set, only when every read worked: a row whose price or decision couldn't be read
-// can't say whether a chip holds it. An empty list has nothing to filter.
-const counts = rows !== null && rows.length > 0 && matchRead !== null && priceRead !== null ? filterCounts(rows) : null;
-const filter = counts === null ? "all" : parseListFilter(params.get("f"));
+// The chips, and the filter they set, only when every read worked and the list has products (listChipsOf).
+const { counts, filter } = listChipsOf(rows, matchRead !== null && priceRead !== null, params.get("f"));
 
 const notice = params.has("exists") ? "Ten produkt jest już na Twojej liście." : null;
 const error = watchlistErrorMessage(params.get("error"));
@@ -60,7 +58,7 @@ const error = watchlistErrorMessage(params.get("error"));
     path={Astro.url.pathname}
     filter={filter}
     counts={counts}
-    refreshCode={parsePriceRefreshCode(params.get(PRICES_PARAM))}
+    refreshCode={parsePriceRefreshCode(params.get(LIST_PRICES_PARAM))}
   >
     {notice && (
       <Alert variant="success" role="status">

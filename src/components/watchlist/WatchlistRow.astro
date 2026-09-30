@@ -2,7 +2,8 @@
 // A row of the list, or of the search results: the product's thumbnail, its brand and size above its name, and on the
 // right its price tag, or, for a search result, what the user can do with it. On the list the row links to the
 // product's page, keeping the list's filter, lifts on hover unless the user asked for reduced motion, and screen
-// readers hear its whole comparison in one line, the row service's summary, instead of the drawn tag. A search result
+// readers hear its whole comparison in one line, the row service's summary, instead of the drawn tag. Beside a
+// product's page, that product's row is selected, and its tag follows the product's refresh (RowTag). A search result
 // isn't on the list yet, so it links nowhere and stays put, and its action comes in the default slot.
 import ProductThumb from "@/components/watchlist/ProductThumb";
 import RowTag from "@/components/watchlist/RowTag";
@@ -17,7 +18,8 @@ type Props =
       filter: ListFilter;
       /**
        * Whether the product's page shows the list beside it: the row gets a 2 px edge, the sun's shadow and the lift,
-       * and its focus outline sits outside the shadow, which is the ring's colour in the dark theme.
+       * and its focus outline sits outside the shadow, which is the ring's colour in the dark theme. Its tag follows
+       * the product's refresh.
        */
       selected?: boolean;
     }
@@ -60,7 +62,12 @@ const href =
   ) : (
     <>
       <span aria-hidden="true" class="shrink-0">
-        <RowTag tag={listed.row.tag} />
+        {/* The selected row's tag follows its product's refresh, so it's the one island among the rows. */}
+        {selected ? (
+          <RowTag client:load tag={listed.row.tag} itemId={listed.row.itemId} />
+        ) : (
+          <RowTag tag={listed.row.tag} />
+        )}
       </span>
       <span class="sr-only">{listed.row.summary}</span>
     </>

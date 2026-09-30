@@ -1,6 +1,14 @@
 import { useId } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
+  naturaCardOf,
+  naturaUndecided,
+  naturaUnreadable,
+  type NaturaCard as NaturaCardModel,
+  type NaturaCardInput,
+} from "@/components/watchlist/natura-card";
+import NaturaCard from "@/components/watchlist/NaturaCard";
+import {
   checkedAge,
   checkedCaption,
   comparisonOf,
@@ -8,6 +16,7 @@ import {
   trackHint,
   trackOf,
   verdictOfState,
+  type ComparedRow,
   type PriceComparisonState,
 } from "@/components/watchlist/price-comparison-state";
 import PriceTrack from "@/components/watchlist/PriceTrack";
@@ -23,8 +32,13 @@ interface Props {
   product: TitleProduct;
   /** The island's state: its rows, whether each refetch runs, and what the last answers said. */
   state: PriceComparisonState;
-  /** Whether Natura is still to be matched (naturaUndecided): the hero and the track's hint say so beside one price. */
-  naturaUndecided: boolean;
+  /**
+   * Natura as the page read it: its view, a decision's notice and error, and whether the lookup's outcome went
+   * unsaved; null when there's nothing to say about Natura. Its card stands among the shops' cards, the hero and the
+   * track's hint say when it's still to be matched, and a decision that couldn't be read keeps every shop from being
+   * named, as a price that couldn't be read does.
+   */
+  natura: NaturaCardInput | null;
   /**
    * Refetches every shop in place of the forms' post. Absent when the view is rendered without the island, as in the
    * kitchen sink: the forms then post, as they do without JavaScript.
@@ -34,21 +48,21 @@ interface Props {
 
 // A product's page from its title down, as the island's state has it: the title row with "Odśwież ceny" and when the
 // prices were checked, the verdict's hero, the price track or its hint, one card per shop, in the comparison's order
-// with the cheapest marked, and a phone's bottom bar. What each part says comes from the tested rules
-// (price-comparison-state.ts); this only maps it. It keeps no state and runs no effect, so every state the reducer can
-// reach renders the same in the island and in the kitchen sink, and a view rendered without the island fetches
-// nothing.
-export default function PriceComparisonView({ itemId, product, state, naturaUndecided, onRefresh }: Props) {
+// with the cheapest marked and Natura's card among them, and a phone's bottom bar. What each part says comes from the
+// tested rules (price-comparison-state.ts, natura-card.ts); this only maps it. It keeps no state and runs no effect,
+// so every state the reducer can reach renders the same in the island and in the kitchen sink, and a view rendered
+// without the island fetches nothing.
+export default function PriceComparisonView({ itemId, product, state, natura, onRefresh }: Props) {
+  const view = natura?.view ?? null;
   // The rows' order and marks, withheld while a stored price is unread, and the verdict judged on the same rows.
   const { rows } = comparisonOf(state);
-  const verdict = verdictOfState(state);
-  const natura = { naturaUndecided };
+  const verdict = verdictOfState(state, { naturaUnreadable: naturaUnreadable(view) });
+  const context = { naturaUndecided: naturaUndecided(view) };
   const track = trackOf(rows, verdict);
-  const hint = trackHint(verdict, natura);
+  const hint = trackHint(verdict, context);
   const caption = checkedCaption(state.rows, state.now);
   // One refetch per shop at a time: a second tap while one runs would only spend the cap again.
   const refreshing = state.rows.some((row) => row.pending);
-  const pricesId = useId();
 
   return (
     <div className="flex flex-col gap-6 lg:gap-6.5">
@@ -66,22 +80,9 @@ export default function PriceComparisonView({ itemId, product, state, naturaUnde
         </Alert>
       )}
       <ProductTitle product={product} itemId={itemId} caption={caption} refreshing={refreshing} onRefresh={onRefresh} />
-      <VerdictHero hero={heroOf(verdict, natura)} />
+      <VerdictHero hero={heroOf(verdict, context)} />
       <PriceTrack track={track} hint={hint} />
-      {rows.length > 0 && (
-        <section aria-labelledby={pricesId}>
-          <h2 id={pricesId} className="sr-only">
-            Ceny
-          </h2>
-          <ul className="grid gap-6 lg:grid-cols-2 lg:gap-5 lg:pt-1.5">
-            {rows.map((row) => (
-              <li key={row.shop}>
-                <ShopCard row={row} now={state.now} />
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <ShopGrid itemId={itemId} rows={rows} now={state.now} natura={natura === null ? null : naturaCardOf(natura)} />
       {/* Screen readers hear each shop's answer here, outside the cards, so nothing live moves when they re-sort. */}
       <p role="status" aria-live="polite" className="sr-only">
         {state.announcements.join(" ")}
@@ -94,5 +95,52 @@ export default function PriceComparisonView({ itemId, product, state, naturaUnde
         onRefresh={onRefresh}
       />
     </div>
+  );
+}
+
+interface GridProps {
+  /** The watched product's id, which Natura's card links lead to. */
+  itemId: string;
+  /** The shops' rows in the comparison's order, with their marks (comparisonOf). */
+  rows: readonly ComparedRow[];
+  /** The time the prices' ages are read at, in milliseconds. */
+  now: number;
+  /** What Natura's card says (naturaCardOf), or null for no card of its own. */
+  natura: NaturaCardModel | null;
+}
+
+/**
+ * The shops' cards, two columns from lg and one on a phone: each priced shop's card in the comparison's order, Natura's
+ * price card with its match's footer, and, while Natura has no price row, its card without a price after them. The
+ * kitchen sink draws it on its own, with every state of Natura.
+ */
+export function ShopGrid({ itemId, rows, now, natura }: GridProps) {
+  const headingId = useId();
+  const naturaPriced = rows.some((row) => row.shop === "natura");
+  if (rows.length === 0 && natura === null) {
+    return null;
+  }
+  return (
+    <section aria-labelledby={headingId}>
+      <h2 id={headingId} className="sr-only">
+        Ceny
+      </h2>
+      <ul className="grid gap-6 lg:grid-cols-2 lg:gap-5 lg:pt-1.5">
+        {rows.map((row) => (
+          <li key={row.shop}>
+            {row.shop === "natura" && natura !== null ? (
+              <NaturaCard card={natura} itemId={itemId} row={row} now={now} />
+            ) : (
+              <ShopCard row={row} now={now} />
+            )}
+          </li>
+        ))}
+        {natura !== null && !naturaPriced && (
+          <li key="natura">
+            <NaturaCard card={natura} itemId={itemId} row={null} now={now} />
+          </li>
+        )}
+      </ul>
+    </section>
   );
 }

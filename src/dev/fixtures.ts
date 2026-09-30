@@ -3,6 +3,7 @@
 // brands its primitives are shown with. Every state is built by the product page's own code, the price island's
 // reducer, the Natura view builders and the matching rule, so the kitchen sink shows only states the page can reach.
 // Nothing here is real user data, and nothing here asks Supabase or a shop.
+import type { NaturaCardInput } from "@/components/watchlist/natura-card";
 import type { PriceSize } from "@/components/watchlist/Price";
 import type { TitleProduct } from "@/components/watchlist/ProductTitle";
 import {
@@ -125,167 +126,6 @@ function unread(...actions: PriceComparisonAction[]): PriceComparisonState {
   return actions.reduce(priceComparisonReducer, initialState({ shops, now: NOW, pricesFailed: true }));
 }
 
-/** One state of the product area, with the kitchen sink's label for it: the island's state and the product it's for. */
-export interface PriceFixture {
-  code: string;
-  text: string;
-  state: PriceComparisonState;
-  /** The product the title names. */
-  product: TitleProduct;
-  /** Whether Natura is still to be matched: the hero and the track's hint say so beside the only price. */
-  naturaUndecided: boolean;
-}
-
-// The island's states for the made-up product, whose Natura decision is made.
-const PRICE_STATES: Omit<PriceFixture, "product" | "naturaUndecided">[] = [
-  {
-    code: "cheapest",
-    text: "Natura najtańsza, w promocji: z ceną regularną, końcem promocji i najniższą ceną z 30 dni",
-    state: island(CHECKED),
-  },
-  {
-    code: "tie",
-    text: "ta sama cena w obu sklepach: oba oznaczone",
-    state: island([priced("rossmann", offer(24.99), 10 * MINUTE), priced("natura", offer(24.99), 5 * MINUTE)]),
-  },
-  {
-    code: "lone",
-    text: "jeden sklep: nie ma z czym porównać, więc bez oznaczenia",
-    state: island([ROSSMANN_CHECKED]),
-  },
-  {
-    code: "stale",
-    text: "cena Rossmanna sprzed ponad 24 godzin: niższa, ale nieaktualna, więc wygrywa Natura",
-    state: island([
-      priced("rossmann", offer(21.99), STALE_AFTER_MS + 2 * HOUR),
-      priced("natura", NATURA_PROMO, 5 * MINUTE),
-    ]),
-  },
-  {
-    code: "not-orderable",
-    text: "Natury nie da się zamówić online: jej niższa cena nie wygrywa",
-    state: island([ROSSMANN_CHECKED, priced("natura", offer(19.99, { available: false }), 5 * MINUTE)]),
-  },
-  {
-    code: "missing-with-price",
-    text: "Natura nie zwraca już produktu: ostatnia znana cena zostaje ze swoim wiekiem",
-    // Natura's price is 3 hours old, so opening the page refetches it alone.
-    state: island(
-      [ROSSMANN_CHECKED, priced("natura", NATURA_PROMO, 3 * HOUR)],
-      start("natura"),
-      done("natura", MISSING, ANSWERED_AT),
-    ),
-  },
-  {
-    code: "missing-without-price",
-    text: "Natura nie zwraca produktu, a ceny wcześniej nie było",
-    state: island([ROSSMANN_CHECKED, row("natura", null)], start("natura"), done("natura", MISSING, ANSWERED_AT)),
-  },
-  {
-    code: "never-checked",
-    text: "Natura jeszcze niesprawdzona",
-    state: island([ROSSMANN_CHECKED, row("natura", null)]),
-  },
-  {
-    code: "refreshing",
-    text: "oba sklepy w trakcie odświeżania, przy cenach z cheapest",
-    state: island(CHECKED, ...REFETCH),
-  },
-  {
-    code: "notice-busy-paused",
-    text: "Rossmann zajęty, Natura prosi o przerwę: ostatnie znane ceny zostają",
-    state: island(
-      CHECKED,
-      ...REFETCH,
-      done("rossmann", { kind: "unavailable", reason: "busy" }, ANSWERED_AT),
-      done("natura", { kind: "unavailable", reason: "paused", until: PAUSED_UNTIL }, ANSWERED_AT),
-    ),
-  },
-  {
-    code: "notice-stopped-failed",
-    text: "Rossmann zablokował zapytania, a pobranie z Natury się nie udało",
-    state: island(
-      CHECKED,
-      ...REFETCH,
-      done("rossmann", { kind: "unavailable", reason: "stopped" }, ANSWERED_AT),
-      done("natura", { kind: "unavailable", reason: "failed" }, ANSWERED_AT),
-    ),
-  },
-  {
-    code: "session-ended",
-    text: "sesja wygasła w trakcie odświeżania: ceny zostają",
-    state: island(
-      CHECKED,
-      ...REFETCH,
-      done("rossmann", SESSION_ENDED, ANSWERED_AT),
-      done("natura", SESSION_ENDED, ANSWERED_AT),
-    ),
-  },
-  {
-    code: "read-failed",
-    text: "nie udało się wczytać zapisanych cen",
-    state: unread(),
-  },
-  {
-    code: "read-failed-one-answered",
-    text: "po odpowiedzi Natury: jej wiersz ma cenę, ale bez „Najtaniej”, bo Rossmann wciąż się odświeża",
-    state: unread(
-      ...REFETCH,
-      done("natura", { kind: "price", offer: NATURA_PROMO, checkedAt: CHECKED_AT, saved: true }, ANSWERED_AT),
-    ),
-  },
-  {
-    code: "read-failed-one-shop",
-    text: "nie udało się odczytać zapisanej ceny Natury: Rossmann ma cenę, ale bez „Najtaniej”, dopóki Natura nie odpowie",
-    // The page read the stored prices, but Natura's row came back odd, so it hands that shop over unread.
-    state: island([ROSSMANN_CHECKED, { ...row("natura", null), readFailed: true }]),
-  },
-];
-
-export const PRICE_FIXTURES: PriceFixture[] = PRICE_STATES.map((fixture) => ({
-  ...fixture,
-  product: PRODUCT,
-  naturaUndecided: false,
-}));
-
-/** One of the design handoff's sample products: no photo, so its title shows its brand's tile. */
-function sample(brand: string, name: string, caption: string, sizeText: string, addedOn: string): TitleProduct {
-  return { brand, name, caption, sizeText, imageUrl: null, addedAt: `${addedOn}T08:00:00.000Z` };
-}
-
-/**
- * The handoff's samples (context/changes/etykiety-redesign/design-captures/2a-*, 2b-*), as the rules judge them: Nivea
- * cheapest in Natura on a promotion, Ziaja only in Rossmann with Natura still to match, and Colgate's stale price.
- * Natura sends no promotion's end, so Nivea's promotion has none, and Ziaja's price is 3 hours old, since the
- * handoff's "wczoraj" would be stale by the 24-hour rule. Colgate's Natura was declined, so it has no Natura row.
- */
-export const HANDOFF_FIXTURES: PriceFixture[] = [
-  {
-    code: "nivea",
-    text: "próbka z projektu: Natura najtańsza, w promocji, z najniższą ceną z 30 dni, bez końca promocji",
-    state: island([
-      priced("rossmann", offer(26.99), 10 * MINUTE),
-      priced("natura", offer(22.99, { regularPrice: 27.99, lowestPrice30d: 23.99 }), 5 * MINUTE),
-    ]),
-    product: sample("Nivea", "Soft", "krem intensywnie nawilżający", "300 ml", "2026-09-20"),
-    naturaUndecided: false,
-  },
-  {
-    code: "ziaja",
-    text: "próbka z projektu: jedna cena, w Rossmannie, sprzed 3 godzin, a Natura czeka na dopasowanie",
-    state: island([priced("rossmann", offer(12.99), 3 * HOUR)]),
-    product: sample("Ziaja", "Mleczko do ciała", "kozie mleko", "400 ml", "2026-09-24"),
-    naturaUndecided: true,
-  },
-  {
-    code: "colgate",
-    text: "próbka z projektu: cena Rossmanna sprzed 2 dni, z najniższą ceną z 30 dni; Natura odrzucona",
-    state: island([priced("rossmann", offer(11.49, { lowestPrice30d: 10.99 }), 2 * DAY)]),
-    product: sample("Colgate", "Total", "pasta do zębów", "75 ml", "2026-09-26"),
-    naturaUndecided: false,
-  },
-];
-
 /** The product's item in Natura: the same EAN and size. */
 const NATURA_ITEM: MatchedItem = {
   shopItemId: NATURA_SKU,
@@ -309,6 +149,195 @@ const CONFIRMED: ShopMatch = {
 };
 const DECLINED: ShopMatch = { ...DECISION, decidedBy: "user", state: "unmatched", item: null };
 const NOT_FOUND: ShopMatch = { ...DECISION, decidedBy: "auto", state: "not_found", item: null };
+
+/** Natura as the page hands it to the island, with this view and, unless `extra` adds them, no notices. */
+function naturaOf(view: NaturaView, extra: Partial<Omit<NaturaCardInput, "view">> = {}): NaturaCardInput {
+  return { view, notice: null, error: null, unsaved: false, ...extra };
+}
+
+// The product's stored match, found by its EAN and size, which every price state of the product area has but one.
+const MATCHED = naturaOf(matchedView(NATURA_ITEM, "auto", PRODUCT));
+
+/** One state of the product area, with the kitchen sink's label for it: the island's state and the product it's for. */
+export interface PriceFixture {
+  code: string;
+  text: string;
+  state: PriceComparisonState;
+  /** The product the title names. */
+  product: TitleProduct;
+  /** Natura as the page read it: its card among the shops', and, still to match, what the hero and the hint say. */
+  natura: NaturaCardInput | null;
+}
+
+// The island's states for the made-up product, whose Natura match is stored, but for `lone`, which declined it, and
+// `natura-read-failed`, whose decision couldn't be read.
+const PRICE_STATES: Omit<PriceFixture, "product">[] = [
+  {
+    code: "cheapest",
+    text: "Natura najtańsza, w promocji: z ceną regularną, końcem promocji i najniższą ceną z 30 dni",
+    state: island(CHECKED),
+    natura: MATCHED,
+  },
+  {
+    code: "tie",
+    text: "ta sama cena w obu sklepach: oba oznaczone",
+    state: island([priced("rossmann", offer(24.99), 10 * MINUTE), priced("natura", offer(24.99), 5 * MINUTE)]),
+    natura: MATCHED,
+  },
+  {
+    code: "lone",
+    text: "jeden sklep, Natura odrzucona: nie ma z czym porównać, więc bez oznaczenia",
+    state: island([ROSSMANN_CHECKED]),
+    natura: naturaOf(storedView(DECLINED, PRODUCT)),
+  },
+  {
+    code: "stale",
+    text: "cena Rossmanna sprzed ponad 24 godzin: niższa, ale nieaktualna, więc wygrywa Natura",
+    state: island([
+      priced("rossmann", offer(21.99), STALE_AFTER_MS + 2 * HOUR),
+      priced("natura", NATURA_PROMO, 5 * MINUTE),
+    ]),
+    natura: MATCHED,
+  },
+  {
+    code: "not-orderable",
+    text: "Natury nie da się zamówić online: jej niższa cena nie wygrywa",
+    state: island([ROSSMANN_CHECKED, priced("natura", offer(19.99, { available: false }), 5 * MINUTE)]),
+    natura: MATCHED,
+  },
+  {
+    code: "missing-with-price",
+    text: "Natura nie zwraca już produktu: ostatnia znana cena zostaje ze swoim wiekiem",
+    // Natura's price is 3 hours old, so opening the page refetches it alone.
+    state: island(
+      [ROSSMANN_CHECKED, priced("natura", NATURA_PROMO, 3 * HOUR)],
+      start("natura"),
+      done("natura", MISSING, ANSWERED_AT),
+    ),
+    natura: MATCHED,
+  },
+  {
+    code: "missing-without-price",
+    text: "Natura nie zwraca produktu, a ceny wcześniej nie było",
+    state: island([ROSSMANN_CHECKED, row("natura", null)], start("natura"), done("natura", MISSING, ANSWERED_AT)),
+    natura: MATCHED,
+  },
+  {
+    code: "never-checked",
+    text: "Natura jeszcze niesprawdzona",
+    state: island([ROSSMANN_CHECKED, row("natura", null)]),
+    natura: MATCHED,
+  },
+  {
+    code: "refreshing",
+    text: "oba sklepy w trakcie odświeżania, przy cenach z cheapest",
+    state: island(CHECKED, ...REFETCH),
+    natura: MATCHED,
+  },
+  {
+    code: "notice-busy-paused",
+    text: "Rossmann zajęty, Natura prosi o przerwę: ostatnie znane ceny zostają",
+    state: island(
+      CHECKED,
+      ...REFETCH,
+      done("rossmann", { kind: "unavailable", reason: "busy" }, ANSWERED_AT),
+      done("natura", { kind: "unavailable", reason: "paused", until: PAUSED_UNTIL }, ANSWERED_AT),
+    ),
+    natura: MATCHED,
+  },
+  {
+    code: "notice-stopped-failed",
+    text: "Rossmann zablokował zapytania, a pobranie z Natury się nie udało",
+    state: island(
+      CHECKED,
+      ...REFETCH,
+      done("rossmann", { kind: "unavailable", reason: "stopped" }, ANSWERED_AT),
+      done("natura", { kind: "unavailable", reason: "failed" }, ANSWERED_AT),
+    ),
+    natura: MATCHED,
+  },
+  {
+    code: "session-ended",
+    text: "sesja wygasła w trakcie odświeżania: ceny zostają",
+    state: island(
+      CHECKED,
+      ...REFETCH,
+      done("rossmann", SESSION_ENDED, ANSWERED_AT),
+      done("natura", SESSION_ENDED, ANSWERED_AT),
+    ),
+    natura: MATCHED,
+  },
+  {
+    code: "read-failed",
+    text: "nie udało się wczytać zapisanych cen",
+    state: unread(),
+    natura: MATCHED,
+  },
+  {
+    code: "read-failed-one-answered",
+    text: "po odpowiedzi Natury: jej wiersz ma cenę, ale bez „Najtaniej”, bo Rossmann wciąż się odświeża",
+    state: unread(
+      ...REFETCH,
+      done("natura", { kind: "price", offer: NATURA_PROMO, checkedAt: CHECKED_AT, saved: true }, ANSWERED_AT),
+    ),
+    natura: MATCHED,
+  },
+  {
+    code: "read-failed-one-shop",
+    text: "nie udało się odczytać zapisanej ceny Natury: Rossmann ma cenę, ale bez „Najtaniej”, dopóki Natura nie odpowie",
+    // The page read the stored prices, but Natura's row came back odd, so it hands that shop over unread.
+    state: island([ROSSMANN_CHECKED, { ...row("natura", null), readFailed: true }]),
+    natura: MATCHED,
+  },
+  {
+    code: "natura-read-failed",
+    text: "nie udało się wczytać decyzji Natury: świeża cena Rossmanna, ale żaden sklep nie jest nazwany",
+    // Without the decision there's no Natura row, and a match it hides could name a lower price.
+    state: island([ROSSMANN_CHECKED]),
+    natura: naturaOf({ kind: "read-failed" }),
+  },
+];
+
+export const PRICE_FIXTURES: PriceFixture[] = PRICE_STATES.map((fixture) => ({ ...fixture, product: PRODUCT }));
+
+/** One of the design handoff's sample products: no photo, so its title shows its brand's tile. */
+function sample(brand: string, name: string, caption: string, sizeText: string, addedOn: string): TitleProduct {
+  return { brand, name, caption, sizeText, imageUrl: null, addedAt: `${addedOn}T08:00:00.000Z` };
+}
+
+/**
+ * The handoff's samples (context/changes/etykiety-redesign/design-captures/2a-*, 2b-*), as the rules judge them: Nivea
+ * cheapest in Natura on a promotion, Ziaja only in Rossmann with Natura still to match, and Colgate's stale price.
+ * Natura sends no promotion's end, so Nivea's promotion has none, and Ziaja's price is 3 hours old, since the
+ * handoff's "wczoraj" would be stale by the 24-hour rule. Colgate's Natura was declined, so it has no Natura row. Their
+ * Natura cards lead to the made-up product, whose page answers 404 before any lookup.
+ */
+export const HANDOFF_FIXTURES: PriceFixture[] = [
+  {
+    code: "nivea",
+    text: "próbka z projektu: Natura najtańsza, w promocji, z najniższą ceną z 30 dni, bez końca promocji",
+    state: island([
+      priced("rossmann", offer(26.99), 10 * MINUTE),
+      priced("natura", offer(22.99, { regularPrice: 27.99, lowestPrice30d: 23.99 }), 5 * MINUTE),
+    ]),
+    product: sample("Nivea", "Soft", "krem intensywnie nawilżający", "300 ml", "2026-09-20"),
+    natura: MATCHED,
+  },
+  {
+    code: "ziaja",
+    text: "próbka z projektu: jedna cena, w Rossmannie, sprzed 3 godzin, a Natura czeka na dopasowanie",
+    state: island([priced("rossmann", offer(12.99), 3 * HOUR)]),
+    product: sample("Ziaja", "Mleczko do ciała", "kozie mleko", "400 ml", "2026-09-24"),
+    natura: naturaOf(promptView(PRODUCT, false)),
+  },
+  {
+    code: "colgate",
+    text: "próbka z projektu: cena Rossmanna sprzed 2 dni, z najniższą ceną z 30 dni; Natura odrzucona",
+    state: island([priced("rossmann", offer(11.49, { lowestPrice30d: 10.99 }), 2 * DAY)]),
+    product: sample("Colgate", "Total", "pasta do zębów", "75 ml", "2026-09-26"),
+    natura: naturaOf(storedView(DECLINED, PRODUCT)),
+  },
+];
 
 // What Natura's search by the product's EAN returned. None shares both the EAN and the size, so the matching rule
 // leaves the choice to the user, and between them the candidates carry every flag one can have.
@@ -346,117 +375,102 @@ function leftToUser(candidates: ShopCandidate[]): CandidateOption[] {
   return pick.options;
 }
 
-/** One state of the Natura section, with the kitchen sink's label and the prefix that keeps its ids its own. */
+/**
+ * One state of Natura, with the kitchen sink's label, the prefix that keeps its choice's ids its own, Natura as the
+ * page hands it to the island, and the island's state beside it: Rossmann's price, with Natura's while its match is
+ * saved.
+ */
 export interface NaturaFixture {
   code: string;
   text: string;
   idPrefix: string;
-  view: NaturaView;
-  unsaved: boolean;
-  notice: string | null;
-  error: string | null;
+  natura: NaturaCardInput;
+  state: PriceComparisonState;
 }
+
+// Only Rossmann's price: Natura has none while its match isn't saved.
+const ROSSMANN_ONLY = island([ROSSMANN_CHECKED]);
 
 export const NATURA_FIXTURES: NaturaFixture[] = [
   {
     code: "matched",
     text: "dopasowane automatycznie, zaraz po wyszukaniu",
     idPrefix: "natura-auto",
-    view: matchedView(NATURA_ITEM, "auto", PRODUCT),
-    unsaved: false,
-    notice: null,
-    error: null,
+    natura: MATCHED,
+    state: island(CHECKED),
   },
   {
     code: "matched + unsaved",
-    text: "dopasowane automatycznie, ale zapis się nie udał: bez wiersza ceny sekcja pokazuje pozycję z Natury",
+    text: "dopasowane automatycznie, ale zapis się nie udał: bez wiersza ceny karta pokazuje pozycję z Natury",
     idPrefix: "natura-auto-unsaved",
-    view: matchedView(NATURA_ITEM, "auto", PRODUCT, { unsaved: true }),
-    unsaved: true,
-    notice: null,
-    error: null,
+    natura: naturaOf(matchedView(NATURA_ITEM, "auto", PRODUCT, { unsaved: true }), { unsaved: true }),
+    state: ROSSMANN_ONLY,
   },
   {
     code: "matched + notice",
     text: "potwierdzone przez Ciebie w innym rozmiarze, zaraz po zapisie",
     idPrefix: "natura-confirmed",
-    view: storedView(CONFIRMED, PRODUCT),
-    unsaved: false,
     // The page's notice for `?matched`.
-    notice: DECISION_NOTICES.matched,
-    error: null,
+    natura: naturaOf(storedView(CONFIRMED, PRODUCT), { notice: DECISION_NOTICES.matched }),
+    state: island([ROSSMANN_CHECKED, priced("natura", offer(17.99), 5 * MINUTE)]),
   },
   {
     code: "unmatched",
     text: "odrzucone przez Ciebie",
     idPrefix: "natura-declined",
-    view: storedView(DECLINED, PRODUCT),
-    unsaved: false,
-    notice: null,
-    error: null,
+    natura: naturaOf(storedView(DECLINED, PRODUCT)),
+    state: ROSSMANN_ONLY,
   },
   {
     code: "not-found",
     text: "zapisane „nie znaleziono”",
     idPrefix: "natura-not-found",
-    view: storedView(NOT_FOUND, PRODUCT),
-    unsaved: false,
-    notice: null,
-    error: null,
+    natura: naturaOf(storedView(NOT_FOUND, PRODUCT)),
+    state: ROSSMANN_ONLY,
   },
   {
     code: "choose + error",
     text: "kandydaci znalezieni po EAN, po nieudanym zapisie wyboru",
     idPrefix: "natura-choose",
-    view: chooseView(leftToUser(CANDIDATES), "ean", new Date(NOW), PRODUCT),
-    unsaved: false,
-    notice: null,
-    error: matchErrorMessage("failed"),
+    natura: naturaOf(chooseView(leftToUser(CANDIDATES), "ean", new Date(NOW), PRODUCT), {
+      error: matchErrorMessage("failed"),
+    }),
+    state: ROSSMANN_ONLY,
   },
   {
     code: "unavailable",
     text: "wyszukiwarka Natury zajęta",
     idPrefix: "natura-unavailable",
-    view: { kind: "unavailable", message: shopUnavailableText(SHOP_LABELS.natura.name, "busy") },
-    unsaved: false,
-    notice: null,
-    error: null,
+    natura: naturaOf({ kind: "unavailable", message: shopUnavailableText(SHOP_LABELS.natura.name, "busy") }),
+    state: ROSSMANN_ONLY,
   },
   {
     code: "prompt",
     text: "strona otwarta z linku: przycisk zamiast wyszukiwania",
     idPrefix: "natura-prompt",
-    view: promptView(PRODUCT, false),
-    unsaved: false,
-    notice: null,
-    error: null,
+    natura: naturaOf(promptView(PRODUCT, false)),
+    state: ROSSMANN_ONLY,
   },
   {
     code: "decided",
     text: "inna karta zapisała decyzję w międzyczasie",
     idPrefix: "natura-decided",
-    view: { kind: "decided" },
-    unsaved: false,
-    notice: null,
-    error: null,
+    natura: naturaOf({ kind: "decided" }),
+    state: ROSSMANN_ONLY,
   },
   {
     code: "read-failed",
     text: "nie udało się wczytać zapisanej decyzji",
     idPrefix: "natura-read-failed",
-    view: { kind: "read-failed" },
-    unsaved: false,
-    notice: null,
-    error: null,
+    natura: naturaOf({ kind: "read-failed" }),
+    state: ROSSMANN_ONLY,
   },
   {
     code: "not-found + unsaved",
     text: "świeże „nie znaleziono”, którego nie udało się zapisać",
     idPrefix: "natura-unsaved",
-    view: notFoundView(new Date(NOW), PRODUCT),
-    unsaved: true,
-    notice: null,
-    error: null,
+    natura: naturaOf(notFoundView(new Date(NOW), PRODUCT), { unsaved: true }),
+    state: ROSSMANN_ONLY,
   },
 ];
 

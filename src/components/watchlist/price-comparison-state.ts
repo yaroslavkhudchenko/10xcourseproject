@@ -264,22 +264,29 @@ function compareRows(rows: readonly ShopRow[], now: number): Comparison<ShopRow>
 /** A row as the island renders it, with its verdict. */
 export type ComparedRow = Comparison<ShopRow>["rows"][number];
 
-/**
- * The verdict on the island's prices at the state's time (verdictOf), as comparisonOf compares them: `unread` while
- * some row's stored price couldn't be read, which a failed read of all the stored prices (`pricesFailed`) marks on
- * every row. The price that couldn't be read may be the lowest, so then the product area names no shop.
- */
-export function verdictOfState(state: PriceComparisonState): PriceVerdict {
-  return verdictOf(
-    comparisonOf(state),
-    state.now,
-    state.rows.some((row) => row.readFailed),
-  );
+/** What the product's island knows of Natura's match beside its rows: whether the page couldn't read it. */
+export interface NaturaRead {
+  /** Natura's stored decision couldn't be read (naturaUnreadable), so a match it hides could name a lower price. */
+  naturaUnreadable?: boolean;
 }
 
 /**
- * The `window` event the product's island sends after each shop answers, so the list beside the product can bring
- * its row's tag up to date. Its detail is a PricesEventDetail.
+ * The verdict on the island's prices at the state's time (verdictOf), as comparisonOf compares them: `unread` while
+ * some row's stored price couldn't be read, which a failed read of all the stored prices (`pricesFailed`) marks on
+ * every row, and while Natura's match couldn't be read (`naturaUnreadable`). The price that couldn't be read may be
+ * the lowest, so then the product area names no shop.
+ */
+export function verdictOfState(
+  state: PriceComparisonState,
+  { naturaUnreadable = false }: NaturaRead = {},
+): PriceVerdict {
+  return verdictOf(comparisonOf(state), state.now, naturaUnreadable || state.rows.some((row) => row.readFailed));
+}
+
+/**
+ * The `window` event the product's island sends after each change of its rows, so the list beside the product can
+ * bring its row's tag up to date: once it has hydrated, and as each shop's refetch starts and is answered. Its detail
+ * is a PricesEventDetail.
  */
 export const PRICES_EVENT = "drogeria:prices";
 
@@ -291,6 +298,38 @@ export const PRICES_EVENT = "drogeria:prices";
 export interface PricesEventDetail {
   itemId: string;
   shops: RowShop[];
+}
+
+/**
+ * The product's shops as the list's row compares them (RowShop), from the island's rows: each row's shop, its latest
+ * check and whether its stored price couldn't be read, and, while Natura's match couldn't be read (`naturaUnreadable`),
+ * Natura as a shop whose price couldn't be read, since that match could name a lower price. The island sends them with
+ * PRICES_EVENT after each change of its rows, and the page judges the selected row's first tag by the rows the island
+ * starts with, so the list beside the product and the product agree from the first paint.
+ */
+export function rowShopsOfIsland(rows: readonly ShopRow[], { naturaUnreadable = false }: NaturaRead = {}): RowShop[] {
+  const shops: RowShop[] = rows.map(({ shop, latest, readFailed }) => ({ shop, latest, readFailed }));
+  if (naturaUnreadable && !shops.some(({ shop }) => shop === "natura")) {
+    shops.push({ shop: "natura", latest: null, readFailed: true });
+  }
+  return shops;
+}
+
+/**
+ * The shops a PRICES_EVENT carries for the product `itemId`, as the island sent them, or null for any other event: one
+ * about another product, or one without its detail. The list's selected row recomputes its tag from them (rowTagOf).
+ */
+export function shopsOfPricesEvent(event: Event, itemId: string): RowShop[] | null {
+  if (event.type !== PRICES_EVENT || !(event instanceof CustomEvent)) {
+    return null;
+  }
+  const detail: unknown = event.detail;
+  return isPricesDetail(detail) && detail.itemId === itemId ? detail.shops : null;
+}
+
+/** A PRICES_EVENT's detail as the island sends it: its product's id and its shops. */
+function isPricesDetail(value: unknown): value is PricesEventDetail {
+  return isRecord(value) && typeof value.itemId === "string" && Array.isArray(value.shops);
 }
 
 /** What the product area knows of Natura beside the prices: whether its match is still to be made. */

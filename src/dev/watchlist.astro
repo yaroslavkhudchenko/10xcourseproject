@@ -7,8 +7,9 @@
 // side on a wide screen, as wide as the list's column. Nothing it draws reaches Supabase or a shop by a stray tap:
 // the chips and the spelling hint link back here, the rows to products no one has, whose pages answer 404 before any
 // lookup, and "Dodaj" to a product the add form refuses; the list's "Odśwież ceny", which would refresh the viewer's
-// own list, is drawn inert. Tailwind doesn't scan this folder (global.css), so its markup uses only classes the app
-// itself uses.
+// own list, is drawn inert. A selected row's tag hydrates, as the island it is beside a product's page, and listens for
+// that product's prices, which no island here sends. Tailwind doesn't scan this folder (global.css), so its markup
+// uses only classes the app itself uses.
 import AccountMenu from "@/components/shell/AccountMenu.astro";
 import AppHeader from "@/components/shell/AppHeader.astro";
 import SearchForm from "@/components/shell/SearchForm.astro";
@@ -19,6 +20,7 @@ import ListRows from "@/components/watchlist/ListRows.astro";
 import SearchResults from "@/components/watchlist/SearchResults.astro";
 import WatchlistRow from "@/components/watchlist/WatchlistRow.astro";
 import {
+  BESIDE_ID,
   EMAIL,
   GALLERY_COUNTS,
   GALLERY_ROWS,
@@ -231,6 +233,44 @@ const HEADS: {
                     <ListRows rows={rows} filter={filter} matchesFailed={matchesFailed} pricesFailed={pricesFailed} />
                   </div>
                 ))}
+              </div>
+            </section>
+
+            <section aria-labelledby={`${theme}-beside-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-beside-heading`} class="text-lg font-semibold">
+                Obok produktu
+              </h2>
+              <p class="text-sm text-muted-foreground">
+                Lista w lewej kolumnie strony produktu od 1024 px: <code>ListHead</code> z nagłówkiem drugiego poziomu,
+                po odświeżeniu, z „Odśwież ceny”, które wraca do produktu (<code>back</code>); filtry; wiersze z
+                wybranym produktem, którego etykieta jest wyspą i nasłuchuje odświeżenia produktu (
+                <code>PRICES_EVENT</code>), tu bez żadnego; i stopka. Kolumna ma 420 px, jak na stronie.
+              </p>
+              {/* The shell's aside, as WatchlistShell pads it: its head, its rows and its footer. */}
+              <div class="flex flex-col rounded-card border-hairline" style="max-width: 420px">
+                <div class="flex flex-col px-4.5 pt-5.5 lg:px-7 lg:pt-7 lg:pb-4" inert>
+                  <ListHead
+                    level={2}
+                    count={GALLERY_ROWS.length}
+                    path={HERE}
+                    filter="all"
+                    counts={GALLERY_COUNTS}
+                    refreshCode="done"
+                    back={BESIDE_ID}
+                  />
+                </div>
+                <div class="px-4.5 pt-3.5 pb-2 lg:px-7 lg:pt-2.5 lg:pb-4.5">
+                  <ListRows
+                    rows={GALLERY_ROWS}
+                    filter="all"
+                    matchesFailed={false}
+                    pricesFailed={false}
+                    selectedId={BESIDE_ID}
+                  />
+                </div>
+                <div class="px-5 pt-1.5 pb-6 lg:border-t-hairline lg:px-7 lg:py-3.5">
+                  <ListFooter />
+                </div>
               </div>
             </section>
 

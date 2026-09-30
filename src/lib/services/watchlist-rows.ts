@@ -213,6 +213,21 @@ export function filterCounts(rows: readonly Pick<ListRow, "promo" | "check">[]):
 }
 
 /**
+ * The list's chips and the filter it's shown with, on the list and beside a product alike: each chip's count and the
+ * filter the address names (`raw`, the `?f=` value), or no chips and every product. There are chips only when the
+ * list has products and all three of its reads worked (`readsWorked`), since a row whose price or decision couldn't be
+ * read can't say whether a chip holds it, and an empty list, or one that couldn't be read, has nothing to filter.
+ */
+export function listChipsOf(
+  rows: readonly Pick<ListRow, "promo" | "check">[] | null,
+  readsWorked: boolean,
+  raw: string | null,
+): { counts: Record<ListFilter, number> | null; filter: ListFilter } {
+  const counts = rows !== null && rows.length > 0 && readsWorked ? filterCounts(rows) : null;
+  return { counts, filter: counts === null ? "all" : parseListFilter(raw) };
+}
+
+/**
  * A chip's link on the page at `path`: the same page with only the filter, so it drops the search, the notices and
  * anything else the address held. Every product's chip is the bare page.
  */

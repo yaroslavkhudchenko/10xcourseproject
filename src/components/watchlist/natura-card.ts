@@ -15,6 +15,27 @@ export function naturaUndecided(view: NaturaView | null): boolean {
   return view?.kind === "prompt" || view?.kind === "choose" || view?.kind === "unavailable";
 }
 
+/**
+ * Whether Natura's stored decision couldn't be read (`read-failed`). A match it hides could name a lower price, so the
+ * product's prices then count as unread: the product area names no shop, and the list beside it says so, as the list's
+ * own row does (listRowOf). No view at all is no such decision.
+ */
+export function naturaUnreadable(view: NaturaView | null): boolean {
+  return view?.kind === "read-failed";
+}
+
+/**
+ * Natura as the product's page hands it to its island: the view it built, the notice of a decision just saved
+ * (`?matched`, `?declined` or `?decided`), why a decision wasn't (`?error=`), both as text, and whether the lookup's
+ * own outcome couldn't be stored, so the next visit looks the product up again.
+ */
+export interface NaturaCardInput {
+  view: NaturaView;
+  notice: string | null;
+  error: string | null;
+  unsaved: boolean;
+}
+
 /** A link the card shows: its words and where it leads. */
 export interface NaturaCardLink {
   label: string;
@@ -47,17 +68,7 @@ const UNSAVED_TEXT =
  * Natura's card for the page's view, with the notice of a decision just saved (`notice`), why a decision wasn't
  * (`error`), and whether the lookup's outcome couldn't be stored (`unsaved`), in that order as alerts.
  */
-export function naturaCardOf({
-  view,
-  notice,
-  error,
-  unsaved,
-}: {
-  view: NaturaView;
-  notice: string | null;
-  error: string | null;
-  unsaved: boolean;
-}): NaturaCard {
+export function naturaCardOf({ view, notice, error, unsaved }: NaturaCardInput): NaturaCard {
   const alerts: NaturaCardAlert[] = [];
   if (notice !== null) {
     alerts.push({ tone: "success", text: notice });

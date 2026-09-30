@@ -2,7 +2,8 @@
 // The top of the list: "Moja lista" with the count of every product on it, the list's own "Odśwież ceny" and what its
 // last refresh came to, the page's own notices (the default slot), a phone's search field (the `search` slot) and the
 // filter chips. "Odśwież ceny" refreshes every product, so screen readers hear that it does: a product's page has its
-// own. It posts the list's filter along, and SubmitOnce, which the page includes, sends it once.
+// own. It posts the list's filter along, and, beside a product's page, that product's id, so the refresh comes back to
+// it with its notice here; SubmitOnce, which the page includes, sends it once.
 import { RefreshCw } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
@@ -22,10 +23,18 @@ interface Props {
   counts: Record<ListFilter, number> | null;
   /** What the list's last "Odśwież ceny" came to, as the address bar brings it, or null. */
   refreshCode: PriceRefreshCode | null;
+  /**
+   * The level of "Moja lista": the page's own heading on the list, and a second-level one beside a product's page,
+   * whose heading is the product's name.
+   */
+  level?: 1 | 2;
+  /** The id of the product whose page shows the list beside it, which "Odśwież ceny" comes back to. */
+  back?: string | null;
 }
 
-const { count, path, filter, counts, refreshCode } = Astro.props;
+const { count, path, filter, counts, refreshCode, level = 1, back = null } = Astro.props;
 const listed = count !== null && count > 0;
+const Heading = level === 1 ? "h1" : "h2";
 
 // What the list's "Odśwież ceny" came to, in the list's own words.
 const REFRESH_NOTICES: Record<PriceRefreshCode, { text: string; warning: boolean }> = {
@@ -43,9 +52,9 @@ const refreshNotice = refreshCode === null ? null : REFRESH_NOTICES[refreshCode]
 <div class="flex flex-col gap-3.5 lg:gap-4">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div class="flex min-w-0 items-center gap-2.5">
-      <h1 class="text-list-title font-extrabold tracking-title whitespace-nowrap lg:text-list-title-lg lg:tracking-heading">
+      <Heading class="text-list-title font-extrabold tracking-title whitespace-nowrap lg:text-list-title-lg lg:tracking-heading">
         Moja lista
-      </h1>
+      </Heading>
       {listed && (
         <span class="grid size-7.5 shrink-0 -rotate-6 place-items-center rounded-full border-2 border-label-ink bg-sun text-sm font-extrabold text-label-ink">
           <span class="sr-only">Liczba produktów: </span>
@@ -56,6 +65,7 @@ const refreshNotice = refreshCode === null ? null : REFRESH_NOTICES[refreshCode]
     {listed && (
       <form method="POST" action="/api/watchlist/refresh" class="shrink-0" data-submit-once>
         <input type="hidden" name="f" value={filter} />
+        {back !== null && <input type="hidden" name="back" value={back} />}
         <button type="submit" class:list={cn(buttonVariants({ variant: "outline", size: "compact" }))}>
           <RefreshCw aria-hidden="true" strokeWidth={2.2} className="size-3.75" />
           Odśwież ceny<span class="sr-only"> wszystkich produktów</span>

@@ -11,6 +11,7 @@ import {
   filterHref,
   inFilter,
   LIST_FILTERS,
+  listChipsOf,
   listRowOf,
   listRowsOf,
   naturaStateOf,
@@ -377,6 +378,19 @@ describe("the chips", () => {
     { path: `/watchlist/${SOFT_ID}?f=promo&matched=1&list-prices=done`, filter: "all", href: `/watchlist/${SOFT_ID}` },
   ])("links $filter on $path to $href, keeping only the page and the filter", ({ path, filter, href }) => {
     expect(filterHref(path, filter)).toBe(href);
+  });
+
+  it("shows the chips of a list whose reads worked, with the filter the address names", () => {
+    expect(listChipsOf(rows, true, "promo")).toEqual({ counts: { all: 4, promo: 2, check: 2 }, filter: "promo" });
+    expect(listChipsOf(rows, true, null)).toEqual({ counts: { all: 4, promo: 2, check: 2 }, filter: "all" });
+    // A filter no chip links to is every product's.
+    expect(listChipsOf(rows, true, "najtańsze")).toMatchObject({ filter: "all" });
+  });
+
+  it("shows no chips, and every product, for a read that failed, an empty list or one that couldn't be read", () => {
+    expect(listChipsOf(rows, false, "promo")).toEqual({ counts: null, filter: "all" });
+    expect(listChipsOf([], true, "check")).toEqual({ counts: null, filter: "all" });
+    expect(listChipsOf(null, true, "check")).toEqual({ counts: null, filter: "all" });
   });
 });
 

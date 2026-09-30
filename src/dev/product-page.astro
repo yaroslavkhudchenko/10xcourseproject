@@ -2,12 +2,12 @@
 // The product page's kitchen sink: the view in every state it can show, and the pieces it's built from in each variant,
 // from the fixtures in fixtures.ts, for review and screenshots. Only `astro dev` serves it (astro.config.mjs). The page
 // is pinned to the light theme, and draws every section twice: in the light theme, then in a `dark` wrapper, whose
-// class switches the tokens for all it holds. The product area's states stand in frames as wide as the product's pane
-// beside the list (860 px), each frame the containing block of its phone's bottom bar, which it otherwise fixes to the
-// screen; the other sections' copies stand side by side on a wide screen. It hydrates nothing, so no island effect
-// runs, and nothing it calls reaches Supabase or a shop; its only scripts are the Natura section's SubmitOnce and the
-// theme switch's. Tailwind doesn't scan this folder (global.css), so its markup uses only classes the app itself uses,
-// and the frames' width and containing block are inline styles.
+// class switches the tokens for all it holds. The product area's states, and Natura's in the shops' cards, stand in
+// frames as wide as the product's pane beside the list (860 px), each frame the containing block of its phone's bottom
+// bar, which it otherwise fixes to the screen; the other sections' copies stand side by side on a wide screen. It
+// hydrates nothing, so no island effect runs, and nothing it calls reaches Supabase or a shop; its only scripts are the
+// Natura choice's SubmitOnce and the theme switch's. Tailwind doesn't scan this folder (global.css), so its markup uses
+// only classes the app itself uses, and the frames' width and containing block are inline styles.
 import { RefreshCw } from "lucide-react";
 import LogoMark from "@/components/shell/LogoMark.astro";
 import ThemeToggle from "@/components/shell/ThemeToggle.astro";
@@ -23,9 +23,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { naturaCardOf } from "@/components/watchlist/natura-card";
 import NaturaSection from "@/components/watchlist/NaturaSection.astro";
 import Price from "@/components/watchlist/Price";
-import PriceComparisonView from "@/components/watchlist/PriceComparisonView";
+import { comparisonOf } from "@/components/watchlist/price-comparison-state";
+import PriceComparisonView, { ShopGrid } from "@/components/watchlist/PriceComparisonView";
 import ProductThumb from "@/components/watchlist/ProductThumb";
 import ProductUnavailable from "@/components/watchlist/ProductUnavailable.astro";
 import Sticker from "@/components/watchlist/Sticker";
@@ -57,6 +59,9 @@ const AREA_FIXTURES = [...PRICE_FIXTURES, ...HANDOFF_FIXTURES];
 const FRAME =
   "w-full overflow-x-clip rounded-card bg-paper px-4.5 pt-2 pb-28 text-foreground lg:px-11 lg:pt-7.5 lg:pb-10";
 const FRAME_STYLE = "max-width: 860px; transform: translateZ(0)";
+// Natura's states stand in the same pane without a bottom bar: the shops' cards, with the choice below them.
+const CARDS_FRAME =
+  "w-full overflow-x-clip rounded-card bg-paper px-4.5 pt-5.5 pb-6 text-foreground lg:px-11 lg:pt-7.5 lg:pb-10";
 
 const PRICE_SIZES = ["hero", "card", "tag"] as const;
 
@@ -175,10 +180,11 @@ const LINK_BUTTONS = [
               <code>error</code>
             </dt>
             <dd class="text-sm text-muted-foreground">
-              Destrukcyjny Alert przy przyciskach Natury: Natura › <code>choose + error</code>. „Nie udało się wczytać
-              cen” w hero i „Nie udało się wczytać ceny.” na karcie sklepu: Obszar produktu › <code>read-failed</code>,{" "}
-              <code>read-failed-one-answered</code> i <code>read-failed-one-shop</code>. Komunikaty kart: Obszar
-              produktu › <code>notice-busy-paused</code> i <code>notice-stopped-failed</code>. Do tego Natura ›{" "}
+              Destrukcyjny Alert w karcie Natury: Natura › <code>choose + error</code>. „Nie udało się wczytać cen” w
+              hero i „Nie udało się wczytać ceny.” na karcie sklepu: Obszar produktu › <code>read-failed</code>,{" "}
+              <code>read-failed-one-answered</code> i <code>read-failed-one-shop</code>, a przy nieodczytanej decyzji
+              Natury Obszar produktu › <code>natura-read-failed</code>. Komunikaty kart: Obszar produktu ›{" "}
+              <code>notice-busy-paused</code> i <code>notice-stopped-failed</code>. Do tego Natura ›{" "}
               <code>read-failed</code> i Gałęzie strony › <code>not-found + error</code>.
             </dd>
           </div>
@@ -209,12 +215,12 @@ const LINK_BUTTONS = [
         </h2>
         <p class="max-w-lg text-sm text-muted-foreground">
           <code>PriceComparisonView</code> bez wyspy, w stanach zbudowanych jej reducerem: tytuł z „Odśwież ceny”, hero
-          z naklejką, pasek cen albo jego podpowiedź, karty sklepów i, poniżej 1024 px, dolny pasek. Bez{" "}
+          z naklejką, pasek cen albo jego podpowiedź, karty sklepów z kartą Natury i, poniżej 1024 px, dolny pasek. Bez{" "}
           <code>onRefresh</code> oba „Odśwież ceny” wysyłają formularz, jak bez JavaScriptu. Na końcu próbki z projektu.
           Każdy stan jest dwa razy: w jasnym motywie i w ciemnym.
         </p>
         <div class="flex flex-col gap-6">
-          {AREA_FIXTURES.map(({ code, text, state, product, naturaUndecided }) => (
+          {AREA_FIXTURES.map(({ code, text, state, product, natura }) => (
             <div class="flex flex-col gap-1">
               <p class="text-xs text-muted-foreground">
                 <code>{code}</code> · {text}
@@ -222,12 +228,59 @@ const LINK_BUTTONS = [
               <div class="flex flex-wrap items-start gap-6">
                 {COPIES.map(({ wrapper }) => (
                   <div class:list={[FRAME, wrapper]} style={FRAME_STYLE}>
-                    <PriceComparisonView
-                      itemId={PRODUCT_ID}
-                      product={product}
-                      state={state}
-                      naturaUndecided={naturaUndecided}
-                    />
+                    <PriceComparisonView itemId={PRODUCT_ID} product={product} state={state} natura={natura} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section aria-labelledby="natura-heading" class="flex flex-col gap-3">
+        <h2 id="natura-heading" class="text-lg font-semibold">
+          Natura
+        </h2>
+        <p class="max-w-lg text-sm text-muted-foreground">
+          Karta Natury wśród kart sklepów (<code>ShopGrid</code>, <code>naturaCardOf</code>) w każdym rodzaju widoku, z
+          komunikatem o zapisie, błędem zapisu i niezapisanym wynikiem wyszukiwania, obok ceny Rossmanna. Przy wyborze
+          kandydatów pod kartami stoi sekcja wyboru (<code>NaturaSection</code>). Każdy stan jest dwa razy: w jasnym
+          motywie i w ciemnym.
+        </p>
+        <div class="flex flex-col gap-6">
+          {NATURA_FIXTURES.map(({ code, text, idPrefix, natura, state }) => (
+            <div class="flex flex-col gap-1">
+              <p class="text-xs text-muted-foreground">
+                <code>{code}</code> · {text}
+              </p>
+              <div class="flex flex-wrap items-start gap-6">
+                {COPIES.map(({ theme, wrapper }) => (
+                  <div class:list={[CARDS_FRAME, wrapper]} style={FRAME_STYLE}>
+                    <div class="flex flex-col gap-6 lg:gap-6.5">
+                      <ShopGrid
+                        itemId={PRODUCT_ID}
+                        rows={comparisonOf(state).rows}
+                        now={state.now}
+                        natura={naturaCardOf(natura)}
+                      />
+                      {natura.view.kind === "choose" && (
+                        <>
+                          <NaturaSection view={natura.view} productId={PRODUCT_ID} idPrefix={`${theme}-${idPrefix}`} />
+                          {/* A decision's buttons once one is sent: SubmitOnce disables every one of them. */}
+                          <div class="flex flex-col gap-1">
+                            <p class="text-xs text-muted-foreground">
+                              <code>{code}</code>, po wysłaniu · SubmitOnce wyłącza przyciski wszystkich formularzy
+                              decyzji
+                            </p>
+                            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                              <Button type="button" size="touch" disabled>
+                                To ten produkt
+                              </Button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -240,48 +293,6 @@ const LINK_BUTTONS = [
         {COPIES.map(({ theme, label, wrapper }) => (
           <div class:list={["flex w-full max-w-lg flex-col gap-6 rounded-card p-4", wrapper]}>
             <p class="text-sm font-semibold">{label}</p>
-
-            <section aria-labelledby={`${theme}-states-natura-heading`} class="flex flex-col gap-3">
-              <h2 id={`${theme}-states-natura-heading`} class="text-lg font-semibold">
-                Natura
-              </h2>
-              <p class="text-sm text-muted-foreground">
-                <code>NaturaSection</code> w każdym rodzaju widoku, z komunikatem o zapisie, błędem zapisu i
-                niezapisanym wynikiem wyszukiwania.
-              </p>
-              <div class="flex flex-col gap-6">
-                {NATURA_FIXTURES.map(({ code, text, idPrefix, view, unsaved, notice, error }) => (
-                  <>
-                    <div class="flex flex-col gap-1">
-                      <p class="text-xs text-muted-foreground">
-                        <code>{code}</code> · {text}
-                      </p>
-                      <NaturaSection
-                        view={view}
-                        productId={PRODUCT_ID}
-                        unsaved={unsaved}
-                        notice={notice}
-                        error={error}
-                        idPrefix={`${theme}-${idPrefix}`}
-                      />
-                    </div>
-                    {view.kind === "choose" && (
-                      <div class="flex flex-col gap-1">
-                        <p class="text-xs text-muted-foreground">
-                          <code>{code}</code>, po wysłaniu · SubmitOnce wyłącza przyciski wszystkich formularzy decyzji
-                        </p>
-                        {/* The candidate's own row of buttons, as the section lays it out. */}
-                        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-                          <Button type="button" size="touch" disabled>
-                            To ten produkt
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ))}
-              </div>
-            </section>
 
             <section aria-labelledby={`${theme}-states-branches-heading`} class="flex flex-col gap-3">
               <h2 id={`${theme}-states-branches-heading`} class="text-lg font-semibold">

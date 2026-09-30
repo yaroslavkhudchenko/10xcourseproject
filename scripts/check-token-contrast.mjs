@@ -161,7 +161,8 @@ const SURFACES = {
   card: CARD, // Card and the default Alert: bg-card
   popover: [["popover", 100]], // the account menu's panel on a phone: bg-popover
   muted: [["muted", 100]], // the raised fills: bg-muted
-  "destructive alert": [["destructive", 10]], // Alert destructive: bg-destructive/10
+  "destructive alert": [["destructive", 10]], // Alert destructive: bg-destructive/10, as in Natura's declined card
+  "destructive alert in a card": [...CARD, ["destructive", 10]], // the same Alert in Natura's card
   destructive: [["destructive", 100]], // Button and Badge destructive: bg-destructive
   "destructive hover": [["destructive", 90]], // Button destructive, and a link's Badge: hover:bg-destructive/90
   "destructive hover in a card": [...CARD, ["destructive", 90]],
@@ -218,7 +219,8 @@ const PAIRS = [
   // A shop's card while its shop is asked again: the price's digits fade to 60 % (Price's pending), large text at 46 px
   // and more for the złote and 20 px extra bold for the grosze, while its "zł", small text, stays at full strength.
   ["foreground", 60, "card", LARGE_TEXT],
-  // Hints, sizes, and each price's source and age.
+  // Hints, sizes, and each price's source and age; Natura's declined card, a ghost on the paper, and a match's note in
+  // the dashed footer of Natura's card.
   ["muted-foreground", 100, "paper", TEXT],
   ["muted-foreground", 100, "card", TEXT],
   ["muted-foreground", 100, "muted", TEXT],
@@ -248,9 +250,12 @@ const PAIRS = [
   ["background", 70, "active chip", TEXT],
   // The paper labels' text: the hanging tags (Badge tag-sun and tag-warn) on sun and tag-warn among them.
   ...LABELS.map((label) => ["label-ink", 100, label, TEXT]),
-  // Errors: the destructive Alert's text and its description at /90. The page shows no error text outside an Alert.
+  // Errors: the destructive Alert's text and its description at /90, on the paper and in Natura's card, where a
+  // decision that wasn't saved is told. The page shows no error text outside an Alert.
   ["destructive", 100, "destructive alert", TEXT],
   ["destructive", 90, "destructive alert", TEXT],
+  ["destructive", 100, "destructive alert in a card", TEXT],
+  ["destructive", 90, "destructive alert in a card", TEXT],
   // Success: the promotion's pill (Badge promo), a note on the paper or in a card, the Alert's text, whose description
   // takes the same colour, and "Najtaniej" as a Badge in a card.
   ["success-foreground", 100, "success", TEXT],

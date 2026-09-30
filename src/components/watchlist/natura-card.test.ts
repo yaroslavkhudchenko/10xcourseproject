@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { naturaCardOf, naturaUndecided, type NaturaCardAlert } from "@/components/watchlist/natura-card";
+import {
+  naturaCardOf,
+  naturaUndecided,
+  naturaUnreadable,
+  type NaturaCardAlert,
+} from "@/components/watchlist/natura-card";
 import { DECISION_NOTICES } from "@/lib/notices";
 import type { NaturaItemSummary, NaturaView } from "@/lib/services/natura-view";
 
@@ -43,6 +48,23 @@ describe("naturaUndecided", () => {
 
   it("is false without a view", () => {
     expect(naturaUndecided(null)).toBe(false);
+  });
+});
+
+describe("naturaUnreadable", () => {
+  it("is true for a decision that couldn't be read, whose match could name a lower price", () => {
+    expect(naturaUnreadable(VIEWS["read-failed"])).toBe(true);
+  });
+
+  it.each(["matched", "unmatched", "not-found", "choose", "unavailable", "prompt", "decided"] as const)(
+    "is false for %s",
+    (kind) => {
+      expect(naturaUnreadable(VIEWS[kind])).toBe(false);
+    },
+  );
+
+  it("is false without a view", () => {
+    expect(naturaUnreadable(null)).toBe(false);
   });
 });
 

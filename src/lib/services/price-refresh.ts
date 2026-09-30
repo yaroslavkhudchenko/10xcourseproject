@@ -111,7 +111,10 @@ function notFetched(): PriceCheck {
   return { kind: "unavailable", reason: "failed" };
 }
 
-/** The codes the refresh form's route redirects with, as `?prices=<code>`, which each page turns into its own text. */
+/**
+ * The codes the refresh form's route redirects with, which each page turns into its own text: `?prices=<code>` after a
+ * product's own refresh, and `?list-prices=<code>` after the list's (listRefreshBackTo).
+ */
 export const PRICE_REFRESH_CODES = ["done", "partial", "none", "failed"] as const;
 
 /**
@@ -133,7 +136,10 @@ export function refreshCodeOf({ results, saved }: PriceRefresh): PriceRefreshCod
   return answered === results.length && saved === "saved" ? "done" : "partial";
 }
 
-/** A `?prices=` code, or null for anything the app didn't send itself, so a link can't put words on a page. */
+/**
+ * A refresh's code, from `?prices=` or `?list-prices=`, or null for anything the app didn't send itself, so a link
+ * can't put words on a page.
+ */
 export function parsePriceRefreshCode(value: string | null): PriceRefreshCode | null {
   return PRICE_REFRESH_CODES.find((code) => code === value) ?? null;
 }
