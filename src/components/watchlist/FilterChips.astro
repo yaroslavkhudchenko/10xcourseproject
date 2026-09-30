@@ -4,7 +4,10 @@
 // (filterHref), so it drops the search and asks no shop. The active chip is filled with the ink. The chips are drawn
 // 38 px on a phone and 34 px from lg, each with a 44 px hit area: on a phone their row scrolls sideways, reaching the
 // screen's edges through the shell's 18 px gutter, with room above and below for the hit areas and the focus outline,
-// and from lg it wraps, with a row gap that keeps the hit areas apart.
+// and a chip the keyboard reaches scrolls in as far as the gutter, which the row keeps after its last chip, so its
+// outline isn't cut at the screen's edge; from lg it wraps, with a row gap that keeps the hit areas apart. The browser
+// leaves a chip that's partly on screen where it is when it takes the focus, so the script scrolls it in; without
+// JavaScript the chips are plain links all the same. Astro includes the script once per page.
 import { filterHref, LIST_FILTERS, type ListFilter } from "@/lib/services/watchlist-rows";
 import { cn } from "@/lib/utils";
 
@@ -28,9 +31,10 @@ const LABELS: Record<ListFilter, string> = {
 
 <nav
   aria-label="Filtry listy"
-  class="-mx-4.5 -my-1 overflow-x-auto px-4.5 py-1 [scrollbar-width:none] lg:mx-0 lg:my-0 lg:overflow-visible lg:px-0 lg:py-0"
+  data-filter-chips
+  class="-mx-4.5 -my-1 scroll-px-4.5 overflow-x-auto px-4.5 py-1 [scrollbar-width:none] lg:mx-0 lg:my-0 lg:scroll-px-0 lg:overflow-visible lg:px-0 lg:py-0"
 >
-  <ul class="flex gap-2 lg:flex-wrap lg:gap-y-2.5">
+  <ul class="flex w-max gap-2 lg:w-auto lg:flex-wrap lg:gap-y-2.5">
     {LIST_FILTERS.map((filter) => (
       <li class="shrink-0">
         <a
@@ -50,3 +54,15 @@ const LABELS: Record<ListFilter, string> = {
     ))}
   </ul>
 </nav>
+
+<script>
+  // A chip that takes the focus while its row scrolls sideways comes fully into view, with the row's scroll padding
+  // after it, so its focus outline shows whole.
+  for (const row of document.querySelectorAll<HTMLElement>("nav[data-filter-chips]")) {
+    row.addEventListener("focusin", (event) => {
+      if (event.target instanceof HTMLElement && row.scrollWidth > row.clientWidth) {
+        event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
+    });
+  }
+</script>

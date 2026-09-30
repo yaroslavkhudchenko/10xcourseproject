@@ -211,9 +211,10 @@
    arbitrary px value. Tailwind's own steps cover the rest: tracking-tighter (-0.05em, a card's złote), tracking-tight
    (-0.025em, a shop's name) and tracking-widest (0.1em, the hero's eyebrow), text-xs to text-xl, and the spacing
    scale's quarter steps, such as size-10.5 for 42 px. A role drawn larger on a desktop has a second token ending in
-   -lg, its value from lg (1024 px) up: text-price-hero lg:text-price-hero-lg. A token added here also joins cn()'s
-   names in src/lib/utils.ts, where src/lib/utils.test.ts checks it: tailwind-merge doesn't know it otherwise, and
-   would drop it next to a class it takes for the same kind, such as a text colour. */
+   -lg, its value from lg (1024 px) up: text-price-hero lg:text-price-hero-lg; the product's title and its thumbnail
+   take theirs from xl (1280 px), where the pane beside the list has room for them. A token added here also joins
+   cn()'s names in src/lib/utils.ts, where src/lib/utils.test.ts checks it: tailwind-merge doesn't know it otherwise,
+   and would drop it next to a class it takes for the same kind, such as a text colour. */
 @theme {
   /* A product's title. */
   --text-product-title: 1.5625rem; /* 25 px */
@@ -414,6 +415,12 @@
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
+  }
+  /* A phone's product page keeps its refresh bar fixed over the screen's foot (RefreshBar.tsx), so a control the
+     keyboard scrolls to stops above the bar rather than under it: the page's own padding below its content is the
+     bar's room, 7rem, and the home bar's inset. From lg the bar is gone and the page doesn't scroll as a whole. */
+  html:has([data-refresh-bar]) {
+    scroll-padding-bottom: calc(var(--spacing) * 28 + env(safe-area-inset-bottom));
   }
   body {
     @apply bg-background text-foreground;

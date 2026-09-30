@@ -4,7 +4,10 @@ import { cn } from "@/lib/utils";
 interface Props {
   brand: string | null;
   imageUrl: string | null;
-  /** A list row's, 48 px on a phone and 50 px from lg, or a product title's, 56 px and 80 px, tilted −6°. */
+  /**
+   * A list row's, 48 px on a phone and 50 px from lg, or a product title's, 56 px and 80 px from xl (1280 px), with its
+   * title's desktop size, tilted −6°.
+   */
   size: "row" | "title";
   className?: string;
 }
@@ -20,8 +23,8 @@ const TILE_FILLS: Record<Tile, string> = {
 const SIZES = {
   row: { box: "size-12 rounded-thumb lg:size-12.5", initial: "text-xl", pixels: 50 },
   title: {
-    box: "size-14 -rotate-6 rounded-thumb-title border-2 border-label-ink lg:size-20 lg:rounded-thumb-title-lg",
-    initial: "text-thumb-title lg:text-thumb-title-lg",
+    box: "size-14 -rotate-6 rounded-thumb-title border-2 border-label-ink xl:size-20 xl:rounded-thumb-title-lg",
+    initial: "text-thumb-title xl:text-thumb-title-lg",
     pixels: 80,
   },
 };

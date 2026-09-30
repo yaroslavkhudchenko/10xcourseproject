@@ -71,7 +71,8 @@ export default function PriceComparisonView({ itemId, product, state, natura, on
           <AlertDescription>
             <p>
               Sesja wygasła.{" "}
-              <a href="/auth/signin" className="underline hover:decoration-2">
+              {/* A link in the sentence keeps its line's height, with a 44 px hit area around it, on one line. */}
+              <a href="/auth/signin" className="hit-area whitespace-nowrap underline hover:decoration-2">
                 Zaloguj się ponownie
               </a>
               , aby odświeżyć ceny.
@@ -110,9 +111,10 @@ interface GridProps {
 }
 
 /**
- * The shops' cards, two columns from lg and one on a phone: each priced shop's card in the comparison's order, Natura's
- * price card with its match's footer, and, while Natura has no price row, its card without a price after them. The
- * kitchen sink draws it on its own, with every state of Natura.
+ * The shops' cards, two columns from xl (1280 px) and one below it, where a card of half the pane beside the list
+ * would squeeze its shop's name and site: each priced shop's card in the comparison's order, Natura's price card with
+ * its match's footer, and, while Natura has no price row, its card without a price after them. The kitchen sink draws
+ * it on its own, with every state of Natura.
  */
 export function ShopGrid({ itemId, rows, now, natura }: GridProps) {
   const headingId = useId();
@@ -125,7 +127,7 @@ export function ShopGrid({ itemId, rows, now, natura }: GridProps) {
       <h2 id={headingId} className="sr-only">
         Ceny
       </h2>
-      <ul className="grid gap-6 lg:grid-cols-2 lg:gap-5 lg:pt-1.5">
+      <ul className="grid gap-6 lg:gap-5 lg:pt-1.5 xl:grid-cols-2">
         {rows.map((row) => (
           <li key={row.shop}>
             {row.shop === "natura" && natura !== null ? (

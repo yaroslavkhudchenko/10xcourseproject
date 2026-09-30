@@ -1180,6 +1180,57 @@ They were built test-first in a parallel worktree and cherry-picked onto this br
   - A crafted `back` goes to `/watchlist` with no refresh.
 - **Local data:** `p5-check-…@example.com`, with made-up products (Rossmann 990000501–503; Natura DEVNV0501) and 4 observations. Don't refresh them.
 
+### Phase 6
+
+- **The sticker's clearance:** VerdictHero gets `mt-2` when it carries a sticker, so the gap under the title row is 34 px on desktop and 32 px on phones, not 26/24. The sticker now clears the caption by at least 15.6 px at 1280, 10.9 px at 1024 and 18.6 px at 390, in every state.
+  - The touch phase 5 saw was a capture artifact: `captureBeyondViewport` resizes the view, which toggles the `hidden lg:block` sticker and restarts its stamp. So every screenshot is taken with reduced motion on.
+- **From 1024 to 1279 px** (this changes phase 4's "2 columns at 1024 px and up"): the hero's side-by-side grid, the two card columns and the title's 40/80 px scale start at `xl:`.
+  - Below `xl`, the hero stacks as on phones but keeps the `lg` type sizes, the title uses the phone's 25/56 px, and the cards take one column.
+  - At 1024 the pane is 604 px wide. The old layout broke the title mid-word, ran "w Rossmannie" into the price and left the site name too narrow.
+- **Small tap targets and clipped focus:**
+  - AppHeader shows the email from `xl` only; at 1024 the search field had shrunk to 0 px.
+  - SearchForm's input fills the field's height (`self-stretch`); it was a 22.5 px tap target inside a 52 px field.
+  - The session alert's "Zaloguj się ponownie" gets `hit-area whitespace-nowrap`; it was 17 px tall.
+  - FilterChips gets `scroll-px-4.5`, `w-max` on its list and a small `focusin` script that scrolls a focused chip into view, so the last chip's outline isn't cut at 390. Without JavaScript the chips are still plain links.
+  - WatchlistShell gets `lg:scroll-py-3` on the rows' scroller and the main pane, so a row scrolled into view by Tab keeps its outline.
+  - `html:has([data-refresh-bar])` gets a bottom `scroll-padding` of 7rem plus the inset, so Tab stops above the phone's fixed bar.
+- **Guards:**
+  - `islandConfig.files` lists exactly the value-import graph of `PriceComparison.tsx` and `RowTag.tsx`, plus `src/lib/theme.ts`, computed with a script. Its allow-list admits `@/lib/services/watchlist-rows`.
+  - `tokenConfig` gains the four globs, and `src/components/ui/LibBadge.astro` is deleted: it was unused, and it failed the rule.
+- **Kitchen sinks:**
+  - `max-w-lg` became an inline `max-width: 32rem`. No app file has used `max-w-lg` since phase 3, so it had no CSS, and the sinks' light and dark columns stacked.
+  - The product sink adds the two-shop states `all-stale`, `all-unavailable` and `promo-ended`. A "Sama cena Rossmanna" group pairs each Rossmann-only price state with each other Natura kind; `choose` shows its section below through a new `choice` field.
+  - It isn't a literal cross product of 144 frames, and the sink says why: Natura has a price row only with a saved match, and the rules tell the other kinds apart only as undecided, decided or unreadable.
+  - The list sink adds a "Przewijanie" section (14 rows scrolling on their own, with the selected row at the foot) and a chip row whose counts are zero.
+- **CLAUDE.md:** the UI bullet is rewritten to match the code. It adds one rule from the plan's key discoveries: Astro's prefetch stays off, because its fallback fetch would pass `isOwnNavigation`. The course block is byte-identical.
+- **The roadmap** gains the carry-overs for S-04, S-07 and S-08, and the "Najtaniej" line for S-05 and S-06. No status changed.
+- **Screenshots:** 65 PNGs, taken with reduced motion and without the dev toolbar, at 1280, 1024 and 390 px, light and dark, plus the QA evidence files. The set is 20 MB, and the owner decides what's committed.
+- **For the owner's check:**
+  - the layout between 1024 and 1279 px (compact title, stacked hero, one card column, no email);
+  - without JavaScript the redesigned pages are light whatever the system theme, since the head script picks the theme;
+  - `promo-ended` still shows "promocja do 28.09" on 29.09 under its "Nieaktualna" tag, which is ShopCard's rule.
+- **Costs:** 0 shop requests. Every real page was loaded with `Purpose: prefetch`, and the `shop_requests` max id was 95 before and after. Ids 86–95 came from the owner's own session on the same dev server, which the agent only read.
+- **Local data:** `p6-check-…@example.com`, with made-up items (Rossmann 990000601–604; Natura DEVNV0601 and DEVNV0602) and six observations.
+- **The gates:** smoke ran first, while the dev server was healthy. The three lint breaks ran here: a palette class in AppHeader, a `w-[13px]` in WatchlistShell and an `astro/zod` import in RowTag, and each was refused. The dev server was restarted after `astro check` and the build.
+
+### Manual verification
+
+- **Who ran it:** the owner asked the agent to do the manual checks (2026-09-30). A verification agent ran all 23 rows in headless Chrome, through the DevTools protocol, against the dev server and the local Supabase, as throwaway `@example.com` users. Every row passed.
+- **Shop requests:** 4 real ones. Rossmann 26900 and Natura NV81063 were refetched by the live refresh (4.6, 5.6), and one no-JavaScript submit of the title row's form refreshed both again (4.7). Every other page was loaded with `Purpose: prefetch`, behind a guard that failed any price, refresh, decision, "Dodaj" or search request.
+- **Row 3.7** was verified on a seeded list of 9 products covering every state: counts 9/3/5, the same with and without JavaScript. The owner's own list wasn't checked, since that needs their account; the owner chose to tick the row on that basis.
+- **Fixes after the verification:**
+  - The header's search takes the phone's short placeholder, "np. nivea soft 300 ml" (the owner's call). The handoff's longer text was cut off between 1024 and 1279 px, where the field has room for about 186 px.
+  - The kitchen sink's label and comment for the registry's button sizes no longer say they lack a hit area, since phase 2 gave them one. Their list's gap widened.
+  - The gates were re-run after both fixes: smoke, `astro check`, the build with its fonts, contrast and lint.
+- **Follow-ups found by the verification (existing rules, not changed here):**
+  - While Natura's price is still loading, the hero and the Rossmann card say "Najtaniej", since only a shop with a price can win. The live region then ends naming both shops "najtaniej", as it did since S-03.
+  - A price that's stale only because its promotion ended reads "CENA SPRZED 24 MIN" in the track and "cena może być nieaktualna" in the hero, while its card still shows "promocja do 28.09".
+  - The sticker's rotated bounding box overlaps the caption's box at 1024 px. Only its transparent corner is involved; the drawn starburst clears the caption by at least 10.9 px.
+- **The captures in `screenshots/`** predate the placeholder fix. The 44 kitchen-sink captures stay out of the repo, since the sinks regenerate them.
+- **Local data:**
+  - `verify-real-…@example.com`: Rossmann 26900 with a matched Natura NV81063, and 4 shared observations from real refreshes.
+  - `verify-seed-…@example.com`: 9 made-up items (Rossmann 990000701–709), 8 Natura decisions and 10 observations. Its S9's promotion ends 2026-09-30.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -1196,9 +1247,9 @@ They were built test-first in a parallel worktree and cherry-picked onto this br
 
 #### Manual
 
-- [ ] 1.6 On the dev server, `/watchlist/<id>` follows the system theme in both system themes, with no flash of the other theme on reload
-- [ ] 1.7 `/`, `/dashboard` and `/auth/signin` keep today's colours in both system themes
-- [ ] 1.8 The fonts load from `/_astro/fonts/` in the Network tab, and headings render in Bricolage Grotesque
+- [x] 1.6 On the dev server, `/watchlist/<id>` follows the system theme in both system themes, with no flash of the other theme on reload
+- [x] 1.7 `/`, `/dashboard` and `/auth/signin` keep today's colours in both system themes
+- [x] 1.8 The fonts load from `/_astro/fonts/` in the Network tab, and headings render in Bricolage Grotesque
 
 ### Phase 2: Primitives
 
@@ -1210,10 +1261,10 @@ They were built test-first in a parallel worktree and cherry-picked onto this br
 
 #### Manual
 
-- [ ] 2.4 The kitchen sink at 1280 and 390 px, in light and dark, shows every primitive as the handoff draws it
-- [ ] 2.5 The theme switch flips the theme and keeps the choice across reloads
-- [ ] 2.6 Every control shows a 2 px focus outline on Tab and has a hit area of at least 44 px, in both themes
-- [ ] 2.7 The sticker stamps once on load, and not with reduced motion on
+- [x] 2.4 The kitchen sink at 1280 and 390 px, in light and dark, shows every primitive as the handoff draws it
+- [x] 2.5 The theme switch flips the theme and keeps the choice across reloads
+- [x] 2.6 Every control shows a 2 px focus outline on Tab and has a hit area of at least 44 px, in both themes
+- [x] 2.7 The sticker stamps once on load, and not with reduced motion on
 
 ### Phase 3: The shell and the list
 
@@ -1227,10 +1278,10 @@ They were built test-first in a parallel worktree and cherry-picked onto this br
 
 #### Manual
 
-- [ ] 3.6 The list at 1280 and 390 px, in light and dark, matches the handoff's list (`design-captures/2a-*`, `2b-*`)
-- [ ] 3.7 The chips hold the right products for the owner's own list, with the right counts
-- [ ] 3.8 Without JavaScript, search, the chips, "Odśwież ceny", the avatar menu and "Wyloguj" work
-- [ ] 3.9 "/" focuses the search on desktop, but not while typing in a field
+- [x] 3.6 The list at 1280 and 390 px, in light and dark, matches the handoff's list (`design-captures/2a-*`, `2b-*`)
+- [x] 3.7 The chips hold the right products for the owner's own list, with the right counts
+- [x] 3.8 Without JavaScript, search, the chips, "Odśwież ceny", the avatar menu and "Wyloguj" work
+- [x] 3.9 "/" focuses the search on desktop, but not while typing in a field
 
 ### Phase 4: The product area
 
@@ -1243,38 +1294,38 @@ They were built test-first in a parallel worktree and cherry-picked onto this br
 
 #### Manual
 
-- [ ] 4.5 The kitchen sink shows every price state in the new product area, in light and dark, at 1280 and 390 px
-- [ ] 4.6 On the dev server, a real product refreshes shop by shop, and the hero, the track and the caption follow
-- [ ] 4.7 Without JavaScript, both "Odśwież ceny" forms (title row and bottom bar) refresh the product
-- [ ] 4.8 The sticker never covers the price or the caption, at 1280 and 390 px
+- [x] 4.5 The kitchen sink shows every price state in the new product area, in light and dark, at 1280 and 390 px
+- [x] 4.6 On the dev server, a real product refreshes shop by shop, and the hero, the track and the caption follow
+- [x] 4.7 Without JavaScript, both "Odśwież ceny" forms (title row and bottom bar) refresh the product
+- [x] 4.8 The sticker never covers the price or the caption, at 1280 and 390 px
 
 ### Phase 5: Natura in its card, and the list beside the product
 
 #### Automated
 
-- [x] 5.1 `npm run test` passes, with new tests for the Natura card view, the list refresh's return path and the selected row's tag update
-- [x] 5.2 `npm run lint`, `npx astro check` and `npm run build` pass
-- [x] 5.3 `node scripts/check-token-contrast.mjs` passes
-- [x] 5.4 `npm run smoke` passes against the dev server
+- [x] 5.1 `npm run test` passes, with new tests for the Natura card view, the list refresh's return path and the selected row's tag update — 052ed81
+- [x] 5.2 `npm run lint`, `npx astro check` and `npm run build` pass — 052ed81
+- [x] 5.3 `node scripts/check-token-contrast.mjs` passes — 052ed81
+- [x] 5.4 `npm run smoke` passes against the dev server — 052ed81
 
 #### Manual
 
-- [ ] 5.5 Every Natura state renders inside its card in the kitchen sink, with "choose" below the grid, in light and dark
-- [ ] 5.6 At 1280 px, the list beside a product shows it selected, and its tag follows the product's refresh
-- [ ] 5.7 Chips on a product page keep the product, and the list's "Odśwież ceny" returns to it with the list's notice
-- [ ] 5.8 Without JavaScript, the Natura links and the choose forms work
-- [ ] 5.9 The list beside the product adds no shop request to a product view, checked in `shop_requests`
+- [x] 5.5 Every Natura state renders inside its card in the kitchen sink, with "choose" below the grid, in light and dark
+- [x] 5.6 At 1280 px, the list beside a product shows it selected, and its tag follows the product's refresh
+- [x] 5.7 Chips on a product page keep the product, and the list's "Odśwież ceny" returns to it with the list's notice
+- [x] 5.8 Without JavaScript, the Natura links and the choose forms work
+- [x] 5.9 The list beside the product adds no shop request to a product view, checked in `shop_requests`
 
 ### Phase 6: Every state, the visual gate and the docs
 
 #### Automated
 
-- [ ] 6.1 `npm run lint`, `npx astro check`, `npm run test`, `npm run build` with `node scripts/check-built-fonts.mjs`, and `node scripts/check-token-contrast.mjs` pass
-- [ ] 6.2 A deliberate palette class and an arbitrary px value in a newly guarded file fail lint, and so does a server import in a new island module
-- [ ] 6.3 `npm run smoke` passes
+- [x] 6.1 `npm run lint`, `npx astro check`, `npm run test`, `npm run build` with `node scripts/check-built-fonts.mjs`, and `node scripts/check-token-contrast.mjs` pass
+- [x] 6.2 A deliberate palette class and an arbitrary px value in a newly guarded file fail lint, and so does a server import in a new island module
+- [x] 6.3 `npm run smoke` passes
 
 #### Manual
 
-- [ ] 6.4 The screenshots at 1280 and 390 px, in light and dark, match the handoff's 2a and 2b
-- [ ] 6.5 The QA checklist passes: 44 px targets, focus on every control, no wrapping inside pills or buttons, no JavaScript, reduced motion and the safe-area insets
-- [ ] 6.6 The owner's phone walk-through on the dev server passes: the list, a product, back, the chips, a refresh, the theme switch and the avatar menu
+- [x] 6.4 The screenshots at 1280 and 390 px, in light and dark, match the handoff's 2a and 2b
+- [x] 6.5 The QA checklist passes: 44 px targets, focus on every control, no wrapping inside pills or buttons, no JavaScript, reduced motion and the safe-area insets
+- [x] 6.6 The owner's phone walk-through on the dev server passes: the list, a product, back, the chips, a refresh, the theme switch and the avatar menu

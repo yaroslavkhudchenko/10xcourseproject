@@ -2,7 +2,9 @@
 // prices and its Natura decisions, on a fixed clock, the design handoff's three sample products, and the prices and
 // brands its primitives are shown with. Every state is built by the product page's own code, the price island's
 // reducer, the Natura view builders and the matching rule, so the kitchen sink shows only states the page can reach.
-// Nothing here is real user data, and nothing here asks Supabase or a shop.
+// The product area's states pair every price state with Natura in every kind: the states with Natura's price need a
+// saved match, and the rest stand with Rossmann's price alone, each beside another of Natura's kinds. Nothing here is
+// real user data, and nothing here asks Supabase or a shop.
 import type { NaturaCardInput } from "@/components/watchlist/natura-card";
 import type { PriceSize } from "@/components/watchlist/Price";
 import type { TitleProduct } from "@/components/watchlist/ProductTitle";
@@ -167,10 +169,11 @@ export interface PriceFixture {
   product: TitleProduct;
   /** Natura as the page read it: its card among the shops', and, still to match, what the hero and the hint say. */
   natura: NaturaCardInput | null;
+  /** Natura's candidates, which the page's choice below the island holds while the island's card points to it. */
+  choice?: Extract<NaturaView, { kind: "choose" }>;
 }
 
-// The island's states for the made-up product, whose Natura match is stored, but for `lone`, which declined it, and
-// `natura-read-failed`, whose decision couldn't be read.
+// The island's states for the made-up product, whose Natura match is stored, so Natura has its price row.
 const PRICE_STATES: Omit<PriceFixture, "product">[] = [
   {
     code: "cheapest",
@@ -185,12 +188,6 @@ const PRICE_STATES: Omit<PriceFixture, "product">[] = [
     natura: MATCHED,
   },
   {
-    code: "lone",
-    text: "jeden sklep, Natura odrzucona: nie ma z czym porównać, więc bez oznaczenia",
-    state: island([ROSSMANN_CHECKED]),
-    natura: naturaOf(storedView(DECLINED, PRODUCT)),
-  },
-  {
     code: "stale",
     text: "cena Rossmanna sprzed ponad 24 godzin: niższa, ale nieaktualna, więc wygrywa Natura",
     state: island([
@@ -200,9 +197,36 @@ const PRICE_STATES: Omit<PriceFixture, "product">[] = [
     natura: MATCHED,
   },
   {
+    code: "all-stale",
+    text: "obie ceny sprzed ponad 24 godzin: najniższa ostatnia znana, a żaden sklep nie jest nazwany",
+    state: island([
+      priced("rossmann", offer(26.99), STALE_AFTER_MS + 2 * HOUR),
+      priced("natura", offer(22.99), STALE_AFTER_MS + 5 * HOUR),
+    ]),
+    natura: MATCHED,
+  },
+  {
+    code: "promo-ended",
+    text: "promocja Rossmanna skończyła się wczoraj: jej cena jest nieaktualna, więc wygrywa Natura",
+    state: island([
+      priced("rossmann", offer(19.99, { regularPrice: 24.99, promoEndsOn: "2026-09-28" }), 10 * MINUTE),
+      priced("natura", offer(22.99), 5 * MINUTE),
+    ]),
+    natura: MATCHED,
+  },
+  {
     code: "not-orderable",
     text: "Natury nie da się zamówić online: jej niższa cena nie wygrywa",
     state: island([ROSSMANN_CHECKED, priced("natura", offer(19.99, { available: false }), 5 * MINUTE)]),
+    natura: MATCHED,
+  },
+  {
+    code: "all-unavailable",
+    text: "żadnego sklepu nie da się zamówić online: najniższa cena, bez oznaczenia",
+    state: island([
+      priced("rossmann", offer(26.99, { available: false }), 10 * MINUTE),
+      priced("natura", offer(22.99, { available: false }), 5 * MINUTE),
+    ]),
     natura: MATCHED,
   },
   {
@@ -288,13 +312,6 @@ const PRICE_STATES: Omit<PriceFixture, "product">[] = [
     // The page read the stored prices, but Natura's row came back odd, so it hands that shop over unread.
     state: island([ROSSMANN_CHECKED, { ...row("natura", null), readFailed: true }]),
     natura: MATCHED,
-  },
-  {
-    code: "natura-read-failed",
-    text: "nie udało się wczytać decyzji Natury: świeża cena Rossmanna, ale żaden sklep nie jest nazwany",
-    // Without the decision there's no Natura row, and a match it hides could name a lower price.
-    state: island([ROSSMANN_CHECKED]),
-    natura: naturaOf({ kind: "read-failed" }),
   },
 ];
 
@@ -473,6 +490,104 @@ export const NATURA_FIXTURES: NaturaFixture[] = [
     state: ROSSMANN_ONLY,
   },
 ];
+
+/** The view of candidates left to the user, which is a choice among them. */
+function choiceOf(view: NaturaView): Extract<NaturaView, { kind: "choose" }> {
+  if (view.kind !== "choose") {
+    throw new Error(`The kitchen sink's Natura candidates must make a choice; the view is ${view.kind}.`);
+  }
+  return view;
+}
+
+// Natura's candidates to choose from, as the page's view holds them for the choice below the island; the island's card
+// gets the view without them.
+const CHOICE = choiceOf(chooseView(leftToUser(CANDIDATES), "ean", new Date(NOW), PRODUCT));
+
+// Rossmann's price alone: without a saved match Natura has no price row, so every other kind of Natura stands here, each
+// beside one of Rossmann's states, and every state of Rossmann's price stands beside one of them. The rules tell those
+// kinds apart only as still to match (prompt, choose, unavailable), decided (unmatched, not-found, decided, a match
+// that wasn't saved) and unreadable (read-failed): a state looks the same beside another kind of its group, but for
+// Natura's own card, which the Natura section shows in every kind.
+const ALONE_STATES: Omit<PriceFixture, "product">[] = [
+  {
+    code: "lone",
+    text: "jeden sklep, Natura odrzucona: nie ma z czym porównać, więc bez oznaczenia",
+    state: island([ROSSMANN_CHECKED]),
+    natura: naturaOf(storedView(DECLINED, PRODUCT)),
+  },
+  {
+    code: "lone-promo",
+    text: "jeden sklep w promocji do 05.10, z ceną regularną; Natura odrzucona",
+    state: island([priced("rossmann", offer(22.49, { regularPrice: 26.99, promoEndsOn: "2026-10-05" }), 10 * MINUTE)]),
+    natura: naturaOf(storedView(DECLINED, PRODUCT)),
+  },
+  {
+    code: "lone-not-orderable",
+    text: "jeden sklep, bez zamówienia online; wyszukiwarka Natury zajęta",
+    state: island([priced("rossmann", offer(26.99, { available: false }), 10 * MINUTE)]),
+    natura: naturaOf({ kind: "unavailable", message: shopUnavailableText(SHOP_LABELS.natura.name, "busy") }),
+  },
+  {
+    code: "lone-missing-with-price",
+    text: "Rossmann nie zwraca już produktu: jego ostatnia cena zostaje ze swoim wiekiem; Natura go nie znalazła",
+    state: island(
+      [priced("rossmann", offer(26.99), 3 * HOUR)],
+      start("rossmann"),
+      done("rossmann", MISSING, ANSWERED_AT),
+    ),
+    natura: naturaOf(storedView(NOT_FOUND, PRODUCT)),
+  },
+  {
+    code: "lone-missing-without-price",
+    text: "Rossmann nie zwraca produktu, a ceny wcześniej nie było; decyzję Natury zapisała w międzyczasie inna karta",
+    state: island([row("rossmann", null)], start("rossmann"), done("rossmann", MISSING, ANSWERED_AT)),
+    natura: naturaOf({ kind: "decided" }),
+  },
+  {
+    code: "lone-never-checked",
+    text: "świeżo dodany: Rossmann jeszcze niesprawdzony, a kandydaci Natury czekają na wybór pod kartami",
+    state: island([row("rossmann", null)]),
+    natura: naturaOf({ ...CHOICE, options: [] }),
+    choice: CHOICE,
+  },
+  {
+    code: "lone-refreshing",
+    text: "Rossmann w trakcie odświeżania; Natura czeka na dopasowanie",
+    state: island([ROSSMANN_CHECKED], start("rossmann")),
+    natura: naturaOf(promptView(PRODUCT, false)),
+  },
+  {
+    code: "lone-notice",
+    text: "Rossmann prosi o przerwę: ostatnia cena zostaje; Natura odrzucona",
+    state: island(
+      [ROSSMANN_CHECKED],
+      start("rossmann"),
+      done("rossmann", { kind: "unavailable", reason: "paused", until: PAUSED_UNTIL }, ANSWERED_AT),
+    ),
+    natura: naturaOf(storedView(DECLINED, PRODUCT)),
+  },
+  {
+    code: "lone-read-failed",
+    text: "nie udało się wczytać zapisanych cen, a dopasowania Natury nie udało się zapisać, więc nie ma jej ceny",
+    state: initialState({ shops: [row("rossmann", null)], now: NOW, pricesFailed: true }),
+    natura: naturaOf(matchedView(NATURA_ITEM, "auto", PRODUCT, { unsaved: true }), { unsaved: true }),
+  },
+  {
+    code: "lone-read-failed-row",
+    text: "nie udało się odczytać zapisanej ceny Rossmanna; Natura czeka na dopasowanie",
+    state: island([{ ...row("rossmann", null), readFailed: true }]),
+    natura: naturaOf(promptView(PRODUCT, false)),
+  },
+  {
+    code: "natura-read-failed",
+    text: "nie udało się wczytać decyzji Natury: świeża cena Rossmanna, ale żaden sklep nie jest nazwany",
+    // Without the decision there's no Natura row, and a match it hides could name a lower price.
+    state: island([ROSSMANN_CHECKED]),
+    natura: naturaOf({ kind: "read-failed" }),
+  },
+];
+
+export const ALONE_FIXTURES: PriceFixture[] = ALONE_STATES.map((fixture) => ({ ...fixture, product: PRODUCT }));
 
 /** The page's text for `?error=gone`, which its not-found branch shows: a decision posted for a product not listed. */
 export const GONE_ERROR = matchErrorMessage("gone");

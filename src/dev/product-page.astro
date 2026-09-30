@@ -2,12 +2,14 @@
 // The product page's kitchen sink: the view in every state it can show, and the pieces it's built from in each variant,
 // from the fixtures in fixtures.ts, for review and screenshots. Only `astro dev` serves it (astro.config.mjs). The page
 // is pinned to the light theme, and draws every section twice: in the light theme, then in a `dark` wrapper, whose
-// class switches the tokens for all it holds. The product area's states, and Natura's in the shops' cards, stand in
-// frames as wide as the product's pane beside the list (860 px), each frame the containing block of its phone's bottom
-// bar, which it otherwise fixes to the screen; the other sections' copies stand side by side on a wide screen. It
-// hydrates nothing, so no island effect runs, and nothing it calls reaches Supabase or a shop; its only scripts are the
-// Natura choice's SubmitOnce and the theme switch's. Tailwind doesn't scan this folder (global.css), so its markup uses
-// only classes the app itself uses, and the frames' width and containing block are inline styles.
+// class switches the tokens for all it holds. The product area's states, every price state with Natura in every kind,
+// and Natura's in the shops' cards, stand in frames as wide as the product's pane beside the list at 1280 px (860 px),
+// each frame the containing block of its phone's bottom bar, which it otherwise fixes to the screen. The view lays
+// itself out by the screen's width, not the frame's, so from 1024 to 1279 px the frames show the layout the narrower
+// pane gets there. The other sections' copies stand side by side on a wide screen. It hydrates nothing, so no island
+// effect runs, and nothing it calls reaches Supabase or a shop; its only scripts are the Natura choice's SubmitOnce and
+// the theme switch's. Tailwind doesn't scan this folder (global.css), so its markup uses only classes the app itself
+// uses, and the frames' and columns' widths and the frames' containing block are inline styles.
 import { RefreshCw } from "lucide-react";
 import LogoMark from "@/components/shell/LogoMark.astro";
 import ThemeToggle from "@/components/shell/ThemeToggle.astro";
@@ -32,6 +34,7 @@ import ProductThumb from "@/components/watchlist/ProductThumb";
 import ProductUnavailable from "@/components/watchlist/ProductUnavailable.astro";
 import Sticker from "@/components/watchlist/Sticker";
 import {
+  ALONE_FIXTURES,
   GONE_ERROR,
   HANDOFF_FIXTURES,
   HERE,
@@ -52,8 +55,15 @@ const COPIES = [
   { theme: DARK_THEME, label: "Ciemny motyw", wrapper: "dark bg-paper text-foreground" },
 ] as const;
 
-// Every state of the product area: the island's states for the made-up product, then the handoff's samples.
-const AREA_FIXTURES = [...PRICE_FIXTURES, ...HANDOFF_FIXTURES];
+// Every state of the product area, in three groups: with Natura's price, which a saved match brings; with Rossmann's
+// price alone, beside each other kind of Natura; and the handoff's samples.
+const AREA_GROUPS = [
+  { id: "area-matched", heading: "Z ceną Natury: zapisane dopasowanie", fixtures: PRICE_FIXTURES },
+  { id: "area-alone", heading: "Sama cena Rossmanna: Natura w każdym innym rodzaju", fixtures: ALONE_FIXTURES },
+  { id: "area-handoff", heading: "Próbki z projektu", fixtures: HANDOFF_FIXTURES },
+];
+// A column of text, or a section's copy in one theme: 32rem, so the two copies stand side by side on a wide screen.
+const COLUMN_STYLE = "max-width: 32rem";
 // A frame stands for the product's pane: its paddings are the pane's, with room below for a phone's bottom bar, and it
 // clips what spills sideways, as the pane does. Its transform makes it the bar's containing block.
 const FRAME =
@@ -96,7 +106,7 @@ const BUTTONS = [
   { variant: "underlined", text: "Pokaż zapisaną decyzję" },
 ] as const;
 
-// The registry's sizes, which no view uses: each draws below 44 px, with no hit area.
+// The registry's sizes, which no view uses: each draws below 44 px, with a 44 px hit area around it (hit-area).
 const REGISTRY_SIZES = ["default", "sm", "lg"] as const;
 
 const LINK_BUTTONS = [
@@ -111,13 +121,13 @@ const LINK_BUTTONS = [
   {/* The product page's own canvas; each copy below is as wide as its column. */}
   <div class="bg-paper min-h-screen p-4 text-foreground sm:p-8">
     <main class="flex flex-col gap-6">
-      <header class="flex max-w-lg flex-col gap-3">
+      <header class="flex flex-col gap-3" style={COLUMN_STYLE}>
         <h1 class="text-2xl font-bold">Kitchen sink: strona produktu</h1>
         <p class="text-sm text-muted-foreground">
           Widok <code>/watchlist/[id]</code> w każdym stanie, jaki może pokazać, i elementy, z których jest zbudowany, w
           każdym wariancie, na danych z <code>src/dev/fixtures.ts</code>. Każda sekcja jest dwa razy: w jasnym motywie i
-          w ciemnym. Obszar produktu stoi w ramkach szerokości prawej kolumny strony (860 px); poniżej 1024 px każda
-          ramka ma na dole swój pasek „Odśwież ceny”. Ta strona istnieje tylko w <code>astro dev</code>.
+          w ciemnym. Obszar produktu stoi w ramkach szerokości prawej kolumny strony przy 1280 px (860 px); poniżej 1024
+          px każda ramka ma na dole swój pasek „Odśwież ceny”. Ta strona istnieje tylko w <code>astro dev</code>.
         </p>
         <p class="text-sm text-muted-foreground">
           Formularze i linki prowadzą do zmyślonego produktu, którego nie ma na niczyjej liście, więc przypadkowe
@@ -125,7 +135,7 @@ const LINK_BUTTONS = [
         </p>
       </header>
 
-      <section aria-labelledby="legend-heading" class="flex max-w-lg flex-col gap-3">
+      <section aria-labelledby="legend-heading" class="flex flex-col gap-3" style={COLUMN_STYLE}>
         <h2 id="legend-heading" class="text-lg font-semibold">
           Macierz 7 stanów
         </h2>
@@ -213,26 +223,53 @@ const LINK_BUTTONS = [
         <h2 id="area-heading" class="text-lg font-semibold">
           Obszar produktu
         </h2>
-        <p class="max-w-lg text-sm text-muted-foreground">
+        <p class="text-sm text-muted-foreground" style={COLUMN_STYLE}>
           <code>PriceComparisonView</code> bez wyspy, w stanach zbudowanych jej reducerem: tytuł z „Odśwież ceny”, hero
           z naklejką, pasek cen albo jego podpowiedź, karty sklepów z kartą Natury i, poniżej 1024 px, dolny pasek. Bez{" "}
-          <code>onRefresh</code> oba „Odśwież ceny” wysyłają formularz, jak bez JavaScriptu. Na końcu próbki z projektu.
-          Każdy stan jest dwa razy: w jasnym motywie i w ciemnym.
+          <code>onRefresh</code> oba „Odśwież ceny” wysyłają formularz, jak bez JavaScriptu. Każdy stan jest dwa razy: w
+          jasnym motywie i w ciemnym.
+        </p>
+        <p class="text-sm text-muted-foreground" style={COLUMN_STYLE}>
+          Każdy stan ceny z Naturą w każdym rodzaju. Cenę Natury daje tylko zapisane dopasowanie, więc stany z nią stoją
+          w pierwszej grupie; bez niego Natura nie ma wiersza ceny, więc w drugiej grupie stoi sama cena Rossmanna, w
+          każdym stanie, obok każdego innego rodzaju Natury. Hero i pasek rozróżniają te rodzaje tylko jako: czeka na
+          dopasowanie (<code>prompt</code>, <code>choose</code>, <code>unavailable</code>), zdecydowana (
+          <code>unmatched</code>, <code>not-found</code>, <code>decided</code>, niezapisane dopasowanie) i nieodczytana
+          (<code>read-failed</code>), a kartę Natury w każdym rodzaju pokazuje sekcja Natura. Na końcu próbki z
+          projektu.
+        </p>
+        <p class="text-sm text-muted-foreground" style={COLUMN_STYLE}>
+          Układ zależy od szerokości okna, nie ramki: od 1280 px jak w projekcie, z ceną obok tekstu w hero i kartami w
+          dwóch kolumnach; od 1024 do 1279 px, gdzie prawa kolumna strony ma 604–859 px, tytuł i jego kafelek mają
+          rozmiar z telefonu, hero układa się w kolumnę, a karty stoją jedna pod drugą.
         </p>
         <div class="flex flex-col gap-6">
-          {AREA_FIXTURES.map(({ code, text, state, product, natura }) => (
-            <div class="flex flex-col gap-1">
-              <p class="text-xs text-muted-foreground">
-                <code>{code}</code> · {text}
-              </p>
-              <div class="flex flex-wrap items-start gap-6">
-                {COPIES.map(({ wrapper }) => (
-                  <div class:list={[FRAME, wrapper]} style={FRAME_STYLE}>
-                    <PriceComparisonView itemId={PRODUCT_ID} product={product} state={state} natura={natura} />
+          {AREA_GROUPS.map(({ id, heading, fixtures }) => (
+            <section aria-labelledby={id} class="flex flex-col gap-6">
+              <h3 id={id} class="text-base font-semibold">
+                {heading}
+              </h3>
+              {fixtures.map(({ code, text, state, product, natura, choice }) => (
+                <div class="flex flex-col gap-1">
+                  <p class="text-xs text-muted-foreground">
+                    <code>{code}</code> · {text}
+                  </p>
+                  <div class="flex flex-wrap items-start gap-6">
+                    {COPIES.map(({ theme, wrapper }) => (
+                      <div class:list={[FRAME, wrapper]} style={FRAME_STYLE}>
+                        {/* As the page stands them: the island, then the choice of Natura's candidates below it. */}
+                        <div class="flex flex-col gap-6 lg:gap-6.5">
+                          <PriceComparisonView itemId={PRODUCT_ID} product={product} state={state} natura={natura} />
+                          {choice && (
+                            <NaturaSection view={choice} productId={PRODUCT_ID} idPrefix={`${theme}-area-${code}`} />
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
+              ))}
+            </section>
           ))}
         </div>
       </section>
@@ -241,7 +278,7 @@ const LINK_BUTTONS = [
         <h2 id="natura-heading" class="text-lg font-semibold">
           Natura
         </h2>
-        <p class="max-w-lg text-sm text-muted-foreground">
+        <p class="text-sm text-muted-foreground" style={COLUMN_STYLE}>
           Karta Natury wśród kart sklepów (<code>ShopGrid</code>, <code>naturaCardOf</code>) w każdym rodzaju widoku, z
           komunikatem o zapisie, błędem zapisu i niezapisanym wynikiem wyszukiwania, obok ceny Rossmanna. Przy wyborze
           kandydatów pod kartami stoi sekcja wyboru (<code>NaturaSection</code>). Każdy stan jest dwa razy: w jasnym
@@ -291,7 +328,7 @@ const LINK_BUTTONS = [
 
       <div class="flex flex-wrap items-start gap-6">
         {COPIES.map(({ theme, label, wrapper }) => (
-          <div class:list={["flex w-full max-w-lg flex-col gap-6 rounded-card p-4", wrapper]}>
+          <div class:list={["flex w-full flex-col gap-6 rounded-card p-4", wrapper]} style={COLUMN_STYLE}>
             <p class="text-sm font-semibold">{label}</p>
 
             <section aria-labelledby={`${theme}-states-branches-heading`} class="flex flex-col gap-3">
@@ -400,7 +437,7 @@ const LINK_BUTTONS = [
               </h2>
               <p class="text-sm text-muted-foreground">
                 Zdjęcie na białym tle albo inicjał marki na jej kafelku (<code>tileOf</code>), w rozmiarze wiersza listy
-                i tytułu produktu. Oba są większe od 1024 px.
+                i tytułu produktu. Wiersz jest większy od 1024 px, a tytuł od 1280 px.
               </p>
               <ul class="flex flex-col gap-6">
                 {THUMB_FIXTURES.map(({ code, text, brand, imageUrl }) => (
@@ -517,7 +554,7 @@ const LINK_BUTTONS = [
                 Każdy wariant w rozmiarze <code>touch</code>, co najmniej 44 px, potem każdy rozmiar. Kreska obrysowuje
                 strefę dotyku 44 × 44 px, którą dostają <code>compact</code> i <code>icon</code>, mniejsze na ekranie.
               </p>
-              <ul class="flex flex-col gap-3" data-show-hit-areas>
+              <ul class="flex flex-col gap-4" data-show-hit-areas>
                 {BUTTONS.map(({ variant, text }) => (
                   <li class="flex flex-col items-start gap-1">
                     <code class="text-xs text-muted-foreground">{variant}</code>
@@ -554,7 +591,7 @@ const LINK_BUTTONS = [
                 </li>
                 {REGISTRY_SIZES.map((size) => (
                   <li class="flex flex-col items-start gap-1">
-                    <code class="text-xs text-muted-foreground">{`default, ${size} · z rejestru, bez strefy dotyku`}</code>
+                    <code class="text-xs text-muted-foreground">{`default, ${size} · z rejestru, strefa dotyku 44 px`}</code>
                     <Button type="button" size={size}>
                       To ten produkt
                     </Button>

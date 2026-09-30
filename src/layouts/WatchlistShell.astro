@@ -29,15 +29,16 @@ const COLUMNS = "lg:grid-cols-[calc(var(--spacing)*105)_minmax(0,1fr)]";
 const EDGE = "lg:border-r-hairline";
 // Each part's padding: an 18 px gutter on a phone, and the handoff's paddings from lg.
 const HEAD = "flex flex-col px-4.5 pt-5.5 lg:px-7 lg:pt-7 lg:pb-4";
-// 10 px above the rows from lg, so the selected row's lift and focus outline aren't cut off where its scrolling starts.
-const ROWS = "px-4.5 pt-3.5 pb-2 lg:min-h-0 lg:overflow-y-auto lg:px-7 lg:pt-2.5 lg:pb-4.5";
+// 10 px above the rows from lg, so the selected row's lift and focus outline aren't cut off where its scrolling starts,
+// and 12 px kept at either edge when the keyboard scrolls a row in, so its outline isn't cut there either.
+const ROWS = "px-4.5 pt-3.5 pb-2 lg:min-h-0 lg:scroll-py-3 lg:overflow-y-auto lg:px-7 lg:pt-2.5 lg:pb-4.5";
 // A page passes its footer only when it has one to show, and a slot passed conditionally still counts as given, so
 // the footer's bar hides itself when nothing rendered in it.
 const FOOTER = "px-5 pt-1.5 pb-6 empty:hidden lg:border-t-hairline lg:px-7 lg:py-3.5";
 // The main pane clips what spills sideways past its gutter, such as the hero's sticker, which reaches into the gutter
 // and stamps in at 1.7 times its size, so the page never scrolls sideways. From lg, where the pane scrolls on its own,
-// the clip computes to overflow-x: hidden.
-const MAIN = "overflow-x-clip px-4.5 lg:min-h-0 lg:overflow-y-auto lg:px-11 lg:pt-7.5 lg:pb-10";
+// the clip computes to overflow-x: hidden, and a control the keyboard scrolls in keeps 12 px from the pane's edge.
+const MAIN = "overflow-x-clip px-4.5 lg:min-h-0 lg:scroll-py-3 lg:overflow-y-auto lg:px-11 lg:pt-7.5 lg:pb-10";
 ---
 
 <Layout title={title} lang="pl" theme="user">

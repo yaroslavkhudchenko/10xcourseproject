@@ -1,15 +1,15 @@
 ---
 // The list's kitchen sink: the header, the list's head, rows, chips, search results and footer in every state the list
-// can show, built by the list's own components and row service from the fixtures in watchlist-fixtures.ts, for review
-// and screenshots. Only `astro dev` serves it (astro.config.mjs). The page is pinned to the light theme and draws
-// every section twice: in the light theme, then in a `dark` wrapper, whose class switches the tokens for all it
-// holds. The header's two copies stack at full width, as it spans the screen; the other sections' copies stand side by
-// side on a wide screen, as wide as the list's column. Nothing it draws reaches Supabase or a shop by a stray tap:
-// the chips and the spelling hint link back here, the rows to products no one has, whose pages answer 404 before any
-// lookup, and "Dodaj" to a product the add form refuses; the list's "Odśwież ceny", which would refresh the viewer's
-// own list, is drawn inert. A selected row's tag hydrates, as the island it is beside a product's page, and listens for
-// that product's prices, which no island here sends. Tailwind doesn't scan this folder (global.css), so its markup
-// uses only classes the app itself uses.
+// can show, and a list long enough to scroll, built by the list's own components and row service from the fixtures in
+// watchlist-fixtures.ts, for review and screenshots. Only `astro dev` serves it (astro.config.mjs). The page is pinned
+// to the light theme and draws every section twice: in the light theme, then in a `dark` wrapper, whose class switches
+// the tokens for all it holds. The header's two copies stack at full width, as it spans the screen; the other
+// sections' copies stand side by side on a wide screen, as wide as the list's column. Nothing it draws reaches
+// Supabase or a shop by a stray tap: the chips and the spelling hint link back here, the rows to products no one has,
+// whose pages answer 404 before any lookup, and "Dodaj" to a product the add form refuses; the list's "Odśwież ceny",
+// which would refresh the viewer's own list, is drawn inert. A selected row's tag hydrates, as the island it is beside a
+// product's page, and listens for that product's prices, which no island here sends. Tailwind doesn't scan this folder
+// (global.css), so its markup uses only classes the app itself uses, and the columns' widths are inline styles.
 import AccountMenu from "@/components/shell/AccountMenu.astro";
 import AppHeader from "@/components/shell/AppHeader.astro";
 import SearchForm from "@/components/shell/SearchForm.astro";
@@ -25,6 +25,9 @@ import {
   GALLERY_COUNTS,
   GALLERY_ROWS,
   HERE,
+  LONG_COUNTS,
+  LONG_ROWS,
+  QUIET_COUNTS,
   ROW_FIXTURES,
   ROWS_FIXTURES,
   SEARCH_CANDIDATES,
@@ -41,6 +44,10 @@ const COPIES = [
   { theme: LIGHT_THEME, label: "Jasny motyw", wrapper: "" },
   { theme: DARK_THEME, label: "Ciemny motyw", wrapper: "dark bg-paper text-foreground" },
 ] as const;
+// A column of text, or a section's copy in one theme: 32rem, so the two copies stand side by side on a wide screen.
+const COLUMN_STYLE = "max-width: 32rem";
+// The list's column beside a product, 420 px wide, as WatchlistShell draws it.
+const ASIDE_STYLE = "max-width: 420px";
 
 /** The list's head in its states: each chip on, each refresh notice, the empty list and a failed read. */
 const HEADS: {
@@ -97,7 +104,7 @@ const HEADS: {
 <Layout title="Kitchen sink: lista · Drogeria Radar" lang="pl" theme="light">
   <div class="bg-paper min-h-screen p-4 text-foreground sm:p-8">
     <main class="flex flex-col gap-6">
-      <header class="flex max-w-lg flex-col gap-3">
+      <header class="flex flex-col gap-3" style={COLUMN_STYLE}>
         <h1 class="text-2xl font-bold">Kitchen sink: lista</h1>
         <p class="text-sm text-muted-foreground">
           Widok <code>/watchlist</code> w każdym stanie, jaki może pokazać, na danych z{" "}
@@ -116,9 +123,9 @@ const HEADS: {
         <h2 id="header-heading" class="text-lg font-semibold">
           Nagłówek
         </h2>
-        <p class="max-w-lg text-sm text-muted-foreground">
-          <code>AppHeader</code> ekranu listy: od 1024 px wersja na komputer, poniżej wersja na telefon. Pod nim{" "}
-          <code>AccountMenu</code> z telefonu, otwarte, w każdej szerokości.
+        <p class="text-sm text-muted-foreground" style={COLUMN_STYLE}>
+          <code>AppHeader</code> ekranu listy: od 1024 px wersja na komputer, z adresem e-mail od 1280 px, poniżej
+          wersja na telefon. Pod nim <code>AccountMenu</code> z telefonu, otwarte, w każdej szerokości.
         </p>
         {COPIES.map(({ theme, label, wrapper }) => (
           <div class:list={["flex flex-col gap-3 rounded-card p-4", wrapper]}>
@@ -141,7 +148,7 @@ const HEADS: {
 
       <div class="flex flex-wrap items-start gap-6">
         {COPIES.map(({ theme, label, wrapper }) => (
-          <div class:list={["flex w-full max-w-lg flex-col gap-6 rounded-card p-4", wrapper]}>
+          <div class:list={["flex w-full flex-col gap-6 rounded-card p-4", wrapper]} style={COLUMN_STYLE}>
             <p class="text-sm font-semibold">{label}</p>
 
             <section aria-labelledby={`${theme}-rows-heading`} class="flex flex-col gap-3">
@@ -169,8 +176,8 @@ const HEADS: {
                 Filtry
               </h2>
               <p class="text-sm text-muted-foreground">
-                <code>FilterChips</code> z każdym filtrem włączonym, z licznikami całej listy powyżej. Kreska obrysowuje
-                strefę dotyku 44 × 44 px.
+                <code>FilterChips</code> z każdym filtrem włączonym, z licznikami całej listy powyżej, i z filtrami bez
+                produktów. Kreska obrysowuje strefę dotyku 44 × 44 px.
               </p>
               <div class="flex flex-col gap-6">
                 {LIST_FILTERS.map((filter) => (
@@ -181,6 +188,12 @@ const HEADS: {
                     <FilterChips path={HERE} active={filter} counts={GALLERY_COUNTS} />
                   </div>
                 ))}
+                <div class="flex flex-col gap-1">
+                  <p class="text-xs text-muted-foreground">
+                    <code>all, 0</code> · nic w promocji i nic do sprawdzenia
+                  </p>
+                  <FilterChips path={HERE} active="all" counts={QUIET_COUNTS} />
+                </div>
               </div>
             </section>
 
@@ -247,7 +260,7 @@ const HEADS: {
                 <code>PRICES_EVENT</code>), tu bez żadnego; i stopka. Kolumna ma 420 px, jak na stronie.
               </p>
               {/* The shell's aside, as WatchlistShell pads it: its head, its rows and its footer. */}
-              <div class="flex flex-col rounded-card border-hairline" style="max-width: 420px">
+              <div class="flex flex-col rounded-card border-hairline" style={ASIDE_STYLE}>
                 <div class="flex flex-col px-4.5 pt-5.5 lg:px-7 lg:pt-7 lg:pb-4" inert>
                   <ListHead
                     level={2}
@@ -262,6 +275,44 @@ const HEADS: {
                 <div class="px-4.5 pt-3.5 pb-2 lg:px-7 lg:pt-2.5 lg:pb-4.5">
                   <ListRows
                     rows={GALLERY_ROWS}
+                    filter="all"
+                    matchesFailed={false}
+                    pricesFailed={false}
+                    selectedId={BESIDE_ID}
+                  />
+                </div>
+                <div class="px-5 pt-1.5 pb-6 lg:border-t-hairline lg:px-7 lg:py-3.5">
+                  <ListFooter />
+                </div>
+              </div>
+            </section>
+
+            <section aria-labelledby={`${theme}-scroll-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-scroll-heading`} class="text-lg font-semibold">
+                Przewijanie
+              </h2>
+              <p class="text-sm text-muted-foreground">
+                Ta sama kolumna z {LONG_ROWS.length} produktami. Od 1024 px ma wysokość okna, jak na stronie, a jej
+                wiersze przewijają się same między górą listy a stopką; wybrany produkt stoi na dole, więc jego
+                uniesienie i obrys fokusu widać po przewinięciu do niego, a wiersz, do którego przewija klawiatura
+                (Tab), zostaje 12 px od krawędzi, z całym obrysem. Na telefonie przewija się cała strona.
+              </p>
+              {/* The shell's aside, with WatchlistShell's classes for its parts and the screen's height from lg. */}
+              <div class="flex flex-col rounded-card border-hairline lg:h-dvh" style={ASIDE_STYLE}>
+                <div class="flex flex-col px-4.5 pt-5.5 lg:px-7 lg:pt-7 lg:pb-4" inert>
+                  <ListHead
+                    level={2}
+                    count={LONG_ROWS.length}
+                    path={HERE}
+                    filter="all"
+                    counts={LONG_COUNTS}
+                    refreshCode={null}
+                    back={BESIDE_ID}
+                  />
+                </div>
+                <div class="px-4.5 pt-3.5 pb-2 lg:min-h-0 lg:flex-1 lg:scroll-py-3 lg:overflow-y-auto lg:px-7 lg:pt-2.5 lg:pb-4.5">
+                  <ListRows
+                    rows={LONG_ROWS}
                     filter="all"
                     matchesFailed={false}
                     pricesFailed={false}

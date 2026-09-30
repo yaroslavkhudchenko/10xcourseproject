@@ -19,11 +19,12 @@ interface Props {
 }
 
 // A product page's title row. On a desktop: the product's tile, its brand, size and the day it was added above its
-// name, and on the right "Odśwież ceny" over when the prices were checked. On a phone: the smaller tile beside the
-// name, with the refresh in the bottom bar and the brand and size in the row back to the list. The name and the brand
-// and size are the list row's (rowProductOf), so the list and the product agree; the heading reads the brand before
-// the name, so screen readers hear the product's full name. It keeps no state, so it renders the same in the island
-// and in the kitchen sink.
+// name, and on the right "Odśwież ceny" over when the prices were checked; the tile and the name take their desktop
+// sizes from xl (1280 px), since at 1024 px the pane beside the list leaves a 40 px name too little room and would
+// break its words. On a phone: the smaller tile beside the name, with the refresh in the bottom bar and the brand and
+// size in the row back to the list. The name and the brand and size are the list row's (rowProductOf), so the list and
+// the product agree; the heading reads the brand before the name, so screen readers hear the product's full name. It
+// keeps no state, so it renders the same in the island and in the kitchen sink.
 export default function ProductTitle({ product, itemId, caption, refreshing, onRefresh }: Props) {
   const { eyebrow, name, brand, imageUrl } = rowProductOf(product);
   const added = formatDayOf(product.addedAt);
@@ -38,7 +39,7 @@ export default function ProductTitle({ product, itemId, caption, refreshing, onR
             {meta}
           </p>
         )}
-        <h1 className="text-product-title tracking-heading lg:text-product-title-lg lg:tracking-title font-extrabold text-balance wrap-break-word">
+        <h1 className="text-product-title tracking-heading xl:text-product-title-lg xl:tracking-title font-extrabold text-balance wrap-break-word">
           {brand && <span className="sr-only">{brand} </span>}
           {name}
         </h1>

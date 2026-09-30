@@ -178,6 +178,58 @@ export const GALLERY_COUNTS = filterCounts(GALLERY_ROWS);
 /** The product whose page the gallery stands beside, as the list in its left column: the handoff's Nivea. */
 export const BESIDE_ID = NIVEA.id;
 
+/** The chips' counts for a list with nothing on promotion and nothing to check: the product with its photo alone. */
+export const QUIET_COUNTS = filterCounts([rowOf(PHOTO, [shop("rossmann", checked(MINUTE, 9.99))], "matched")]);
+
+// Five more products, so the long list below holds fourteen.
+const MORE: ListRow[] = [
+  rowOf(
+    product(10, { brand: "Ziaja", name: "Krem do rąk", caption: "masło kakaowe", sizeText: "50 ml" }),
+    [shop("rossmann", checked(40 * MINUTE, 6.49))],
+    "none",
+  ),
+  rowOf(
+    product(11, {
+      brand: "Isana",
+      name: "Szampon",
+      caption: "z pokrzywą do włosów przetłuszczających się",
+      sizeText: "300 ml",
+    }),
+    [shop("rossmann", checked(2 * HOUR, 5.99)), shop("natura", checked(2 * HOUR, 6.99))],
+    "matched",
+  ),
+  rowOf(
+    product(12, { brand: "Bielenda", name: "Tonik", caption: "róża", sizeText: "200 ml" }),
+    [shop("rossmann", checked(3 * DAY, 14.99))],
+    "unmatched",
+  ),
+  rowOf(
+    product(13, { brand: "Dove", name: "Dezodorant", caption: "Original", sizeText: "150 ml" }),
+    [
+      shop("rossmann", checked(15 * MINUTE, 13.99)),
+      shop("natura", checked(15 * MINUTE, 11.99, { regularPrice: 15.49 })),
+    ],
+    "matched",
+  ),
+  rowOf(
+    product(14, { brand: "Eveline", name: "Krem pod oczy", caption: "z retinolem", sizeText: "15 ml" }),
+    [shop("rossmann", null)],
+    "none",
+  ),
+];
+
+/**
+ * A long list, to check that its rows scroll on their own beside a product, between the list's head and its footer,
+ * and that the selected row's lift and focus outline stay whole wherever it's scrolled to: the gallery's rows and five
+ * more, with the product beside, the handoff's Nivea, at the foot.
+ */
+export const LONG_ROWS: ListRow[] = [...GALLERY_ROWS.filter((row) => row.itemId !== NIVEA.id), ...MORE].concat(
+  GALLERY_ROWS.filter((row) => row.itemId === NIVEA.id),
+);
+
+/** How many of the long list's rows each chip holds. */
+export const LONG_COUNTS = filterCounts(LONG_ROWS);
+
 // The whole list's three reads as the page gets them, from which the read failures are built: Nivea matched in Natura,
 // Ziaja still to match, Colgate declined there.
 const LIST: WatchlistItem[] = [NIVEA, ZIAJA, COLGATE];

@@ -150,6 +150,9 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **Unknowns:**
   - How much history and which threshold define a good price? (PRD Open Question 4) — Owner: user. Block: yes.
 - **Risk:** An untuned threshold shows false confidence, so the judgement waits for the owner's call on history length and threshold.
+- **Carry-over from `etykiety-redesign`:** the judgement's own looks, which the handoff draws and the redesign left out until the rule exists.
+  - The "Dobra / cena!" and "Zwykła / cena" stickers on the verdict's hero (`Sticker.tsx` has only "Tylko 1 sklep" and "Stara cena").
+  - The judgement sentence in the price-track card (`PriceTrack.tsx`), where the handoff says which comparison was made.
 - **Status:** blocked
 
 ### S-05: Add Hebe to the comparison
@@ -163,6 +166,7 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **Unknowns:**
   - Is Hebe one of the shops the owner buys from, and should it come before Super-Pharm? (PRD Open Question 2) — Owner: user. Block: no.
 - **Risk:** Hebe returned a wrong EAN for at least one product, so matching here must rely on size and name, not the EAN alone.
+- **Carry-over from `etykiety-redesign`:** when a shop's match row can't be read, only the verdict says unread; the cards' "Najtaniej" mark and the live region's ", najtaniej" aren't withheld yet. Withhold them once a third shop joins: with two shops it can't happen, since an unmatched Natura has no price row.
 - **Status:** proposed
 
 ### S-06: Add Super-Pharm to the comparison
@@ -176,6 +180,7 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **Unknowns:**
   - Is Super-Pharm one of the shops the owner buys from? (PRD Open Question 2) — Owner: user. Block: no.
 - **Risk:** With no EAN in its index and a search key that must be read from the shop's own page, Super-Pharm is the most fragile shop. It comes after the first comparison so a breakage can't hold that up.
+- **Carry-over from `etykiety-redesign`:** when a shop's match row can't be read, only the verdict says unread; the cards' "Najtaniej" mark and the live region's ", najtaniej" aren't withheld yet. Withhold them once a third shop joins: with two shops it can't happen, since an unmatched Natura has no price row.
 - **Status:** proposed
 
 ### S-07: Invite-only front door
@@ -192,6 +197,8 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **Carry-over from `product-page-ui` (charge C5):** the return path after sign-in, and the sign-in page's language.
   - A signed-out or expired visit to a product loses the product: sign-in always sends the user to `/watchlist` (`src/middleware.ts`, `src/pages/api/auth/signin.ts`), and the price island's session link (`src/components/watchlist/PriceComparisonView.tsx`) has no return path.
   - The sign-in page is still the starter's English page, with a "Sign up" link.
+- **Carry-over from `etykiety-redesign`:** restyle the pages still pinned to the dark theme on the new tokens, and drop the pin.
+  - `/`, `/dashboard` and `/auth/*` pass `theme="dark"` to `Layout` and keep `bg-cosmic` and their literal colours, which work only on a dark canvas.
 - **Status:** ready
 
 ### S-08: Fix a wrong match and remove a product
@@ -204,6 +211,9 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Removal must hide, never delete, because price history is shared. A wrong delete would silently erase other users' data.
+- **Carry-over from `etykiety-redesign`:** the re-pin controls the handoff draws in Natura's card (`NaturaCard.tsx`), which wait for this slice.
+  - "Zmień" in a matched card's footer, and "Dopasuj ponownie" in a declined one.
+  - The matched item's name in the card, which it shows today only while the match isn't saved, so a wrong match can be seen before it's re-pinned.
 - **Status:** proposed
 
 ## Backlog Handoff
