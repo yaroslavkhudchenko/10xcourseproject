@@ -207,26 +207,32 @@ export function filterHref(path: string, filter: ListFilter): string {
 }
 
 /**
- * A product's shops as its row compares them, from its priced items (listPricedItems) and the items whose price rows
- * couldn't be read, or null when the prices couldn't be read at all, which marks every item.
+ * A product's shops as its row compares them, from its priced items (listPricedItems) and the list's price read: the
+ * items whose rows couldn't be read, and how many odd rows couldn't say which item they're about. While there's such a
+ * row, an item without a readable row counts as unread too, since the odd row may have been its latest; an item with
+ * a readable row keeps its price. A null read, when the prices couldn't be read at all, marks every item.
  */
-export function rowShopsOf(items: readonly PricedItem[], unread: readonly PriceKey[] | null): RowShop[] {
-  const unreadKeys = unread === null ? null : new Set(unread.map(keyText));
+export function rowShopsOf(
+  items: readonly PricedItem[],
+  read: { unread: readonly PriceKey[]; unattributed: number } | null,
+): RowShop[] {
+  const unreadKeys = new Set(read?.unread.map(keyText));
   return items.map((item) => ({
     shop: item.shop,
     latest: item.latest,
-    readFailed: unreadKeys === null || unreadKeys.has(keyText(item)),
+    readFailed: read === null || unreadKeys.has(keyText(item)) || (read.unattributed > 0 && item.latest === null),
   }));
 }
 
 /**
  * Where a product stands in Natura, from the list's read of the decisions, or null when they couldn't be read at all.
- * A Natura decision that was read stands even when another row of the product couldn't be: a product has one decision
- * per shop, so that row is another shop's.
+ * A Natura decision that was read stands even when another row of the product couldn't be, or a row couldn't say whose
+ * it is: a product has one decision per shop, so that row is someone else's. Without one, a product counts as
+ * unreadable when one of its rows couldn't be read, or when a row that couldn't say whose it is may be its decision.
  */
 export function naturaStateOf(
   itemId: string,
-  read: { states: readonly ShopMatchState[]; unread: readonly string[] } | null,
+  read: { states: readonly ShopMatchState[]; unread: readonly string[]; unattributed: number } | null,
 ): NaturaListState {
   if (read === null) {
     return "unreadable";
@@ -235,5 +241,5 @@ export function naturaStateOf(
   if (decision !== undefined) {
     return decision.state;
   }
-  return read.unread.includes(itemId) ? "unreadable" : "none";
+  return read.unread.includes(itemId) || read.unattributed > 0 ? "unreadable" : "none";
 }

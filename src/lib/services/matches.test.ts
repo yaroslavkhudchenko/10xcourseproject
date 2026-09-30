@@ -568,6 +568,7 @@ describe("listMatchStates", () => {
         { watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "not_found", shopItemId: null },
       ],
       unread: [],
+      unattributed: 0,
     });
     expect(queries).toEqual([
       [
@@ -594,6 +595,7 @@ describe("listMatchStates", () => {
     expect(await listMatchStates(client)).toEqual({
       states: [{ watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "unmatched", shopItemId: null }],
       unread: [ITEM_ID, THIRD_ITEM_ID],
+      unattributed: 0,
     });
     expect(warn).toHaveBeenCalledTimes(1);
     const line: unknown = JSON.parse(String(warn.mock.calls[0][0]));
@@ -605,25 +607,59 @@ describe("listMatchStates", () => {
     const { client } = stubClient({
       data: [
         { watchlist_item_id: ITEM_ID, shop_id: "natura", state: "repinned", shop_item_id: null },
-        { watchlist_item_id: ITEM_ID, shop_id: "dm", state: "matched", shop_item_id: "NV89063" },
+        { watchlist_item_id: ITEM_ID, shop_id: "hebe", state: "repinned", shop_item_id: null },
       ],
     });
 
-    expect(await listMatchStates(client)).toEqual({ states: [], unread: [ITEM_ID] });
+    expect(await listMatchStates(client)).toEqual({ states: [], unread: [ITEM_ID], unattributed: 0 });
+  });
+
+  it("names the product of an odd row whose shop can't be read, since it may be the product's Natura decision", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({
+      data: [{ watchlist_item_id: ITEM_ID, shop_id: null, state: "matched", shop_item_id: "NV89063" }],
+    });
+
+    expect(await listMatchStates(client)).toEqual({ states: [], unread: [ITEM_ID], unattributed: 0 });
   });
 
   it.each<{ why: string; row: unknown }>([
     { why: "names no product", row: { watchlist_item_id: null, shop_id: "natura", state: "matched" } },
     { why: "has a product id that isn't text", row: { watchlist_item_id: 42, shop_id: "natura", state: "unmatched" } },
     { why: "isn't a row at all", row: "natura" },
-  ])("gives null for an odd row that $why, since it could be any product's", async ({ row }) => {
+  ])("counts an odd row that $why, which could be any product's, and keeps the rest", async ({ row }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { client } = stubClient({
       data: [row, { watchlist_item_id: OTHER_ITEM_ID, shop_id: "natura", state: "unmatched", shop_item_id: null }],
     });
 
-    expect(await listMatchStates(client)).toBeNull();
+    // One such row never empties the list: the list marks only the products it has no readable Natura row for.
+    expect(await listMatchStates(client)).toEqual({
+      states: [{ watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "unmatched", shopItemId: null }],
+      unread: [],
+      unattributed: 1,
+    });
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves out an odd row of a shop the app doesn't know, whatever its product, and logs it", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({
+      data: [
+        { watchlist_item_id: ITEM_ID, shop_id: "dm", state: "matched", shop_item_id: null },
+        { watchlist_item_id: null, shop_id: "dm", state: "matched", shop_item_id: "NV89063" },
+        { watchlist_item_id: OTHER_ITEM_ID, shop_id: "natura", state: "unmatched", shop_item_id: null },
+      ],
+    });
+
+    expect(await listMatchStates(client)).toEqual({
+      states: [{ watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "unmatched", shopItemId: null }],
+      unread: [],
+      unattributed: 0,
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
+    const line: unknown = JSON.parse(String(warn.mock.calls[0][0]));
+    expect(line).toMatchObject({ reason: "unexpected rows dropped", detail: "2" });
   });
 
   it.each<{ answer: string; result: Answer }>([

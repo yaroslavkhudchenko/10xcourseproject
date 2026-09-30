@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { STALE_AFTER_MS, type LatestCheck, type PricedItem, type PricedShop } from "@/lib/services/price-comparison";
+import {
+  listPricedItems,
+  STALE_AFTER_MS,
+  type LatestCheck,
+  type PricedItem,
+  type PricedShop,
+} from "@/lib/services/price-comparison";
 import {
   filterCounts,
   filterHref,
@@ -15,7 +21,7 @@ import {
   type PriceTag,
   type RowShop,
 } from "@/lib/services/watchlist-rows";
-import type { PriceKey, ShopMatchState, WatchlistItem } from "@/types";
+import type { LatestPrice, PriceKey, ShopMatchState, WatchlistItem } from "@/types";
 
 // Every time here is measured back from one fixed moment: 14:00 on 28 September in Poland.
 const NOW = Date.parse("2026-09-28T12:00:00.000Z");
@@ -361,13 +367,21 @@ describe("rowShopsOf", () => {
       { shop: "rossmann", shopItemId: "NV89063" },
     ];
 
-    expect(rowShopsOf(items, unread)).toEqual([
+    expect(rowShopsOf(items, { unread, unattributed: 0 })).toEqual([
       { shop: "rossmann", latest: items[0].latest, readFailed: false },
       { shop: "natura", latest: null, readFailed: true },
     ]);
-    expect(rowShopsOf(items, [])).toEqual([
+    expect(rowShopsOf(items, { unread: [], unattributed: 0 })).toEqual([
       { shop: "rossmann", latest: items[0].latest, readFailed: false },
       { shop: "natura", latest: null, readFailed: false },
+    ]);
+  });
+
+  it("marks the items without a readable row when a row couldn't say whose it is, and keeps the others' prices", () => {
+    // The odd row may have been Natura's latest, or any other item's without a row of its own.
+    expect(rowShopsOf(items, { unread: [], unattributed: 1 })).toEqual([
+      { shop: "rossmann", latest: items[0].latest, readFailed: false },
+      { shop: "natura", latest: null, readFailed: true },
     ]);
   });
 
@@ -383,24 +397,105 @@ describe("naturaStateOf", () => {
       : { watchlistItemId, shop: "natura", state: decision, shopItemId: null };
 
   it.each(["matched", "unmatched", "not_found"] as const)("gives a product's %s decision in Natura", (decision) => {
-    expect(naturaStateOf(SOFT_ID, { states: [state(OTHER_ID, "matched"), state(SOFT_ID, decision)], unread: [] })).toBe(
-      decision,
-    );
+    const read = { states: [state(OTHER_ID, "matched"), state(SOFT_ID, decision)], unread: [], unattributed: 0 };
+
+    expect(naturaStateOf(SOFT_ID, read)).toBe(decision);
   });
 
   it("gives none for a product without a decision in Natura, whatever other products and shops have", () => {
     const hebe: ShopMatchState = { watchlistItemId: SOFT_ID, shop: "hebe", state: "unmatched", shopItemId: null };
 
-    expect(naturaStateOf(SOFT_ID, { states: [state(OTHER_ID, "matched"), hebe], unread: [OTHER_ID] })).toBe("none");
+    expect(
+      naturaStateOf(SOFT_ID, { states: [state(OTHER_ID, "matched"), hebe], unread: [OTHER_ID], unattributed: 0 }),
+    ).toBe("none");
   });
 
   it("gives unreadable for a product whose decision couldn't be read, never none", () => {
-    expect(naturaStateOf(SOFT_ID, { states: [], unread: [SOFT_ID] })).toBe("unreadable");
+    expect(naturaStateOf(SOFT_ID, { states: [], unread: [SOFT_ID], unattributed: 0 })).toBe("unreadable");
     expect(naturaStateOf(SOFT_ID, null)).toBe("unreadable");
   });
 
   it("keeps a Natura decision that was read beside an odd row of the product, which can't be Natura's", () => {
     // A product has one decision per shop, so the odd row is another shop's.
-    expect(naturaStateOf(SOFT_ID, { states: [state(SOFT_ID, "unmatched")], unread: [SOFT_ID] })).toBe("unmatched");
+    expect(naturaStateOf(SOFT_ID, { states: [state(SOFT_ID, "unmatched")], unread: [SOFT_ID], unattributed: 0 })).toBe(
+      "unmatched",
+    );
+  });
+
+  it("gives unreadable for a product without a readable Natura row when a row couldn't say whose it is", () => {
+    const read = { states: [state(OTHER_ID, "matched")], unread: [], unattributed: 1 };
+
+    // The odd row may be this product's Natura decision; the one that was read stands.
+    expect(naturaStateOf(SOFT_ID, read)).toBe("unreadable");
+    expect(naturaStateOf(OTHER_ID, read)).toBe("matched");
+  });
+});
+
+describe("the list beside a row that can't say whose it is", () => {
+  const ZIAJA_ID = "7d3e8b1a-2c4f-4e6a-8b9c-1d2e3f4a5b6c";
+  const product = (id: string, sourceItemId: string, name: string): WatchlistItem => ({
+    ...soft,
+    id,
+    sourceItemId,
+    name,
+    caption: null,
+  });
+  // Nivea Soft is matched in Natura; Ziaja's lotion and Felix are declined there.
+  const products = [soft, product(ZIAJA_ID, "300200", "Mleczko do ciała"), product(OTHER_ID, "131225", "Felix")];
+  const states: ShopMatchState[] = [
+    { watchlistItemId: SOFT_ID, shop: "natura", state: "matched", shopItemId: "NV89063" },
+    { watchlistItemId: ZIAJA_ID, shop: "natura", state: "unmatched", shopItemId: null },
+    { watchlistItemId: OTHER_ID, shop: "natura", state: "unmatched", shopItemId: null },
+  ];
+  const latest = (name: PricedShop, shopItemId: string, price: number): LatestPrice => ({
+    shop: name,
+    shopItemId,
+    ...check({ price }),
+  });
+  const prices = [
+    latest("rossmann", "26900", 26.99),
+    latest("natura", "NV89063", 22.99),
+    latest("rossmann", "300200", 12.99),
+    latest("rossmann", "131225", 5.99),
+  ];
+
+  /** Each product's tag, as the list page builds its rows from its two reads. */
+  function tags(
+    matchRead: { states: ShopMatchState[]; unread: string[]; unattributed: number },
+    priceRead: { prices: LatestPrice[]; unread: PriceKey[]; unattributed: number },
+  ): PriceTag[] {
+    const priced = listPricedItems(products, matchRead.states, priceRead.prices);
+    return products.map(
+      (item) =>
+        listRowOf(item, rowShopsOf(priced.get(item.id) ?? [], priceRead), naturaStateOf(item.id, matchRead), NOW).tag,
+    );
+  }
+
+  const intact: PriceTag[] = [
+    { tone: "sun", price: 22.99, label: "Natura" },
+    { tone: "muted", price: 12.99, label: "Tylko Rossmann" },
+  ];
+  const unreadTag: PriceTag = { tone: "outline", price: null, label: "Błąd odczytu" };
+
+  it("keeps the other products' prices when a price row can't say whose it is, marking only those without a readable row", () => {
+    // Felix's latest row came back without its shop.
+    const priceRead = {
+      prices: prices.filter(({ shopItemId }) => shopItemId !== "131225"),
+      unread: [],
+      unattributed: 1,
+    };
+
+    expect(tags({ states, unread: [], unattributed: 0 }, priceRead)).toEqual([...intact, unreadTag]);
+  });
+
+  it("keeps the other products' Natura decisions when a match row can't say whose it is, marking only those without one", () => {
+    // Felix's decision came back without its product.
+    const matchRead = {
+      states: states.filter(({ watchlistItemId }) => watchlistItemId !== OTHER_ID),
+      unread: [],
+      unattributed: 1,
+    };
+
+    expect(tags(matchRead, { prices, unread: [], unattributed: 0 })).toEqual([...intact, unreadTag]);
   });
 });

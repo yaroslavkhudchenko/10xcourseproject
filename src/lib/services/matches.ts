@@ -270,24 +270,32 @@ const stateRowSchema = z.discriminatedUnion("state", [
   z.object({ ...stateColumns, state: z.literal("matched"), shop_item_id: z.string() }),
   z.object({ ...stateColumns, state: z.enum(["unmatched", "not_found"]) }),
 ]);
-// The product an odd row is about, read for its own, so the row can still say whose decision couldn't be read.
+// An odd row, read for its shop and its product alone, so it can still say whose decision couldn't be read. A shop the
+// app doesn't know holds no decision any page reads, whatever the row's product; a shop that can't be read may be any.
+const oddShopSchema = z.object({ shop_id: z.string() });
+const knownShopSchema = z.enum(SHOP_IDS);
 const stateProductSchema = z.object({ watchlist_item_id: stateColumns.watchlist_item_id });
 
 /**
- * Where the products on the list stand in each shop, and the products some of whose decisions came back odd, so the
- * list never shows such a product as one still to be matched.
+ * Where the products on the list stand in each shop, the products some of whose decisions came back odd, so the list
+ * never shows such a product as one still to be matched, and how many odd rows couldn't say which product they're about.
  */
 export interface MatchStatesRead {
   states: ShopMatchState[];
   /** The ids of the products with a decision that couldn't be read, each once. */
   unread: string[];
+  /**
+   * How many odd rows couldn't say which product they're about. Such a row may be any product's decision, so the list
+   * counts every product without a readable decision as one whose decision couldn't be read.
+   */
+  unattributed: number;
 }
 
 /**
  * Where each product on the user's list stands in each shop, with a match's item id, read with one query for the whole
- * list and only the columns the list needs. Odd rows, such as a match without its item, are logged, and their products
- * reported. Null when the decisions couldn't be read, and when an odd row can't even say which product it's about,
- * since it could be any product's.
+ * list and only the columns the list needs. Odd rows, such as a match without its item, are logged, their products
+ * reported and those without one counted, which never empties the list; an odd row of a shop the app doesn't know is
+ * left out. Null only when the decisions couldn't be read at all.
  */
 export async function listMatchStates(supabase: SupabaseClient): Promise<MatchStatesRead | null> {
   const { data, error } = await supabase
@@ -303,14 +311,20 @@ export async function listMatchStates(supabase: SupabaseClient): Promise<MatchSt
     return null;
   }
   const unread = new Set<string>();
+  let unattributed = 0;
   for (const raw of read.odd) {
-    const product = stateProductSchema.safeParse(raw);
-    if (!product.success) {
-      return null;
+    const shop = oddShopSchema.safeParse(raw);
+    if (shop.success && !knownShopSchema.safeParse(shop.data.shop_id).success) {
+      continue;
     }
-    unread.add(product.data.watchlist_item_id);
+    const product = stateProductSchema.safeParse(raw);
+    if (product.success) {
+      unread.add(product.data.watchlist_item_id);
+    } else {
+      unattributed++;
+    }
   }
-  return { states: read.rows.map(toMatchState), unread: [...unread] };
+  return { states: read.rows.map(toMatchState), unread: [...unread], unattributed };
 }
 
 function toMatchState(row: z.infer<typeof stateRowSchema>): ShopMatchState {

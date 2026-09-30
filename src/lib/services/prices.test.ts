@@ -273,7 +273,7 @@ describe("listLatestPrices", () => {
   it("reads every item the user can see for the list, with one unfiltered query within a time limit", async () => {
     const { client, queries } = stubClient({ data: [felixRow, softRow, otherRow] });
 
-    expect(await listLatestPrices(client)).toEqual({ prices: [felix, soft, other], unread: [] });
+    expect(await listLatestPrices(client)).toEqual({ prices: [felix, soft, other], unread: [], unattributed: 0 });
     expect(queries).toEqual([
       [
         ["from", "latest_price_observations"],
@@ -317,7 +317,7 @@ describe("listLatestPrices", () => {
       const { client } = stubClient({ data: rows });
 
       // The list then says the item's price couldn't be read, never that the item was never checked.
-      expect(await listLatestPrices(client)).toEqual({ prices, unread: [key] });
+      expect(await listLatestPrices(client)).toEqual({ prices, unread: [key], unattributed: 0 });
       expect(loggedLine(warn)).toMatchObject({ reason: "unexpected rows dropped", detail: "1" });
     },
   );
@@ -326,19 +326,35 @@ describe("listLatestPrices", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { client } = stubClient({ data: [{ ...otherRow, available: false }, felixRow, { ...softRow, price: 0 }] });
 
-    expect(await listLatestPrices(client)).toEqual({ prices: [felix], unread: [OTHER, SOFT] });
+    expect(await listLatestPrices(client)).toEqual({ prices: [felix], unread: [OTHER, SOFT], unattributed: 0 });
   });
 
   it.each<{ why: string; row: unknown }>([
     { why: "names no shop", row: { ...felixRow, shop_id: null } },
-    { why: "names a shop the app doesn't know", row: { ...felixRow, shop_id: "dm" } },
+    { why: "has a shop that isn't text", row: { ...felixRow, shop_id: 42 } },
     { why: "has an item id that isn't text", row: { ...felixRow, shop_item_id: 131225 } },
     { why: "isn't a row at all", row: "131225" },
-  ])("gives null for an odd row that $why, since it could be any item's", async ({ row }) => {
+  ])("counts an odd row that $why, which could be any item's, and still gives every other price", async ({ row }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { client } = stubClient({ data: [row, softRow, otherRow] });
 
-    expect(await listLatestPrices(client)).toBeNull();
+    // One such row never empties the list: the list marks only the items it has no readable row for.
+    expect(await listLatestPrices(client)).toEqual({ prices: [soft, other], unread: [], unattributed: 1 });
+    expect(loggedLine(warn)).toMatchObject({ reason: "unexpected rows dropped", detail: "1" });
+  });
+
+  it.each<{ why: string; row: unknown }>([
+    { why: "a shop the app doesn't know", row: { ...felixRow, shop_id: "dm" } },
+    {
+      why: "a shop the app doesn't know, with an item id that isn't text",
+      row: { ...felixRow, shop_id: "dm", shop_item_id: 131225 },
+    },
+    { why: "a shop whose prices the list doesn't compare", row: { ...felixRow, shop_id: "hebe", price: "5.99" } },
+  ])("leaves out an odd row of $why, which can't be any product's price, and logs it", async ({ row }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({ data: [row, softRow, otherRow] });
+
+    expect(await listLatestPrices(client)).toEqual({ prices: [soft, other], unread: [], unattributed: 0 });
     expect(loggedLine(warn)).toMatchObject({ reason: "unexpected rows dropped", detail: "1" });
   });
 

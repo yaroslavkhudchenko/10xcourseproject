@@ -49,9 +49,11 @@ export async function shopItemFor(
 
 /**
  * What the list's "Odśwież ceny" fetches: every shop item of the user's list whose last check is more than 15 minutes
- * old, as the stored prices tell, the oldest first. An item whose price row couldn't be read counts as never checked,
- * so it's fetched, and a product whose Natura decision couldn't be read has no Natura item to fetch. `failed` when the
- * list, its Natura decisions or its prices couldn't be read, since then the refresh can't tell what's out of date.
+ * old, as the stored prices tell, the oldest first. Odd rows never stop the refresh: an item without a readable price
+ * row, whether its row came back odd or an odd row couldn't say whose it is, counts as never checked, so it's fetched,
+ * which also repairs its latest row; and a product whose Natura decision couldn't be read has no Natura item to fetch.
+ * `failed` when the list, its Natura decisions or its prices couldn't be read at all, since then the refresh can't
+ * tell what's out of date.
  */
 export async function listTargets(supabase: SupabaseClient): Promise<PriceKey[] | "failed"> {
   const [items, matches, prices] = await Promise.all([

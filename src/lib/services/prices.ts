@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "astro/zod";
-import { keyText } from "@/lib/services/price-comparison";
+import { keyText, PRICED_SHOPS } from "@/lib/services/price-comparison";
 import { SHOP_IDS, type LatestPrice, type PriceCheck, type PriceKey, type ShopId } from "@/types";
 
 // Every price check of a shop item (public.price_observations), shared by the item's watchers: a user reads and adds
@@ -136,42 +136,88 @@ export interface LatestPricesRead {
 }
 
 /**
- * The latest state of every shop item the user watches, as RLS lets them see it, for the list: their prices, and the
- * items whose rows came back odd. Odd rows are logged. Null when the prices couldn't be read, and when an odd row can't
- * even say which item it's about, since it could be any product's.
+ * The list's read of the latest prices: also how many odd rows couldn't say which item they're about. Such a row may
+ * be the latest of any item without a readable row, so the list counts those items' prices as unread, and every other
+ * item keeps its price.
  */
-export async function listLatestPrices(supabase: SupabaseClient): Promise<LatestPricesRead | null> {
+export interface ListPricesRead extends LatestPricesRead {
+  unattributed: number;
+}
+
+// An odd row of the list's read, read for its item alone: first its shop, since a shop whose prices the list doesn't
+// compare can't hold any listed product's price, whatever the row's item id, and then its item id.
+const oddShopSchema = z.object({ shop_id: z.string() });
+const listShopSchema = z.enum(PRICED_SHOPS);
+const oddItemSchema = z.object({ shop_item_id: z.string() });
+
+/**
+ * The latest state of every shop item the user watches, as RLS lets them see it, for the list: their prices, the items
+ * whose rows came back odd, and how many odd rows couldn't say which item they're about, which never empties the list.
+ * An odd row of a shop whose prices the list doesn't compare is left out. Odd rows are logged. Null only when the
+ * prices couldn't be read at all.
+ */
+export async function listLatestPrices(supabase: SupabaseClient): Promise<ListPricesRead | null> {
   const rows = await readLatestRows(supabase);
-  if (rows === null || rows.unattributed > 0) {
+  if (rows === null) {
     return null;
   }
-  return { prices: rows.prices, unread: rows.unread };
+  const read: ListPricesRead = { prices: rows.prices, unread: [], unattributed: 0 };
+  for (const raw of rows.odd) {
+    const shop = oddShopSchema.safeParse(raw);
+    if (!shop.success) {
+      read.unattributed++;
+      continue;
+    }
+    const listShop = listShopSchema.safeParse(shop.data.shop_id);
+    if (!listShop.success) {
+      continue;
+    }
+    const item = oddItemSchema.safeParse(raw);
+    if (item.success) {
+      read.unread.push({ shop: listShop.data, shopItemId: item.data.shop_item_id });
+    } else {
+      read.unattributed++;
+    }
+  }
+  return read;
 }
 
 /**
  * The latest state of the given shop items, as a product's page needs it: their prices, and the items whose rows came
  * back odd, so the page never shows such an item as one that was never checked. Odd rows are logged. Null when the
- * prices couldn't be read, and when an odd row can't even say which item it's about, since it could be any of them.
+ * prices couldn't be read, and when an odd row can't even say which item it's about, since it could be any of them:
+ * the read is one product's, so that empties nothing else.
  */
 export async function readLatestPrices(supabase: SupabaseClient, keys: PriceKey[]): Promise<LatestPricesRead | null> {
   if (keys.length === 0) {
     return { prices: [], unread: [] };
   }
   const rows = await readLatestRows(supabase, keys);
-  if (rows === null || rows.unattributed > 0) {
+  if (rows === null) {
     return null;
   }
-  return { prices: rows.prices, unread: rows.unread };
+  const wanted = new Set(keys.map(keyText));
+  const unread: PriceKey[] = [];
+  for (const raw of rows.odd) {
+    const key = rowKeySchema.safeParse(raw);
+    if (!key.success) {
+      return null;
+    }
+    const item: PriceKey = { shop: key.data.shop_id, shopItemId: key.data.shop_item_id };
+    if (wanted.has(keyText(item))) {
+      unread.push(item);
+    }
+  }
+  return { prices: rows.prices, unread };
 }
 
 /**
- * What one read of the latest rows came to: the prices of the items asked for (every item, without `keys`), the items
- * asked for whose rows couldn't be read, and how many odd rows couldn't say which item they're about.
+ * What one read of the latest rows came to: the prices of the items asked for (every item, without `keys`), and the
+ * rows that came back odd, as they came, for each read to say whose they are.
  */
 interface LatestRows {
   prices: LatestPrice[];
-  unread: PriceKey[];
-  unattributed: number;
+  odd: unknown[];
 }
 
 /**
@@ -195,31 +241,20 @@ async function readLatestRows(supabase: SupabaseClient, keys?: PriceKey[]): Prom
     return null;
   }
   const wanted = keys === undefined ? null : new Set(keys.map(keyText));
-  const isWanted = (key: PriceKey) => wanted === null || wanted.has(keyText(key));
-  const read: LatestRows = { prices: [], unread: [], unattributed: 0 };
-  let dropped = 0;
+  const read: LatestRows = { prices: [], odd: [] };
   for (const raw of rows) {
     const row = latestRowSchema.safeParse(raw);
-    if (row.success) {
-      const latest = toLatestPrice(row.data);
-      if (isWanted(latest)) {
-        read.prices.push(latest);
-      }
+    if (!row.success) {
+      read.odd.push(raw);
       continue;
     }
-    dropped++;
-    const key = rowKeySchema.safeParse(raw);
-    if (!key.success) {
-      read.unattributed++;
-      continue;
-    }
-    const item: PriceKey = { shop: key.data.shop_id, shopItemId: key.data.shop_item_id };
-    if (isWanted(item)) {
-      read.unread.push(item);
+    const latest = toLatestPrice(row.data);
+    if (wanted === null || wanted.has(keyText(latest))) {
+      read.prices.push(latest);
     }
   }
-  if (dropped > 0) {
-    logFailure("unexpected rows dropped", String(dropped));
+  if (read.odd.length > 0) {
+    logFailure("unexpected rows dropped", String(read.odd.length));
   }
   return read;
 }
