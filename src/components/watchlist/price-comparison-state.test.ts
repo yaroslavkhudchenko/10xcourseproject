@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  checkedAge,
   checkedCaption,
   comparisonOf,
   done,
   gapText,
   heroOf,
   initialState,
+  markerLabelSides,
   parseRefreshAnswer,
   priceComparisonReducer,
   PRICES_EVENT,
@@ -16,6 +18,7 @@ import {
   tick,
   trackHint,
   trackOf,
+  verdictOfState,
   type PriceComparisonAction,
   type PriceComparisonShop,
   type PriceComparisonState,
@@ -862,6 +865,87 @@ describe("checkedCaption", () => {
 
     const answered = run(both(), start("rossmann"), done("rossmann", priceAnswer(26.49), ANSWERED_AT));
     expect(checkedCaption(answered.rows, answered.now)).toBe("sprawdzono 5 min temu");
+  });
+});
+
+describe("checkedAge", () => {
+  it("gives the caption's check without its word, for the phone's bar to write under it", () => {
+    const state = initialState({
+      shops: [rossmann(stored("rossmann", "26900", 26.99, 20 * MINUTE)), { ...natura(null), readFailed: true }],
+      now: RENDERED,
+    });
+
+    expect(checkedAge(state.rows, state.now)).toBe("20 min temu");
+    expect(checkedCaption(state.rows, state.now)).toBe(`sprawdzono ${checkedAge(state.rows, state.now) ?? ""}`);
+  });
+
+  it("gives none when no shop was checked, or none could be read", () => {
+    const never = initialState({ shops: [rossmann(null), natura(null)], now: RENDERED });
+    const unread = initialState({ shops: [rossmann(), natura()], now: RENDERED, pricesFailed: true });
+
+    expect(checkedAge(never.rows, RENDERED_AT)).toBeNull();
+    expect(checkedAge(unread.rows, RENDERED_AT)).toBeNull();
+  });
+});
+
+describe("verdictOfState", () => {
+  it("judges the rows at the state's time, as comparisonOf compares them", () => {
+    const state = initialState({ shops: [rossmann(), natura(stored("natura", "NV89063", 22.99))], now: RENDERED });
+
+    expect(verdictOfState(state)).toEqual({
+      kind: "cheapest",
+      shops: ["natura"],
+      price: 22.99,
+      ageFrom: ago(20 * MINUTE),
+      savings: { amount: 4, than: "rossmann" },
+      at: RENDERED_AT,
+    });
+  });
+
+  it("names no shop while a row's stored price is unread, and names the cheapest once that shop answered", () => {
+    // Rossmann's fresh price would be the only one, but Natura's, which may be lower, couldn't be read.
+    const before = initialState({ shops: [rossmann(), { ...natura(null), readFailed: true }], now: RENDERED });
+    expect(verdictOfState(before)).toEqual({ kind: "unread", at: RENDERED_AT });
+
+    const answered = run(before, start("natura"), done("natura", priceAnswer(16.99), ANSWERED_AT));
+    expect(verdictOfState(answered)).toMatchObject({ kind: "cheapest", shops: ["natura"], at: ANSWERED_AT });
+  });
+
+  it("is unread on every price when the page couldn't read the stored prices, until each shop answers", () => {
+    const state = initialState({ shops: [rossmann(null), natura(null)], now: RENDERED, pricesFailed: true });
+    const oneAnswered = run(state, start("rossmann"), done("rossmann", priceAnswer(26.49), ANSWERED_AT));
+
+    expect(verdictOfState(state).kind).toBe("unread");
+    expect(verdictOfState(oneAnswered).kind).toBe("unread");
+  });
+});
+
+describe("markerLabelSides", () => {
+  it("centres the labels of markers far apart, as the handoff's Nivea draws them", () => {
+    const { rows, verdict } = nivea();
+
+    expect(markerLabelSides(trackOf(rows, verdict)?.markers ?? [])).toEqual(["center", "center"]);
+  });
+
+  it("turns the labels of close markers away from each other, whichever comes first", () => {
+    expect(markerLabelSides([{ x: 76.2 }, { x: 80.6 }])).toEqual(["end", "start"]);
+    expect(markerLabelSides([{ x: 80.6 }, { x: 76.2 }])).toEqual(["start", "end"]);
+    // 30 % apart is far enough.
+    expect(markerLabelSides([{ x: 20 }, { x: 50 }])).toEqual(["center", "center"]);
+  });
+
+  it("sets the labels of equal prices side by side, in the markers' order", () => {
+    const { rows, verdict } = judged([
+      { shop: "rossmann", latest: checkOf(16.99) },
+      { shop: "natura", latest: checkOf(16.99) },
+    ]);
+
+    expect(markerLabelSides(trackOf(rows, verdict)?.markers ?? [])).toEqual(["end", "start"]);
+  });
+
+  it("keeps centred a label with close neighbours on both sides", () => {
+    expect(markerLabelSides([{ x: 40 }, { x: 50 }, { x: 60 }])).toEqual(["end", "center", "start"]);
+    expect(markerLabelSides([])).toEqual([]);
   });
 });
 

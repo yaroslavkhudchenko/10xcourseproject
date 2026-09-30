@@ -9,6 +9,7 @@ import {
   type PriceComparisonShop,
 } from "@/components/watchlist/price-comparison-state";
 import PriceComparisonView from "@/components/watchlist/PriceComparisonView";
+import type { TitleProduct } from "@/components/watchlist/ProductTitle";
 import { needsRefetch, type PricedShop } from "@/lib/services/price-comparison";
 
 // Ages move on once a minute, the finest step they show.
@@ -17,6 +18,10 @@ const CLOCK_TICK_MS = 60_000;
 interface Props {
   /** The watched product's id. */
   itemId: string;
+  /** The product, as the title names it. */
+  product: TitleProduct;
+  /** Whether Natura is still to be matched (naturaUndecided of the page's Natura view). */
+  naturaUndecided: boolean;
   /** The product's matched shops, in the page's order, each with its item's page and its stored price. */
   shops: PriceComparisonShop[];
   /** Whether opening the page may refetch shops on its own: only the user's own navigation may. */
@@ -27,11 +32,21 @@ interface Props {
   pricesFailed: boolean;
 }
 
-// A product's prices in its matched shops, ordered and with the cheapest marked, shown at once from the stored prices.
-// Each shop is refetched on its own through /api/watchlist/prices, and its row, the order and the marks change as it
-// answers. Without JavaScript, "Odśwież ceny" posts its form to /api/watchlist/refresh, and the page comes back with
-// the refreshed prices. This island keeps the state and the effects; PriceComparisonView renders them.
-export default function PriceComparison({ itemId, shops, autoRefresh, now, pricesFailed }: Props) {
+// A product's page from its title down: its prices in its matched shops, ordered and with the cheapest marked, shown at
+// once from the stored prices, with the verdict's hero, the price track and when the prices were checked. Each shop is
+// refetched on its own through /api/watchlist/prices, and its card, the order, the marks, the hero, the track and the
+// check change as it answers. Without JavaScript, either "Odśwież ceny" posts its form to /api/watchlist/refresh, and
+// the page comes back with the refreshed prices. This island keeps the state and the effects; PriceComparisonView
+// renders them.
+export default function PriceComparison({
+  itemId,
+  product,
+  naturaUndecided,
+  shops,
+  autoRefresh,
+  now,
+  pricesFailed,
+}: Props) {
   const [state, dispatch] = useReducer(priceComparisonReducer, { shops, now, pricesFailed }, initialState);
 
   const refresh = useCallback(
@@ -76,7 +91,9 @@ export default function PriceComparison({ itemId, shops, autoRefresh, now, price
   return (
     <PriceComparisonView
       itemId={itemId}
+      product={product}
       state={state}
+      naturaUndecided={naturaUndecided}
       onRefresh={() => {
         for (const row of state.rows) {
           refresh(row.shop);

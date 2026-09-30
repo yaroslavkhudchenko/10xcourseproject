@@ -364,6 +364,16 @@ export function formatDay(isoDate: string): string {
   return date === null ? isoDate : `${date[2]}.${date[1]}`;
 }
 
+/**
+ * The day an instant fell on in Poland, as formatDay writes a date: "20.09" for a product added at 10:00 on 20
+ * September. It reads the instant on the shopper's own calendar, as a promotion's end is read, so the server and the
+ * browser write the same day. Null for a time that doesn't parse.
+ */
+export function formatDayOf(iso: string): string | null {
+  const time = Date.parse(iso);
+  return Number.isNaN(time) ? null : formatDay(polishDate(time));
+}
+
 /** A shop item a watched product's prices come from: a shop whose prices are fetched, and the shop's own id for it. */
 export interface PricedKey extends PriceKey {
   shop: PricedShop;

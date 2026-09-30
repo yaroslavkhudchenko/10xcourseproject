@@ -1091,6 +1091,52 @@ They were built test-first in a parallel worktree and cherry-picked onto this br
 - **Two layout choices for the owner:** on phones, "Odśwież ceny" stays in the title row, and search results are followed by the rows with no visible heading (today's page has "Obserwowane produkty").
 - **Local data:** a throwaway user `design-check-…@example.com` with 5 made-up products (Rossmann ids 990000001–5), their Natura decisions and 6 price observations. Two real searches ran through the gate, more than 2 s apart.
 
+### Phase 4
+
+- **The island's `product` prop** is `TitleProduct`, `{ brand, name, caption, sizeText, imageUrl, addedAt }`, with no `fullName`. The `h1` is the brand (sr-only) plus `rowProductOf`'s name, so it reads the full name with the visible caption: "NIVEA Soft krem intensywnie nawilżający".
+- **`ProductTitle.tsx`** imports `rowProductOf` from `watchlist-rows.ts`. Phase 6 adds the new island files and that module to `islandConfig` together.
+- **New tested helpers:**
+  - `verdictOfState(state)` is the island's verdict: `readFailed` and `pricesFailed` feed F1's `unread`.
+  - `checkedAge(rows, now)` is the bottom bar's age, and `checkedCaption` builds on it.
+  - `markerLabelSides(markers)` turns the labels of markers less than 30 % apart away from each other.
+  - `formatDayOf(iso)`, in `price-comparison.ts`, gives the "dodano dd.mm" day on Europe/Warsaw.
+- **New `@theme` tokens,** named in `cn()` too: `text-track-title` 17/19, `text-track-price` 15/17, `rounded-button-lg` 16, `border-marker` 2.5 px.
+- **Shared pieces beyond the plan's list:**
+  - `RefreshForm.tsx` holds both refresh forms: `itemId`, `onRefresh`, disabled while pending, and the sr-only " tego produktu".
+  - `shop-fills.ts` is one colour source for the shop dots and the track markers.
+- **`Price` gains `pending`:** the digits go to 60 %, and "zł" stays at full opacity. The contrast check gains a large-text minimum (3:1) and `foreground/60 on card`, at 4.44:1 light and 6.01:1 dark, for 132 checks.
+- **`ShopLink`** gains the handoff's ExternalLink icon, so NaturaSection's links show it too.
+- **The island's destructive "Nie udało się wczytać cen." Alert is gone.** The `unread` hero says it, and each unread card says "Nie udało się wczytać ceny."
+- **A hero without a price** (`unread`, `none`) shows its eyebrow text as its headline, at the hero-shop size.
+- **Shop cards:**
+  - The "Nieaktualna" tag and the warm border apply to `stale` rows and to `missing` rows that keep a price.
+  - "niedostępny online" stays a warning Badge, and the gap texts and notices are in `warning-foreground`.
+  - Every state has a 2 px border.
+- **`WatchlistShell`'s `main`** gains `overflow-x-clip`, which contains the sticker and its 1.7× stamp. Nothing scrolls sideways at 390, 1024 or 1280 px.
+- **The page:**
+  - The no-JavaScript `?prices=` notice sits above the island.
+  - An sr-only `h2` "Ceny" heads the cards; the track's title is an `h2`, and the shop names are `h3`.
+  - The session-ended Alert is the island's first block.
+  - `pb-28 lg:pb-0` keeps the fixed bar off the content.
+- **The phone's back row** links to `filterHref("/watchlist", parseListFilter(f))`, with ChevronLeft, and shows `rowProductOf(product).eyebrow`. It shows on the not-found and failed branches too.
+- **On phones** the track's labels are 10 px (`text-micro`), where the handoff has 9 px.
+- **Kitchen sink:**
+  - The product area is its own full-width section: every state in a light and a dark 860 px pane frame, whose `transform: translateZ(0)` contains its fixed bar.
+  - The "Nagłówek" section and `HEADER_FIXTURES` are gone, with `ProductHeader`.
+  - `PRICE_FIXTURES` gain the product and `naturaUndecided`.
+  - `HANDOFF_FIXTURES` are Nivea; Ziaja (3 h old, Natura undecided); and Colgate (2 days old, Natura declined).
+- **CLAUDE.md:** the UI bullet's shared-pieces sentence names `ProductTitle.tsx` (its title row, in the island) instead of `ProductHeader.astro`.
+- **For the owner's check:**
+  - the `h1`'s accessible text;
+  - the 30 % threshold;
+  - the price-less hero's headline;
+  - the warning colour on every gap text.
+  - The sticker clears a one-line title's caption by about 5 px at 1280, as in the handoff (4.8).
+  - `missing-without-price` names the only priced shop "Najtaniej dziś", which is `compareShops`' existing rule.
+- **What wasn't verified:** hydration and the live refresh (4.6). The dev server left running since 15:28 had a stale Vite cache, so no island hydrated on it. The subagent checked the server-rendered page, every reducer state in the kitchen sink, and the unit tests.
+- **Local data:** throwaway users `p4-check-*@example.com`; made-up items (Rossmann 990000201 and 990000202, Natura NV99999201); three observations; one matched Natura decision. No shop request was made: the pages were loaded with `Purpose: prefetch`.
+- **Until phase 5,** the desktop product area spans the full width, with no link back to the list.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -1130,11 +1176,11 @@ They were built test-first in a parallel worktree and cherry-picked onto this br
 
 #### Automated
 
-- [x] 3.1 `npm run test` passes, with new tests for the row service, the verdict, the list reads' unread rows and the summary fixes
-- [x] 3.2 `npm run lint`, `npx astro check` and `npm run build` pass
-- [x] 3.3 `node scripts/check-token-contrast.mjs` passes
-- [x] 3.4 `npm run smoke` passes against the dev server
-- [x] 3.5 Deliberate breaks in the chip, tag and verdict rules turn their tests red
+- [x] 3.1 `npm run test` passes, with new tests for the row service, the verdict, the list reads' unread rows and the summary fixes — fb976f8
+- [x] 3.2 `npm run lint`, `npx astro check` and `npm run build` pass — fb976f8
+- [x] 3.3 `node scripts/check-token-contrast.mjs` passes — fb976f8
+- [x] 3.4 `npm run smoke` passes against the dev server — fb976f8
+- [x] 3.5 Deliberate breaks in the chip, tag and verdict rules turn their tests red — fb976f8
 
 #### Manual
 
@@ -1147,10 +1193,10 @@ They were built test-first in a parallel worktree and cherry-picked onto this br
 
 #### Automated
 
-- [ ] 4.1 `npm run test` passes, with new tests for the hero, the track, the hint and the caption
-- [ ] 4.2 `npm run lint`, `npx astro check` and `npm run build` pass
-- [ ] 4.3 `node scripts/check-token-contrast.mjs` passes
-- [ ] 4.4 Deliberate breaks in the hero, track and caption rules turn their tests red
+- [x] 4.1 `npm run test` passes, with new tests for the hero, the track, the hint and the caption
+- [x] 4.2 `npm run lint`, `npx astro check` and `npm run build` pass
+- [x] 4.3 `node scripts/check-token-contrast.mjs` passes
+- [x] 4.4 Deliberate breaks in the hero, track and caption rules turn their tests red
 
 #### Manual
 

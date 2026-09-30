@@ -263,6 +263,15 @@
   /* A shop's name in its card. */
   --text-shop-name: 1.125rem; /* 18 px */
   --text-shop-name-lg: 1.25rem; /* 20 px */
+  /* The price track's card: its title, and a marker's price above the track. */
+  --text-track-title: 1.0625rem; /* 17 px */
+  --text-track-title--line-height: 1.2;
+  --text-track-title-lg: 1.1875rem; /* 19 px */
+  --text-track-title-lg--line-height: 1.2;
+  --text-track-price: 0.9375rem; /* 15 px */
+  --text-track-price--line-height: 1.2;
+  --text-track-price-lg: 1.0625rem; /* 17 px */
+  --text-track-price-lg--line-height: 1.2;
   /* The wordmark and the sticker's label, in LogoMark's and Sticker's own two sizes. */
   --text-wordmark-sm: 1.125rem; /* 18 px */
   --text-wordmark-lg: 1.375rem; /* 22 px */
@@ -294,6 +303,7 @@
   --radius-tag: 0.5625rem; /* 9 px, the hanging tag */
   --radius-button-sm: 0.75rem; /* 12 px, the outline button: the handoff's small buttons */
   --radius-button: 0.875rem; /* 14 px, the primary button */
+  --radius-button-lg: 1rem; /* 16 px, the 52 px "Odśwież ceny" in a phone's bottom bar */
   --radius-thumb: 0.875rem; /* 14 px, a list row's thumbnail */
   --radius-thumb-title: 1rem; /* 16 px, a product title's thumbnail on a phone */
   --radius-thumb-title-lg: 1.375rem; /* 22 px */
@@ -309,6 +319,8 @@
 
   /* The hairline: every 1.5 px border of the handoff, as border-hairline, or border-t-hairline and the other sides. */
   --border-width-hairline: 1.5px;
+  /* The 2.5 px ink edge of a shop's marker on the price track. */
+  --border-width-marker: 2.5px;
 
   /* The sticker's stamp as it appears: from 1.7 times its size, unseen, to its size. It scales through the scale
      property, so the sticker's own rotate stays. Sticker plays it only as motion-safe:animate-stamp. */

@@ -1,50 +1,57 @@
 import { useId } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
+  checkedAge,
+  checkedCaption,
   comparisonOf,
-  gapText,
-  REFRESH_FORM_ROUTE,
-  type ComparedRow,
+  heroOf,
+  trackHint,
+  trackOf,
+  verdictOfState,
   type PriceComparisonState,
 } from "@/components/watchlist/price-comparison-state";
-import ShopLink from "@/components/watchlist/ShopLink";
-import { ageText, formatDay, formatPrice, SHOP_LABELS } from "@/lib/services/price-comparison";
-import { priceMissingText, priceUnavailableText } from "@/lib/shop-messages";
-import { cn } from "@/lib/utils";
+import PriceTrack from "@/components/watchlist/PriceTrack";
+import ProductTitle, { type TitleProduct } from "@/components/watchlist/ProductTitle";
+import RefreshBar from "@/components/watchlist/RefreshBar";
+import ShopCard from "@/components/watchlist/ShopCard";
+import VerdictHero from "@/components/watchlist/VerdictHero";
 
 interface Props {
-  /** The watched product's id, which the refresh form posts. */
+  /** The watched product's id, which both refresh forms post. */
   itemId: string;
+  /** The product the title names. */
+  product: TitleProduct;
   /** The island's state: its rows, whether each refetch runs, and what the last answers said. */
   state: PriceComparisonState;
+  /** Whether Natura is still to be matched (naturaUndecided): the hero and the track's hint say so beside one price. */
+  naturaUndecided: boolean;
   /**
-   * Refetches every shop in place of the form's post. Absent when the view is rendered without the island, as in the
-   * kitchen sink: the form then posts, as it does without JavaScript.
+   * Refetches every shop in place of the forms' post. Absent when the view is rendered without the island, as in the
+   * kitchen sink: the forms then post, as they do without JavaScript.
    */
   onRefresh?: () => void;
 }
 
-// A product's prices as the island's state has them: the rows in their order with the cheapest marked, why a price
-// may be out of date or missing, and "Odśwież ceny". It keeps no state and runs no effect, so every state the reducer
-// can reach renders the same in the island and in the kitchen sink, and a view rendered without the island fetches
+// A product's page from its title down, as the island's state has it: the title row with "Odśwież ceny" and when the
+// prices were checked, the verdict's hero, the price track or its hint, one card per shop, in the comparison's order
+// with the cheapest marked, and a phone's bottom bar. What each part says comes from the tested rules
+// (price-comparison-state.ts); this only maps it. It keeps no state and runs no effect, so every state the reducer can
+// reach renders the same in the island and in the kitchen sink, and a view rendered without the island fetches
 // nothing.
-export default function PriceComparisonView({ itemId, state, onRefresh }: Props) {
+export default function PriceComparisonView({ itemId, product, state, naturaUndecided, onRefresh }: Props) {
+  // The rows' order and marks, withheld while a stored price is unread, and the verdict judged on the same rows.
   const { rows } = comparisonOf(state);
+  const verdict = verdictOfState(state);
+  const natura = { naturaUndecided };
+  const track = trackOf(rows, verdict);
+  const hint = trackHint(verdict, natura);
+  const caption = checkedCaption(state.rows, state.now);
   // One refetch per shop at a time: a second tap while one runs would only spend the cap again.
   const refreshing = state.rows.some((row) => row.pending);
-  // The page couldn't read some shop's stored price, and that shop hasn't answered since: no row is marked cheapest.
-  const readFailed = state.rows.some((row) => row.readFailed);
+  const pricesId = useId();
 
   return (
-    <div className="flex flex-col gap-3">
-      {readFailed && (
-        <Alert variant="destructive">
-          <AlertDescription>Nie udało się wczytać cen.</AlertDescription>
-        </Alert>
-      )}
+    <div className="flex flex-col gap-6 lg:gap-6.5">
       {state.sessionEnded && (
         <Alert variant="warning">
           <AlertDescription>
@@ -58,103 +65,34 @@ export default function PriceComparisonView({ itemId, state, onRefresh }: Props)
           </AlertDescription>
         </Alert>
       )}
-      <ul className="flex flex-col gap-2">
-        {rows.map((row) => (
-          <PriceRow key={row.shop} row={row} now={state.now} />
-        ))}
-      </ul>
-      {/* Screen readers hear each shop's answer here, outside the list, so nothing live moves when the rows re-sort. */}
+      <ProductTitle product={product} itemId={itemId} caption={caption} refreshing={refreshing} onRefresh={onRefresh} />
+      <VerdictHero hero={heroOf(verdict, natura)} />
+      <PriceTrack track={track} hint={hint} />
+      {rows.length > 0 && (
+        <section aria-labelledby={pricesId}>
+          <h2 id={pricesId} className="sr-only">
+            Ceny
+          </h2>
+          <ul className="grid gap-6 lg:grid-cols-2 lg:gap-5 lg:pt-1.5">
+            {rows.map((row) => (
+              <li key={row.shop}>
+                <ShopCard row={row} now={state.now} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {/* Screen readers hear each shop's answer here, outside the cards, so nothing live moves when they re-sort. */}
       <p role="status" aria-live="polite" className="sr-only">
         {state.announcements.join(" ")}
       </p>
-      <form
-        method="POST"
-        action={REFRESH_FORM_ROUTE}
-        onSubmit={
-          onRefresh === undefined
-            ? undefined
-            : (event) => {
-                // With JavaScript each shop is refetched here, and its row updates as it answers, in place of the post.
-                event.preventDefault();
-                onRefresh();
-              }
-        }
-      >
-        <input type="hidden" name="itemId" value={itemId} />
-        <Button type="submit" variant="outline" size="touch" disabled={refreshing} className="w-full">
-          Odśwież ceny
-        </Button>
-      </form>
+      <RefreshBar
+        itemId={itemId}
+        age={checkedAge(state.rows, state.now)}
+        caption={caption}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+      />
     </div>
-  );
-}
-
-interface PriceRowProps {
-  row: ComparedRow;
-  now: number;
-}
-
-/** One shop's price, with its source and age, and why it may be out of date. Without a price, a visible gap. */
-function PriceRow({ row, now }: PriceRowProps) {
-  // The shop's name describes the row's "Zobacz w sklepie", which every row repeats; the id is this row's own.
-  const nameId = useId();
-  const label = SHOP_LABELS[row.shop];
-  const offer = row.latest?.offer ?? null;
-  const hasPrice = offer !== null;
-  return (
-    <li>
-      <Card className={cn("gap-1 p-3", row.cheapest && "border-success/40")}>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-baseline gap-2">
-            <h3 id={nameId} className="font-semibold">
-              {label.name}
-            </h3>
-            <span className="text-muted-foreground text-sm">{row.pending ? "Odświeżam…" : null}</span>
-          </div>
-          {row.cheapest && <Badge variant="success">Najtaniej</Badge>}
-        </div>
-        {offer === null ? (
-          <p className="text-muted-foreground text-sm">{gapText(row)}</p>
-        ) : (
-          <>
-            <p className="text-2xl font-bold">{formatPrice(offer.price)}</p>
-            {(offer.regularPrice !== null || offer.promoEndsOn !== null) && (
-              <p className="text-muted-foreground text-sm">
-                {offer.regularPrice !== null && (
-                  <>
-                    zamiast <s>{formatPrice(offer.regularPrice)}</s>
-                  </>
-                )}
-                {offer.regularPrice !== null && offer.promoEndsOn !== null && " · "}
-                {offer.promoEndsOn !== null && `promocja do ${formatDay(offer.promoEndsOn)}`}
-              </p>
-            )}
-            {offer.lowestPrice30d !== null && (
-              <p className="text-muted-foreground text-sm">
-                najniższa cena z 30 dni wg sklepu: {formatPrice(offer.lowestPrice30d)}
-              </p>
-            )}
-            <p className="text-muted-foreground text-sm">
-              cena online w {label.site} · {ageText(offer.pricedAt, now)}
-            </p>
-            {(row.state === "stale" || !offer.available) && (
-              <p className="flex flex-wrap gap-2">
-                {row.state === "stale" && <Badge variant="warning">nieaktualna</Badge>}
-                {!offer.available && <Badge variant="warning">niedostępny online</Badge>}
-              </p>
-            )}
-          </>
-        )}
-        {row.latest?.lastStatus === "missing" && (
-          <p className="text-warning-foreground text-sm">{priceMissingText(hasPrice)}</p>
-        )}
-        {row.notice && (
-          <p className="text-warning-foreground text-sm">
-            {priceUnavailableText(label.name, row.notice.reason, row.notice.until, hasPrice)}
-          </p>
-        )}
-        {row.productUrl && <ShopLink href={row.productUrl} describedBy={nameId} className="self-start" />}
-      </Card>
-    </li>
   );
 }

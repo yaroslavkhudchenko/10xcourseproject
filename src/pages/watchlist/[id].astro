@@ -1,12 +1,13 @@
 ---
+import { ChevronLeft } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
+import { naturaUndecided } from "@/components/watchlist/natura-card";
 import NaturaSection from "@/components/watchlist/NaturaSection.astro";
 import PriceComparison from "@/components/watchlist/PriceComparison";
 import type { PriceComparisonShop } from "@/components/watchlist/price-comparison-state";
-import ProductHeader from "@/components/watchlist/ProductHeader.astro";
 import ProductUnavailable from "@/components/watchlist/ProductUnavailable.astro";
-import Layout from "@/layouts/Layout.astro";
+import WatchlistShell from "@/layouts/WatchlistShell.astro";
 import { ERROR_PARAM, PRICES_PARAM } from "@/lib/notices";
 import { decideMatchStep } from "@/lib/services/match-step";
 import { listMatches, matchErrorMessage, recordLookup } from "@/lib/services/matches";
@@ -26,11 +27,12 @@ import { isOwnNavigation } from "@/lib/services/search-query";
 import { shopGateFor } from "@/lib/services/shop-gate";
 import { lookupInNatura } from "@/lib/services/shop-matching";
 import { getWatchlistProduct, parseWatchlistItemId, productFullName } from "@/lib/services/watchlist";
+import { filterHref, parseListFilter, rowProductOf } from "@/lib/services/watchlist-rows";
 import { shopUnavailableText } from "@/lib/shop-messages";
 import { cn } from "@/lib/utils";
 import type { MatchedItem, ShopMatch, WatchlistProduct } from "@/types";
 
-const { supabase } = Astro.locals;
+const { user, supabase } = Astro.locals;
 const params = Astro.url.searchParams;
 // A link on another site or a prefetch must not spend the cap everyone shares: only the user's own navigation may make
 // opening the page ask a shop, for a Natura lookup or a price.
@@ -162,50 +164,65 @@ const PRICE_NOTICES: Record<PriceRefreshCode, { text: string; warning: boolean }
 };
 const pricesCode = parsePriceRefreshCode(params.get(PRICES_PARAM));
 const pricesNotice = pricesCode === null ? null : PRICE_NOTICES[pricesCode];
+
+// The phone's way back to the list, with the filter the list was shown with (a row's link carries it); any other value
+// of `f` goes back to the whole list.
+const backHref = filterHref("/watchlist", parseListFilter(params.get("f")));
+// The brand and the size beside it, as the product's row on the list shows them.
+const backEyebrow = product === null || product === "failed" ? null : rowProductOf(product).eyebrow;
 ---
 
-<Layout title={`${title} · Drogeria Radar`} lang="pl">
-  <div class="bg-paper min-h-screen p-4 text-foreground sm:p-8">
-    <main class="mx-auto flex max-w-lg flex-col gap-6">
-      <a href="/watchlist" class:list={cn(buttonVariants({ variant: "link", size: "inline" }), "self-start")}>
-        ← Moja lista
-      </a>
-
-      {product === null ? (
-        <ProductUnavailable reason="not-found" error={error} />
-      ) : product === "failed" ? (
-        <ProductUnavailable reason="failed" />
-      ) : (
-        <>
-          <ProductHeader product={product} />
-
-          <section aria-labelledby="prices-heading" class="flex flex-col gap-3">
-            <h2 id="prices-heading" class="text-lg font-semibold">
-              Ceny
-            </h2>
-            {pricesNotice && (
-              <Alert
-                variant={pricesNotice.warning ? "warning" : "success"}
-                role={pricesNotice.warning ? "alert" : "status"}
-              >
-                <AlertDescription>{pricesNotice.text}</AlertDescription>
-              </Alert>
-            )}
-            <PriceComparison
-              client:load
-              itemId={product.id}
-              shops={priceShops}
-              autoRefresh={ownNavigation}
-              now={renderedAt}
-              pricesFailed={pricesFailed}
-            />
-          </section>
-
-          <NaturaSection view={natura} productId={product.id} unsaved={unsaved} notice={notice} error={error} />
-        </>
-      )}
-    </main>
+<WatchlistShell title={`${title} · Drogeria Radar`} mode="product" email={user?.email ?? null}>
+  {/* A phone's top row, back to the list. From lg the header and the list stand beside the product instead. */}
+  <div class="flex items-center justify-between gap-3 pt-1 lg:hidden">
+    <a href={backHref} class:list={cn(buttonVariants({ variant: "link", size: "inline" }), "h-11 gap-0.5 text-base")}>
+      <ChevronLeft aria-hidden="true" strokeWidth={2.4} className="size-5.5" />
+      Moja lista
+    </a>
+    {backEyebrow && (
+      <span class="font-mono text-meta tracking-eyebrow wrap-break-word text-muted-foreground uppercase">
+        {backEyebrow}
+      </span>
+    )}
   </div>
+
+  {product === null ? (
+    <div class="flex flex-col gap-3 pt-2 lg:pt-0">
+      <ProductUnavailable reason="not-found" error={error} />
+    </div>
+  ) : product === "failed" ? (
+    <div class="flex flex-col gap-3 pt-2 lg:pt-0">
+      <ProductUnavailable reason="failed" />
+    </div>
+  ) : (
+    <div class="flex flex-col gap-6 pt-2 pb-28 lg:gap-6.5 lg:pt-0 lg:pb-0">
+      {/* Below lg the island's bottom bar is fixed over the screen's foot, so the page's content ends above it. */}
+      {pricesNotice && (
+        <Alert variant={pricesNotice.warning ? "warning" : "success"} role={pricesNotice.warning ? "alert" : "status"}>
+          <AlertDescription>{pricesNotice.text}</AlertDescription>
+        </Alert>
+      )}
+      <PriceComparison
+        client:load
+        itemId={product.id}
+        product={{
+          brand: product.brand,
+          name: product.name,
+          caption: product.caption,
+          sizeText: product.sizeText,
+          imageUrl: product.imageUrl,
+          addedAt: product.addedAt,
+        }}
+        naturaUndecided={naturaUndecided(natura)}
+        shops={priceShops}
+        autoRefresh={ownNavigation}
+        now={renderedAt}
+        pricesFailed={pricesFailed}
+      />
+
+      <NaturaSection view={natura} productId={product.id} unsaved={unsaved} notice={notice} error={error} />
+    </div>
+  )}
   <script>
     // The codes are the ones the frontmatter reads its notices by, from a module that imports nothing, so this script
     // ships no server code.
@@ -222,4 +239,4 @@ const pricesNotice = pricesCode === null ? null : PRICE_NOTICES[pricesCode];
       history.replaceState(history.state, "", url);
     }
   </script>
-</Layout>
+</WatchlistShell>

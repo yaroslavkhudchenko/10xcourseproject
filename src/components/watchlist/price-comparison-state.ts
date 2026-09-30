@@ -8,6 +8,7 @@ import {
   savingsText,
   SHOP_LABELS,
   sinceText,
+  verdictOf,
   type Comparison,
   type LatestCheck,
   type PricedShop,
@@ -264,6 +265,19 @@ function compareRows(rows: readonly ShopRow[], now: number): Comparison<ShopRow>
 export type ComparedRow = Comparison<ShopRow>["rows"][number];
 
 /**
+ * The verdict on the island's prices at the state's time (verdictOf), as comparisonOf compares them: `unread` while
+ * some row's stored price couldn't be read, which a failed read of all the stored prices (`pricesFailed`) marks on
+ * every row. The price that couldn't be read may be the lowest, so then the product area names no shop.
+ */
+export function verdictOfState(state: PriceComparisonState): PriceVerdict {
+  return verdictOf(
+    comparisonOf(state),
+    state.now,
+    state.rows.some((row) => row.readFailed),
+  );
+}
+
+/**
  * The `window` event the product's island sends after each shop answers, so the list beside the product can bring
  * its row's tag up to date. Its detail is a PricesEventDetail.
  */
@@ -440,6 +454,36 @@ function lowestOf(rows: readonly ShopPrice[], shops: readonly PricedShop[]): num
   return lows.length === 0 ? null : Math.min(...lows);
 }
 
+/** Where a marker's label sits above it: centred on it, ending at it (to its left) or starting at it (to its right). */
+export type MarkerLabelSide = "center" | "end" | "start";
+
+// How close two markers may come, in percent of the track, before their centred labels would run into each other: a
+// label is about as wide as 30 % of a phone's track.
+const CLOSE_MARKERS = 30;
+
+/**
+ * Where each marker's label sits, in the markers' order. A label is centred on its marker, unless its neighbour along
+ * the track is closer than 30 %: then the one on the left ends at its marker and the one on the right starts at its
+ * own, so equal or nearby prices never write over each other. A marker with close neighbours on both sides keeps its
+ * label centred. Markers at the same place keep their order, left to right.
+ */
+export function markerLabelSides(markers: readonly Pick<TrackMarker, "x">[]): MarkerLabelSide[] {
+  const along = markers.map(({ x }, index) => ({ x, index })).sort((a, b) => a.x - b.x || a.index - b.index);
+  const turns = markers.map(() => ({ left: false, right: false }));
+  for (let place = 1; place < along.length; place++) {
+    if (along[place].x - along[place - 1].x < CLOSE_MARKERS) {
+      turns[along[place - 1].index].left = true;
+      turns[along[place].index].right = true;
+    }
+  }
+  return turns.map(({ left, right }) => {
+    if (left === right) {
+      return "center";
+    }
+    return left ? "end" : "start";
+  });
+}
+
 /** The track's note, set in capitals by the view: the cheapest price's savings, or a stale price's age. */
 function trackNote(verdict: PriceVerdict): string | null {
   if (verdict.kind === "cheapest") {
@@ -472,13 +516,22 @@ export function trackHint(verdict: PriceVerdict, { naturaUndecided }: NaturaCont
  * price couldn't be read, shows its own gap and is left out. A refetch that stores nothing keeps its shop's check.
  */
 export function checkedCaption(rows: readonly Pick<ShopRow, "latest" | "readFailed">[], now: number): string {
+  const age = checkedAge(rows, now);
+  return age === null ? "jeszcze nie sprawdzono" : `sprawdzono ${age}`;
+}
+
+/**
+ * How old checkedCaption's check is, on its own, as the phone's bottom bar writes it under "Sprawdzono": the age of
+ * the oldest check among the shops that have one, or null when none has.
+ */
+export function checkedAge(rows: readonly Pick<ShopRow, "latest" | "readFailed">[], now: number): string | null {
   let oldest: string | null = null;
   for (const { latest, readFailed } of rows) {
     if (!readFailed && latest !== null && (oldest === null || checkTime(latest.lastCheckedAt) < checkTime(oldest))) {
       oldest = latest.lastCheckedAt;
     }
   }
-  return oldest === null ? "jeszcze nie sprawdzono" : checkedText(oldest, now);
+  return oldest === null ? null : ageText(oldest, now);
 }
 
 /** A check's time in milliseconds; one that doesn't parse counts as the oldest, since nothing says it's recent. */

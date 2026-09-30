@@ -1,9 +1,10 @@
 // The dev kitchen sink's fixtures (src/dev/product-page.astro): one made-up product in Rossmann and Natura, its stored
-// prices and its Natura decisions, on a fixed clock, and the prices and brands its primitives are shown with. Every
-// state is built by the product page's own code, the price island's reducer, the Natura view builders and the matching
-// rule, so the kitchen sink shows only states the page can reach. Nothing here is real user data, and nothing here
-// asks Supabase or a shop.
+// prices and its Natura decisions, on a fixed clock, the design handoff's three sample products, and the prices and
+// brands its primitives are shown with. Every state is built by the product page's own code, the price island's
+// reducer, the Natura view builders and the matching rule, so the kitchen sink shows only states the page can reach.
+// Nothing here is real user data, and nothing here asks Supabase or a shop.
 import type { PriceSize } from "@/components/watchlist/Price";
+import type { TitleProduct } from "@/components/watchlist/ProductTitle";
 import {
   done,
   initialState,
@@ -55,6 +56,7 @@ const CHECKED_AT = new Date(NOW_MS + 2000).toISOString();
 const ANSWERED_AT = NOW_MS + 3000;
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
 // A pause Natura asks for, until 12:15 in Poland.
 const PAUSED_UNTIL = new Date(NOW_MS + 15 * MINUTE).toISOString();
 
@@ -80,18 +82,6 @@ const PRODUCT: WatchlistProduct = {
   imageUrl: "/favicon.png",
   addedAt: "2026-09-20T08:00:00.000Z",
 };
-
-/** One look of the page's header card, with the kitchen sink's label for it. */
-export interface HeaderFixture {
-  code: string;
-  text: string;
-  product: WatchlistProduct;
-}
-
-export const HEADER_FIXTURES: HeaderFixture[] = [
-  { code: "photo", text: "ze zdjęciem produktu", product: PRODUCT },
-  { code: "no-photo", text: "bez zdjęcia", product: { ...PRODUCT, imageUrl: null } },
-];
 
 /** An online offer: a regular price, unless `extra` adds a promotion or makes it unorderable online. */
 function offer(price: number, extra: Partial<ShopOffer> = {}): ShopOffer {
@@ -135,14 +125,19 @@ function unread(...actions: PriceComparisonAction[]): PriceComparisonState {
   return actions.reduce(priceComparisonReducer, initialState({ shops, now: NOW, pricesFailed: true }));
 }
 
-/** One state of the price island, with the kitchen sink's label for it. */
+/** One state of the product area, with the kitchen sink's label for it: the island's state and the product it's for. */
 export interface PriceFixture {
   code: string;
   text: string;
   state: PriceComparisonState;
+  /** The product the title names. */
+  product: TitleProduct;
+  /** Whether Natura is still to be matched: the hero and the track's hint say so beside the only price. */
+  naturaUndecided: boolean;
 }
 
-export const PRICE_FIXTURES: PriceFixture[] = [
+// The island's states for the made-up product, whose Natura decision is made.
+const PRICE_STATES: Omit<PriceFixture, "product" | "naturaUndecided">[] = [
   {
     code: "cheapest",
     text: "Natura najtańsza, w promocji: z ceną regularną, końcem promocji i najniższą ceną z 30 dni",
@@ -244,6 +239,50 @@ export const PRICE_FIXTURES: PriceFixture[] = [
     text: "nie udało się odczytać zapisanej ceny Natury: Rossmann ma cenę, ale bez „Najtaniej”, dopóki Natura nie odpowie",
     // The page read the stored prices, but Natura's row came back odd, so it hands that shop over unread.
     state: island([ROSSMANN_CHECKED, { ...row("natura", null), readFailed: true }]),
+  },
+];
+
+export const PRICE_FIXTURES: PriceFixture[] = PRICE_STATES.map((fixture) => ({
+  ...fixture,
+  product: PRODUCT,
+  naturaUndecided: false,
+}));
+
+/** One of the design handoff's sample products: no photo, so its title shows its brand's tile. */
+function sample(brand: string, name: string, caption: string, sizeText: string, addedOn: string): TitleProduct {
+  return { brand, name, caption, sizeText, imageUrl: null, addedAt: `${addedOn}T08:00:00.000Z` };
+}
+
+/**
+ * The handoff's samples (context/changes/etykiety-redesign/design-captures/2a-*, 2b-*), as the rules judge them: Nivea
+ * cheapest in Natura on a promotion, Ziaja only in Rossmann with Natura still to match, and Colgate's stale price.
+ * Natura sends no promotion's end, so Nivea's promotion has none, and Ziaja's price is 3 hours old, since the
+ * handoff's "wczoraj" would be stale by the 24-hour rule. Colgate's Natura was declined, so it has no Natura row.
+ */
+export const HANDOFF_FIXTURES: PriceFixture[] = [
+  {
+    code: "nivea",
+    text: "próbka z projektu: Natura najtańsza, w promocji, z najniższą ceną z 30 dni, bez końca promocji",
+    state: island([
+      priced("rossmann", offer(26.99), 10 * MINUTE),
+      priced("natura", offer(22.99, { regularPrice: 27.99, lowestPrice30d: 23.99 }), 5 * MINUTE),
+    ]),
+    product: sample("Nivea", "Soft", "krem intensywnie nawilżający", "300 ml", "2026-09-20"),
+    naturaUndecided: false,
+  },
+  {
+    code: "ziaja",
+    text: "próbka z projektu: jedna cena, w Rossmannie, sprzed 3 godzin, a Natura czeka na dopasowanie",
+    state: island([priced("rossmann", offer(12.99), 3 * HOUR)]),
+    product: sample("Ziaja", "Mleczko do ciała", "kozie mleko", "400 ml", "2026-09-24"),
+    naturaUndecided: true,
+  },
+  {
+    code: "colgate",
+    text: "próbka z projektu: cena Rossmanna sprzed 2 dni, z najniższą ceną z 30 dni; Natura odrzucona",
+    state: island([priced("rossmann", offer(11.49, { lowestPrice30d: 10.99 }), 2 * DAY)]),
+    product: sample("Colgate", "Total", "pasta do zębów", "75 ml", "2026-09-26"),
+    naturaUndecided: false,
   },
 ];
 

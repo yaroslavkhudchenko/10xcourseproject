@@ -3,6 +3,7 @@ import {
   ageText,
   compareShops,
   formatDay,
+  formatDayOf,
   formatPrice,
   listPricedItems,
   listSummaryText,
@@ -556,6 +557,18 @@ describe("formatting", () => {
   it("writes a promotion's end as day and month", () => {
     expect(formatDay("2026-09-30")).toBe("30.09");
     expect(formatDay("2027-01-05")).toBe("05.01");
+  });
+
+  it("writes the day an instant fell on in Poland, as day and month", () => {
+    expect(formatDayOf("2026-09-20T08:00:00.000Z")).toBe("20.09");
+    // 00:30 on 21 September in Poland, in summer time, is still 20 September in UTC.
+    expect(formatDayOf("2026-09-20T22:30:00.000Z")).toBe("21.09");
+    // 00:30 on 1 January in Poland, in winter time.
+    expect(formatDayOf("2026-12-31T23:30:00.000Z")).toBe("01.01");
+  });
+
+  it("gives no day for a time that doesn't parse", () => {
+    expect(formatDayOf("wczoraj")).toBeNull();
   });
 });
 

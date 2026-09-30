@@ -29,6 +29,10 @@ const TEXT_SIZES = [
   "price-tag-grosze",
   "shop-name",
   "shop-name-lg",
+  "track-title",
+  "track-title-lg",
+  "track-price",
+  "track-price-lg",
   "wordmark-sm",
   "wordmark-lg",
   "sticker-sm",
@@ -45,6 +49,7 @@ const RADII = [
   "tag",
   "button-sm",
   "button",
+  "button-lg",
   "thumb",
   "thumb-title",
   "thumb-title-lg",
@@ -61,7 +66,7 @@ const RADII = [
 const SHADOWS = ["primary", "hero", "hero-lg", "selected"];
 const ANIMATIONS = ["stamp"];
 // The border widths, which Tailwind draws on every side: border-hairline, border-t-hairline and so on.
-const BORDER_WIDTHS = ["hairline"];
+const BORDER_WIDTHS = ["hairline", "marker"];
 
 const twMerge = extendTailwindMerge({
   extend: {

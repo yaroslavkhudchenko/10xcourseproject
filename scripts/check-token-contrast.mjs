@@ -1,8 +1,9 @@
 // Design token contrast check: proves that both themes in src/styles/global.css, the light one in :root and the dark one
 // in .dark, keep the text, focus and field-border pairs listed in PAIRS below readable by WCAG 2's contrast ratio: 4.5:1
-// for text (1.4.3), and 3:1 for a focus outline or a text field's border against what surrounds it (1.4.11). Each pair
-// is measured at the opacity its component renders it with, as SURFACES copies it from src/components/ui and the views,
-// over the theme's paper (bg-paper): its --background, and wherever the paper shows through, also a dot of its grid.
+// for text and 3:1 for large text (1.4.3), and 3:1 for a focus outline or a text field's border against what surrounds
+// it (1.4.11). Each pair is measured at the opacity its component renders it with, as SURFACES copies it from
+// src/components/ui and the views, over the theme's paper (bg-paper): its --background, and wherever the paper shows
+// through, also a dot of its grid.
 // A pair a view starts to render joins PAIRS, and a changed opacity in a component changes here too.
 // Run: node scripts/check-token-contrast.mjs
 // It reads only the CSS file, so it needs no server, no browser and no dependency.
@@ -204,6 +205,7 @@ for (const label of LABELS) SURFACES[label] = [[label, 100]];
 const DOT = ["background-dot", 100];
 
 const TEXT = 4.5; // WCAG 1.4.3, text at normal size
+const LARGE_TEXT = 3; // WCAG 1.4.3, large text: at least 24 px, or 18.66 px bold
 const NON_TEXT = 3; // WCAG 1.4.11, a focus outline or a field's border against what surrounds it
 
 // Each pair: the token drawn, the opacity it's drawn at, what it's drawn on, and the ratio it needs.
@@ -213,6 +215,9 @@ const PAIRS = [
   ["foreground", 100, "card", TEXT],
   ["card-foreground", 100, "card", TEXT],
   ["foreground", 100, "muted", TEXT],
+  // A shop's card while its shop is asked again: the price's digits fade to 60 % (Price's pending), large text at 46 px
+  // and more for the złote and 20 px extra bold for the grosze, while its "zł", small text, stays at full strength.
+  ["foreground", 60, "card", LARGE_TEXT],
   // Hints, sizes, and each price's source and age.
   ["muted-foreground", 100, "paper", TEXT],
   ["muted-foreground", 100, "card", TEXT],

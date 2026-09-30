@@ -8,6 +8,11 @@ interface Props {
   /** The amount in złoty. */
   amount: number;
   size: PriceSize;
+  /**
+   * The price's shop is being asked again: its digits fade to 60 %, large text that keeps 3:1, while "zł", small text,
+   * stays at full strength (scripts/check-token-contrast.mjs measures both).
+   */
+  pending?: boolean;
   className?: string;
 }
 
@@ -48,16 +53,16 @@ const LOOKS: Record<PriceSize, PriceLook> = {
 // the grosze. Those parts are only drawn: screen readers hear the price once, as formatPrice writes it. It keeps no
 // state, so it renders the same as static HTML in an .astro file and in the price island. Its colour is the text's
 // around it.
-export default function Price({ amount, size, className }: Props) {
+export default function Price({ amount, size, pending = false, className }: Props) {
   const { zlote, grosze } = priceParts(amount);
   const look = LOOKS[size];
   return (
     <span className={cn("inline-flex items-start font-extrabold", className)}>
-      <span aria-hidden="true" className={look.zlote}>
+      <span aria-hidden="true" className={cn(look.zlote, pending && "opacity-60")}>
         {zlote}
       </span>
       <span aria-hidden="true" className={cn("flex flex-col items-start", look.fraction)}>
-        <span className={look.grosze}>{grosze}</span>
+        <span className={cn(look.grosze, pending && "opacity-60")}>{grosze}</span>
         {look.unit !== null && <span className={look.unit}>zł</span>}
       </span>
       <span className="sr-only">{formatPrice(amount)}</span>
