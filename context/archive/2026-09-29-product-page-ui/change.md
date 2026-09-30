@@ -1,10 +1,10 @@
 ---
 change_id: product-page-ui
 title: Design-system contract for the product page
-status: impl_reviewed
+status: archived
 created: 2026-09-29
-updated: 2026-09-29
-archived_at: null
+updated: 2026-09-30
+archived_at: 2026-09-30T08:57:28Z
 ---
 
 ## Notes
