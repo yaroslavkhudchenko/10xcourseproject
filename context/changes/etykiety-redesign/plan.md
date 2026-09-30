@@ -1255,6 +1255,27 @@ The full review (`reviews/impl-review.md`, all 6 phases) found 5 warnings and 5 
 - **Shop requests:** none.
 - **Local data:** `review-fix-…@example.com`, with 3 made-up items (Rossmann 990000901–903), Natura declined and 3 observations. Don't refresh them.
 
+### Production rollout
+
+- **Merged on 2026-09-30** as `8baa66b` (PR #15), after the implementation review's fixes (`f77e6b8`).
+  - No migration.
+  - Workers Builds deployed the merge at 22:42 UTC, and `ci` and `smoke` passed on `main`.
+  - Workers Builds runs `npm run build`, which now includes the font check, so the deploy's success shows that Cloudflare's build reached Google Fonts. It was the step the plan couldn't prove before the merge.
+- **Checked from outside, signed out**, the same night:
+  - `/` and `/auth/signin` answer 200;
+  - sign-in is still dark;
+  - `/watchlist` sends a signed-out visitor to sign-in;
+  - all 6 font files are served as `font/woff2` (about 107 KB of Bricolage and 29 KB of DM Mono).
+- **The owner's phone check on production passed** on 2026-10-01 (Manual Testing Steps, step 3):
+  - the list in both themes, with the new line under each price;
+  - a product's refresh;
+  - the chips;
+  - the avatar menu;
+  - sign-in still dark.
+- **Left for later changes:**
+  - `follow-ups/review-fixes.md`, with lists for S-08, S-07, the next change to the price rules, and the accepted trade-offs;
+  - the roadmap's carry-overs for S-04, S-05, S-06, S-07 and S-08.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
