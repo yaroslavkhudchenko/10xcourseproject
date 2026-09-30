@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
+import { LIST_PRICES_PARAM, NOTICE_PARAMS, PRICES_PARAM } from "@/lib/notices";
 import {
+  listRefreshBackTo,
   parsePriceRefreshCode,
   PRICE_REFRESH_CODES,
   refreshCodeOf,
@@ -560,4 +562,59 @@ describe("parsePriceRefreshCode", () => {
       expect(parsePriceRefreshCode(value)).toBeNull();
     },
   );
+});
+
+describe("listRefreshBackTo", () => {
+  const PRODUCT_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
+
+  it("has a notice parameter of its own, which the product page's address bar forgets", () => {
+    expect(LIST_PRICES_PARAM).not.toBe(PRICES_PARAM);
+    expect(NOTICE_PARAMS).toContain(LIST_PRICES_PARAM);
+  });
+
+  it.each<{ why: string; back: FormDataEntryValue | null; f: FormDataEntryValue | null; to: string }>([
+    {
+      why: "to the product it was posted from, with its filter",
+      back: PRODUCT_ID,
+      f: "promo",
+      to: `/watchlist/${PRODUCT_ID}?f=promo&${LIST_PRICES_PARAM}=done`,
+    },
+    {
+      why: "to the product, without the filter of every product",
+      back: PRODUCT_ID,
+      f: "all",
+      to: `/watchlist/${PRODUCT_ID}?${LIST_PRICES_PARAM}=done`,
+    },
+    { why: "to the list, with its filter", back: null, f: "check", to: `/watchlist?f=check&${LIST_PRICES_PARAM}=done` },
+    { why: "to the list without a filter", back: null, f: null, to: `/watchlist?${LIST_PRICES_PARAM}=done` },
+    {
+      why: "to the list, dropping a filter no chip links to",
+      back: null,
+      f: "najtańsze",
+      to: `/watchlist?${LIST_PRICES_PARAM}=done`,
+    },
+    {
+      why: "to the product, dropping a filter that isn't text",
+      back: PRODUCT_ID,
+      f: new File(["promo"], "f.txt"),
+      to: `/watchlist/${PRODUCT_ID}?${LIST_PRICES_PARAM}=done`,
+    },
+  ])("goes back $why", ({ back, f, to }) => {
+    expect(listRefreshBackTo(back, f, "done")).toBe(to);
+  });
+
+  it("carries each code the refresh can come to", () => {
+    for (const code of PRICE_REFRESH_CODES) {
+      expect(listRefreshBackTo(null, null, code)).toBe(`/watchlist?${LIST_PRICES_PARAM}=${code}`);
+    }
+  });
+
+  it.each<{ why: string; back: FormDataEntryValue }>([
+    { why: "an id that isn't a UUID", back: "26900" },
+    { why: "an empty id", back: "" },
+    { why: "a path", back: `${PRODUCT_ID}/../../auth/signout` },
+    { why: "a file", back: new File([PRODUCT_ID], "back.txt") },
+  ])("goes back to the plain list with no code for $why, which only a crafted post sends", ({ back }) => {
+    expect(listRefreshBackTo(back, "promo", "done")).toBe("/watchlist");
+  });
 });

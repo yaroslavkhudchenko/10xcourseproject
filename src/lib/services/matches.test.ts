@@ -20,6 +20,7 @@ import type { MatchedItem, ShopCandidate } from "@/types";
 
 const ITEM_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
 const OTHER_ITEM_ID = "4f1c2a8e-5b7d-4c3e-9a1f-0d2b3c4e5f60";
+const THIRD_ITEM_ID = "7d3e8b1a-2c4f-4e6a-8b9c-1d2e3f4a5b6c";
 const SOFT_EAN = "4005900009319";
 // An EAN Natura doesn't list, as natura-ean-miss.json recorded.
 const MISSING_EAN = "5901234123457";
@@ -561,10 +562,13 @@ describe("listMatchStates", () => {
       ],
     });
 
-    expect(await listMatchStates(client)).toEqual([
-      { watchlistItemId: ITEM_ID, shop: "natura", state: "matched", shopItemId: "NV89063" },
-      { watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "not_found", shopItemId: null },
-    ]);
+    expect(await listMatchStates(client)).toEqual({
+      states: [
+        { watchlistItemId: ITEM_ID, shop: "natura", state: "matched", shopItemId: "NV89063" },
+        { watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "not_found", shopItemId: null },
+      ],
+      unread: [],
+    });
     expect(queries).toEqual([
       [
         ["from", "watchlist_matches"],
@@ -574,21 +578,51 @@ describe("listMatchStates", () => {
     ]);
   });
 
-  it("drops odd rows and keeps the rest", async () => {
+  it("reports the products whose rows it couldn't read, keeps the rest, and logs how many it dropped", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { client } = stubClient({
       data: [
+        // A state a later migration might add before the code knows it.
         { watchlist_item_id: ITEM_ID, shop_id: "natura", state: "repinned", shop_item_id: null },
-        { watchlist_item_id: ITEM_ID, shop_id: "dm", state: "matched", shop_item_id: "NV89063" },
         // A match without its item: the list couldn't find its prices.
-        { watchlist_item_id: ITEM_ID, shop_id: "natura", state: "matched", shop_item_id: null },
+        { watchlist_item_id: THIRD_ITEM_ID, shop_id: "natura", state: "matched", shop_item_id: null },
         { watchlist_item_id: OTHER_ITEM_ID, shop_id: "natura", state: "unmatched", shop_item_id: null },
       ],
     });
 
-    expect(await listMatchStates(client)).toEqual([
-      { watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "unmatched", shopItemId: null },
-    ]);
+    // The list then says those products' matches couldn't be read, never that they're still to be matched.
+    expect(await listMatchStates(client)).toEqual({
+      states: [{ watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "unmatched", shopItemId: null }],
+      unread: [ITEM_ID, THIRD_ITEM_ID],
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
+    const line: unknown = JSON.parse(String(warn.mock.calls[0][0]));
+    expect(line).toMatchObject({ reason: "unexpected rows dropped", detail: "2" });
+  });
+
+  it("names a product once, however many of its rows couldn't be read", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({
+      data: [
+        { watchlist_item_id: ITEM_ID, shop_id: "natura", state: "repinned", shop_item_id: null },
+        { watchlist_item_id: ITEM_ID, shop_id: "dm", state: "matched", shop_item_id: "NV89063" },
+      ],
+    });
+
+    expect(await listMatchStates(client)).toEqual({ states: [], unread: [ITEM_ID] });
+  });
+
+  it.each<{ why: string; row: unknown }>([
+    { why: "names no product", row: { watchlist_item_id: null, shop_id: "natura", state: "matched" } },
+    { why: "has a product id that isn't text", row: { watchlist_item_id: 42, shop_id: "natura", state: "unmatched" } },
+    { why: "isn't a row at all", row: "natura" },
+  ])("gives null for an odd row that $why, since it could be any product's", async ({ row }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({
+      data: [row, { watchlist_item_id: OTHER_ITEM_ID, shop_id: "natura", state: "unmatched", shop_item_id: null }],
+    });
+
+    expect(await listMatchStates(client)).toBeNull();
     expect(warn).toHaveBeenCalledTimes(1);
   });
 

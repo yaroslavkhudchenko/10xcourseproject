@@ -127,21 +127,25 @@ const latestRowSchema = z.union([
 ]);
 
 /**
- * The latest state of the shop items the user watches: every one RLS lets them see without `keys`, as the list needs,
- * or only the given ones. Odd rows are dropped and logged. Null when the prices couldn't be read.
+ * The latest prices a read found, and the items whose rows came back odd, so a page never shows such an item as one
+ * that was never checked.
  */
-export async function listLatestPrices(supabase: SupabaseClient, keys?: PriceKey[]): Promise<LatestPrice[] | null> {
-  if (keys?.length === 0) {
-    return [];
-  }
-  const rows = await readLatestRows(supabase, keys);
-  return rows === null ? null : rows.prices;
-}
-
-/** The latest prices of the items a product's page asked for, and the asked-for items whose rows couldn't be read. */
 export interface LatestPricesRead {
   prices: LatestPrice[];
   unread: PriceKey[];
+}
+
+/**
+ * The latest state of every shop item the user watches, as RLS lets them see it, for the list: their prices, and the
+ * items whose rows came back odd. Odd rows are logged. Null when the prices couldn't be read, and when an odd row can't
+ * even say which item it's about, since it could be any product's.
+ */
+export async function listLatestPrices(supabase: SupabaseClient): Promise<LatestPricesRead | null> {
+  const rows = await readLatestRows(supabase);
+  if (rows === null || rows.unattributed > 0) {
+    return null;
+  }
+  return { prices: rows.prices, unread: rows.unread };
 }
 
 /**
@@ -161,8 +165,8 @@ export async function readLatestPrices(supabase: SupabaseClient, keys: PriceKey[
 }
 
 /**
- * What one read of the latest rows came to: the prices of the items asked for, the items asked for whose rows couldn't
- * be read, and how many odd rows couldn't say which item they're about.
+ * What one read of the latest rows came to: the prices of the items asked for (every item, without `keys`), the items
+ * asked for whose rows couldn't be read, and how many odd rows couldn't say which item they're about.
  */
 interface LatestRows {
   prices: LatestPrice[];

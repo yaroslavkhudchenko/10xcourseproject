@@ -32,12 +32,15 @@ const searchAllowed = isOwnNavigation(Astro.request.headers);
 
 // The matches and the prices come from one query each for the whole list, never one per product, and carry only what
 // the list shows. The prices are the stored ones: viewing the list asks no shop.
-const [search, items, matches, prices] = await Promise.all([
+const [search, items, matchRead, priceRead] = await Promise.all([
   query === null || !searchAllowed ? null : searchRossmann(shopGateFor(supabase), query),
   supabase ? listWatchlist(supabase) : null,
   supabase ? listMatchStates(supabase) : null,
   supabase ? listLatestPrices(supabase) : null,
 ]);
+// The reads also name the rows they couldn't read; until the list shows them, such a row counts as none, as before.
+const matches = matchRead?.states ?? null;
+const prices = priceRead?.prices ?? null;
 
 const unavailableMessage =
   search?.kind === "unavailable" ? shopUnavailableText("Rossmann", search.reason, search.until) : null;

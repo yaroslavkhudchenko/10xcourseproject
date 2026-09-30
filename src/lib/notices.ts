@@ -22,7 +22,13 @@ export const ERROR_PARAM = "error";
 export const PRICES_PARAM = "prices";
 
 /**
- * Every parameter a notice comes with, which the product page's address bar forgets once the notice has shown: a
- * decision's, a decision's error and the no-JavaScript refresh's.
+ * The parameter the list's own "Odśwież ceny", which refreshes every product, comes back with (`?list-prices=done`),
+ * on the list or on the product page it was posted from, apart from the product's own refresh.
  */
-export const NOTICE_PARAMS = [...DECISION_CODES, ERROR_PARAM, PRICES_PARAM] as const;
+export const LIST_PRICES_PARAM = "list-prices";
+
+/**
+ * Every parameter a notice comes with, which the product page's address bar forgets once the notice has shown: a
+ * decision's, a decision's error, the product's no-JavaScript refresh's and the list's refresh's.
+ */
+export const NOTICE_PARAMS = [...DECISION_CODES, ERROR_PARAM, PRICES_PARAM, LIST_PRICES_PARAM] as const;

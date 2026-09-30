@@ -1,10 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { LIST_PRICES_PARAM } from "@/lib/notices";
 import { keyText } from "@/lib/services/price-comparison";
 import { recordPriceChecks, type PriceRecordResult } from "@/lib/services/prices";
 import type { ShopGate } from "@/lib/services/shop-gate";
 import { fetchNaturaPrices } from "@/lib/services/shops/natura";
 import { fetchRossmannPrice } from "@/lib/services/shops/rossmann";
 import { isRefusal } from "@/lib/services/shops/shop-outcome";
+import { parseWatchlistItemId } from "@/lib/services/watchlist";
+import { parseListFilter } from "@/lib/services/watchlist-rows";
 import type { PriceCheck, PriceKey, ShopId, ShopUnavailable } from "@/types";
 
 // Refreshing pinned items' prices, for a product's page and for the list: every request goes through the gate, and
@@ -133,4 +136,28 @@ export function refreshCodeOf({ results, saved }: PriceRefresh): PriceRefreshCod
 /** A `?prices=` code, or null for anything the app didn't send itself, so a link can't put words on a page. */
 export function parsePriceRefreshCode(value: string | null): PriceRefreshCode | null {
   return PRICE_REFRESH_CODES.find((code) => code === value) ?? null;
+}
+
+/**
+ * Where the list's "Odśwież ceny" goes back to with its code: the product page it was posted from (`back`), or the
+ * list without one, keeping the list's filter (`f`) unless it's every product's. A `back` that isn't a product's id
+ * only comes from a crafted post, which goes back to the list with no code and no filter; a filter no chip links to
+ * is dropped.
+ */
+export function listRefreshBackTo(
+  back: FormDataEntryValue | null,
+  f: FormDataEntryValue | null,
+  code: PriceRefreshCode,
+): string {
+  const itemId = back === null ? null : parseWatchlistItemId(back);
+  if (back !== null && itemId === null) {
+    return "/watchlist";
+  }
+  const params = new URLSearchParams();
+  const filter = parseListFilter(typeof f === "string" ? f : null);
+  if (filter !== "all") {
+    params.set("f", filter);
+  }
+  params.set(LIST_PRICES_PARAM, code);
+  return `${itemId === null ? "/watchlist" : `/watchlist/${itemId}`}?${params.toString()}`;
 }
