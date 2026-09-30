@@ -1247,9 +1247,9 @@ They were built test-first in a parallel worktree and cherry-picked onto this br
 
 #### Manual
 
-- [x] 1.6 On the dev server, `/watchlist/<id>` follows the system theme in both system themes, with no flash of the other theme on reload
-- [x] 1.7 `/`, `/dashboard` and `/auth/signin` keep today's colours in both system themes
-- [x] 1.8 The fonts load from `/_astro/fonts/` in the Network tab, and headings render in Bricolage Grotesque
+- [x] 1.6 On the dev server, `/watchlist/<id>` follows the system theme in both system themes, with no flash of the other theme on reload — f9d3d65
+- [x] 1.7 `/`, `/dashboard` and `/auth/signin` keep today's colours in both system themes — f9d3d65
+- [x] 1.8 The fonts load from `/_astro/fonts/` in the Network tab, and headings render in Bricolage Grotesque — f9d3d65
 
 ### Phase 2: Primitives
 
@@ -1261,10 +1261,10 @@ They were built test-first in a parallel worktree and cherry-picked onto this br
 
 #### Manual
 
-- [x] 2.4 The kitchen sink at 1280 and 390 px, in light and dark, shows every primitive as the handoff draws it
-- [x] 2.5 The theme switch flips the theme and keeps the choice across reloads
-- [x] 2.6 Every control shows a 2 px focus outline on Tab and has a hit area of at least 44 px, in both themes
-- [x] 2.7 The sticker stamps once on load, and not with reduced motion on
+- [x] 2.4 The kitchen sink at 1280 and 390 px, in light and dark, shows every primitive as the handoff draws it — b041f7e
+- [x] 2.5 The theme switch flips the theme and keeps the choice across reloads — b041f7e
+- [x] 2.6 Every control shows a 2 px focus outline on Tab and has a hit area of at least 44 px, in both themes — b041f7e
+- [x] 2.7 The sticker stamps once on load, and not with reduced motion on — b041f7e
 
 ### Phase 3: The shell and the list
 
@@ -1278,10 +1278,10 @@ They were built test-first in a parallel worktree and cherry-picked onto this br
 
 #### Manual
 
-- [x] 3.6 The list at 1280 and 390 px, in light and dark, matches the handoff's list (`design-captures/2a-*`, `2b-*`)
-- [x] 3.7 The chips hold the right products for the owner's own list, with the right counts
-- [x] 3.8 Without JavaScript, search, the chips, "Odśwież ceny", the avatar menu and "Wyloguj" work
-- [x] 3.9 "/" focuses the search on desktop, but not while typing in a field
+- [x] 3.6 The list at 1280 and 390 px, in light and dark, matches the handoff's list (`design-captures/2a-*`, `2b-*`) — fb976f8
+- [x] 3.7 The chips hold the right products for the owner's own list, with the right counts — fb976f8
+- [x] 3.8 Without JavaScript, search, the chips, "Odśwież ceny", the avatar menu and "Wyloguj" work — fb976f8
+- [x] 3.9 "/" focuses the search on desktop, but not while typing in a field — fb976f8
 
 ### Phase 4: The product area
 
@@ -1294,10 +1294,10 @@ They were built test-first in a parallel worktree and cherry-picked onto this br
 
 #### Manual
 
-- [x] 4.5 The kitchen sink shows every price state in the new product area, in light and dark, at 1280 and 390 px
-- [x] 4.6 On the dev server, a real product refreshes shop by shop, and the hero, the track and the caption follow
-- [x] 4.7 Without JavaScript, both "Odśwież ceny" forms (title row and bottom bar) refresh the product
-- [x] 4.8 The sticker never covers the price or the caption, at 1280 and 390 px
+- [x] 4.5 The kitchen sink shows every price state in the new product area, in light and dark, at 1280 and 390 px — 5c1c302
+- [x] 4.6 On the dev server, a real product refreshes shop by shop, and the hero, the track and the caption follow — 5c1c302
+- [x] 4.7 Without JavaScript, both "Odśwież ceny" forms (title row and bottom bar) refresh the product — 5c1c302
+- [x] 4.8 The sticker never covers the price or the caption, at 1280 and 390 px — 5c1c302
 
 ### Phase 5: Natura in its card, and the list beside the product
 
@@ -1310,22 +1310,22 @@ They were built test-first in a parallel worktree and cherry-picked onto this br
 
 #### Manual
 
-- [x] 5.5 Every Natura state renders inside its card in the kitchen sink, with "choose" below the grid, in light and dark
-- [x] 5.6 At 1280 px, the list beside a product shows it selected, and its tag follows the product's refresh
-- [x] 5.7 Chips on a product page keep the product, and the list's "Odśwież ceny" returns to it with the list's notice
-- [x] 5.8 Without JavaScript, the Natura links and the choose forms work
-- [x] 5.9 The list beside the product adds no shop request to a product view, checked in `shop_requests`
+- [x] 5.5 Every Natura state renders inside its card in the kitchen sink, with "choose" below the grid, in light and dark — 052ed81
+- [x] 5.6 At 1280 px, the list beside a product shows it selected, and its tag follows the product's refresh — 052ed81
+- [x] 5.7 Chips on a product page keep the product, and the list's "Odśwież ceny" returns to it with the list's notice — 052ed81
+- [x] 5.8 Without JavaScript, the Natura links and the choose forms work — 052ed81
+- [x] 5.9 The list beside the product adds no shop request to a product view, checked in `shop_requests` — 052ed81
 
 ### Phase 6: Every state, the visual gate and the docs
 
 #### Automated
 
-- [x] 6.1 `npm run lint`, `npx astro check`, `npm run test`, `npm run build` with `node scripts/check-built-fonts.mjs`, and `node scripts/check-token-contrast.mjs` pass
-- [x] 6.2 A deliberate palette class and an arbitrary px value in a newly guarded file fail lint, and so does a server import in a new island module
-- [x] 6.3 `npm run smoke` passes
+- [x] 6.1 `npm run lint`, `npx astro check`, `npm run test`, `npm run build` with `node scripts/check-built-fonts.mjs`, and `node scripts/check-token-contrast.mjs` pass — f125980
+- [x] 6.2 A deliberate palette class and an arbitrary px value in a newly guarded file fail lint, and so does a server import in a new island module — f125980
+- [x] 6.3 `npm run smoke` passes — f125980
 
 #### Manual
 
-- [x] 6.4 The screenshots at 1280 and 390 px, in light and dark, match the handoff's 2a and 2b
-- [x] 6.5 The QA checklist passes: 44 px targets, focus on every control, no wrapping inside pills or buttons, no JavaScript, reduced motion and the safe-area insets
-- [x] 6.6 The owner's phone walk-through on the dev server passes: the list, a product, back, the chips, a refresh, the theme switch and the avatar menu
+- [x] 6.4 The screenshots at 1280 and 390 px, in light and dark, match the handoff's 2a and 2b — f125980
+- [x] 6.5 The QA checklist passes: 44 px targets, focus on every control, no wrapping inside pills or buttons, no JavaScript, reduced motion and the safe-area insets — f125980
+- [x] 6.6 The owner's phone walk-through on the dev server passes: the list, a product, back, the chips, a refresh, the theme switch and the avatar menu — f125980

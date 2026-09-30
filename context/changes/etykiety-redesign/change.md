@@ -1,7 +1,7 @@
 ---
 change_id: etykiety-redesign
 title: "Etykiety i naklejki" redesign of the list and product page
-status: implementing
+status: implemented
 created: 2026-09-30
 updated: 2026-09-30
 archived_at: null
