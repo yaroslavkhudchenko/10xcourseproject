@@ -1,23 +1,23 @@
 ---
 import SubmitOnce from "@/components/SubmitOnce.astro";
-import ProductSummary from "@/components/watchlist/ProductSummary.astro";
-import Layout from "@/layouts/Layout.astro";
+import SearchForm from "@/components/shell/SearchForm.astro";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import ListFooter from "@/components/watchlist/ListFooter.astro";
+import ListHead from "@/components/watchlist/ListHead.astro";
+import ListRows from "@/components/watchlist/ListRows.astro";
+import SearchResults from "@/components/watchlist/SearchResults.astro";
+import WatchlistShell from "@/layouts/WatchlistShell.astro";
+import { PRICES_PARAM } from "@/lib/notices";
 import { listMatchStates } from "@/lib/services/matches";
-import {
-  compareShops,
-  listPricedItems,
-  listSummaryText,
-  PRICED_SHOPS,
-  SHOP_LABELS,
-} from "@/lib/services/price-comparison";
-import { parsePriceRefreshCode, type PriceRefreshCode } from "@/lib/services/price-refresh";
+import { SHOP_LABELS } from "@/lib/services/price-comparison";
+import { parsePriceRefreshCode } from "@/lib/services/price-refresh";
 import { listLatestPrices } from "@/lib/services/prices";
 import { shopGateFor } from "@/lib/services/shop-gate";
 import { isOwnNavigation, searchQuerySchema } from "@/lib/services/search-query";
 import { searchRossmann } from "@/lib/services/shops/rossmann";
+import { filterCounts, listRowsOf, parseListFilter } from "@/lib/services/watchlist-rows";
 import { listWatchlist, watchlistErrorMessage } from "@/lib/services/watchlist";
 import { shopUnavailableText } from "@/lib/shop-messages";
-import type { MatchState } from "@/types";
 
 const { user, supabase } = Astro.locals;
 const params = Astro.url.searchParams;
@@ -31,300 +31,92 @@ const invalidQuery = parsedQuery !== null && !parsedQuery.success;
 const searchAllowed = isOwnNavigation(Astro.request.headers);
 
 // The matches and the prices come from one query each for the whole list, never one per product, and carry only what
-// the list shows. The prices are the stored ones: viewing the list asks no shop.
+// the list shows. The prices are the stored ones: viewing the list, filtered by a chip or not, asks no shop.
 const [search, items, matchRead, priceRead] = await Promise.all([
   query === null || !searchAllowed ? null : searchRossmann(shopGateFor(supabase), query),
   supabase ? listWatchlist(supabase) : null,
   supabase ? listMatchStates(supabase) : null,
   supabase ? listLatestPrices(supabase) : null,
 ]);
-// The reads also name the rows they couldn't read; until the list shows them, such a row counts as none, as before.
-const matches = matchRead?.states ?? null;
-const prices = priceRead?.prices ?? null;
 
 const unavailableMessage =
-  search?.kind === "unavailable" ? shopUnavailableText("Rossmann", search.reason, search.until) : null;
-const watched = new Set((items ?? []).map((item) => `${item.source}:${item.sourceItemId}`));
+  search?.kind === "unavailable" ? shopUnavailableText(SHOP_LABELS.rossmann.name, search.reason, search.until) : null;
 
-// Each product's Natura decision; a product without one is still to be matched on its page.
-const naturaStates = new Map(
-  (matches ?? [])
-    .filter((match) => match.shop === "natura")
-    .map((match) => [match.watchlistItemId, match.state] as const),
-);
-const NATURA_STATUS: Record<MatchState | "none", { text: string; tone: string }> = {
-  matched: { text: "Natura: dopasowano", tone: "text-emerald-200" },
-  none: { text: "Natura: do dopasowania", tone: "text-amber-200" },
-  not_found: { text: "Natura: nie znaleziono", tone: "text-blue-100/70" },
-  unmatched: { text: "Natura: brak (Twój wybór)", tone: "text-blue-100/70" },
-};
-function naturaStatus(itemId: string) {
-  return NATURA_STATUS[naturaStates.get(itemId) ?? "none"];
-}
-
-/** One line of text under a product on the list, with its colour. */
-interface RowLine {
-  text: string;
-  tone: string;
-}
-
-// Each product's shop items with their stored prices: its own Rossmann item and its Natura match, compared at the
-// time of this render. Without the prices or the Natura decisions a row can't say which shop is cheapest, so no row
-// gets a price line.
-const now = Date.now();
-const pricedItems =
-  items !== null && matches !== null && prices !== null ? listPricedItems(items, matches, prices) : null;
-const priceSites = PRICED_SHOPS.map((shop) => SHOP_LABELS[shop].site).join(" i ");
-
-/** A product's price line: the cheapest shop in green, the only shop's fresh, orderable price plainly, else a warning. */
-function priceLine(itemId: string): RowLine | null {
-  const rows = pricedItems?.get(itemId);
-  if (rows === undefined) {
-    return null;
-  }
-  const { summary, rows: compared } = compareShops(rows, now);
-  const current = summary.kind === "only" && compared.every((row) => row.eligible);
-  const tone = summary.kind === "cheapest" ? "text-emerald-200" : current ? "text-blue-100/80" : "text-amber-200";
-  return { text: listSummaryText(summary, compared, now), tone };
-}
-
-/** What a row shows under the product: its price line, then S-02's Natura status, which a match's price line replaces. */
-function rowLines(itemId: string): RowLine[] {
-  const price = priceLine(itemId);
-  const lines: RowLine[] = price === null ? [] : [price];
-  if (matches !== null && !(price !== null && naturaStates.get(itemId) === "matched")) {
-    lines.push(naturaStatus(itemId));
-  }
-  return lines;
-}
-
-// What the list's "Odśwież ceny" came to, in the page's own words: a code the app didn't send shows nothing.
-const PRICE_NOTICES: Record<PriceRefreshCode, { text: string; warning: boolean }> = {
-  done: { text: "Ceny odświeżone.", warning: false },
-  partial: {
-    text: "Nie wszystkie ceny udało się odświeżyć. Tam, gdzie się nie udało, widać ostatnią znaną cenę i jej wiek.",
-    warning: true,
-  },
-  none: { text: "Nic do odświeżenia: ceny sprawdzono w ciągu ostatnich 15 minut.", warning: false },
-  failed: { text: "Nie udało się odświeżyć cen. Spróbuj ponownie za chwilę.", warning: true },
-};
-const pricesCode = parsePriceRefreshCode(params.get("prices"));
-const pricesNotice = pricesCode === null ? null : PRICE_NOTICES[pricesCode];
+// Each product's row, judged now: a product whose price or Natura decision couldn't be read says so.
+const rows = items === null ? null : listRowsOf(items, matchRead, priceRead, Date.now());
+// The chips, and the filter they set, only when every read worked: a row whose price or decision couldn't be read
+// can't say whether a chip holds it. An empty list has nothing to filter.
+const counts = rows !== null && rows.length > 0 && matchRead !== null && priceRead !== null ? filterCounts(rows) : null;
+const filter = counts === null ? "all" : parseListFilter(params.get("f"));
 
 const notice = params.has("exists") ? "Ten produkt jest już na Twojej liście." : null;
 const error = watchlistErrorMessage(params.get("error"));
-const addedOn = new Intl.DateTimeFormat("pl-PL", { dateStyle: "long", timeZone: "Europe/Warsaw" });
 ---
 
-<Layout title="Moja lista · Drogeria Radar" lang="pl">
-  <div class="bg-paper min-h-screen p-4 text-white sm:p-8">
-    <main class="mx-auto flex max-w-lg flex-col gap-6">
-      <header class="flex items-center justify-between gap-3">
-        <div class="min-w-0">
-          <h1 class="text-2xl font-bold">Moja lista</h1>
-          <p class="truncate text-sm text-blue-100/60">{user?.email}</p>
-        </div>
-        <form method="POST" action="/api/auth/signout">
-          <button
-            type="submit"
-            class="min-h-11 rounded-lg border border-white/20 px-3 text-sm transition-colors hover:bg-white/10"
-          >
-            Wyloguj
-          </button>
-        </form>
-      </header>
+<WatchlistShell title="Moja lista · Drogeria Radar" mode="list" email={user?.email ?? null} query={rawQuery}>
+  <ListHead
+    slot="head"
+    count={items?.length ?? null}
+    path={Astro.url.pathname}
+    filter={filter}
+    counts={counts}
+    refreshCode={parsePriceRefreshCode(params.get(PRICES_PARAM))}
+  >
+    {notice && (
+      <Alert variant="success" role="status">
+        <AlertDescription>{notice}</AlertDescription>
+      </Alert>
+    )}
+    {error && (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    )}
+    <SearchForm slot="search" id="q-mobile" value={rawQuery} variant="list" class="lg:hidden" />
+  </ListHead>
 
-      <form method="GET" action="/watchlist" role="search" class="flex flex-col gap-2">
-        <label for="q" class="text-sm text-blue-100/80">
-          Szukaj produktu
-        </label>
-        <div class="flex gap-2">
-          <input
-            id="q"
-            name="q"
-            type="search"
-            value={rawQuery ?? ""}
-            placeholder="np. nivea soft 300 ml"
-            required
-            minlength="2"
-            maxlength="80"
-            autocomplete="off"
-            enterkeyhint="search"
-            class="min-h-11 min-w-0 flex-1 rounded-lg border border-white/20 bg-white/10 px-3 text-white placeholder-white/40 focus:ring-2 focus:ring-purple-400 focus:outline-none"
-          />
-          <button
-            type="submit"
-            class="min-h-11 rounded-lg bg-purple-600 px-4 font-medium transition-colors hover:bg-purple-500"
-          >
-            Szukaj
-          </button>
-        </div>
-      </form>
-
-      {notice && (
-        <p
-          role="status"
-          class="rounded-lg border border-emerald-400/30 bg-emerald-900/30 px-3 py-2 text-sm text-emerald-200"
-        >
-          {notice}
-        </p>
-      )}
-      {error && (
-        <p role="alert" class="rounded-lg border border-red-500/30 bg-red-900/30 px-3 py-2 text-sm text-red-300">
-          {error}
-        </p>
-      )}
+  {rawQuery === null ? (
+    <p class="hidden h-full items-center justify-center text-center text-muted-foreground lg:flex">
+      Wybierz produkt z listy albo wyszukaj nowy.
+    </p>
+  ) : (
+    <div class="flex flex-col gap-4 pt-4 lg:pt-0">
       {invalidQuery && (
-        <p role="alert" class="rounded-lg border border-red-500/30 bg-red-900/30 px-3 py-2 text-sm text-red-300">
-          Wpisz od 2 do 80 znaków: litery, cyfry, spacje i znaki . , % &amp; ' + / ( ) -
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>
+            Wpisz od 2 do 80 znaków: litery, cyfry, spacje i znaki . , % &amp; ' + / ( ) -
+          </AlertDescription>
+        </Alert>
       )}
       {query !== null && !searchAllowed && (
-        <p role="status" class="text-sm text-blue-100/80">
-          Naciśnij „Szukaj”, aby wyszukać „{query}”.
-        </p>
+        <Alert role="status">
+          <AlertDescription>Naciśnij „Szukaj”, aby wyszukać „{query}”.</AlertDescription>
+        </Alert>
       )}
       {unavailableMessage && (
-        <p role="alert" class="rounded-lg border border-amber-400/30 bg-amber-900/30 px-3 py-2 text-sm text-amber-200">
-          {unavailableMessage}
-        </p>
+        <Alert variant="warning">
+          <AlertDescription>{unavailableMessage}</AlertDescription>
+        </Alert>
       )}
-
-      {search?.kind === "results" && (
-        <section aria-labelledby="results-heading" class="flex flex-col gap-3">
-          <h2 id="results-heading" class="text-lg font-semibold">
-            Wyniki wyszukiwania
-          </h2>
-          {search.spellingHint && (
-            <p class="text-sm text-blue-100/80">
-              Czy chodziło Ci o:{" "}
-              <a href={`/watchlist?q=${encodeURIComponent(search.spellingHint)}`} class="text-purple-300 underline">
-                {search.spellingHint}
-              </a>
-              ?
-            </p>
-          )}
-          {search.candidates.length === 0 ? (
-            <p class="text-sm text-blue-100/70">Brak wyników dla „{query}”.</p>
-          ) : (
-            <ul class="flex flex-col gap-2">
-              {search.candidates.map((candidate) => (
-                <li class="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
-                  <ProductSummary
-                    brand={candidate.brand}
-                    name={candidate.name}
-                    caption={candidate.caption}
-                    sizeText={candidate.sizeText}
-                    imageUrl={candidate.imageUrl}
-                  />
-                  {watched.has(`${candidate.source}:${candidate.sourceItemId}`) ? (
-                    <span class="shrink-0 text-sm text-emerald-200">Na liście</span>
-                  ) : (
-                    <form method="POST" action="/api/watchlist" class="shrink-0">
-                      <input type="hidden" name="source" value={candidate.source} />
-                      <input type="hidden" name="sourceItemId" value={candidate.sourceItemId} />
-                      <input type="hidden" name="name" value={candidate.name} />
-                      <input type="hidden" name="brand" value={candidate.brand ?? ""} />
-                      <input type="hidden" name="caption" value={candidate.caption ?? ""} />
-                      <input type="hidden" name="sizeText" value={candidate.sizeText ?? ""} />
-                      <input type="hidden" name="productUrl" value={candidate.productUrl ?? ""} />
-                      <input type="hidden" name="imageUrl" value={candidate.imageUrl ?? ""} />
-                      {candidate.eans.map((ean) => (
-                        <input type="hidden" name="eans" value={ean} />
-                      ))}
-                      <button
-                        type="submit"
-                        class="min-h-11 rounded-lg bg-purple-600 px-4 text-sm font-medium transition-colors hover:bg-purple-500"
-                      >
-                        Dodaj
-                      </button>
-                    </form>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-          <p class="text-xs text-blue-100/50">Wyniki z wyszukiwarki rossmann.pl</p>
-        </section>
+      {search?.kind === "results" && query !== null && (
+        <SearchResults
+          query={query}
+          candidates={search.candidates}
+          spellingHint={search.spellingHint}
+          listed={items ?? []}
+          path="/watchlist"
+        />
       )}
-
-      <section aria-labelledby="list-heading" class="flex flex-col gap-3">
-        <div class="flex items-center justify-between gap-3">
-          <h2 id="list-heading" class="text-lg font-semibold">
-            Obserwowane produkty
-          </h2>
-          {items !== null && items.length > 0 && (
-            <form method="POST" action="/api/watchlist/refresh" class="shrink-0" data-submit-once>
-              <button
-                type="submit"
-                class="min-h-11 rounded-lg border border-white/20 px-3 text-sm transition-colors hover:bg-white/10 disabled:opacity-60"
-              >
-                Odśwież ceny
-              </button>
-            </form>
-          )}
-        </div>
-        {pricesNotice &&
-          (pricesNotice.warning ? (
-            <p
-              role="alert"
-              class="rounded-lg border border-amber-400/30 bg-amber-900/30 px-3 py-2 text-sm text-amber-200"
-            >
-              {pricesNotice.text}
-            </p>
-          ) : (
-            <p
-              role="status"
-              class="rounded-lg border border-emerald-400/30 bg-emerald-900/30 px-3 py-2 text-sm text-emerald-200"
-            >
-              {pricesNotice.text}
-            </p>
-          ))}
-        {items === null ? (
-          <p role="alert" class="text-sm text-red-300">
-            Nie udało się wczytać listy. Odśwież stronę.
-          </p>
-        ) : items.length === 0 ? (
-          <p class="text-sm text-blue-100/70">Twoja lista jest pusta. Wyszukaj produkt powyżej.</p>
-        ) : (
-          <>
-            {matches === null && (
-              <p role="alert" class="text-sm text-red-300">
-                Nie udało się wczytać dopasowań w Naturze. Odśwież stronę.
-              </p>
-            )}
-            {prices === null && (
-              <p role="alert" class="text-sm text-red-300">
-                Nie udało się wczytać cen. Odśwież stronę.
-              </p>
-            )}
-            <ul class="flex flex-col gap-2">
-              {items.map((item) => (
-                <li>
-                  <a
-                    href={`/watchlist/${encodeURIComponent(item.id)}`}
-                    class="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 p-3 transition-colors hover:bg-white/10"
-                  >
-                    <ProductSummary
-                      brand={item.brand}
-                      name={item.name}
-                      caption={item.caption}
-                      sizeText={item.sizeText}
-                      imageUrl={item.imageUrl}
-                      detail={`dodano ${addedOn.format(new Date(item.addedAt))}`}
-                    />
-                    {rowLines(item.id).map((line) => (
-                      <span class:list={["text-sm", line.tone]}>{line.text}</span>
-                    ))}
-                  </a>
-                </li>
-              ))}
-            </ul>
-            {pricedItems !== null && <p class="text-xs text-blue-100/50">Ceny online z {priceSites}.</p>}
-          </>
-        )}
-      </section>
-    </main>
-  </div>
+    </div>
+  )}
   <SubmitOnce />
-</Layout>
+
+  <ListRows
+    slot="rows"
+    rows={rows}
+    filter={filter}
+    matchesFailed={matchRead === null}
+    pricesFailed={priceRead === null}
+  />
+  {counts !== null && <ListFooter slot="footer" />}
+</WatchlistShell>

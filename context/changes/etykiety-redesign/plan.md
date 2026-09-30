@@ -1006,6 +1006,91 @@ Both kitchen sinks show every state in both themes. The screenshots and the hand
 - **`global.css`** gains `@source not "../../.claude"` (the orchestrator's call). Tailwind was scanning the parallel agent's worktree and the skills' docs there, so a local build could hide a class that CI's build lacks.
 - **Manual check 2.5** (the switch keeps the choice) needs a signed-in watchlist page. The kitchen sink is pinned light, so a reload shows it light again.
 
+### The rules pulled forward (phases 3–5)
+
+They were built test-first in a parallel worktree and cherry-picked onto this branch after phase 2: `94f4877` (the rules) and `7857030` (the list reads' fix below). One conflict came up, the import list in `price-comparison.test.ts`, and it kept both names. 875 tests pass after the merge.
+
+**The verdict:**
+
+- `PriceVerdict` carries `at`, the `now` that `verdictOf(compared, now, unread)` was given. `compared` is `compareShops`' `{ rows, summary }`, and `unread` is a boolean. `heroOf` and `trackOf` read their ages from `at`, since their contracts take no time.
+- `only`, `unavailable` and `stale` carry `{ shop, price, pricedAt }`, and `cheapest` is `compareShops`' summary plus `at`.
+- `listSummaryText` takes an optional `unread = false` and is driven by `verdictOf`, so the tag and the sentence can't disagree.
+- An unreadable Natura match row gives the verdict `unread` (lesson "Never read an unreadable answer as missing"). Otherwise an odd match row would show "Tylko Rossmann". So the product island sends a Natura shop with `readFailed: true` when its match couldn't be read (phase 5).
+
+**The list's reads:**
+
+- The contract said an unattributable row makes the whole read `null`. That recreated S-01 F8's "one odd row emptied the whole list", so it was replaced (the orchestrator's call):
+  - The list's price and match reads return `{ prices | states, unread, unattributed }`, and they're `null` only for a failed query or a non-list answer.
+  - While `unattributed` is above 0, `rowShopsOf` and `naturaStateOf` mark only the products without a readable row as unreadable.
+  - A row for a shop the list doesn't watch is ignored and logged: outside `PRICED_SHOPS` for prices, outside `SHOP_IDS` for matches.
+  - `listTargets` never fails on odd rows, and it fetches the affected shops as never checked.
+  - The product page's keyed `readLatestPrices` keeps its rule, since it's per product.
+- `listLatestPrices` is unkeyed only (no keyed caller remained).
+
+**The row service** (`watchlist-rows.ts`):
+
+- Helpers beyond the contract, so the pages only call and map: `rowShopsOf`, `naturaStateOf`, `inFilter`, `priceTagOf`.
+- The tag tone "none (outline)" is named `"outline"`. `ListRow.name` is the name plus the caption, as the handoff shows it.
+
+**The product area's texts:**
+
+- The track's texts are lowercase data ("różnica …", "cena sprzed …", "najniższa z 30 dni"), and the view uppercases them with CSS, as the handoff's own data does.
+- `sinceText(iso, now)` gives the genitive age after "sprzed".
+- `namesOf` (with a label: `name` or `in`), `savingsText` and `PRICE_UNREAD_TEXT` are exported and defined once.
+- `naturaCardOf` takes a non-null view and adds the existing "unsaved" warning, so that message isn't lost when Natura moves into its card.
+
+**The return path:**
+
+- `LIST_PRICES_PARAM` is `"list-prices"` and is in `NOTICE_PARAMS`. `PRICES_EVENT` is `"drogeria:prices"`, with `PricesEventDetail.shops` typed as `RowShop[]`.
+- `listRefreshBackTo` takes `FormDataEntryValue | null`. An `f` that isn't a string counts as `all`, and a `back` that is empty, not a UUID or a File returns `/watchlist` with no code.
+
+**New copy for the owner to review (the rules):**
+
+- "Niedostępny online: Natura 24,99 zł · 5 min temu · Rossmann: niedostępny online"
+- "Brak ceny online · Rossmann: nie zwraca tego produktu"
+- "{shop}: jeszcze nie sprawdzono"
+- "Natura: nie udało się wczytać dopasowania"
+- "cena sprzed …"
+- "Wybierz pasujący produkt poniżej."
+
+### Phase 3
+
+- **`src/components/shell/AppHeader.astro`** is new: the plan listed it without "(new)".
+- **Shared components beyond the plan's list:** `SearchForm` (shell); `ListHead`, `ListRows`, `ListFooter` and `SearchResults` (watchlist). The page, `/dev/watchlist` and phase 5's aside share their markup. The list refresh's notice texts moved unchanged from the page into `ListHead`.
+- **`watchlist-rows.ts`** gains two helpers, with 6 tests:
+  - `rowProductOf` (types `RowProduct` and `NamedProduct`) gives a search result the list row's eyebrow and name. `ListRow` extends `RowProduct`.
+  - `listRowsOf(items, matchRead, priceRead, now)` is the page's whole path from reads to rows.
+- **New `@theme` tokens,** also named in `src/lib/utils.ts`: `text-body` 15, `text-meta` 11, `text-micro` 10, `radius-search-button` 11, `radius-kbd` 7, `radius-price-tag` 12.
+- **The shell's grid:**
+  - `lg:grid-cols-[calc(var(--spacing)*105)_minmax(0,1fr)]` and `lg:grid-rows-[auto_minmax(0,1fr)_auto]`, with explicit line placement instead of named areas.
+  - List mode's `<main>` is the grid. Product mode puts the list slots in `<aside aria-label="Moja lista">`, hidden below `lg`; without them, `main` spans the full width.
+  - The footer wrapper hides itself with `empty:hidden`. The shell's root pads the safe-area insets, since phase 1 set `viewport-fit=cover`.
+- **The rows area** has a top padding of 10 px at `lg`, not 6: otherwise the selected row's lift and focus outline are clipped. That outline sits outside the 4 px sun shadow (`focus-visible:outline-offset-6`), which closes the dark theme's ring-on-sun gap.
+- **The phone's search** keeps an inner "Szukaj" button, which capture 2b omits, because the notice "Naciśnij „Szukaj”…" names it. Both fields carry `aria-keyshortcuts="/"`, and the focus outline wraps the whole field.
+- **WatchlistRow:** the drawn tag is `aria-hidden`, because the sr-only summary says the same. Only list rows (links) lift on hover, not search results.
+- **What shows when:** the chips and the source footer need all three reads to have worked and a non-empty list. The count bubble needs at least one product.
+- **For the kitchen sink only:** AccountMenu `open`; `idPrefix` on AppHeader and SearchResults; SearchResults `path`. Its ListHead copies are `inert`, because their refresh would refresh the viewer's own list. Its "Dodaj" posts an id the add form refuses. The open menu's spacer is an inline `style`.
+- **The theme follows the system live** (the owner's report): `THEME_CHANGE_EVENT` (`"drogeria:theme"`) is in `src/lib/theme.ts` and reaches the head script through `define:vars`.
+  - While no choice is stored, the head script follows `prefers-color-scheme` as it switches, and the switches listen, to keep `aria-pressed` right.
+  - This replaces the phase 1 note that a system switch applies on the next load.
+- **The page:**
+  - It uses `PRICES_PARAM` and `SHOP_LABELS.rossmann` instead of literals.
+  - The source footer drops its trailing full stop, as in the handoff.
+  - Rows no longer show "dodano {date}" or "rozmiar nieznany".
+  - Notices and read failures are Alerts, with today's texts and roles.
+  - The avatar's letter comes from `initialOf`.
+- **Contrast check:** a popover surface with three pairs, for the account menu's panel, for 130 checks.
+- **`ProductSummary.astro`'s** header comment is corrected, since the list and the results no longer use it.
+- **For phase 5:** `ListHead`'s `h1` "Moja lista" needs a lower level beside a product's title, and its refresh form needs `back`.
+- **New copy for the owner to review:**
+  - "Żaden produkt nie pasuje do tego filtra."
+  - sr-only "Liczba produktów: N"
+  - "Konto: {email}"
+  - "Filtry listy", and "Moja lista" as the rows list's label
+  - "Ciemny motyw", the menu's row
+- **Two layout choices for the owner:** on phones, "Odśwież ceny" stays in the title row, and search results are followed by the rows with no visible heading (today's page has "Obserwowane produkty").
+- **Local data:** a throwaway user `design-check-…@example.com` with 5 made-up products (Rossmann ids 990000001–5), their Natura decisions and 6 price observations. Two real searches ran through the gate, more than 2 s apart.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -1030,9 +1115,9 @@ Both kitchen sinks show every state in both themes. The screenshots and the hand
 
 #### Automated
 
-- [x] 2.1 `npm run test` passes, with new tests for `priceParts` and `tileOf`
-- [x] 2.2 `npm run lint`, `npx astro check` and `npm run build` pass
-- [x] 2.3 `node scripts/check-token-contrast.mjs` passes with the primitives' pairs added
+- [x] 2.1 `npm run test` passes, with new tests for `priceParts` and `tileOf` — b041f7e
+- [x] 2.2 `npm run lint`, `npx astro check` and `npm run build` pass — b041f7e
+- [x] 2.3 `node scripts/check-token-contrast.mjs` passes with the primitives' pairs added — b041f7e
 
 #### Manual
 
@@ -1045,11 +1130,11 @@ Both kitchen sinks show every state in both themes. The screenshots and the hand
 
 #### Automated
 
-- [ ] 3.1 `npm run test` passes, with new tests for the row service, the verdict, the list reads' unread rows and the summary fixes
-- [ ] 3.2 `npm run lint`, `npx astro check` and `npm run build` pass
-- [ ] 3.3 `node scripts/check-token-contrast.mjs` passes
-- [ ] 3.4 `npm run smoke` passes against the dev server
-- [ ] 3.5 Deliberate breaks in the chip, tag and verdict rules turn their tests red
+- [x] 3.1 `npm run test` passes, with new tests for the row service, the verdict, the list reads' unread rows and the summary fixes
+- [x] 3.2 `npm run lint`, `npx astro check` and `npm run build` pass
+- [x] 3.3 `node scripts/check-token-contrast.mjs` passes
+- [x] 3.4 `npm run smoke` passes against the dev server
+- [x] 3.5 Deliberate breaks in the chip, tag and verdict rules turn their tests red
 
 #### Manual
 

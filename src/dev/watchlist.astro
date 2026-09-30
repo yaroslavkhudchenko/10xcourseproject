@@ -1,0 +1,275 @@
+---
+// The list's kitchen sink: the header, the list's head, rows, chips, search results and footer in every state the list
+// can show, built by the list's own components and row service from the fixtures in watchlist-fixtures.ts, for review
+// and screenshots. Only `astro dev` serves it (astro.config.mjs). The page is pinned to the light theme and draws
+// every section twice: in the light theme, then in a `dark` wrapper, whose class switches the tokens for all it
+// holds. The header's two copies stack at full width, as it spans the screen; the other sections' copies stand side by
+// side on a wide screen, as wide as the list's column. Nothing it draws reaches Supabase or a shop by a stray tap:
+// the chips and the spelling hint link back here, the rows to products no one has, whose pages answer 404 before any
+// lookup, and "Dodaj" to a product the add form refuses; the list's "Odśwież ceny", which would refresh the viewer's
+// own list, is drawn inert. Tailwind doesn't scan this folder (global.css), so its markup uses only classes the app
+// itself uses.
+import AccountMenu from "@/components/shell/AccountMenu.astro";
+import AppHeader from "@/components/shell/AppHeader.astro";
+import SearchForm from "@/components/shell/SearchForm.astro";
+import FilterChips from "@/components/watchlist/FilterChips.astro";
+import ListFooter from "@/components/watchlist/ListFooter.astro";
+import ListHead from "@/components/watchlist/ListHead.astro";
+import ListRows from "@/components/watchlist/ListRows.astro";
+import SearchResults from "@/components/watchlist/SearchResults.astro";
+import WatchlistRow from "@/components/watchlist/WatchlistRow.astro";
+import {
+  EMAIL,
+  GALLERY_COUNTS,
+  GALLERY_ROWS,
+  HERE,
+  ROW_FIXTURES,
+  ROWS_FIXTURES,
+  SEARCH_CANDIDATES,
+  SEARCH_LISTED,
+} from "@/dev/watchlist-fixtures";
+import Layout from "@/layouts/Layout.astro";
+import type { PriceRefreshCode } from "@/lib/services/price-refresh";
+import { LIST_FILTERS, type ListFilter } from "@/lib/services/watchlist-rows";
+import { DARK_THEME, LIGHT_THEME } from "@/lib/theme";
+
+// Each section's two copies: the page's own light theme, then the dark one in a wrapper that also paints its paper and
+// sets its text colour, which would otherwise come down from the light page.
+const COPIES = [
+  { theme: LIGHT_THEME, label: "Jasny motyw", wrapper: "" },
+  { theme: DARK_THEME, label: "Ciemny motyw", wrapper: "dark bg-paper text-foreground" },
+] as const;
+
+/** The list's head in its states: each chip on, each refresh notice, the empty list and a failed read. */
+const HEADS: {
+  code: string;
+  text: string;
+  count: number | null;
+  filter: ListFilter;
+  counts: Record<ListFilter, number> | null;
+  refreshCode: PriceRefreshCode | null;
+}[] = [
+  {
+    code: "all",
+    text: "cała lista, z wyszukiwarką telefonu",
+    count: GALLERY_ROWS.length,
+    filter: "all",
+    counts: GALLERY_COUNTS,
+    refreshCode: null,
+  },
+  {
+    code: "promo + partial",
+    text: "Promocje, po częściowym odświeżeniu",
+    count: GALLERY_ROWS.length,
+    filter: "promo",
+    counts: GALLERY_COUNTS,
+    refreshCode: "partial",
+  },
+  {
+    code: "check + done",
+    text: "Do sprawdzenia, po odświeżeniu",
+    count: GALLERY_ROWS.length,
+    filter: "check",
+    counts: GALLERY_COUNTS,
+    refreshCode: "done",
+  },
+  {
+    code: "empty + none",
+    text: "pusta lista: bez licznika, odświeżania i filtrów",
+    count: 0,
+    filter: "all",
+    counts: null,
+    refreshCode: "none",
+  },
+  {
+    code: "read-failed + failed",
+    text: "nie udało się wczytać cen: bez filtrów",
+    count: 3,
+    filter: "all",
+    counts: null,
+    refreshCode: "failed",
+  },
+];
+---
+
+<Layout title="Kitchen sink: lista · Drogeria Radar" lang="pl" theme="light">
+  <div class="bg-paper min-h-screen p-4 text-foreground sm:p-8">
+    <main class="flex flex-col gap-6">
+      <header class="flex max-w-lg flex-col gap-3">
+        <h1 class="text-2xl font-bold">Kitchen sink: lista</h1>
+        <p class="text-sm text-muted-foreground">
+          Widok <code>/watchlist</code> w każdym stanie, jaki może pokazać, na danych z{" "}
+          <code>src/dev/watchlist-fixtures.ts</code>, zbudowanych serwisem wierszy listy. Każda sekcja jest dwa razy: w
+          jasnym motywie i w ciemnym. Ta strona istnieje tylko w <code>astro dev</code>.
+        </p>
+        <p class="text-sm text-muted-foreground">
+          Filtry i podpowiedź pisowni prowadzą tutaj, wiersze do produktów, których nie ma na niczyjej liście, a „Dodaj”
+          do produktu, którego formularz nie przyjmie, więc przypadkowe kliknięcie nie wysyła zapytania do żadnego
+          sklepu. „Odśwież ceny” w nagłówku listy odświeżyłoby Twoją listę, więc jest nieaktywne. „Wyloguj” wylogowuje
+          naprawdę. <code>:hover</code> i <code>focus-visible</code> trzeba sprawdzić w DevTools i klawiaturą.
+        </p>
+      </header>
+
+      <section aria-labelledby="header-heading" class="flex flex-col gap-3">
+        <h2 id="header-heading" class="text-lg font-semibold">
+          Nagłówek
+        </h2>
+        <p class="max-w-lg text-sm text-muted-foreground">
+          <code>AppHeader</code> ekranu listy: od 1024 px wersja na komputer, poniżej wersja na telefon. Pod nim{" "}
+          <code>AccountMenu</code> z telefonu, otwarte, w każdej szerokości.
+        </p>
+        {COPIES.map(({ theme, label, wrapper }) => (
+          <div class:list={["flex flex-col gap-3 rounded-card p-4", wrapper]}>
+            <p class="text-sm font-semibold">{label}</p>
+            <div class="bg-paper">
+              <AppHeader mode="list" email={EMAIL} query={null} idPrefix={`${theme}-`} />
+            </div>
+            <p class="text-xs text-muted-foreground">
+              <code>AccountMenu</code>, otwarte
+            </p>
+            {/* The open menu's panel hangs below the avatar, out of the flow, so its box leaves room for it. */}
+            <div class="flex items-start" style="min-height: 13rem">
+              <div class="ml-auto">
+                <AccountMenu email={EMAIL} open />
+              </div>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <div class="flex flex-wrap items-start gap-6">
+        {COPIES.map(({ theme, label, wrapper }) => (
+          <div class:list={["flex w-full max-w-lg flex-col gap-6 rounded-card p-4", wrapper]}>
+            <p class="text-sm font-semibold">{label}</p>
+
+            <section aria-labelledby={`${theme}-rows-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-rows-heading`} class="text-lg font-semibold">
+                Wiersz
+              </h2>
+              <p class="text-sm text-muted-foreground">
+                <code>WatchlistRow</code> w każdym stanie etykiety ceny (<code>priceTagOf</code>), wybrany i z długą
+                nazwą. Czytnik ekranu słyszy zamiast etykiety cały wiersz (<code>summary</code>).
+              </p>
+              <div class="flex flex-col gap-6">
+                {ROW_FIXTURES.map(({ code, text, row, selected }) => (
+                  <div class="flex flex-col gap-1">
+                    <p class="text-xs text-muted-foreground">
+                      <code>{code}</code> · {text}
+                    </p>
+                    <WatchlistRow row={row} filter="all" selected={selected} />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section aria-labelledby={`${theme}-chips-heading`} class="flex flex-col gap-3" data-show-hit-areas>
+              <h2 id={`${theme}-chips-heading`} class="text-lg font-semibold">
+                Filtry
+              </h2>
+              <p class="text-sm text-muted-foreground">
+                <code>FilterChips</code> z każdym filtrem włączonym, z licznikami całej listy powyżej. Kreska obrysowuje
+                strefę dotyku 44 × 44 px.
+              </p>
+              <div class="flex flex-col gap-6">
+                {LIST_FILTERS.map((filter) => (
+                  <div class="flex flex-col gap-1">
+                    <p class="text-xs text-muted-foreground">
+                      <code>{filter}</code>
+                    </p>
+                    <FilterChips path={HERE} active={filter} counts={GALLERY_COUNTS} />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section aria-labelledby={`${theme}-head-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-head-heading`} class="text-lg font-semibold">
+                Góra listy
+              </h2>
+              <p class="text-sm text-muted-foreground">
+                <code>ListHead</code>: tytuł z licznikiem, „Odśwież ceny”, komunikat odświeżenia, wyszukiwarka telefonu
+                (poniżej 1024 px) i filtry.
+              </p>
+              <div class="flex flex-col gap-6">
+                {HEADS.map(({ code, text, count, filter, counts, refreshCode }, index) => (
+                  <div class="flex flex-col gap-1">
+                    <p class="text-xs text-muted-foreground">
+                      <code>{code}</code> · {text}
+                    </p>
+                    <div inert>
+                      <ListHead count={count} path={HERE} filter={filter} counts={counts} refreshCode={refreshCode}>
+                        {index === 0 && (
+                          <SearchForm
+                            slot="search"
+                            id={`${theme}-q-mobile`}
+                            value={null}
+                            variant="list"
+                            class="lg:hidden"
+                          />
+                        )}
+                      </ListHead>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section aria-labelledby={`${theme}-list-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-list-heading`} class="text-lg font-semibold">
+                Wiersze listy
+              </h2>
+              <p class="text-sm text-muted-foreground">
+                <code>ListRows</code>: pusta lista, nieudane odczyty i filtr bez produktów, z wierszami zbudowanymi z
+                odczytów listy (<code>listRowsOf</code>).
+              </p>
+              <div class="flex flex-col gap-6">
+                {ROWS_FIXTURES.map(({ code, text, rows, filter, matchesFailed, pricesFailed }) => (
+                  <div class="flex flex-col gap-1">
+                    <p class="text-xs text-muted-foreground">
+                      <code>{code}</code> · {text}
+                    </p>
+                    <ListRows rows={rows} filter={filter} matchesFailed={matchesFailed} pricesFailed={pricesFailed} />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section aria-labelledby={`${theme}-search-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-search-heading`} class="text-lg font-semibold">
+                Wyszukiwanie
+              </h2>
+              <p class="text-sm text-muted-foreground">
+                <code>SearchResults</code>: „Dodaj” i „Na liście”, z podpowiedzią pisowni, i wyszukiwanie bez wyników.
+              </p>
+              <div class="flex flex-col gap-6">
+                <SearchResults
+                  query="nivea soft"
+                  candidates={SEARCH_CANDIDATES}
+                  spellingHint="nivea soft 300 ml"
+                  listed={SEARCH_LISTED}
+                  path={HERE}
+                  idPrefix={`${theme}-results-`}
+                />
+                <SearchResults
+                  query="nivea sofft"
+                  candidates={[]}
+                  spellingHint={null}
+                  listed={SEARCH_LISTED}
+                  path={HERE}
+                  idPrefix={`${theme}-no-results-`}
+                />
+              </div>
+            </section>
+
+            <section aria-labelledby={`${theme}-footer-heading`} class="flex flex-col gap-3">
+              <h2 id={`${theme}-footer-heading`} class="text-lg font-semibold">
+                Stopka
+              </h2>
+              <ListFooter />
+            </section>
+          </div>
+        ))}
+      </div>
+    </main>
+  </div>
+</Layout>

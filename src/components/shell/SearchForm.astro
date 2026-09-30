@@ -1,0 +1,97 @@
+---
+// The product search: a GET form to the list, which works without JavaScript. The header draws it on a desktop and the
+// list under its title on a phone, so a page may hold two, one hidden at each width, each with its own field id. Both
+// send `q` with the checks the search applies (searchQuerySchema: 2 to 80 characters), and both keep their own
+// "Szukaj", which the list's notice "Naciśnij „Szukaj”…" names. The field's focus outline is drawn around the whole
+// field. "/" focuses whichever search field is on screen, unless the user is typing in a field; the header's field
+// shows it as a hint.
+import { Search } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+interface Props {
+  /** The field's id, apart for each search form on the page. */
+  id: string;
+  /** The search text the page was opened with, or null. */
+  value: string | null;
+  /** The header's search on a desktop, with its "/" hint and longer placeholder, or the list's on a phone. */
+  variant: "header" | "list";
+  class?: string;
+}
+
+const { id, value, variant, class: className } = Astro.props;
+const header = variant === "header";
+---
+
+<form method="GET" action="/watchlist" role="search" class:list={className}>
+  <label for={id} class="sr-only">
+    Szukaj produktu
+  </label>
+  <div class="flex h-13 items-center gap-2.5 rounded-search border-2 border-input bg-card pr-1.5 pl-3.5 has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-offset-2 lg:pl-4">
+    <Search aria-hidden="true" strokeWidth={2.2} className="size-4.5 shrink-0 text-muted-foreground" />
+    <input
+      id={id}
+      name="q"
+      type="search"
+      value={value ?? ""}
+      placeholder={header ? "Szukaj produktu, np. nivea soft 300 ml" : "np. nivea soft 300 ml"}
+      required
+      minlength="2"
+      maxlength="80"
+      autocomplete="off"
+      enterkeyhint="search"
+      aria-keyshortcuts="/"
+      data-search-field
+      class="min-w-0 flex-1 bg-transparent text-body placeholder:text-muted-foreground focus-visible:outline-none"
+    />
+    {header && (
+      <kbd
+        aria-hidden="true"
+        class="shrink-0 rounded-kbd border-hairline px-2 py-0.5 font-mono text-xs text-muted-foreground"
+      >
+        /
+      </kbd>
+    )}
+    <button
+      type="submit"
+      class:list={cn(
+        buttonVariants({ size: "compact" }),
+        "rounded-search-button border-0 px-4.5 text-sm shadow-none active:translate-none",
+      )}
+    >
+      Szukaj
+    </button>
+  </div>
+</form>
+
+<script>
+  // "/" focuses the search field that's on screen, as on many sites: the header's on a desktop, the list's on a phone.
+  // It does nothing while the user is typing in a field, or with a modifier held for another shortcut. Astro includes
+  // the script once per page, however many search forms it holds.
+  const fields = [...document.querySelectorAll<HTMLInputElement>("input[data-search-field]")];
+  document.addEventListener("keydown", (event) => {
+    if (
+      event.key !== "/" ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.altKey ||
+      event.isComposing ||
+      event.defaultPrevented
+    ) {
+      return;
+    }
+    const target = event.target;
+    if (
+      target instanceof HTMLElement &&
+      (target.isContentEditable || target.closest("input, textarea, select") !== null)
+    ) {
+      return;
+    }
+    // A field hidden at this width has no box.
+    const field = fields.find((each) => each.getClientRects().length > 0);
+    if (field !== undefined) {
+      event.preventDefault();
+      field.focus();
+    }
+  });
+</script>

@@ -1,0 +1,85 @@
+---
+// A product search's results, each candidate in the list's row look with "Dodaj", which adds it to the list and opens
+// its page, or a "Na liście" pill for one the list already holds; the shop's spelling hint, as a link to the search it
+// names; and the search the results come from.
+import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import WatchlistRow from "@/components/watchlist/WatchlistRow.astro";
+import { SHOP_LABELS } from "@/lib/services/price-comparison";
+import { rowProductOf } from "@/lib/services/watchlist-rows";
+import { cn } from "@/lib/utils";
+import type { ProductCandidate, WatchlistItem } from "@/types";
+
+interface Props {
+  /** The search text, as it went to the shop. */
+  query: string;
+  candidates: ProductCandidate[];
+  spellingHint: string | null;
+  /** The products on the list, whose results show "Na liście" instead of "Dodaj". */
+  listed: readonly Pick<WatchlistItem, "source" | "sourceItemId">[];
+  /** The page the spelling hint searches on. */
+  path: string;
+  /** Keeps the heading's id apart where the kitchen sink draws the results more than once. */
+  idPrefix?: string;
+}
+
+const { query, candidates, spellingHint, listed, path, idPrefix = "" } = Astro.props;
+
+/** One text per shop's product, to tell the results the list already holds. */
+const keyOf = ({ source, sourceItemId }: Pick<WatchlistItem, "source" | "sourceItemId">) => `${source}:${sourceItemId}`;
+const onList = new Set(listed.map(keyOf));
+const headingId = `${idPrefix}results-heading`;
+---
+
+<section aria-labelledby={headingId} class="flex flex-col gap-3">
+  <h2 id={headingId} class="text-lg font-semibold">
+    Wyniki wyszukiwania
+  </h2>
+  {spellingHint && (
+    <p class="text-sm">
+      Czy chodziło Ci o:{" "}
+      <a
+        href={`${path}?q=${encodeURIComponent(spellingHint)}`}
+        class:list={cn(buttonVariants({ variant: "underlined", size: "inline" }))}
+      >
+        {spellingHint}
+      </a>
+      ?
+    </p>
+  )}
+  {candidates.length === 0 ? (
+    <p class="text-sm text-muted-foreground">Brak wyników dla „{query}”.</p>
+  ) : (
+    <ul class="flex flex-col gap-2.5 lg:gap-3">
+      {candidates.map((candidate) => (
+        <li>
+          <WatchlistRow product={rowProductOf(candidate)}>
+            {onList.has(keyOf(candidate)) ? (
+              <Badge variant="promo">Na liście</Badge>
+            ) : (
+              <form method="POST" action="/api/watchlist">
+                <input type="hidden" name="source" value={candidate.source} />
+                <input type="hidden" name="sourceItemId" value={candidate.sourceItemId} />
+                <input type="hidden" name="name" value={candidate.name} />
+                <input type="hidden" name="brand" value={candidate.brand ?? ""} />
+                <input type="hidden" name="caption" value={candidate.caption ?? ""} />
+                <input type="hidden" name="sizeText" value={candidate.sizeText ?? ""} />
+                <input type="hidden" name="productUrl" value={candidate.productUrl ?? ""} />
+                <input type="hidden" name="imageUrl" value={candidate.imageUrl ?? ""} />
+                {candidate.eans.map((ean) => (
+                  <input type="hidden" name="eans" value={ean} />
+                ))}
+                <button type="submit" class:list={cn(buttonVariants({ size: "touch" }))}>
+                  Dodaj
+                </button>
+              </form>
+            )}
+          </WatchlistRow>
+        </li>
+      ))}
+    </ul>
+  )}
+  <p class="font-mono text-meta tracking-meta text-muted-foreground uppercase">
+    Wyniki z wyszukiwarki {SHOP_LABELS.rossmann.site}
+  </p>
+</section>

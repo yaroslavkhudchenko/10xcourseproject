@@ -158,6 +158,7 @@ const CARD = [["card", 100]];
 const SURFACES = {
   paper: [],
   card: CARD, // Card and the default Alert: bg-card
+  popover: [["popover", 100]], // the account menu's panel on a phone: bg-popover
   muted: [["muted", 100]], // the raised fills: bg-muted
   "destructive alert": [["destructive", 10]], // Alert destructive: bg-destructive/10
   destructive: [["destructive", 100]], // Button and Badge destructive: bg-destructive
@@ -216,6 +217,9 @@ const PAIRS = [
   ["muted-foreground", 100, "paper", TEXT],
   ["muted-foreground", 100, "card", TEXT],
   ["muted-foreground", 100, "muted", TEXT],
+  // The account menu's panel: its text, and the signed-in email in muted-foreground.
+  ["popover-foreground", 100, "popover", TEXT],
+  ["muted-foreground", 100, "popover", TEXT],
   // Text links, the Button's link and underlined variants and the Badge's link: "← Moja lista" on the paper, "Zobacz w
   // sklepie" in a card. The session alert's sign-in link takes the alert description's warning-foreground, measured
   // with the warnings below.
@@ -257,9 +261,11 @@ const PAIRS = [
   ["warning-foreground", 100, "warning alert", TEXT],
   ["warning-foreground", 100, "warning badge", TEXT],
   ["warning-foreground", 100, "warning badge in a card", TEXT],
-  // The focus outline, drawn in --ring at full opacity, around a control on each surface.
+  // The focus outline, drawn in --ring at full opacity, around a control on each surface: in the account menu's panel,
+  // around the theme switch and "Wyloguj".
   ["ring", 100, "paper", NON_TEXT],
   ["ring", 100, "card", NON_TEXT],
+  ["ring", 100, "popover", NON_TEXT],
   ["ring", 100, "muted", NON_TEXT],
   ["ring", 100, "warning alert", NON_TEXT],
   // A text field's border, the search's on the paper and a field's in a card.

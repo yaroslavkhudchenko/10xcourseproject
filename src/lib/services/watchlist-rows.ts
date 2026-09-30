@@ -1,6 +1,7 @@
 import {
   compareShops,
   keyText,
+  listPricedItems,
   listSummaryText,
   namesOf,
   priceState,
@@ -11,7 +12,7 @@ import {
   type PricedShop,
   type PriceVerdict,
 } from "@/lib/services/price-comparison";
-import type { MatchState, PriceKey, ShopMatchState, WatchlistItem } from "@/types";
+import type { LatestPrice, MatchState, PriceKey, ShopMatchState, WatchlistItem } from "@/types";
 
 // The list's rows, without I/O: each product's price tag, whether its chips hold it, and the line screen readers hear,
 // from the list's three reads. The list page, the product page's list beside the product and the selected row's live
@@ -55,26 +56,43 @@ export interface PriceTag {
   label: string;
 }
 
-/**
- * A product's row on the list: the product (its brand and size above its name), its price tag, the line screen readers
- * hear in its place, and whether the Promocje and Do sprawdzenia chips hold it.
- */
-export interface ListRow {
-  itemId: string;
+/** A product as a row draws it, on the list or among the search results: its brand and size above its name. */
+export interface RowProduct {
   /** The brand and the size, as the data has them ("NIVEA · 300 ml"); the view sets their case. */
   eyebrow: string | null;
   /** The product's name with its caption, as the shop splits them ("Soft krem uniwersalny, nawilżający"). */
   name: string;
   brand: string | null;
   imageUrl: string | null;
+}
+
+/**
+ * A product's row on the list: the product, its price tag, the line screen readers hear in its place, and whether the
+ * Promocje and Do sprawdzenia chips hold it.
+ */
+export interface ListRow extends RowProduct {
+  itemId: string;
   tag: PriceTag;
   summary: string;
   promo: boolean;
   check: boolean;
 }
 
+/** A product as a row names it: a listed product, or a search result the user may add. */
+export type NamedProduct = Pick<WatchlistItem, "brand" | "name" | "caption" | "sizeText" | "imageUrl">;
+
 /** A listed product, as far as its row looks at it. */
-export type ListedProduct = Pick<WatchlistItem, "id" | "brand" | "name" | "caption" | "sizeText" | "imageUrl">;
+export type ListedProduct = NamedProduct & Pick<WatchlistItem, "id">;
+
+/** The product a row draws, the same for a product on the list and a search result. */
+export function rowProductOf(product: NamedProduct): RowProduct {
+  return {
+    eyebrow: joined([product.brand, product.sizeText], " · "),
+    name: joined([product.name, product.caption], " ") ?? product.name,
+    brand: product.brand,
+    imageUrl: product.imageUrl,
+  };
+}
 
 // What a row says about Natura after its price line, as S-02's list did. A match's price line names Natura's price, so
 // a matched product says nothing more.
@@ -108,10 +126,7 @@ export function listRowOf(
   const sentences = natura === "matched" ? [priceLine] : [priceLine, NATURA_STATUS[natura]];
   return {
     itemId: item.id,
-    eyebrow: joined([item.brand, item.sizeText], " · "),
-    name: joined([item.name, item.caption], " ") ?? item.name,
-    brand: item.brand,
-    imageUrl: item.imageUrl,
+    ...rowProductOf(item),
     tag: priceTagOf(verdictOf(compared, now, unread)),
     summary: sentences.map(sentence).join(" "),
     promo: pricedShops.some((shop) => onPromotion(shop, now)),
@@ -242,4 +257,23 @@ export function naturaStateOf(
     return decision.state;
   }
   return read.unread.includes(itemId) || read.unattributed > 0 ? "unreadable" : "none";
+}
+
+/**
+ * The list's rows, in the list's order, judged at `now` from its three reads: the products, their decisions per shop
+ * and the latest prices, each read as its list read gives it, null when it couldn't be read at all. A product whose
+ * price or Natura decision couldn't be read says so, and a read that failed altogether marks every product's, so no
+ * row reads a failed read as a product without a price or a match. The list, and the list beside a product, build
+ * their rows here.
+ */
+export function listRowsOf(
+  items: readonly (ListedProduct & Pick<WatchlistItem, "source" | "sourceItemId">)[],
+  matchRead: { states: readonly ShopMatchState[]; unread: readonly string[]; unattributed: number } | null,
+  priceRead: { prices: readonly LatestPrice[]; unread: readonly PriceKey[]; unattributed: number } | null,
+  now: number,
+): ListRow[] {
+  const priced = listPricedItems(items, matchRead?.states ?? [], priceRead?.prices ?? []);
+  return items.map((item) =>
+    listRowOf(item, rowShopsOf(priced.get(item.id) ?? [], priceRead), naturaStateOf(item.id, matchRead), now),
+  );
 }

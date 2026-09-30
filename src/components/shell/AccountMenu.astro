@@ -1,0 +1,70 @@
+---
+// The account on a phone, behind the avatar with the email's first letter: a menu with the signed-in email, the theme
+// switch and "Wyloguj". It's a <details>, so the avatar opens and closes it without JavaScript; its script also
+// closes it on Escape, taking the focus back to the avatar, and on a click outside it. The theme switch needs
+// JavaScript, so without it its row stays hidden. Astro includes the script once per page.
+import ThemeToggle from "@/components/shell/ThemeToggle.astro";
+import { buttonVariants } from "@/components/ui/button";
+import { initialOf } from "@/components/watchlist/thumb-tile";
+import { cn } from "@/lib/utils";
+
+interface Props {
+  /** The signed-in user's email, or null when there's none to show. */
+  email: string | null;
+  /** Whether the menu is drawn open, as the kitchen sink shows it. */
+  open?: boolean;
+}
+
+const { email, open = false } = Astro.props;
+---
+
+<details class="relative" data-account-menu open={open}>
+  <summary class="hit-area grid size-10 cursor-pointer list-none place-items-center rounded-full border-2 border-label-ink bg-avatar text-body font-extrabold text-label-ink [&::-webkit-details-marker]:hidden">
+    {/* The avatar's letter is the email's, the same rule a product's tile takes its brand's initial by. */}
+    <span aria-hidden="true">{initialOf(email)}</span>
+    <span class="sr-only">Konto{email && `: ${email}`}</span>
+  </summary>
+  <div class="absolute top-full right-0 z-20 mt-2 flex w-72 flex-col gap-3 rounded-card border-2 border-foreground bg-popover p-4 text-popover-foreground shadow-hero">
+    {email && <p class="font-mono text-xs break-all text-muted-foreground">{email}</p>}
+    <div class="flex items-center justify-between gap-3 has-[[hidden]]:hidden">
+      {/* The switch's own name says the same to screen readers. */}
+      <span aria-hidden="true" class="text-sm font-bold">
+        Ciemny motyw
+      </span>
+      <ThemeToggle />
+    </div>
+    <form method="POST" action="/api/auth/signout">
+      <button type="submit" class:list={cn(buttonVariants({ variant: "outline", size: "compact" }), "w-full")}>
+        Wyloguj
+      </button>
+    </form>
+  </div>
+</details>
+
+<script>
+  // Escape closes an open menu, and takes the focus back to its avatar when the focus was in the menu; a click outside
+  // it closes it too.
+  const menus = [...document.querySelectorAll<HTMLDetailsElement>("details[data-account-menu]")];
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") {
+      return;
+    }
+    for (const menu of menus) {
+      if (!menu.open) {
+        continue;
+      }
+      const focused = menu.contains(document.activeElement);
+      menu.open = false;
+      if (focused) {
+        menu.querySelector("summary")?.focus();
+      }
+    }
+  });
+  document.addEventListener("click", (event) => {
+    for (const menu of menus) {
+      if (menu.open && event.target instanceof Node && !menu.contains(event.target)) {
+        menu.open = false;
+      }
+    }
+  });
+</script>

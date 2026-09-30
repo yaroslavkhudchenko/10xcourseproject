@@ -12,8 +12,10 @@ import {
   inFilter,
   LIST_FILTERS,
   listRowOf,
+  listRowsOf,
   naturaStateOf,
   parseListFilter,
+  rowProductOf,
   rowShopsOf,
   rowTagOf,
   type ListRow,
@@ -21,7 +23,7 @@ import {
   type PriceTag,
   type RowShop,
 } from "@/lib/services/watchlist-rows";
-import type { LatestPrice, PriceKey, ShopMatchState, WatchlistItem } from "@/types";
+import type { LatestPrice, PriceKey, ProductCandidate, ShopMatchState, WatchlistItem } from "@/types";
 
 // Every time here is measured back from one fixed moment: 14:00 on 28 September in Poland.
 const NOW = Date.parse("2026-09-28T12:00:00.000Z");
@@ -134,6 +136,30 @@ describe("listRowOf: the product", () => {
     { why: "no caption", item: { caption: null }, eyebrow: "NIVEA · 300 ml", name: "Soft" },
   ])("leaves out what a product with $why doesn't have", ({ item, eyebrow, name }) => {
     expect(listRowOf({ ...soft, ...item }, [rossmannRegular], "matched", NOW)).toMatchObject({ eyebrow, name });
+  });
+
+  it("draws a search result as the product's row on the list draws it, before it's added", () => {
+    const candidate: ProductCandidate = {
+      source: "rossmann",
+      sourceItemId: soft.sourceItemId,
+      brand: soft.brand,
+      name: soft.name,
+      caption: soft.caption,
+      sizeText: soft.sizeText,
+      size: { value: 300, unit: "ml" },
+      eans: ["4005900009319"],
+      productUrl: null,
+      imageUrl: soft.imageUrl,
+    };
+    const { eyebrow, name, brand, imageUrl } = rowOf([rossmannRegular]);
+
+    expect(rowProductOf(candidate)).toEqual({
+      eyebrow: "NIVEA · 300 ml",
+      name: "Soft krem uniwersalny, nawilżający",
+      brand: "NIVEA",
+      imageUrl: soft.imageUrl,
+    });
+    expect(rowProductOf(candidate)).toEqual({ eyebrow, name, brand, imageUrl });
   });
 });
 
@@ -497,5 +523,61 @@ describe("the list beside a row that can't say whose it is", () => {
     };
 
     expect(tags(matchRead, { prices, unread: [], unattributed: 0 })).toEqual([...intact, unreadTag]);
+  });
+
+  describe("listRowsOf, the list's rows from its three reads", () => {
+    const matchRead = { states, unread: [], unattributed: 0 };
+    const priceRead = { prices, unread: [], unattributed: 0 };
+
+    it("builds each product's row in the list's order", () => {
+      const rows = listRowsOf(products, matchRead, priceRead, NOW);
+
+      expect(rows.map((row) => row.itemId)).toEqual([SOFT_ID, ZIAJA_ID, OTHER_ID]);
+      expect(rows.map((row) => row.tag)).toEqual([...intact, { tone: "muted", price: 5.99, label: "Tylko Rossmann" }]);
+    });
+
+    it("builds the rows as listRowOf does for each product, odd rows included", () => {
+      const oddMatches = {
+        states: states.filter(({ watchlistItemId }) => watchlistItemId !== OTHER_ID),
+        unread: [],
+        unattributed: 1,
+      };
+      const oddPrices = {
+        prices: prices.filter(({ shopItemId }) => shopItemId !== "300200"),
+        unread: [],
+        unattributed: 1,
+      };
+
+      expect(listRowsOf(products, oddMatches, priceRead, NOW).map((row) => row.tag)).toEqual(
+        tags(oddMatches, priceRead),
+      );
+      expect(listRowsOf(products, matchRead, oddPrices, NOW).map((row) => row.tag)).toEqual(tags(matchRead, oddPrices));
+    });
+
+    it("says every product's match couldn't be read when the decisions couldn't be read at all, never that it awaits one", () => {
+      const rows = listRowsOf(products, null, priceRead, NOW);
+
+      expect(rows.map((row) => row.tag)).toEqual([unreadTag, unreadTag, unreadTag]);
+      expect(rows.map((row) => row.summary)).toEqual(
+        Array.from({ length: 3 }, () => "Nie udało się wczytać ceny. Natura: nie udało się wczytać dopasowania."),
+      );
+      expect(rows.every((row) => row.check)).toBe(true);
+    });
+
+    it("says every product's price couldn't be read when the prices couldn't be read at all, never that it has none", () => {
+      const rows = listRowsOf(products, matchRead, null, NOW);
+
+      expect(rows.map((row) => row.tag)).toEqual([unreadTag, unreadTag, unreadTag]);
+      expect(rows.map((row) => row.summary)).toEqual([
+        "Nie udało się wczytać ceny.",
+        "Nie udało się wczytać ceny. Natura: brak (Twój wybór).",
+        "Nie udało się wczytać ceny. Natura: brak (Twój wybór).",
+      ]);
+      expect(rows.every((row) => row.check && !row.promo)).toBe(true);
+    });
+
+    it("gives an empty list no rows", () => {
+      expect(listRowsOf([], matchRead, priceRead, NOW)).toEqual([]);
+    });
   });
 });

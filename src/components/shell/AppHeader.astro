@@ -1,0 +1,59 @@
+---
+// The watchlist's header. From lg (1024 px) up, on the list and on a product's page alike: the logo in a 356 px block,
+// so the search lines up with the main pane, the search with its "/" hint, then the theme switch, the account's avatar
+// and email, and "Wyloguj". Below lg only the list's screen has a header: the smaller logo and the account menu, which
+// holds the email, the theme switch and "Wyloguj". A product's screen on a phone has its own row back to the list.
+import AccountMenu from "@/components/shell/AccountMenu.astro";
+import LogoMark from "@/components/shell/LogoMark.astro";
+import SearchForm from "@/components/shell/SearchForm.astro";
+import ThemeToggle from "@/components/shell/ThemeToggle.astro";
+import { buttonVariants } from "@/components/ui/button";
+import { initialOf } from "@/components/watchlist/thumb-tile";
+import { cn } from "@/lib/utils";
+
+interface Props {
+  /** The screen the header tops: the list, or a product's page. */
+  mode: "list" | "product";
+  /** The signed-in user's email, or null when there's none to show. */
+  email: string | null;
+  /** The search text the page was opened with, or null. */
+  query: string | null;
+  /** Keeps the search field's id apart where the kitchen sink draws the header more than once. */
+  idPrefix?: string;
+}
+
+const { mode, email, query, idPrefix = "" } = Astro.props;
+---
+
+<header class="hidden h-19.5 shrink-0 items-center gap-7 border-b-hairline px-8 lg:flex">
+  <div class="w-89 shrink-0">
+    <LogoMark size="lg" />
+  </div>
+  <SearchForm id={`${idPrefix}q`} value={query} variant="header" class="max-w-140 min-w-0 flex-1" />
+  <div class="ml-auto flex shrink-0 items-center gap-3">
+    <ThemeToggle />
+    {/* The avatar only draws the email's first letter, which the email beside it spells out. */}
+    <span
+      aria-hidden="true"
+      class="grid size-9.5 shrink-0 place-items-center rounded-full border-2 border-label-ink bg-avatar text-body font-extrabold text-label-ink"
+    >
+      {initialOf(email)}
+    </span>
+    {email && (
+      <span title={email} class="max-w-48 truncate font-mono text-xs text-muted-foreground">
+        {email}
+      </span>
+    )}
+    <form method="POST" action="/api/auth/signout">
+      <button type="submit" class:list={cn(buttonVariants({ variant: "outline", size: "compact" }))}>
+        Wyloguj
+      </button>
+    </form>
+  </div>
+</header>
+{mode === "list" && (
+  <header class="flex items-center justify-between gap-3 px-4.5 pt-2 lg:hidden">
+    <LogoMark size="sm" />
+    <AccountMenu email={email} />
+  </header>
+)}

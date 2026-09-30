@@ -1,0 +1,68 @@
+---
+// A row of the list, or of the search results: the product's thumbnail, its brand and size above its name, and on the
+// right its price tag, or, for a search result, what the user can do with it. On the list the row links to the
+// product's page, keeping the list's filter, lifts on hover unless the user asked for reduced motion, and screen
+// readers hear its whole comparison in one line, the row service's summary, instead of the drawn tag. A search result
+// isn't on the list yet, so it links nowhere and stays put, and its action comes in the default slot.
+import ProductThumb from "@/components/watchlist/ProductThumb";
+import RowTag from "@/components/watchlist/RowTag";
+import { filterHref, type ListFilter, type ListRow, type RowProduct } from "@/lib/services/watchlist-rows";
+import { cn } from "@/lib/utils";
+
+type Props =
+  | {
+      /** A product on the list. */
+      row: ListRow;
+      /** The filter the list is shown with, which the product's page keeps. */
+      filter: ListFilter;
+      /**
+       * Whether the product's page shows the list beside it: the row gets a 2 px edge, the sun's shadow and the lift,
+       * and its focus outline sits outside the shadow, which is the ring's colour in the dark theme.
+       */
+      selected?: boolean;
+    }
+  | {
+      /** A search result, with its action in the default slot. */
+      product: RowProduct;
+    };
+
+const props = Astro.props;
+const listed = "row" in props ? props : null;
+const product: RowProduct = "row" in props ? props.row : props.product;
+const selected = listed?.selected ?? false;
+const Element = listed === null ? "div" : "a";
+const href =
+  listed === null ? undefined : filterHref(`/watchlist/${encodeURIComponent(listed.row.itemId)}`, listed.filter);
+---
+
+<Element
+  href={href}
+  aria-current={selected ? "page" : undefined}
+  class:list={cn(
+    "flex items-center gap-3 rounded-row border-2 border-transparent bg-card p-3",
+    listed !== null && "transition motion-safe:hover:-translate-0.5 motion-reduce:transition-none",
+    selected && "-translate-0.5 border-foreground shadow-selected focus-visible:outline-offset-6",
+  )}
+>
+  <ProductThumb brand={product.brand} imageUrl={product.imageUrl} size="row" />
+  <span class="flex min-w-0 flex-1 flex-col gap-0.75">
+    {product.eyebrow && (
+      <span class="font-mono text-meta tracking-eyebrow wrap-break-word text-muted-foreground uppercase">
+        {product.eyebrow}
+      </span>
+    )}
+    <span class="text-body leading-tight font-semibold wrap-break-word">{product.name}</span>
+  </span>
+  {listed === null ? (
+    <span class="shrink-0">
+      <slot />
+    </span>
+  ) : (
+    <>
+      <span aria-hidden="true" class="shrink-0">
+        <RowTag tag={listed.row.tag} />
+      </span>
+      <span class="sr-only">{listed.row.summary}</span>
+    </>
+  )}
+</Element>

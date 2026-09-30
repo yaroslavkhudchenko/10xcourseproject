@@ -19,3 +19,9 @@ export type Theme = (typeof THEMES)[number];
  * the system's (`prefers-color-scheme`) decides.
  */
 export const THEME_STORAGE_KEY = "theme";
+
+/**
+ * The event the layout's head script dispatches on `document` when it has switched the theme because the system's
+ * changed while the page was open, so every theme switch on the page can say again whether the dark theme is on.
+ */
+export const THEME_CHANGE_EVENT = "drogeria:theme";

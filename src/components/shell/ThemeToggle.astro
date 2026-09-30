@@ -2,9 +2,10 @@
 // The theme switch: a 42 px round button (the outline Button's icon size) that turns the dark theme on or off and
 // keeps the choice in localStorage, under the key src/lib/theme.ts names, where the layout's head script finds it
 // before the next page's first paint. A moon shows in the light theme and a sun in the dark one, through dark:
-// classes, and aria-pressed says whether the dark theme is on. It needs JavaScript, so it stays hidden until its
-// script runs. A page may hold several, as the header and the account menu do: the script handles each and keeps
-// them in step. Astro includes the script once per page, however many times the component renders.
+// classes, and aria-pressed says whether the dark theme is on, also after the head script has followed a switch of the
+// system's theme. It needs JavaScript, so it stays hidden until its script runs. A page may hold several, as the header
+// and the account menu do: the script handles each and keeps them in step. Astro includes the script once per page,
+// however many times the component renders.
 import { Moon, Sun } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -23,9 +24,9 @@ import { cn } from "@/lib/utils";
 </button>
 
 <script>
-  // The theme's names and its storage key come from a module that imports nothing, which the layout's head script
-  // reads too.
-  import { DARK_THEME, LIGHT_THEME, THEME_STORAGE_KEY } from "@/lib/theme";
+  // The theme's names, its storage key and its change event come from a module that imports nothing, which the
+  // layout's head script reads too.
+  import { DARK_THEME, LIGHT_THEME, THEME_CHANGE_EVENT, THEME_STORAGE_KEY } from "@/lib/theme";
 
   const root = document.documentElement;
   const toggles = document.querySelectorAll<HTMLButtonElement>("button[data-theme-toggle]");
@@ -51,5 +52,7 @@ import { cn } from "@/lib/utils";
     });
     toggle.hidden = false;
   }
+  // The head script switched the theme to follow the system's, as the user hasn't picked one.
+  document.addEventListener(THEME_CHANGE_EVENT, sync);
   sync();
 </script>

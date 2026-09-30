@@ -275,6 +275,12 @@
   --text-thumb-title-lg: 2rem; /* 32 px */
   /* The compact buttons' and the filter chips' labels. */
   --text-compact: 0.8125rem; /* 13 px */
+  /* A list row's name, the search field's text and the avatar's initial. */
+  --text-body: 0.9375rem; /* 15 px */
+  /* DM Mono's meta text: a row's eyebrow, a filter chip's count and the list's source footer. */
+  --text-meta: 0.6875rem; /* 11 px */
+  /* The label under a list row's price tag, in DM Mono. */
+  --text-micro: 0.625rem; /* 10 px */
 
   --tracking-price: -0.055em; /* the hero's złote */
   --tracking-title: -0.04em; /* a product's title, and "Moja lista" on a phone */
@@ -292,6 +298,9 @@
   --radius-thumb-title: 1rem; /* 16 px, a product title's thumbnail on a phone */
   --radius-thumb-title-lg: 1.375rem; /* 22 px */
   --radius-search: 1rem; /* 16 px, the search field */
+  --radius-search-button: 0.6875rem; /* 11 px, the search field's own "Szukaj", inside the field's radius */
+  --radius-kbd: 0.4375rem; /* 7 px, the search field's "/" hint */
+  --radius-price-tag: 0.75rem; /* 12 px, a list row's price tag */
   --radius-row: 1.125rem; /* 18 px, a list row */
   --radius-card: 1.25rem; /* 20 px, a card on a phone */
   --radius-card-lg: 1.375rem; /* 22 px */

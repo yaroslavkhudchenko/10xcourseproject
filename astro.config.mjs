@@ -6,8 +6,9 @@ import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
 import cloudflare from "@astrojs/cloudflare";
 
-// The kitchen sink at /dev/product-page renders the product page's components and states from fixtures, for review
-// and screenshots. Only `astro dev` gets the route: the build never sees it, so no Worker serves it.
+// The kitchen sinks at /dev/product-page and /dev/watchlist render the product page's and the list's components and
+// states from fixtures, for review and screenshots. Only `astro dev` gets the routes: the build never sees them, so no
+// Worker serves them.
 /** @type {import("astro").AstroIntegration} */
 const devKitchenSink = {
   name: "dev-kitchen-sink",
@@ -15,6 +16,7 @@ const devKitchenSink = {
     "astro:config:setup": ({ command, injectRoute }) => {
       if (command === "dev") {
         injectRoute({ pattern: "/dev/product-page", entrypoint: "./src/dev/product-page.astro" });
+        injectRoute({ pattern: "/dev/watchlist", entrypoint: "./src/dev/watchlist.astro" });
       }
     },
   },

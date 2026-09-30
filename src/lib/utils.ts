@@ -36,6 +36,9 @@ const TEXT_SIZES = [
   "thumb-title",
   "thumb-title-lg",
   "compact",
+  "body",
+  "meta",
+  "micro",
 ];
 const TRACKINGS = ["price", "title", "heading", "wordmark", "sticker", "meta", "eyebrow", "tag"];
 const RADII = [
@@ -46,6 +49,9 @@ const RADII = [
   "thumb-title",
   "thumb-title-lg",
   "search",
+  "search-button",
+  "kbd",
+  "price-tag",
   "row",
   "card",
   "card-lg",
