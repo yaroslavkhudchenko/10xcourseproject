@@ -7,9 +7,10 @@
 // sections' copies stand side by side on a wide screen, as wide as the list's column. Nothing it draws reaches
 // Supabase or a shop by a stray tap: the chips and the spelling hint link back here, the rows to products no one has,
 // whose pages answer 404 before any lookup, and "Dodaj" to a product the add form refuses; the list's "Odśwież ceny",
-// which would refresh the viewer's own list, is drawn inert. A selected row's tag hydrates, as the island it is beside a
-// product's page, and listens for that product's prices, which no island here sends. Tailwind doesn't scan this folder
-// (global.css), so its markup uses only classes the app itself uses, and the columns' widths are inline styles.
+// which would refresh the viewer's own list, is drawn inert. A selected row's tag hydrates from lg (1024 px), as the
+// island it is beside a product's page, and listens for that product's prices, which no island here sends. Tailwind
+// doesn't scan this folder (global.css), so its markup uses only classes the app itself uses, and the columns' widths
+// are inline styles.
 import AccountMenu from "@/components/shell/AccountMenu.astro";
 import AppHeader from "@/components/shell/AppHeader.astro";
 import SearchForm from "@/components/shell/SearchForm.astro";
@@ -156,8 +157,9 @@ const HEADS: {
                 Wiersz
               </h2>
               <p class="text-sm text-muted-foreground">
-                <code>WatchlistRow</code> w każdym stanie etykiety ceny (<code>priceTagOf</code>), wybrany i z długą
-                nazwą. Czytnik ekranu słyszy zamiast etykiety cały wiersz (<code>summary</code>).
+                <code>WatchlistRow</code> w każdym stanie etykiety ceny (<code>priceTagOf</code>), ze sklepem i wiekiem
+                ceny pod etykietą, wybrany i z długą nazwą. Czytnik ekranu słyszy zamiast etykiety i tej linii cały
+                wiersz (<code>summary</code>).
               </p>
               <div class="flex flex-col gap-6">
                 {ROW_FIXTURES.map(({ code, text, row, selected }) => (
@@ -256,7 +258,7 @@ const HEADS: {
               <p class="text-sm text-muted-foreground">
                 Lista w lewej kolumnie strony produktu od 1024 px: <code>ListHead</code> z nagłówkiem drugiego poziomu,
                 po odświeżeniu, z „Odśwież ceny”, które wraca do produktu (<code>back</code>); filtry; wiersze z
-                wybranym produktem, którego etykieta jest wyspą i nasłuchuje odświeżenia produktu (
+                wybranym produktem, którego etykieta jest od 1024 px wyspą i nasłuchuje odświeżenia produktu (
                 <code>PRICES_EVENT</code>), tu bez żadnego; i stopka. Kolumna ma 420 px, jak na stronie.
               </p>
               {/* The shell's aside, as WatchlistShell pads it: its head, its rows and its footer. */}

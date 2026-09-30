@@ -927,6 +927,7 @@ Both kitchen sinks show every state in both themes. The screenshots and the hand
 | A product from another site                                    | 0, as today                                                                                |
 | A chip or a row in the product page's aside                    | one product view as above; 0 when its prices are under 15 min old and Natura is decided    |
 | The list's "Odśwież ceny", from either page                    | as today: 1 per stale Rossmann item, plus 1 per 50 stale Natura SKUs                       |
+| The same, posted from a product page (added by review F7)      | the list refresh's cost, plus one product view as above on the way back                    |
 | The product's "Odśwież ceny"                                   | 1 per matched shop, as today                                                               |
 | The selected row's live tag, the theme switch, the avatar menu | 0                                                                                          |
 
@@ -1230,6 +1231,29 @@ They were built test-first in a parallel worktree and cherry-picked onto this br
 - **Local data:**
   - `verify-real-…@example.com`: Rossmann 26900 with a matched Natura NV81063, and 4 shared observations from real refreshes.
   - `verify-seed-…@example.com`: 9 made-up items (Rossmann 990000701–709), 8 Natura decisions and 10 observations. Its S9's promotion ends 2026-09-30.
+
+### Implementation review fixes
+
+The full review (`reviews/impl-review.md`, all 6 phases) found 5 warnings and 5 observations. The owner had 9 fixed, F2 and F3 through their Fix A. F8 was accepted for S-08, and the deferred items are in `follow-ups/review-fixes.md`. Each finding's Decision in the review says what was built. The adaptations:
+
+- **F2:** every list row shows its tag price's shop and age on a line under the tag ("Natura · 5 min temu"), from `PriceTag.meta`. It's a visible change from the handoff: a row with a price grows by one line.
+- **F4:** the skip link says "Przejdź do listy" on the list and "Przejdź do produktu" on a product's page. On the list, the rows' `ul` is labelled by the page's `h1` rather than its own "Moja lista".
+- **F9:** `client:media="(min-width: 64rem)"`, Tailwind's `lg`, rather than 1024px, so it follows the breakpoint at any font size.
+- **F10:** "Dodaj" is described by the result's brand, size and name, not the name alone, since results often differ only in size.
+- **Beyond the findings:**
+  - `scripts/smoke.mjs` gains an `exact` location, so a step can check that a redirect carries no code.
+  - CLAUDE.md's UI bullet names the skip link, the meta line, the `client:media` island and `listRefreshBackOf`.
+  - The list sink describes the new line and the hydration from lg.
+- **How the fixes were verified:**
+  - 935 tests, 13 of them new.
+  - Lint: 0 problems on the tracked tree. `astro check`: 0 errors and 0 warnings.
+  - Contrast: 136 of 136.
+  - `npm run build` with its font check: 6 files.
+  - `npm run smoke` against the production preview: 24 of 24.
+  - Deliberate breaks, each red and then restored: F1's unread rule, the meta line's age, F5's crafted `back`, the font count and the tie's names.
+  - The list sink was captured at 1280 and 390 px in both themes, with no sideways scroll. The selected row's tag hydrates at 1280 and not at 390.
+- **Shop requests:** none.
+- **Local data:** `review-fix-…@example.com`, with 3 made-up items (Rossmann 990000901–903), Natura declined and 3 observations. Don't refresh them.
 
 ## Progress
 

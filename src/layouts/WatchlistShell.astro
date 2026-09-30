@@ -6,9 +6,12 @@
 // the footer; on a product's page, only the main pane. The parts come in the `head`, `rows` and `footer` slots and the
 // default one, the main pane's. A product's page without the list's parts gets the main pane alone, at full width.
 // The frame keeps its content clear of a phone's notch and rounded corners, which viewport-fit=cover lets the page
-// reach.
+// reach. It opens with a skip link, shown only while it has the keyboard's focus, to the page's content: on the list,
+// the list; on a product's page, the product, past the header and the list beside it, which grows with the watchlist.
 import AppHeader from "@/components/shell/AppHeader.astro";
+import { buttonVariants } from "@/components/ui/button";
 import Layout from "@/layouts/Layout.astro";
+import { cn } from "@/lib/utils";
 
 interface Props {
   title: string;
@@ -18,10 +21,17 @@ interface Props {
   email: string | null;
   /** The search text the page was opened with, for the header's search field, or null. */
   query?: string | null;
+  /**
+   * The id of the list's heading, in the `head` slot, which names the list beside a product (the aside) once, so its
+   * rows' list needs no name of its own there.
+   */
+  listHeadingId?: string;
 }
 
-const { title, mode, email, query = null } = Astro.props;
+const { title, mode, email, query = null, listHeadingId } = Astro.props;
 const hasList = Astro.slots.has("head") || Astro.slots.has("rows") || Astro.slots.has("footer");
+// The main pane's id, which the skip link leads to.
+const CONTENT_ID = "content";
 
 // The list's column from lg: 420 px wide, with a 1.5 px edge towards the main pane, beside the main pane. The one row
 // of a product's page, and the rows track of the list's, is bounded by the screen's height, so their parts scroll.
@@ -39,13 +49,25 @@ const FOOTER = "px-5 pt-1.5 pb-6 empty:hidden lg:border-t-hairline lg:px-7 lg:py
 // and stamps in at 1.7 times its size, so the page never scrolls sideways. From lg, where the pane scrolls on its own,
 // the clip computes to overflow-x: hidden, and a control the keyboard scrolls in keeps 12 px from the pane's edge.
 const MAIN = "overflow-x-clip px-4.5 lg:min-h-0 lg:scroll-py-3 lg:overflow-y-auto lg:px-11 lg:pt-7.5 lg:pb-10";
+// The skip link: a primary button, 44 px tall, over the page's top left corner, clear of the notch, while it has the
+// focus, and seen by screen readers only otherwise.
+const SKIP_LINK = cn(
+  buttonVariants({ size: "touch" }),
+  "fixed top-[calc(var(--spacing)*3+env(safe-area-inset-top))] left-[calc(var(--spacing)*3+env(safe-area-inset-left))] z-30 not-focus:sr-only",
+);
 ---
 
 <Layout title={title} lang="pl" theme="user">
   <div class="flex min-h-dvh flex-col bg-paper pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] text-foreground lg:h-dvh">
+    <a href={`#${CONTENT_ID}`} class:list={SKIP_LINK}>
+      {mode === "list" ? "Przejdź do listy" : "Przejdź do produktu"}
+    </a>
     <AppHeader mode={mode} email={email} query={query} />
     {mode === "list" ? (
-      <main class:list={["flex flex-1 flex-col lg:grid lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)_auto]", COLUMNS]}>
+      <main
+        id={CONTENT_ID}
+        class:list={["flex flex-1 flex-col lg:grid lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)_auto]", COLUMNS]}
+      >
         <div class:list={[HEAD, EDGE, "lg:col-start-1 lg:row-start-1"]}>
           <slot name="head" />
         </div>
@@ -64,7 +86,7 @@ const MAIN = "overflow-x-clip px-4.5 lg:min-h-0 lg:scroll-py-3 lg:overflow-y-aut
         class:list={["flex flex-1 flex-col lg:min-h-0", hasList && ["lg:grid lg:grid-rows-[minmax(0,1fr)]", COLUMNS]]}
       >
         {hasList && (
-          <aside aria-label="Moja lista" class:list={["hidden lg:flex lg:min-h-0 lg:flex-col", EDGE]}>
+          <aside aria-labelledby={listHeadingId} class:list={["hidden lg:flex lg:min-h-0 lg:flex-col", EDGE]}>
             <div class:list={HEAD}>
               <slot name="head" />
             </div>
@@ -76,7 +98,7 @@ const MAIN = "overflow-x-clip px-4.5 lg:min-h-0 lg:scroll-py-3 lg:overflow-y-aut
             </div>
           </aside>
         )}
-        <main class:list={[MAIN, "flex-1"]}>
+        <main id={CONTENT_ID} class:list={[MAIN, "flex-1"]}>
           <slot />
         </main>
       </div>

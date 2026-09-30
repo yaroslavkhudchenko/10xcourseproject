@@ -3,7 +3,7 @@ project: Drogeria Radar
 version: 1
 status: draft # draft | active | locked
 created: 2026-09-25
-updated: 2026-09-29
+updated: 2026-09-30
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -199,6 +199,7 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
   - The sign-in page is still the starter's English page, with a "Sign up" link.
 - **Carry-over from `etykiety-redesign`:** restyle the pages still pinned to the dark theme on the new tokens, and drop the pin.
   - `/`, `/dashboard` and `/auth/*` pass `theme="dark"` to `Layout` and keep `bg-cosmic` and their literal colours, which work only on a dark canvas.
+  - They don't pad the safe-area insets yet. `Layout.astro`'s viewport has `viewport-fit=cover` on every page, so on a phone with a notch their content can reach under it; `WatchlistShell.astro` shows the padding.
 - **Status:** ready
 
 ### S-08: Fix a wrong match and remove a product
@@ -214,6 +215,7 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **Carry-over from `etykiety-redesign`:** the re-pin controls the handoff draws in Natura's card (`NaturaCard.tsx`), which wait for this slice.
   - "Zmień" in a matched card's footer, and "Dopasuj ponownie" in a declined one.
   - The matched item's name in the card, which it shows today only while the match isn't saved, so a wrong match can be seen before it's re-pinned.
+  - Keep the list's filter (`?f=`) through the product page's own actions. Natura's prompt and retry links (`src/lib/services/natura-view.ts`), the decision posts' redirects (`src/lib/services/matches.ts`) and the product's no-JavaScript refresh (`src/pages/api/watchlist/refresh.ts`) drop it today, so the aside falls back to "Wszystkie" (review finding F8).
 - **Status:** proposed
 
 ## Backlog Handoff

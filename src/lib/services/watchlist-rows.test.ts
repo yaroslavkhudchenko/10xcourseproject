@@ -165,59 +165,73 @@ describe("listRowOf: the product", () => {
 });
 
 describe("the price tag", () => {
+  // Each tag with a price names that price's shop and its age on the line under it, and one without a price names none.
   it.each<{ verdict: string; shops: RowShop[]; tag: PriceTag }>([
     {
       verdict: "cheapest",
       shops: [rossmannRegular, naturaOnPromotion],
-      tag: { tone: "sun", price: 22.99, label: "Natura" },
+      tag: { tone: "sun", price: 22.99, label: "Natura", meta: "Natura · 5 min temu" },
     },
     {
+      // A tie's line gives its older price's age, so it never looks fresher than one of its prices.
       verdict: "cheapest, in a tie",
-      shops: [shop("rossmann", check({ price: 16.99 })), shop("natura", check({ price: 16.99 }))],
-      tag: { tone: "sun", price: 16.99, label: "Rossmann i Natura" },
+      shops: [
+        shop("rossmann", check({ price: 16.99, checkedAgo: 5 * MINUTE })),
+        shop("natura", check({ price: 16.99, checkedAgo: HOUR })),
+      ],
+      tag: { tone: "sun", price: 16.99, label: "Rossmann i Natura", meta: "Rossmann i Natura · 1 godz. temu" },
     },
     {
       verdict: "only",
       shops: [shop("rossmann", check({ price: 12.99, checkedAgo: DAY }))],
-      tag: { tone: "muted", price: 12.99, label: "Tylko Rossmann" },
+      tag: { tone: "muted", price: 12.99, label: "Tylko Rossmann", meta: "Rossmann · wczoraj" },
     },
     {
       verdict: "unavailable",
       shops: [shop("rossmann", check({ price: 26.99, available: false }))],
-      tag: { tone: "muted", price: 26.99, label: "Niedostępny" },
+      tag: { tone: "muted", price: 26.99, label: "Niedostępny", meta: "Rossmann · 5 min temu" },
     },
     {
       verdict: "unavailable, in both shops",
       shops: [
         shop("rossmann", check({ price: 26.99, available: false })),
-        shop("natura", check({ price: 24.99, available: false })),
+        shop("natura", check({ price: 24.99, available: false, checkedAgo: 20 * MINUTE })),
       ],
-      tag: { tone: "muted", price: 24.99, label: "Niedostępny" },
+      tag: { tone: "muted", price: 24.99, label: "Niedostępny", meta: "Natura · 20 min temu" },
     },
     {
       verdict: "stale",
       shops: [shop("rossmann", check({ price: 11.49, checkedAgo: 2 * DAY }))],
-      tag: { tone: "warn", price: 11.49, label: "Nieaktualna" },
+      tag: { tone: "warn", price: 11.49, label: "Nieaktualna", meta: "Rossmann · 2 dni temu" },
     },
     {
       verdict: "stale, beside a shop never checked",
       shops: [shop("rossmann", check({ price: 11.49, checkedAgo: STALE_AFTER_MS + 1 })), shop("natura", null)],
-      tag: { tone: "warn", price: 11.49, label: "Nieaktualna" },
+      tag: { tone: "warn", price: 11.49, label: "Nieaktualna", meta: "Rossmann · wczoraj" },
+    },
+    {
+      // The shop checked a minute ago no longer returns the item: the price from 3 days ago is the one shown.
+      verdict: "stale, from an item the shop no longer returns",
+      shops: [
+        shop("natura", check({ price: 19.99, status: "missing", checkedAgo: MINUTE, pricedAgo: 3 * DAY })),
+        shop("rossmann", null),
+      ],
+      tag: { tone: "warn", price: 19.99, label: "Nieaktualna", meta: "Natura · 3 dni temu" },
     },
     {
       verdict: "unread",
       shops: [rossmannRegular, shop("natura", null, true)],
-      tag: { tone: "outline", price: null, label: "Błąd odczytu" },
+      tag: { tone: "outline", price: null, label: "Błąd odczytu", meta: null },
     },
     {
       verdict: "none",
       shops: [shop("rossmann", null)],
-      tag: { tone: "outline", price: null, label: "Bez ceny" },
+      tag: { tone: "outline", price: null, label: "Bez ceny", meta: null },
     },
     {
       verdict: "none, after a check that found no item",
       shops: [shop("rossmann", neverPriced)],
-      tag: { tone: "outline", price: null, label: "Bez ceny" },
+      tag: { tone: "outline", price: null, label: "Bez ceny", meta: null },
     },
   ])("shows the $verdict verdict, on the list and in the live tag alike", ({ shops, tag }) => {
     const natura = shops.some((each) => each.shop === "natura") ? "matched" : "unmatched";
@@ -226,8 +240,25 @@ describe("the price tag", () => {
     expect(rowTagOf(shops, NOW)).toEqual(tag);
   });
 
+  it("reads the price's age at the time the tag is judged, as the live tag does on the browser's clock", () => {
+    expect(rowTagOf([rossmannRegular, naturaOnPromotion], NOW + 2 * HOUR)).toEqual({
+      tone: "sun",
+      price: 22.99,
+      label: "Natura",
+      meta: "Natura · 2 godz. temu",
+    });
+    expect(listRowOf(soft, [rossmannRegular, naturaOnPromotion], "matched", NOW + 2 * HOUR).tag.meta).toBe(
+      "Natura · 2 godz. temu",
+    );
+  });
+
   it("shows no price while Natura's match can't be read, since it may name a lower one", () => {
-    expect(rowOf([rossmannRegular], "unreadable").tag).toEqual({ tone: "outline", price: null, label: "Błąd odczytu" });
+    expect(rowOf([rossmannRegular], "unreadable").tag).toEqual({
+      tone: "outline",
+      price: null,
+      label: "Błąd odczytu",
+      meta: null,
+    });
     // The live tag hears of it as a Natura shop whose price couldn't be read.
     expect(rowTagOf([rossmannRegular, shop("natura", null, true)], NOW)).toEqual(
       rowOf([rossmannRegular], "unreadable").tag,
@@ -512,10 +543,10 @@ describe("the list beside a row that can't say whose it is", () => {
   }
 
   const intact: PriceTag[] = [
-    { tone: "sun", price: 22.99, label: "Natura" },
-    { tone: "muted", price: 12.99, label: "Tylko Rossmann" },
+    { tone: "sun", price: 22.99, label: "Natura", meta: "Natura · 5 min temu" },
+    { tone: "muted", price: 12.99, label: "Tylko Rossmann", meta: "Rossmann · 5 min temu" },
   ];
-  const unreadTag: PriceTag = { tone: "outline", price: null, label: "Błąd odczytu" };
+  const unreadTag: PriceTag = { tone: "outline", price: null, label: "Błąd odczytu", meta: null };
 
   it("keeps the other products' prices when a price row can't say whose it is, marking only those without a readable row", () => {
     // Felix's latest row came back without its shop.
@@ -547,7 +578,10 @@ describe("the list beside a row that can't say whose it is", () => {
       const rows = listRowsOf(products, matchRead, priceRead, NOW);
 
       expect(rows.map((row) => row.itemId)).toEqual([SOFT_ID, ZIAJA_ID, OTHER_ID]);
-      expect(rows.map((row) => row.tag)).toEqual([...intact, { tone: "muted", price: 5.99, label: "Tylko Rossmann" }]);
+      expect(rows.map((row) => row.tag)).toEqual([
+        ...intact,
+        { tone: "muted", price: 5.99, label: "Tylko Rossmann", meta: "Rossmann · 5 min temu" },
+      ]);
     });
 
     it("builds the rows as listRowOf does for each product, odd rows included", () => {

@@ -54,7 +54,8 @@ const missingProductPrice = { itemId: missingProductId, shop: "rossmann" };
 const listRefresh = (options) => request("/api/watchlist/refresh", { method: "POST", form: {}, ...options });
 
 // No step searches (no `q`), opens a product that exists or refreshes its price, and the list refresh runs on an empty
-// list, so the smoke test never calls a shop.
+// list, so the smoke test never calls a shop. A step's location is where the redirect starts, or, with `exact`, all of
+// it, so a step can check a redirect carries no code.
 const steps = [
   ["home renders", () => request("/"), { status: 200 }],
   ["dashboard redirects anonymous user", () => request("/dashboard"), { status: 302, location: "/auth/signin" }],
@@ -127,6 +128,18 @@ const steps = [
     { status: 302, location: "/watchlist?list-prices=none" },
   ],
   [
+    // A `back` that isn't a product's id only comes from a crafted post: the route refreshes nothing and adds no code.
+    "list price refresh with a crafted way back goes to the list with no code",
+    () => listRefresh({ form: { back: "not-a-uuid", f: "promo" } }),
+    { status: 302, location: "/watchlist", exact: true },
+  ],
+  [
+    // A product's id is a way back even when no one has that product; the empty list still refreshes nothing.
+    "list price refresh from a product's page goes back to it",
+    () => listRefresh({ form: { back: missingProductId } }),
+    { status: 302, location: `${missingProduct}?list-prices=none`, exact: true },
+  ],
+  [
     // Astro's checkOrigin is the refresh route's only defence against a form posted from another site.
     "list price refresh posted from another site is refused",
     () => listRefresh({ origin: "https://evil.example" }),
@@ -142,7 +155,8 @@ for (const [name, run, expected] of steps) {
   const actual = await run();
   const ok =
     actual.status === expected.status &&
-    (expected.location === undefined || actual.location.startsWith(expected.location)) &&
+    (expected.location === undefined ||
+      (expected.exact ? actual.location === expected.location : actual.location.startsWith(expected.location))) &&
     (expected.cacheControl === undefined || actual.cacheControl.includes(expected.cacheControl));
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}  -> ${actual.status} ${actual.location || actual.cacheControl}`);
   if (!ok) {

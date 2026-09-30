@@ -1,7 +1,8 @@
 ---
 // A product search's results, each candidate in the list's row look with "Dodaj", which adds it to the list and opens
 // its page, or a "Na liście" pill for one the list already holds; the shop's spelling hint, as a link to the search it
-// names; and the search the results come from.
+// names; and the search the results come from. Each "Dodaj" is described by its result's brand, size and name, so
+// screen readers tell the buttons apart.
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import WatchlistRow from "@/components/watchlist/WatchlistRow.astro";
@@ -19,7 +20,7 @@ interface Props {
   listed: readonly Pick<WatchlistItem, "source" | "sourceItemId">[];
   /** The page the spelling hint searches on. */
   path: string;
-  /** Keeps the heading's id apart where the kitchen sink draws the results more than once. */
+  /** Keeps the heading's and the results' ids apart where the kitchen sink draws the results more than once. */
   idPrefix?: string;
 }
 
@@ -29,6 +30,15 @@ const { query, candidates, spellingHint, listed, path, idPrefix = "" } = Astro.p
 const keyOf = ({ source, sourceItemId }: Pick<WatchlistItem, "source" | "sourceItemId">) => `${source}:${sourceItemId}`;
 const onList = new Set(listed.map(keyOf));
 const headingId = `${idPrefix}results-heading`;
+
+// Each result as its row draws it, with the ids of its brand and size and of its name, which its "Dodaj" is described
+// by: the brand and size first, when the result has them, as the row shows them above the name.
+const results = candidates.map((candidate, index) => {
+  const product = rowProductOf(candidate);
+  const textIds = { eyebrow: `${idPrefix}result-${index}-eyebrow`, name: `${idPrefix}result-${index}-name` };
+  const describedBy = product.eyebrow === null ? textIds.name : `${textIds.eyebrow} ${textIds.name}`;
+  return { candidate, product, textIds, describedBy };
+});
 ---
 
 <section aria-labelledby={headingId} class="flex flex-col gap-3">
@@ -51,9 +61,9 @@ const headingId = `${idPrefix}results-heading`;
     <p class="text-sm text-muted-foreground">Brak wyników dla „{query}”.</p>
   ) : (
     <ul class="flex flex-col gap-2.5 lg:gap-3">
-      {candidates.map((candidate) => (
+      {results.map(({ candidate, product, textIds, describedBy }) => (
         <li>
-          <WatchlistRow product={rowProductOf(candidate)}>
+          <WatchlistRow product={product} textIds={textIds}>
             {onList.has(keyOf(candidate)) ? (
               <Badge variant="promo">Na liście</Badge>
             ) : (
@@ -69,7 +79,7 @@ const headingId = `${idPrefix}results-heading`;
                 {candidate.eans.map((ean) => (
                   <input type="hidden" name="eans" value={ean} />
                 ))}
-                <button type="submit" class:list={cn(buttonVariants({ size: "touch" }))}>
+                <button type="submit" aria-describedby={describedBy} class:list={cn(buttonVariants({ size: "touch" }))}>
                   Dodaj
                 </button>
               </form>

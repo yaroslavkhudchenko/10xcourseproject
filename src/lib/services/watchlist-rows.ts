@@ -1,4 +1,5 @@
 import {
+  ageText,
   compareShops,
   keyText,
   listPricedItems,
@@ -47,13 +48,19 @@ export interface RowShop {
 export type NaturaListState = MatchState | "none" | "unreadable";
 
 /**
- * A row's price tag: its tone, the price it shows, if any, and its label. `sun` names the cheapest shop, `muted` a
- * price that can't be named cheapest but is current, `warn` an out-of-date price, and `outline` no price at all.
+ * A row's price tag: its tone, the price it shows, if any, its label, and the line under it that says where that price
+ * comes from and how old it is. `sun` names the cheapest shop, `muted` a price that can't be named cheapest but is
+ * current, `warn` an out-of-date price, and `outline` no price at all.
  */
 export interface PriceTag {
   tone: "sun" | "muted" | "warn" | "outline";
   price: number | null;
   label: string;
+  /**
+   * The shop or shops the price is from and its age, "Natura · 5 min temu", so no price on the list shows without its
+   * source and fetch time; null when the tag shows no price.
+   */
+  meta: string | null;
 }
 
 /** A product as a row draws it, on the list or among the search results: its brand and size above its name. */
@@ -160,22 +167,43 @@ function sentence(text: string): string {
   return text.endsWith(".") ? text : `${text}.`;
 }
 
-/** The price tag a verdict shows on the list. */
+/**
+ * The price tag a verdict shows on the list, with its price's shop and age read at the time the verdict was judged: a
+ * tie's shops and its oldest price's age, the cheapest price's, or the one shop's price whatever its state, so a stale
+ * or unavailable price names its shop too.
+ */
 export function priceTagOf(verdict: PriceVerdict): PriceTag {
   switch (verdict.kind) {
-    case "cheapest":
-      return { tone: "sun", price: verdict.price, label: namesOf(verdict.shops) };
+    case "cheapest": {
+      const shops = namesOf(verdict.shops);
+      return { tone: "sun", price: verdict.price, label: shops, meta: sourceLine(shops, verdict.ageFrom, verdict.at) };
+    }
     case "only":
-      return { tone: "muted", price: verdict.price, label: `Tylko ${SHOP_LABELS[verdict.shop].name}` };
+      return {
+        tone: "muted",
+        price: verdict.price,
+        label: `Tylko ${SHOP_LABELS[verdict.shop].name}`,
+        meta: shopLine(verdict),
+      };
     case "unavailable":
-      return { tone: "muted", price: verdict.price, label: "Niedostępny" };
+      return { tone: "muted", price: verdict.price, label: "Niedostępny", meta: shopLine(verdict) };
     case "stale":
-      return { tone: "warn", price: verdict.price, label: "Nieaktualna" };
+      return { tone: "warn", price: verdict.price, label: "Nieaktualna", meta: shopLine(verdict) };
     case "unread":
-      return { tone: "outline", price: null, label: "Błąd odczytu" };
+      return { tone: "outline", price: null, label: "Błąd odczytu", meta: null };
     case "none":
-      return { tone: "outline", price: null, label: "Bez ceny" };
+      return { tone: "outline", price: null, label: "Bez ceny", meta: null };
   }
+}
+
+/** Where a tag's price comes from and how old it is at `now`, as the row's meta line says it: "Natura · 5 min temu". */
+function sourceLine(shops: string, pricedAt: string, now: number): string {
+  return `${shops} · ${ageText(pricedAt, now)}`;
+}
+
+/** The meta line of a verdict that gives one shop's price: that shop, and the price's age when it was judged. */
+function shopLine({ shop, pricedAt, at }: { shop: PricedShop; pricedAt: string; at: number }): string {
+  return sourceLine(SHOP_LABELS[shop].name, pricedAt, at);
 }
 
 /**

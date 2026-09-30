@@ -7,7 +7,7 @@ import { fetchNaturaPrices } from "@/lib/services/shops/natura";
 import { fetchRossmannPrice } from "@/lib/services/shops/rossmann";
 import { isRefusal } from "@/lib/services/shops/shop-outcome";
 import { parseWatchlistItemId } from "@/lib/services/watchlist";
-import { parseListFilter } from "@/lib/services/watchlist-rows";
+import { parseListFilter, type ListFilter } from "@/lib/services/watchlist-rows";
 import type { PriceCheck, PriceKey, ShopId, ShopUnavailable } from "@/types";
 
 // Refreshing pinned items' prices, for a product's page and for the list: every request goes through the gate, and
@@ -144,26 +144,41 @@ export function parsePriceRefreshCode(value: string | null): PriceRefreshCode | 
   return PRICE_REFRESH_CODES.find((code) => code === value) ?? null;
 }
 
+/** Where the list's "Odśwież ceny" goes back to: the product page it was posted from, or the list, and its filter. */
+export interface ListRefreshBack {
+  /** The id of the product whose page the list was shown beside, or null for the list's own page. */
+  back: string | null;
+  /** The filter the list was shown with, which the page it goes back to keeps. */
+  f: ListFilter;
+}
+
 /**
- * Where the list's "Odśwież ceny" goes back to with its code: the product page it was posted from (`back`), or the
- * list without one, keeping the list's filter (`f`) unless it's every product's. A `back` that isn't a product's id
- * only comes from a crafted post, which goes back to the list with no code and no filter; a filter no chip links to
- * is dropped.
+ * The list refresh's `back` and `f` fields, as its form posts them: the product page it was posted from, by the
+ * product's id, or none for the list, and the list's filter, a filter no chip links to, or one that isn't text, being
+ * every product's. Null for a `back` that isn't a product's id (empty, not a UUID, or a file), which only a crafted
+ * post sends: the route then refreshes nothing, so it costs no shop request, and goes back to the list with no code.
+ * The route reads them once, before any refresh.
  */
-export function listRefreshBackTo(
+export function listRefreshBackOf(
   back: FormDataEntryValue | null,
   f: FormDataEntryValue | null,
-  code: PriceRefreshCode,
-): string {
+): ListRefreshBack | null {
   const itemId = back === null ? null : parseWatchlistItemId(back);
   if (back !== null && itemId === null) {
-    return "/watchlist";
+    return null;
   }
+  return { back: itemId, f: parseListFilter(typeof f === "string" ? f : null) };
+}
+
+/**
+ * Where the list's "Odśwież ceny" goes back to with its code (listRefreshBackOf): the product page it was posted from,
+ * or the list, keeping the list's filter unless it's every product's.
+ */
+export function listRefreshBackTo({ back, f }: ListRefreshBack, code: PriceRefreshCode): string {
   const params = new URLSearchParams();
-  const filter = parseListFilter(typeof f === "string" ? f : null);
-  if (filter !== "all") {
-    params.set("f", filter);
+  if (f !== "all") {
+    params.set("f", f);
   }
   params.set(LIST_PRICES_PARAM, code);
-  return `${itemId === null ? "/watchlist" : `/watchlist/${itemId}`}?${params.toString()}`;
+  return `${back === null ? "/watchlist" : `/watchlist/${back}`}?${params.toString()}`;
 }

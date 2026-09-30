@@ -550,27 +550,66 @@ export function trackHint(verdict: PriceVerdict, { naturaUndecided }: NaturaCont
 }
 
 /**
- * When the product's prices were checked, as the caption under "Odśwież ceny" says it: the oldest check among the
- * shops that have one, so the caption never makes a price look fresher than it is. A shop never checked, or one whose
- * price couldn't be read, shows its own gap and is left out. A refetch that stores nothing keeps its shop's check.
+ * What the caption and the phone's bar say for when the prices were checked while a shop's stored price couldn't be
+ * read: that shop's check may be the oldest, so no other shop's age may stand for them all, and it may well have been
+ * checked, so it never reads as never checked.
  */
-export function checkedCaption(rows: readonly Pick<ShopRow, "latest" | "readFailed">[], now: number): string {
-  const age = checkedAge(rows, now);
-  return age === null ? "jeszcze nie sprawdzono" : `sprawdzono ${age}`;
-}
+const CHECKS_UNREAD_TEXT = "nie udało się wczytać";
+
+/** When a product's shops were checked, as a whole: a check couldn't be read, the oldest check, or none was made. */
+type ChecksOf = { kind: "unread" } | { kind: "checked"; oldest: string } | { kind: "never" };
 
 /**
- * How old checkedCaption's check is, on its own, as the phone's bottom bar writes it under "Sprawdzono": the age of
- * the oldest check among the shops that have one, or null when none has.
+ * When the rows' shops were checked: `unread` while some row's stored price couldn't be read, which a failed read of
+ * all the stored prices (`pricesFailed`) marks on every row; otherwise the oldest check among the shops that have one,
+ * so no age makes a price look fresher than it is, and `never` when no shop has one. A shop never checked shows its
+ * own gap and is left out. A refetch that stores nothing keeps its shop's check.
  */
-export function checkedAge(rows: readonly Pick<ShopRow, "latest" | "readFailed">[], now: number): string | null {
+function checksOf(rows: readonly Pick<ShopRow, "latest" | "readFailed">[]): ChecksOf {
+  if (rows.some((row) => row.readFailed)) {
+    return { kind: "unread" };
+  }
   let oldest: string | null = null;
-  for (const { latest, readFailed } of rows) {
-    if (!readFailed && latest !== null && (oldest === null || checkTime(latest.lastCheckedAt) < checkTime(oldest))) {
+  for (const { latest } of rows) {
+    if (latest !== null && (oldest === null || checkTime(latest.lastCheckedAt) < checkTime(oldest))) {
       oldest = latest.lastCheckedAt;
     }
   }
-  return oldest === null ? null : ageText(oldest, now);
+  return oldest === null ? { kind: "never" } : { kind: "checked", oldest };
+}
+
+/**
+ * When the product's prices were checked, as the caption under "Odśwież ceny" says it (checksOf): "sprawdzono" and
+ * the oldest check's age; that the checks couldn't be read while a shop's stored price couldn't be; and "jeszcze nie
+ * sprawdzono" only when no shop was checked and every price was read.
+ */
+export function checkedCaption(rows: readonly Pick<ShopRow, "latest" | "readFailed">[], now: number): string {
+  const checks = checksOf(rows);
+  switch (checks.kind) {
+    case "unread":
+      return CHECKS_UNREAD_TEXT;
+    case "checked":
+      return `sprawdzono ${ageText(checks.oldest, now)}`;
+    case "never":
+      return "jeszcze nie sprawdzono";
+  }
+}
+
+/**
+ * What the phone's bottom bar writes under "Sprawdzono", by checkedCaption's rule: the oldest check's age, or that the
+ * checks couldn't be read while a shop's stored price couldn't be. Null when no shop was checked, and the bar then
+ * gives the caption on its own.
+ */
+export function checkedAge(rows: readonly Pick<ShopRow, "latest" | "readFailed">[], now: number): string | null {
+  const checks = checksOf(rows);
+  switch (checks.kind) {
+    case "unread":
+      return CHECKS_UNREAD_TEXT;
+    case "checked":
+      return ageText(checks.oldest, now);
+    case "never":
+      return null;
+  }
 }
 
 /** A check's time in milliseconds; one that doesn't parse counts as the oldest, since nothing says it's recent. */

@@ -3,7 +3,10 @@ import RefreshForm from "@/components/watchlist/RefreshForm";
 interface Props {
   /** The watched product's id, which the bar's "Odśwież ceny" posts. */
   itemId: string;
-  /** How old the prices' oldest check is (checkedAge), or null when no shop was checked. */
+  /**
+   * What the bar writes under "Sprawdzono" (checkedAge): how old the prices' oldest check is, or that the checks
+   * couldn't be read; null when no shop was checked.
+   */
   age: string | null;
   /** When the prices were checked, as the title row says it (checkedCaption), for a product never checked. */
   caption: string;
@@ -34,7 +37,7 @@ export default function RefreshBar({ itemId, age, caption, refreshing, onRefresh
           </>
         )}
       </p>
-      <RefreshForm itemId={itemId} disabled={refreshing} onRefresh={onRefresh} size="bar" className="shrink-0" />
+      <RefreshForm itemId={itemId} pending={refreshing} onRefresh={onRefresh} size="bar" className="shrink-0" />
     </div>
   );
 }

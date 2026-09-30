@@ -1,7 +1,8 @@
 ---
 // The account on a phone, behind the avatar with the email's first letter: a menu with the signed-in email, the theme
 // switch and "Wyloguj". It's a <details>, so the avatar opens and closes it without JavaScript; its script also
-// closes it on Escape, taking the focus back to the avatar, and on a click outside it. The theme switch needs
+// closes it on Escape, taking the focus back to the avatar, on a click outside it, and when the keyboard's focus
+// moves on past it, so an open panel never covers the page the focus has moved to. The theme switch needs
 // JavaScript, so without it its row stays hidden. Astro includes the script once per page.
 import ThemeToggle from "@/components/shell/ThemeToggle.astro";
 import { buttonVariants } from "@/components/ui/button";
@@ -43,8 +44,18 @@ const { email, open = false } = Astro.props;
 
 <script>
   // Escape closes an open menu, and takes the focus back to its avatar when the focus was in the menu; a click outside
-  // it closes it too.
+  // it closes it too, and so does the focus moving to an element outside it, as Tab past its last control does. The
+  // focus leaving for nothing, as a click on the menu's own text or a switch to another window makes it, leaves the
+  // menu open.
   const menus = [...document.querySelectorAll<HTMLDetailsElement>("details[data-account-menu]")];
+  for (const menu of menus) {
+    menu.addEventListener("focusout", (event) => {
+      const next = event.relatedTarget;
+      if (menu.open && next instanceof Node && !menu.contains(next)) {
+        menu.open = false;
+      }
+    });
+  }
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") {
       return;

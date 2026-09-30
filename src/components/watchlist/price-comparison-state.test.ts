@@ -841,16 +841,14 @@ describe("checkedCaption", () => {
     expect(checkedCaption(state.rows, state.now)).toBe("sprawdzono 20 min temu");
   });
 
-  it("ignores a shop never checked, and one whose price couldn't be read", () => {
+  it("leaves out a shop never checked", () => {
     const checked = rossmann(stored("rossmann", "26900", 26.99, 5 * MINUTE));
     const neverChecked = initialState({ shops: [checked, natura(null)], now: RENDERED });
-    const unread = initialState({ shops: [checked, { ...natura(null), readFailed: true }], now: RENDERED });
 
     expect(checkedCaption(neverChecked.rows, RENDERED_AT)).toBe("sprawdzono 5 min temu");
-    expect(checkedCaption(unread.rows, RENDERED_AT)).toBe("sprawdzono 5 min temu");
   });
 
-  it("says no shop was checked yet when none was", () => {
+  it("says no shop was checked yet only when none was and every price was read", () => {
     const state = initialState({ shops: [rossmann(null), natura(null)], now: RENDERED });
 
     expect(checkedCaption(state.rows, RENDERED_AT)).toBe("jeszcze nie sprawdzono");
@@ -870,10 +868,61 @@ describe("checkedCaption", () => {
   });
 });
 
+describe("when a shop's stored price couldn't be read", () => {
+  // Rossmann checked 5 minutes before the page was rendered; Natura's check couldn't be read, and may be older.
+  const checked = () => rossmann(stored("rossmann", "26900", 26.99, 5 * MINUTE));
+  const unreadNatura = () => ({ ...natura(null), readFailed: true });
+
+  it.each<{ why: string; state: () => PriceComparisonState }>([
+    {
+      why: "the page couldn't read the stored prices at all",
+      state: () => initialState({ shops: [rossmann(), natura()], now: RENDERED, pricesFailed: true }),
+    },
+    {
+      why: "the failed read handed over no price",
+      state: () => initialState({ shops: [rossmann(null), natura(null)], now: RENDERED, pricesFailed: true }),
+    },
+    {
+      why: "one shop's price couldn't be read beside one that was checked",
+      state: () => initialState({ shops: [checked(), unreadNatura()], now: RENDERED }),
+    },
+    {
+      why: "one shop's price couldn't be read beside one never checked",
+      state: () => initialState({ shops: [rossmann(null), unreadNatura()], now: RENDERED }),
+    },
+    {
+      why: "the unread shop's refetch came to nothing",
+      state: () =>
+        run(
+          initialState({ shops: [checked(), unreadNatura()], now: RENDERED }),
+          start("natura"),
+          done("natura", { kind: "unavailable", reason: "failed" }, ANSWERED_AT),
+        ),
+    },
+  ])("says the checks couldn't be read, never an age or never checked, when $why", ({ state }) => {
+    const { rows, now } = state();
+
+    expect(checkedCaption(rows, now)).toBe("nie udało się wczytać");
+    // The phone's bar writes it under "Sprawdzono", as it writes an age.
+    expect(checkedAge(rows, now)).toBe("nie udało się wczytać");
+  });
+
+  it("gives the oldest check again once the unread shop has answered", () => {
+    const answered = run(
+      initialState({ shops: [checked(), unreadNatura()], now: RENDERED }),
+      start("natura"),
+      done("natura", priceAnswer(16.99), ANSWERED_AT),
+    );
+
+    expect(checkedCaption(answered.rows, answered.now)).toBe("sprawdzono 5 min temu");
+    expect(checkedAge(answered.rows, answered.now)).toBe("5 min temu");
+  });
+});
+
 describe("checkedAge", () => {
   it("gives the caption's check without its word, for the phone's bar to write under it", () => {
     const state = initialState({
-      shops: [rossmann(stored("rossmann", "26900", 26.99, 20 * MINUTE)), { ...natura(null), readFailed: true }],
+      shops: [rossmann(stored("rossmann", "26900", 26.99, 20 * MINUTE)), natura(null)],
       now: RENDERED,
     });
 
@@ -881,12 +930,11 @@ describe("checkedAge", () => {
     expect(checkedCaption(state.rows, state.now)).toBe(`sprawdzono ${checkedAge(state.rows, state.now) ?? ""}`);
   });
 
-  it("gives none when no shop was checked, or none could be read", () => {
+  it("gives none when no shop was checked and every price was read, so the bar gives the caption", () => {
     const never = initialState({ shops: [rossmann(null), natura(null)], now: RENDERED });
-    const unread = initialState({ shops: [rossmann(), natura()], now: RENDERED, pricesFailed: true });
 
     expect(checkedAge(never.rows, RENDERED_AT)).toBeNull();
-    expect(checkedAge(unread.rows, RENDERED_AT)).toBeNull();
+    expect(checkedAge([], RENDERED_AT)).toBeNull();
   });
 });
 
@@ -972,7 +1020,13 @@ describe("PRICES_EVENT", () => {
     const detail: PricesEventDetail = { itemId: ITEM_ID, shops: state.rows };
 
     expect(PRICES_EVENT).toBe("drogeria:prices");
-    expect(rowTagOf(detail.shops, state.now)).toEqual({ tone: "sun", price: 16.99, label: "Natura" });
+    // Natura's new price was fetched a second before the answer was applied.
+    expect(rowTagOf(detail.shops, state.now)).toEqual({
+      tone: "sun",
+      price: 16.99,
+      label: "Natura",
+      meta: "Natura · przed chwilą",
+    });
   });
 });
 
@@ -999,7 +1053,7 @@ describe("rowShopsOfIsland", () => {
     ]);
     // The list's row would otherwise name Rossmann as the only shop.
     expect(rowTagOf(rowShopsOfIsland(state.rows), RENDERED_AT)).toMatchObject({ label: "Tylko Rossmann" });
-    expect(rowTagOf(shops, RENDERED_AT)).toEqual({ tone: "outline", price: null, label: "Błąd odczytu" });
+    expect(rowTagOf(shops, RENDERED_AT)).toEqual({ tone: "outline", price: null, label: "Błąd odczytu", meta: null });
   });
 
   it("keeps a Natura row the island has, and adds none", () => {
@@ -1026,9 +1080,20 @@ describe("shopsOfPricesEvent and the selected row's tag", () => {
 
     expect(first).not.toBeNull();
     expect(next).not.toBeNull();
-    // Rossmann's stored 26,99 zł beats Natura's stored 29,99 zł, until Natura answers with 16,99 zł.
-    expect(rowTagOf(first ?? [], RENDERED_AT)).toEqual({ tone: "sun", price: 26.99, label: "Rossmann" });
-    expect(rowTagOf(next ?? [], ANSWERED_AT)).toEqual({ tone: "sun", price: 16.99, label: "Natura" });
+    // Rossmann's stored 26,99 zł beats Natura's stored 29,99 zł, until Natura answers with 16,99 zł; the line under
+    // the tag follows, with the new price's shop and age.
+    expect(rowTagOf(first ?? [], RENDERED_AT)).toEqual({
+      tone: "sun",
+      price: 26.99,
+      label: "Rossmann",
+      meta: "Rossmann · 20 min temu",
+    });
+    expect(rowTagOf(next ?? [], ANSWERED_AT)).toEqual({
+      tone: "sun",
+      price: 16.99,
+      label: "Natura",
+      meta: "Natura · przed chwilą",
+    });
   });
 
   it("ignores an event about another product", () => {

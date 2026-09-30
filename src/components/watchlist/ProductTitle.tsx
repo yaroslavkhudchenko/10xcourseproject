@@ -45,7 +45,7 @@ export default function ProductTitle({ product, itemId, caption, refreshing, onR
         </h1>
       </div>
       <div className="hidden shrink-0 flex-col items-end gap-2 lg:flex">
-        <RefreshForm itemId={itemId} disabled={refreshing} onRefresh={onRefresh} size="title" />
+        <RefreshForm itemId={itemId} pending={refreshing} onRefresh={onRefresh} size="title" />
         <p className="text-meta text-muted-foreground font-mono whitespace-nowrap">{caption}</p>
       </div>
     </div>

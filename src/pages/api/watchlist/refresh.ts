@@ -1,6 +1,12 @@
 import type { APIRoute } from "astro";
 import { PRICES_PARAM } from "@/lib/notices";
-import { listRefreshBackTo, refreshCodeOf, refreshPrices, type PriceRefreshCode } from "@/lib/services/price-refresh";
+import {
+  listRefreshBackOf,
+  listRefreshBackTo,
+  refreshCodeOf,
+  refreshPrices,
+  type PriceRefreshCode,
+} from "@/lib/services/price-refresh";
 import { listTargets, productTargets } from "@/lib/services/price-targets";
 import { shopGateFor } from "@/lib/services/shop-gate";
 import { parseWatchlistItemId } from "@/lib/services/watchlist";
@@ -24,16 +30,19 @@ export const POST: APIRoute = async (context) => {
   if (rawItemId !== null && itemId === null) {
     return context.redirect("/watchlist");
   }
-  // The list's refresh goes back to the product page it was posted from (`back`), or else to the list, keeping the
-  // list's filter (`f`). A `back` that isn't a product's id only comes from a crafted post, which refreshes nothing and
-  // goes back to the list with no code, as a crafted id does.
-  const back = form.get("back");
-  if (itemId === null && back !== null && parseWatchlistItemId(back) === null) {
-    return context.redirect("/watchlist");
+  // Back to the product's page with the refresh's code, or, for the list's refresh, where listRefreshBackOf says: the
+  // product page it was posted from or the list, keeping the list's filter. A crafted `back` refreshes nothing and goes
+  // back to the list with no code, as a crafted id does.
+  let backTo: (code: PriceRefreshCode) => string;
+  if (itemId === null) {
+    const listBack = listRefreshBackOf(form.get("back"), form.get("f"));
+    if (listBack === null) {
+      return context.redirect("/watchlist");
+    }
+    backTo = (code) => listRefreshBackTo(listBack, code);
+  } else {
+    backTo = (code) => `/watchlist/${itemId}?${PRICES_PARAM}=${code}`;
   }
-  // Back to the list, or to the product's page, with the refresh's code, which the page turns into its own text.
-  const backTo = (code: PriceRefreshCode) =>
-    itemId === null ? listRefreshBackTo(back, form.get("f"), code) : `/watchlist/${itemId}?${PRICES_PARAM}=${code}`;
   const supabase = context.locals.supabase;
   if (!supabase) {
     return context.redirect(backTo("failed"));

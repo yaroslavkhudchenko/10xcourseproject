@@ -49,11 +49,14 @@ const { counts, filter } = listChipsOf(rows, matchRead !== null && priceRead !==
 
 const notice = params.has("exists") ? "Ten produkt jest już na Twojej liście." : null;
 const error = watchlistErrorMessage(params.get("error"));
+// "Moja lista", the page's heading, which names the rows' list too.
+const LIST_HEADING_ID = "list-heading";
 ---
 
 <WatchlistShell title="Moja lista · Drogeria Radar" mode="list" email={user?.email ?? null} query={rawQuery}>
   <ListHead
     slot="head"
+    headingId={LIST_HEADING_ID}
     count={items?.length ?? null}
     path={Astro.url.pathname}
     filter={filter}
@@ -115,6 +118,7 @@ const error = watchlistErrorMessage(params.get("error"));
     filter={filter}
     matchesFailed={matchRead === null}
     pricesFailed={priceRead === null}
+    labelledBy={LIST_HEADING_ID}
   />
   {counts !== null && <ListFooter slot="footer" />}
 </WatchlistShell>

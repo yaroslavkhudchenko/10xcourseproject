@@ -12,7 +12,10 @@ interface Props {
    * tag stays as drawn.
    */
   itemId?: string;
+  /** Places the tag in its row. */
   className?: string;
+  /** Places the line under the tag in its row. */
+  metaClassName?: string;
 }
 
 // Each tone's label, as the row service names them (watchlist-rows.ts, priceTagOf). The sun and tag-warn labels stay
@@ -26,13 +29,16 @@ const TONES: Record<PriceTag["tone"], string> = {
 };
 
 // A list row's price tag: the price in shelf-label style, with its label under it in DM Mono, such as the cheapest
-// shop's name, "Tylko Rossmann" or "Nieaktualna", or only the label when there's no price to show. It's drawn: the
-// row's own line tells screen readers the whole comparison, so the row hides the tag from them. The selected row's tag
-// beside a product's page recomputes itself by the list's own rule (rowTagOf) each time the product's island sends
-// its prices, so it follows the product's refresh; it asks no shop, and listens only while it's on the page. Every
-// other tag keeps no state of its own, so it renders the same as static HTML in an .astro file and in an island, and
-// it and its imports stay free of server-only code.
-export default function RowTag({ tag, itemId, className }: Props) {
+// shop's name, "Tylko Rossmann" or "Nieaktualna", or only the label when there's no price to show; and, apart from
+// the tag, the line that names that price's shop and its age, "Natura · 5 min temu", so no price on the list shows
+// without its source and fetch time. A tag without a price has no line. The tag and the line are siblings, which the
+// row places in its grid (WatchlistRow), so the line can run wider than the tag. Both are drawn: the row's own line
+// tells screen readers the whole comparison, ages included, so both are hidden from them. The selected row's tag
+// beside a product's page recomputes itself, its line included, by the list's own rule (rowTagOf) each time the
+// product's island sends its prices, so it follows the product's refresh; it asks no shop, and listens only while
+// it's on the page. Every other tag keeps no state of its own, so it renders the same as static HTML in an .astro file
+// and in an island, and it and its imports stay free of server-only code.
+export default function RowTag({ tag, itemId, className, metaClassName }: Props) {
   const [shown, setShown] = useState(tag);
 
   useEffect(() => {
@@ -52,15 +58,26 @@ export default function RowTag({ tag, itemId, className }: Props) {
   }, [itemId]);
 
   return (
-    <span
-      className={cn(
-        "rounded-price-tag flex min-w-20 shrink-0 flex-col items-end gap-0.75 px-2.25 py-1.75 lg:min-w-21.5 lg:px-2.5",
-        TONES[shown.tone],
-        className,
+    <>
+      <span
+        aria-hidden="true"
+        className={cn(
+          "rounded-price-tag flex min-w-20 shrink-0 flex-col items-end gap-0.75 px-2.25 py-1.75 lg:min-w-21.5 lg:px-2.5",
+          TONES[shown.tone],
+          className,
+        )}
+      >
+        {shown.price !== null && <Price amount={shown.price} size="tag" />}
+        <span className="text-micro tracking-eyebrow font-mono whitespace-nowrap uppercase">{shown.label}</span>
+      </span>
+      {shown.meta !== null && (
+        <span
+          aria-hidden="true"
+          className={cn("text-meta tracking-eyebrow text-muted-foreground font-mono uppercase", metaClassName)}
+        >
+          {shown.meta}
+        </span>
       )}
-    >
-      {shown.price !== null && <Price amount={shown.price} size="tag" />}
-      <span className="text-micro tracking-eyebrow font-mono whitespace-nowrap uppercase">{shown.label}</span>
-    </span>
+    </>
   );
 }

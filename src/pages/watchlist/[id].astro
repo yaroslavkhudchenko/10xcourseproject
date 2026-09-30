@@ -16,7 +16,7 @@ import {
 } from "@/components/watchlist/price-comparison-state";
 import ProductUnavailable from "@/components/watchlist/ProductUnavailable.astro";
 import WatchlistShell from "@/layouts/WatchlistShell.astro";
-import { ERROR_PARAM, LIST_PRICES_PARAM, PRICES_PARAM } from "@/lib/notices";
+import { ERROR_PARAM, LIST_PRICES_PARAM, PRICES_NOTICES, PRICES_PARAM } from "@/lib/notices";
 import { decideMatchStep } from "@/lib/services/match-step";
 import {
   listMatches,
@@ -35,7 +35,7 @@ import {
   type NaturaView,
 } from "@/lib/services/natura-view";
 import { keyText, SHOP_LABELS, type PricedShop } from "@/lib/services/price-comparison";
-import { parsePriceRefreshCode, type PriceRefreshCode } from "@/lib/services/price-refresh";
+import { parsePriceRefreshCode } from "@/lib/services/price-refresh";
 import { listLatestPrices, readLatestPrices, recordPriceChecks, type ListPricesRead } from "@/lib/services/prices";
 import { isOwnNavigation } from "@/lib/services/search-query";
 import { shopGateFor } from "@/lib/services/shop-gate";
@@ -186,19 +186,10 @@ const naturaInput: NaturaCardInput | null =
     : { view: natura.kind === "choose" ? { ...natura, options: [] } : natura, notice, error, unsaved };
 const choice = natura?.kind === "choose" ? natura : null;
 
-// What "Odśwież ceny" came to when its form was posted without JavaScript, in the page's own words: a code the app
-// didn't send shows nothing.
-const PRICE_NOTICES: Record<PriceRefreshCode, { text: string; warning: boolean }> = {
-  done: { text: "Ceny odświeżone.", warning: false },
-  partial: {
-    text: "Nie wszystkie ceny udało się odświeżyć. Tam, gdzie się nie udało, widać ostatnią znaną cenę i jej wiek.",
-    warning: true,
-  },
-  none: { text: "Nic do odświeżenia.", warning: false },
-  failed: { text: "Nie udało się odświeżyć cen. Spróbuj ponownie za chwilę.", warning: true },
-};
+// What "Odśwież ceny" came to when its form was posted without JavaScript, in the product's own words (notices.ts): a
+// code the app didn't send shows nothing.
 const pricesCode = parsePriceRefreshCode(params.get(PRICES_PARAM));
-const pricesNotice = pricesCode === null ? null : PRICE_NOTICES[pricesCode];
+const pricesNotice = pricesCode === null ? null : PRICES_NOTICES[pricesCode];
 
 // The phone's way back to the list, with the filter the list was shown with (a row's link carries it); any other value
 // of `f` goes back to the whole list.
@@ -228,11 +219,19 @@ const listRows =
       );
 const { counts, filter } = listChipsOf(listRows, matchRead !== null && priceRead !== null, params.get("f"));
 const listPath = shown === null ? "/watchlist" : `/watchlist/${shown.id}`;
+// "Moja lista", the heading of the list beside the product, which names the list's landmark.
+const LIST_HEADING_ID = "list-heading";
 ---
 
-<WatchlistShell title={`${title} · Drogeria Radar`} mode="product" email={user?.email ?? null}>
+<WatchlistShell
+  title={`${title} · Drogeria Radar`}
+  mode="product"
+  email={user?.email ?? null}
+  listHeadingId={LIST_HEADING_ID}
+>
   <ListHead
     slot="head"
+    headingId={LIST_HEADING_ID}
     level={2}
     count={items?.length ?? null}
     path={listPath}

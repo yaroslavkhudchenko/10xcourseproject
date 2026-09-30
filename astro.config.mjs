@@ -34,9 +34,10 @@ export default defineConfig({
   adapter: cloudflare({ imageService: "passthrough" }),
   // The web fonts, downloaded from Google at build time and served with the Worker's static assets from
   // /_astro/fonts/, so no page asks Google for them. <Font /> in Layout.astro sets each family's CSS variable, and
-  // src/styles/global.css publishes them as font-sans and font-mono. latin-ext holds the Polish letters. A build that
-  // can't reach Google still succeeds, with no font files and only a warning, so CI runs scripts/check-built-fonts.mjs,
-  // which counts the files these families yield: change its count with them.
+  // src/styles/global.css publishes them as font-sans and font-mono. latin-ext holds the Polish letters. `astro build`
+  // still succeeds when it can't reach Google, with no font files and only a warning, so `npm run build` runs
+  // scripts/check-built-fonts.mjs after it, which fails the build, and so a deploy, below the number of files these
+  // families yield: change its count with them.
   fonts: [
     {
       provider: fontProviders.google(),

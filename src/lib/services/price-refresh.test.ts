@@ -2,11 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { LIST_PRICES_PARAM, NOTICE_PARAMS, PRICES_PARAM } from "@/lib/notices";
 import {
+  listRefreshBackOf,
   listRefreshBackTo,
   parsePriceRefreshCode,
   PRICE_REFRESH_CODES,
   refreshCodeOf,
   refreshPrices,
+  type ListRefreshBack,
   type PriceRefresh,
   type PriceRefreshCode,
 } from "@/lib/services/price-refresh";
@@ -564,6 +566,41 @@ describe("parsePriceRefreshCode", () => {
   );
 });
 
+describe("listRefreshBackOf, the list refresh's way back", () => {
+  const PRODUCT_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
+
+  it.each<{ why: string; back: FormDataEntryValue | null; f: FormDataEntryValue | null; read: ListRefreshBack }>([
+    { why: "the list, with its filter", back: null, f: "promo", read: { back: null, f: "promo" } },
+    { why: "the list, without a filter", back: null, f: null, read: { back: null, f: "all" } },
+    { why: "the product it was posted from", back: PRODUCT_ID, f: "check", read: { back: PRODUCT_ID, f: "check" } },
+    {
+      why: "a filter no chip links to, as every product's",
+      back: null,
+      f: "najtańsze",
+      read: { back: null, f: "all" },
+    },
+    {
+      why: "a filter that isn't text, as every product's",
+      back: PRODUCT_ID,
+      f: new File(["promo"], "f.txt"),
+      read: { back: PRODUCT_ID, f: "all" },
+    },
+  ])("reads $why", ({ back, f, read }) => {
+    expect(listRefreshBackOf(back, f)).toEqual(read);
+  });
+
+  it.each<{ why: string; back: FormDataEntryValue }>([
+    { why: "an id that isn't a UUID", back: "26900" },
+    { why: "an empty id", back: "" },
+    { why: "a path", back: `${PRODUCT_ID}/../../auth/signout` },
+    { why: "an id with its own query", back: `${PRODUCT_ID}?list-prices=done` },
+    { why: "a file", back: new File([PRODUCT_ID], "back.txt") },
+  ])("refuses $why, which only a crafted post sends, whatever the filter", ({ back }) => {
+    expect(listRefreshBackOf(back, "promo")).toBeNull();
+    expect(listRefreshBackOf(back, null)).toBeNull();
+  });
+});
+
 describe("listRefreshBackTo", () => {
   const PRODUCT_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
 
@@ -572,49 +609,39 @@ describe("listRefreshBackTo", () => {
     expect(NOTICE_PARAMS).toContain(LIST_PRICES_PARAM);
   });
 
-  it.each<{ why: string; back: FormDataEntryValue | null; f: FormDataEntryValue | null; to: string }>([
+  it.each<{ why: string; back: ListRefreshBack; to: string }>([
     {
       why: "to the product it was posted from, with its filter",
-      back: PRODUCT_ID,
-      f: "promo",
+      back: { back: PRODUCT_ID, f: "promo" },
       to: `/watchlist/${PRODUCT_ID}?f=promo&${LIST_PRICES_PARAM}=done`,
     },
     {
       why: "to the product, without the filter of every product",
-      back: PRODUCT_ID,
-      f: "all",
+      back: { back: PRODUCT_ID, f: "all" },
       to: `/watchlist/${PRODUCT_ID}?${LIST_PRICES_PARAM}=done`,
     },
-    { why: "to the list, with its filter", back: null, f: "check", to: `/watchlist?f=check&${LIST_PRICES_PARAM}=done` },
-    { why: "to the list without a filter", back: null, f: null, to: `/watchlist?${LIST_PRICES_PARAM}=done` },
     {
-      why: "to the list, dropping a filter no chip links to",
-      back: null,
-      f: "najtańsze",
-      to: `/watchlist?${LIST_PRICES_PARAM}=done`,
+      why: "to the list, with its filter",
+      back: { back: null, f: "check" },
+      to: `/watchlist?f=check&${LIST_PRICES_PARAM}=done`,
     },
-    {
-      why: "to the product, dropping a filter that isn't text",
-      back: PRODUCT_ID,
-      f: new File(["promo"], "f.txt"),
-      to: `/watchlist/${PRODUCT_ID}?${LIST_PRICES_PARAM}=done`,
-    },
-  ])("goes back $why", ({ back, f, to }) => {
-    expect(listRefreshBackTo(back, f, "done")).toBe(to);
+    { why: "to the list without a filter", back: { back: null, f: "all" }, to: `/watchlist?${LIST_PRICES_PARAM}=done` },
+  ])("goes back $why", ({ back, to }) => {
+    expect(listRefreshBackTo(back, "done")).toBe(to);
+  });
+
+  it("goes back where the form's fields say, as listRefreshBackOf reads them", () => {
+    const read = listRefreshBackOf(PRODUCT_ID, "najtańsze");
+
+    expect(read).not.toBeNull();
+    expect(listRefreshBackTo(read ?? { back: null, f: "promo" }, "partial")).toBe(
+      `/watchlist/${PRODUCT_ID}?${LIST_PRICES_PARAM}=partial`,
+    );
   });
 
   it("carries each code the refresh can come to", () => {
     for (const code of PRICE_REFRESH_CODES) {
-      expect(listRefreshBackTo(null, null, code)).toBe(`/watchlist?${LIST_PRICES_PARAM}=${code}`);
+      expect(listRefreshBackTo({ back: null, f: "all" }, code)).toBe(`/watchlist?${LIST_PRICES_PARAM}=${code}`);
     }
-  });
-
-  it.each<{ why: string; back: FormDataEntryValue }>([
-    { why: "an id that isn't a UUID", back: "26900" },
-    { why: "an empty id", back: "" },
-    { why: "a path", back: `${PRODUCT_ID}/../../auth/signout` },
-    { why: "a file", back: new File([PRODUCT_ID], "back.txt") },
-  ])("goes back to the plain list with no code for $why, which only a crafted post sends", ({ back }) => {
-    expect(listRefreshBackTo(back, "promo", "done")).toBe("/watchlist");
   });
 });

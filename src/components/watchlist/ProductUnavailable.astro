@@ -1,7 +1,8 @@
 ---
 // A product's page when there's no product to show: none by that id on the user's list, or one that couldn't be read.
 // The page renders it in the product's place and keeps its status (404 or 503) and title; the dev kitchen sink shows
-// each branch. Its heading takes the product title's size, where the product's name would stand.
+// each branch. Its heading takes the product title's sizes (ProductTitle), where the product's name would stand: the
+// desktop's from xl (1280 px), and the phone's below it, where the pane beside the list is too narrow for them.
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 type Props =
@@ -20,7 +21,7 @@ const props = Astro.props;
 // Only the not-found branch shows a decision's error.
 const error = props.reason === "not-found" ? (props.error ?? null) : null;
 const HEADING =
-  "text-product-title font-extrabold tracking-heading text-balance lg:text-product-title-lg lg:tracking-title";
+  "text-product-title font-extrabold tracking-heading text-balance xl:text-product-title-lg xl:tracking-title";
 ---
 
 {props.reason === "not-found" ? (

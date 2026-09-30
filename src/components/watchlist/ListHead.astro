@@ -8,6 +8,7 @@ import { RefreshCw } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import FilterChips from "@/components/watchlist/FilterChips.astro";
+import { LIST_PRICES_NOTICES } from "@/lib/notices";
 import type { PriceRefreshCode } from "@/lib/services/price-refresh";
 import type { ListFilter } from "@/lib/services/watchlist-rows";
 import { cn } from "@/lib/utils";
@@ -30,29 +31,25 @@ interface Props {
   level?: 1 | 2;
   /** The id of the product whose page shows the list beside it, which "Odśwież ceny" comes back to. */
   back?: string | null;
+  /** The id of "Moja lista", by which the page names the list's landmark or its rows. */
+  headingId?: string;
 }
 
-const { count, path, filter, counts, refreshCode, level = 1, back = null } = Astro.props;
+const { count, path, filter, counts, refreshCode, level = 1, back = null, headingId } = Astro.props;
 const listed = count !== null && count > 0;
 const Heading = level === 1 ? "h1" : "h2";
 
-// What the list's "Odśwież ceny" came to, in the list's own words.
-const REFRESH_NOTICES: Record<PriceRefreshCode, { text: string; warning: boolean }> = {
-  done: { text: "Ceny odświeżone.", warning: false },
-  partial: {
-    text: "Nie wszystkie ceny udało się odświeżyć. Tam, gdzie się nie udało, widać ostatnią znaną cenę i jej wiek.",
-    warning: true,
-  },
-  none: { text: "Nic do odświeżenia: ceny sprawdzono w ciągu ostatnich 15 minut.", warning: false },
-  failed: { text: "Nie udało się odświeżyć cen. Spróbuj ponownie za chwilę.", warning: true },
-};
-const refreshNotice = refreshCode === null ? null : REFRESH_NOTICES[refreshCode];
+// What the list's "Odśwież ceny" came to, in the list's own words (notices.ts).
+const refreshNotice = refreshCode === null ? null : LIST_PRICES_NOTICES[refreshCode];
 ---
 
 <div class="flex flex-col gap-3.5 lg:gap-4">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div class="flex min-w-0 items-center gap-2.5">
-      <Heading class="text-list-title font-extrabold tracking-title whitespace-nowrap lg:text-list-title-lg lg:tracking-heading">
+      <Heading
+        id={headingId}
+        class="text-list-title font-extrabold tracking-title whitespace-nowrap lg:text-list-title-lg lg:tracking-heading"
+      >
         Moja lista
       </Heading>
       {listed && (

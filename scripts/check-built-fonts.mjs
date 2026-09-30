@@ -3,7 +3,9 @@
 // warning ("No data found for font family"), and ships no files for that family: its pages then quietly fall back to
 // the system's fonts. So this counts the .woff2 files the build copied to dist/client/_astro/fonts/, which the Worker
 // serves with its static assets, and fails below the number the config yields.
-// Run after the build: npm run build && node scripts/check-built-fonts.mjs
+// `npm run build` runs it after `astro build`, so a build without its fonts fails wherever it runs: in CI, in Workers
+// Builds, which then deploys nothing, and locally, offline too. On its own, after `astro build`:
+// node scripts/check-built-fonts.mjs
 // It reads only the build output, so it needs no server, no network and no dependency.
 
 import { readdirSync } from "node:fs";

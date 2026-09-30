@@ -1,7 +1,9 @@
 ---
 // The list's rows in the list's order, those the filter holds, or what stands in their place: that the list couldn't be
 // read, that it's empty, or that the filter holds none of its products. Above the rows, an alert for each read that
-// failed, as each row then says its price couldn't be read (listRowsOf), never that it has none.
+// failed, as each row then says its price couldn't be read (listRowsOf), never that it has none. On the list the rows
+// take their name from "Moja lista", the page's heading, which the search's results stand between; beside a product
+// the list's landmark carries that name, so its rows need none.
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import WatchlistRow from "@/components/watchlist/WatchlistRow.astro";
 import { inFilter, type ListFilter, type ListRow } from "@/lib/services/watchlist-rows";
@@ -17,9 +19,11 @@ interface Props {
   pricesFailed: boolean;
   /** The product whose page shows the list beside it, drawn selected. */
   selectedId?: string | null;
+  /** The id of the heading that names the rows' list, or none where a landmark around it has the name. */
+  labelledBy?: string;
 }
 
-const { rows, filter, matchesFailed, pricesFailed, selectedId = null } = Astro.props;
+const { rows, filter, matchesFailed, pricesFailed, selectedId = null, labelledBy } = Astro.props;
 const shown = rows?.filter((row) => inFilter(row, filter)) ?? [];
 ---
 
@@ -44,7 +48,7 @@ const shown = rows?.filter((row) => inFilter(row, filter)) ?? [];
     {shown.length === 0 ? (
       <p class="text-sm text-muted-foreground">Żaden produkt nie pasuje do tego filtra.</p>
     ) : (
-      <ul aria-label="Moja lista" class="flex flex-col gap-2.5 lg:gap-3">
+      <ul aria-labelledby={labelledBy} class="flex flex-col gap-2.5 lg:gap-3">
         {shown.map((row) => (
           <li>
             <WatchlistRow row={row} filter={filter} selected={row.itemId === selectedId} />
