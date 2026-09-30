@@ -80,18 +80,27 @@ const scriptsConfig = defineConfig({
   rules: { "no-console": "off" },
 });
 
-// The product page's island runs these modules in the browser, so none may import server-only code: a well-meant
-// import would pull zod, Supabase or the shop gate into the page's JavaScript. Type-only imports are erased from the
-// bundle, so they stay allowed. The names below are the `@/` ones, so a relative path, which would slip past them, has
-// to go through the alias too.
-const ISLAND_MESSAGE = "The product page's island imports this file, so it must stay free of server-only code.";
+// The product page runs these modules in the browser, in its price island (with the shadcn components and the cn()
+// helper the island renders with) or in its address-bar script (the notice codes), so none may import server-only code:
+// a well-meant import would pull zod, Supabase or the shop gate into the page's JavaScript. Type-only imports are erased
+// from the bundle, so they stay allowed. The names below are the `@/` ones, so a relative path, which would slip past
+// them, has to go through the alias too.
+const ISLAND_MESSAGE = "The product page runs this file in the browser, so it must stay free of server-only code.";
 const islandConfig = defineConfig({
   files: [
     "src/lib/services/price-comparison.ts",
     "src/lib/shop-messages.ts",
     "src/lib/json-request.ts",
+    "src/lib/notices.ts",
+    "src/lib/utils.ts",
+    "src/components/ui/alert.tsx",
+    "src/components/ui/badge.tsx",
+    "src/components/ui/button.tsx",
+    "src/components/ui/card.tsx",
     "src/components/watchlist/price-comparison-state.ts",
     "src/components/watchlist/PriceComparison.tsx",
+    "src/components/watchlist/PriceComparisonView.tsx",
+    "src/components/watchlist/ShopLink.tsx",
   ],
   rules: {
     "no-restricted-imports": [
@@ -124,6 +133,34 @@ const islandConfig = defineConfig({
   },
 });
 
+// The product page, its components and its kitchen sink are built from the design tokens in src/styles/global.css and
+// the components in src/components/ui only, so a Tailwind palette class, an arbitrary px/rem value or an arbitrary
+// colour in any string there fails: a class, class:list or className value, a cn() argument or a template literal.
+// The patterns start from the /10x-ui scan's: its palette part, widened to every colour utility's prefix (a border's
+// side, ring-offset, decoration, caret, accent, placeholder) and to Tailwind 4.3's mauve, mist, olive and taupe; its
+// px/rem part; and its colour functions, plus oklab(), as arbitrary values such as bg-[#0a0e1a] or text-[oklch(…)].
+// Unlike the scan, the rule doesn't flag a plain hex string, which ids and anchors would hit, nor a colour in a `style`
+// attribute. No pattern has a "/", which would end the selector's regex. A view cleaned later joins `files`; a glob
+// reads brackets as a character class, so [id] is escaped. No other config sets no-restricted-syntax for these files,
+// and one that did would replace these selectors rather than add to them.
+const PALETTE_CLASS = String.raw`\b(bg|text|border(?:-[trblxyse])?|ring(?:-offset)?|outline|from|via|to|fill|stroke|shadow|divide|decoration|caret|accent|placeholder)-(slate|gray|zinc|neutral|stone|mauve|mist|olive|taupe|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|white|black)\b`;
+const ARBITRARY_VALUE = String.raw`-\[[0-9.]+(px|rem)\]`;
+const ARBITRARY_COLOR = String.raw`-\[(#|rgba?\(|hsla?\(|oklch\(|oklab\()`;
+const TOKEN_MESSAGE =
+  "Use a design token from src/styles/global.css (for example bg-card or text-muted-foreground) or a component from src/components/ui, not a Tailwind palette class or an arbitrary value.";
+const tokenConfig = defineConfig({
+  files: ["src/pages/watchlist/\\[id\\].astro", "src/components/watchlist/**/*.{astro,tsx}", "src/dev/**/*.{astro,ts}"],
+  rules: {
+    "no-restricted-syntax": [
+      "error",
+      ...[PALETTE_CLASS, ARBITRARY_VALUE, ARBITRARY_COLOR].flatMap((pattern) => [
+        { selector: `Literal[value=/${pattern}/]`, message: TOKEN_MESSAGE },
+        { selector: `TemplateElement[value.raw=/${pattern}/]`, message: TOKEN_MESSAGE },
+      ]),
+    ],
+  },
+});
+
 // unbound-method reads expect(mock.fn) assertions as detached methods, but a vi.fn() mock never relies on `this`.
 const testConfig = defineConfig({
   files: ["**/*.test.ts"],
@@ -141,6 +178,7 @@ export default defineConfig(
   astroConfig,
   scriptsConfig,
   islandConfig,
+  tokenConfig,
   testConfig,
   eslintPluginPrettier,
 );

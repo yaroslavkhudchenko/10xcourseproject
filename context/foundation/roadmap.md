@@ -189,6 +189,9 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **Unknowns:**
   - What does an unauthenticated visitor see when opening a gated page? (PRD Open Question 1) — Owner: user. Block: no. Today gated pages send visitors to sign-in.
 - **Risk:** Low. Sign-in already works and the auth service already refuses self-registration; the work is replacing the starter's sign-up and demo pages so the front door matches the invite-only rule.
+- **Carry-over from `product-page-ui` (charge C5):** the return path after sign-in, and the sign-in page's language.
+  - A signed-out or expired visit to a product loses the product: sign-in always sends the user to `/watchlist` (`src/middleware.ts`, `src/pages/api/auth/signin.ts`), and the price island's session link (`src/components/watchlist/PriceComparisonView.tsx`) has no return path.
+  - The sign-in page is still the starter's English page, with a "Sign up" link.
 - **Status:** ready
 
 ### S-08: Fix a wrong match and remove a product

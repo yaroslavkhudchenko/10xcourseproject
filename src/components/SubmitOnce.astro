@@ -1,0 +1,36 @@
+---
+// Sends every form marked `data-submit-once` on the page once: a submit disables the form's buttons. A form whose
+// attribute has a value belongs to the group of that name, and its submit disables the buttons of every form in the
+// group, as a product's Natura decisions do (`data-submit-once="natura-decision"`), so a quick second tap on another
+// candidate or on "Żaden z nich" sends nothing. A form without a value, such as the list's "Odśwież ceny", is a group
+// of its own. Astro includes the script once per page, however many times the component renders.
+---
+
+<script>
+  // Each form is sent once. A second tap on the list's "Odśwież ceny" while it refreshes would ask the shops again for
+  // the same items, from the cap everyone shares, and a second Natura decision, on any of its buttons, would find the
+  // product already decided. Without JavaScript the form still posts.
+  for (const form of document.querySelectorAll<HTMLFormElement>("form[data-submit-once]")) {
+    form.addEventListener("submit", () => {
+      const group = form.dataset.submitOnce ?? "";
+      // The group's name goes into a selector, so it is escaped.
+      const sent =
+        group === ""
+          ? [form]
+          : document.querySelectorAll<HTMLFormElement>(`form[data-submit-once="${CSS.escape(group)}"]`);
+      for (const each of sent) {
+        for (const button of each.querySelectorAll("button")) {
+          button.disabled = true;
+        }
+      }
+    });
+  }
+  // A page the browser restores with its back button gets every form's buttons back.
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) {
+      for (const button of document.querySelectorAll<HTMLButtonElement>("form[data-submit-once] button")) {
+        button.disabled = false;
+      }
+    }
+  });
+</script>

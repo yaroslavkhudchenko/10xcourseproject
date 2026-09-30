@@ -18,6 +18,8 @@ jobs:
       - run: npm ci
       - run: npx astro sync
       - run: npm run lint
+      - name: Check design token contrast
+        run: node scripts/check-token-contrast.mjs
       - run: npx astro check
       - run: npm run test
       - run: npm run build

@@ -1,0 +1,38 @@
+---
+// A product's page when there's no product to show: none by that id on the user's list, or one that couldn't be read.
+// The page renders it in the product's place and keeps its status (404 or 503) and title; the dev kitchen sink shows
+// each branch.
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+type Props =
+  | {
+      /** No product by that id on the user's list. */
+      reason: "not-found";
+      /** Why a decision wasn't saved (`?error=`), as text: a decision posted for a product that isn't there ends here. */
+      error?: string | null;
+    }
+  | {
+      /** The product couldn't be read. */
+      reason: "failed";
+    };
+
+const props = Astro.props;
+// Only the not-found branch shows a decision's error.
+const error = props.reason === "not-found" ? (props.error ?? null) : null;
+---
+
+{props.reason === "not-found" ? (
+  <>
+    <h1 class="text-2xl font-bold">Nie znaleziono produktu.</h1>
+    {error && (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    )}
+  </>
+) : (
+  <>
+    <h1 class="text-2xl font-bold">Nie udało się wczytać produktu.</h1>
+    <p class="text-sm text-muted-foreground">Odśwież stronę, aby spróbować ponownie.</p>
+  </>
+)}

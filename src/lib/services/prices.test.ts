@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { listLatestPrices, recordPriceChecks } from "@/lib/services/prices";
+import { listLatestPrices, readLatestPrices, recordPriceChecks } from "@/lib/services/prices";
 import type { LatestPrice, PriceKey, ShopOffer } from "@/types";
 
 // Felix at Rossmann during a promotion, and Nivea Soft at Natura, with the offers the 2026-09-28 requests answered
@@ -209,66 +209,67 @@ describe("recordPriceChecks", () => {
   });
 });
 
+// The view's columns, and its rows for the three items, with the latest states they read as.
+const COLUMNS =
+  "shop_id, shop_item_id, last_checked_at, last_status, price, regular_price, lowest_price_30d, promo_ends_on, " +
+  "available, priced_at";
+const CHECKED_AT = "2026-09-28T00:32:10.123456+00:00";
+const PRICED_AT = "2026-09-27T20:04:06.654321+00:00";
+
+// Felix, last checked with a price.
+const felixRow = {
+  shop_id: "rossmann",
+  shop_item_id: "131225",
+  last_checked_at: CHECKED_AT,
+  last_status: "price",
+  price: 5.99,
+  regular_price: 9.99,
+  lowest_price_30d: 6.39,
+  promo_ends_on: "2026-09-30",
+  available: true,
+  priced_at: CHECKED_AT,
+};
+const felix: LatestPrice = {
+  ...FELIX,
+  lastCheckedAt: CHECKED_AT,
+  lastStatus: "price",
+  offer: { ...felixOffer, pricedAt: CHECKED_AT },
+};
+// Nivea Soft, last checked when Natura answered without it: the price from before stays, with its own time.
+const softRow = {
+  shop_id: "natura",
+  shop_item_id: "NV89063",
+  last_checked_at: CHECKED_AT,
+  last_status: "missing",
+  price: 16.99,
+  regular_price: 22.99,
+  lowest_price_30d: 17.99,
+  promo_ends_on: null,
+  available: true,
+  priced_at: PRICED_AT,
+};
+const soft: LatestPrice = {
+  ...SOFT,
+  lastCheckedAt: CHECKED_AT,
+  lastStatus: "missing",
+  offer: { ...softOffer, pricedAt: PRICED_AT },
+};
+// An item no check has found a price for.
+const otherRow = {
+  shop_id: "natura",
+  shop_item_id: "NV81063",
+  last_checked_at: CHECKED_AT,
+  last_status: "missing",
+  price: null,
+  regular_price: null,
+  lowest_price_30d: null,
+  promo_ends_on: null,
+  available: null,
+  priced_at: null,
+};
+const other: LatestPrice = { ...OTHER, lastCheckedAt: CHECKED_AT, lastStatus: "missing", offer: null };
+
 describe("listLatestPrices", () => {
-  const COLUMNS =
-    "shop_id, shop_item_id, last_checked_at, last_status, price, regular_price, lowest_price_30d, promo_ends_on, " +
-    "available, priced_at";
-  const CHECKED_AT = "2026-09-28T00:32:10.123456+00:00";
-  const PRICED_AT = "2026-09-27T20:04:06.654321+00:00";
-
-  // Felix, last checked with a price.
-  const felixRow = {
-    shop_id: "rossmann",
-    shop_item_id: "131225",
-    last_checked_at: CHECKED_AT,
-    last_status: "price",
-    price: 5.99,
-    regular_price: 9.99,
-    lowest_price_30d: 6.39,
-    promo_ends_on: "2026-09-30",
-    available: true,
-    priced_at: CHECKED_AT,
-  };
-  const felix: LatestPrice = {
-    ...FELIX,
-    lastCheckedAt: CHECKED_AT,
-    lastStatus: "price",
-    offer: { ...felixOffer, pricedAt: CHECKED_AT },
-  };
-  // Nivea Soft, last checked when Natura answered without it: the price from before stays, with its own time.
-  const softRow = {
-    shop_id: "natura",
-    shop_item_id: "NV89063",
-    last_checked_at: CHECKED_AT,
-    last_status: "missing",
-    price: 16.99,
-    regular_price: 22.99,
-    lowest_price_30d: 17.99,
-    promo_ends_on: null,
-    available: true,
-    priced_at: PRICED_AT,
-  };
-  const soft: LatestPrice = {
-    ...SOFT,
-    lastCheckedAt: CHECKED_AT,
-    lastStatus: "missing",
-    offer: { ...softOffer, pricedAt: PRICED_AT },
-  };
-  // An item no check has found a price for.
-  const otherRow = {
-    shop_id: "natura",
-    shop_item_id: "NV81063",
-    last_checked_at: CHECKED_AT,
-    last_status: "missing",
-    price: null,
-    regular_price: null,
-    lowest_price_30d: null,
-    promo_ends_on: null,
-    available: null,
-    priced_at: null,
-  };
-  const other: LatestPrice = { ...OTHER, lastCheckedAt: CHECKED_AT, lastStatus: "missing", offer: null };
-
   it("reads every item the user can see for the list, with one unfiltered query within a time limit", async () => {
     const { client, queries } = stubClient({ data: [felixRow, softRow, otherRow] });
 
@@ -350,5 +351,65 @@ describe("listLatestPrices", () => {
 
     expect(await listLatestPrices(client, [FELIX, SOFT])).toBeNull();
     expect(loggedLine(warn)).toMatchObject({ event: "price-observations", detail });
+  });
+});
+
+describe("readLatestPrices", () => {
+  it("reads the given items for a product's page, with one filtered query within a time limit", async () => {
+    const { client, queries } = stubClient({ data: [felixRow, softRow] });
+
+    expect(await readLatestPrices(client, [FELIX, SOFT])).toEqual({ prices: [felix, soft], unread: [] });
+    expect(queries).toEqual([
+      [
+        ["from", "latest_price_observations"],
+        ["select", COLUMNS],
+        ["in", "shop_item_id", ["131225", "NV89063"]],
+        ["abortSignal", true],
+      ],
+    ]);
+  });
+
+  it("reports an item whose row it couldn't read, and still gives the other prices", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({ data: [{ ...felixRow, available: "yes" }, softRow] });
+
+    // The page then says Felix's price couldn't be read, never that Felix was never checked.
+    expect(await readLatestPrices(client, [FELIX, SOFT])).toEqual({ prices: [soft], unread: [FELIX] });
+    expect(loggedLine(warn)).toMatchObject({ reason: "unexpected rows dropped", detail: "1" });
+  });
+
+  it("leaves out an odd row of another shop's item with the same id", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({ data: [felixRow, { ...felixRow, shop_id: "natura", price: "5.99" }] });
+
+    expect(await readLatestPrices(client, [FELIX])).toEqual({ prices: [felix], unread: [] });
+  });
+
+  it.each<{ why: string; row: unknown }>([
+    { why: "names no shop", row: { ...felixRow, shop_id: null } },
+    { why: "names a shop the app doesn't know", row: { ...felixRow, shop_id: "dm" } },
+    { why: "has an item id that isn't text", row: { ...felixRow, shop_item_id: 131225 } },
+    { why: "isn't a row at all", row: "131225" },
+  ])("gives null for an odd row that $why, since it could be any item's", async ({ row }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({ data: [row, softRow] });
+
+    expect(await readLatestPrices(client, [FELIX, SOFT])).toBeNull();
+    expect(loggedLine(warn)).toMatchObject({ reason: "unexpected rows dropped", detail: "1" });
+  });
+
+  it("reads nothing for an empty list of items", async () => {
+    const { client, queries } = stubClient();
+
+    expect(await readLatestPrices(client, [])).toEqual({ prices: [], unread: [] });
+    expect(queries).toEqual([]);
+  });
+
+  it("gives null when the query fails, and logs it without the query's items", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({ error: { code: "PGRST100", message: 'failed to parse filter (in.(131225"' } });
+
+    expect(await readLatestPrices(client, [FELIX, SOFT])).toBeNull();
+    expect(loggedLine(warn)).toMatchObject({ event: "price-observations", detail: "PGRST100" });
   });
 });

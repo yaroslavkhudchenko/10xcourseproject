@@ -78,6 +78,14 @@ export function watchlistErrorMessage(code: string | null): string | null {
   return code !== null && isWatchlistError(code) ? WATCHLIST_ERRORS[code] : null;
 }
 
+/**
+ * A product's full name, as a page's title or a screen reader reads it: its brand, when it has one, then its name, such
+ * as "NIVEA Soft". A shop's item for the product reads the same way.
+ */
+export function productFullName({ brand, name }: { brand: string | null; name: string }): string {
+  return brand === null ? name : `${brand} ${name}`;
+}
+
 /** What adding a product came to: the new row's id, or `exists` when it was already on the list. */
 export type AddResult = { kind: "added"; id: string } | "exists" | "failed";
 

@@ -1,0 +1,220 @@
+---
+// A product's Natura section, rendered from the view its page builds (src/lib/services/natura-view.ts), so the page and
+// the dev kitchen sink show it the same way. A decision's notice or error sits at its top, next to the buttons that
+// caused it, and the decision forms are one submit-once group, so one tap sends one decision, whichever button it was.
+import SubmitOnce from "@/components/SubmitOnce.astro";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import ProductSummary from "@/components/watchlist/ProductSummary.astro";
+import ShopLink from "@/components/watchlist/ShopLink";
+import { DECISION_NOTICES } from "@/lib/notices";
+import type { NaturaView } from "@/lib/services/natura-view";
+import { productFullName } from "@/lib/services/watchlist";
+import { cn } from "@/lib/utils";
+
+interface Props {
+  /** What the section shows; null when there's nothing to say about Natura. */
+  view: NaturaView | null;
+  /** The watched product's id, which the decision forms post and the links lead to. */
+  productId: string;
+  /** The lookup's own outcome couldn't be stored, so the next visit looks the product up again. */
+  unsaved: boolean;
+  /** The saved decision's notice (`?matched`, `?declined` or `?decided`), as text. */
+  notice: string | null;
+  /** Why the decision wasn't saved (`?error=`), as text. */
+  error: string | null;
+  /**
+   * What the section's ids start with, "natura" by default. The dev kitchen sink shows several sections on one page,
+   * each with a prefix of its own, so their ids stay unique.
+   */
+  idPrefix?: string;
+}
+
+const { view, productId, unsaved, notice, error, idPrefix = "natura" } = Astro.props;
+
+const headingId = `${idPrefix}-heading`;
+// The id of the hidden name that describes the link of a match not saved yet.
+const itemNameId = `${idPrefix}-item`;
+
+// Every candidate's buttons read the same words, so each is described by its candidate's name, which a hidden element
+// holds under an id of its own.
+const candidates =
+  view?.kind === "choose"
+    ? view.options.map((option, index) => ({
+        ...option,
+        nameId: `${idPrefix}-candidate-${index}`,
+        fullName: productFullName(option.candidate),
+      }))
+    : [];
+---
+
+<section aria-labelledby={headingId} class="flex flex-col gap-3">
+  <h2 id={headingId} class="text-lg font-semibold">
+    Drogerie Natura
+  </h2>
+
+  {notice && (
+    <Alert variant="success" role="status">
+      <AlertDescription>{notice}</AlertDescription>
+    </Alert>
+  )}
+  {error && (
+    <Alert variant="destructive">
+      <AlertDescription>{error}</AlertDescription>
+    </Alert>
+  )}
+
+  {view?.kind === "matched" && (
+    <div class="flex flex-col gap-2">
+      {/* A match not saved yet has no price row, so the section shows its item and its page in the shop instead. */}
+      {view.item && (
+        <Card className="gap-3 p-3">
+          <ProductSummary
+            brand={view.item.brand}
+            name={view.item.name}
+            caption={null}
+            sizeText={view.item.sizeText}
+            imageUrl={view.item.imageUrl}
+          />
+          {view.item.productUrl && (
+            <>
+              <span id={itemNameId} hidden>
+                {productFullName(view.item)}
+              </span>
+              <ShopLink href={view.item.productUrl} describedBy={itemNameId} className="self-start" />
+            </>
+          )}
+        </Card>
+      )}
+      {/* A suspicious match stands out with the same pill its candidate's flag had before it was confirmed. */}
+      {view.sizeWarning && (
+        <Badge variant="warning" className="whitespace-normal">
+          {view.sizeWarning}
+        </Badge>
+      )}
+      <p class="text-sm text-success-foreground">{view.note}</p>
+    </div>
+  )}
+
+  {view?.kind === "unmatched" && <p class="text-sm text-muted-foreground">Brak w Naturze — Twój wybór.</p>}
+
+  {view?.kind === "not-found" && (
+    <div class="flex flex-col gap-2">
+      <p class="text-sm text-muted-foreground">{view.text}</p>
+      <a href={view.href} class:list={cn(buttonVariants({ variant: "outline", size: "touch" }), "self-start")}>
+        Szukaj ponownie
+      </a>
+    </div>
+  )}
+
+  {view?.kind === "choose" && (
+    <>
+      <p class="text-sm text-muted-foreground">{view.intro}</p>
+      <ul class="flex flex-col gap-2">
+        {candidates.map(({ candidate, flags, price, nameId, fullName }) => (
+          <li>
+            <Card className="gap-3 p-3">
+              <ProductSummary
+                brand={candidate.brand}
+                name={candidate.name}
+                caption={null}
+                sizeText={candidate.sizeText}
+                imageUrl={candidate.imageUrl}
+              />
+              <span id={nameId} hidden>
+                {fullName}
+              </span>
+              {flags.length > 0 && (
+                <ul class="flex flex-wrap gap-2" aria-label="Porównanie z Twoim produktem">
+                  {flags.map((flag) => (
+                    <li class="flex">
+                      <Badge variant={flag.warning ? "warning" : "success"} className="whitespace-normal">
+                        {flag.text}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p class="text-sm text-muted-foreground">{price}</p>
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <form method="POST" action="/api/watchlist/matches" data-submit-once="natura-decision">
+                  <input type="hidden" name="itemId" value={productId} />
+                  <input type="hidden" name="shop" value="natura" />
+                  <input type="hidden" name="action" value="confirm" />
+                  <input type="hidden" name="shopItemId" value={candidate.shopItemId} />
+                  <input type="hidden" name="name" value={candidate.name} />
+                  <input type="hidden" name="brand" value={candidate.brand ?? ""} />
+                  <input type="hidden" name="sizeText" value={candidate.sizeText ?? ""} />
+                  {candidate.eans.map((ean) => (
+                    <input type="hidden" name="eans" value={ean} />
+                  ))}
+                  <input type="hidden" name="productUrl" value={candidate.productUrl ?? ""} />
+                  <input type="hidden" name="imageUrl" value={candidate.imageUrl ?? ""} />
+                  <Button type="submit" size="touch" aria-describedby={nameId}>
+                    To ten produkt
+                  </Button>
+                </form>
+                {candidate.productUrl && <ShopLink href={candidate.productUrl} describedBy={nameId} />}
+              </div>
+            </Card>
+          </li>
+        ))}
+      </ul>
+      <form method="POST" action="/api/watchlist/matches" data-submit-once="natura-decision">
+        <input type="hidden" name="itemId" value={productId} />
+        <input type="hidden" name="shop" value="natura" />
+        <input type="hidden" name="action" value="decline" />
+        <Button type="submit" variant="outline" size="touch" className="w-full">
+          Żaden z nich
+        </Button>
+      </form>
+    </>
+  )}
+
+  {view?.kind === "unavailable" && (
+    <Alert variant="warning">
+      <AlertDescription>{view.message}</AlertDescription>
+    </Alert>
+  )}
+
+  {view?.kind === "prompt" && (
+    <div class="flex flex-col gap-2">
+      <p class="text-sm text-muted-foreground">Otwórz produkt, aby dopasować go w Naturze.</p>
+      <a href={view.href} class:list={cn(buttonVariants({ size: "touch" }), "self-start")}>
+        Dopasuj w Naturze
+      </a>
+    </div>
+  )}
+
+  {view?.kind === "decided" && (
+    <div class="flex flex-col gap-2">
+      <p role="status" class="text-sm text-muted-foreground">
+        {DECISION_NOTICES.decided}
+      </p>
+      <a
+        href={`/watchlist/${productId}`}
+        class:list={cn(buttonVariants({ variant: "underlined", size: "inline" }), "self-start")}
+      >
+        Pokaż zapisaną decyzję
+      </a>
+    </div>
+  )}
+
+  {view?.kind === "read-failed" && (
+    <Alert variant="destructive">
+      <AlertDescription>Nie udało się wczytać dopasowania w Naturze. Odśwież stronę.</AlertDescription>
+    </Alert>
+  )}
+
+  {unsaved && (
+    <Alert variant="warning">
+      <AlertDescription>
+        Nie udało się zapisać wyniku. Przy następnym otwarciu produktu Natura zostanie sprawdzona ponownie.
+      </AlertDescription>
+    </Alert>
+  )}
+
+  <SubmitOnce />
+</section>
