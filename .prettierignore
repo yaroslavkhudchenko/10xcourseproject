@@ -3,3 +3,5 @@
 .claude/
 .10x-cli.json
 CLAUDE.md
+# A change's design handoff, kept byte for byte as its designer sent it.
+context/**/handoff/

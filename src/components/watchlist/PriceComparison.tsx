@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
+import { naturaUnreadable, type NaturaCardInput } from "@/components/watchlist/natura-card";
 import {
   done,
   initialState,
   priceComparisonReducer,
+  PRICES_EVENT,
   requestRefresh,
+  rowShopsOfIsland,
   start,
   tick,
   type PriceComparisonShop,
+  type PricesEventDetail,
 } from "@/components/watchlist/price-comparison-state";
 import PriceComparisonView from "@/components/watchlist/PriceComparisonView";
+import type { TitleProduct } from "@/components/watchlist/ProductTitle";
 import { needsRefetch, type PricedShop } from "@/lib/services/price-comparison";
 
 // Ages move on once a minute, the finest step they show.
@@ -17,6 +22,13 @@ const CLOCK_TICK_MS = 60_000;
 interface Props {
   /** The watched product's id. */
   itemId: string;
+  /** The product, as the title names it. */
+  product: TitleProduct;
+  /**
+   * Natura as the page read it, for its card among the shops' cards: its view, with no candidates for a choice, which
+   * the section below the island holds; a decision's notice and error; and whether the lookup's outcome went unsaved.
+   */
+  natura: NaturaCardInput | null;
   /** The product's matched shops, in the page's order, each with its item's page and its stored price. */
   shops: PriceComparisonShop[];
   /** Whether opening the page may refetch shops on its own: only the user's own navigation may. */
@@ -27,12 +39,17 @@ interface Props {
   pricesFailed: boolean;
 }
 
-// A product's prices in its matched shops, ordered and with the cheapest marked, shown at once from the stored prices.
-// Each shop is refetched on its own through /api/watchlist/prices, and its row, the order and the marks change as it
-// answers. Without JavaScript, "Odśwież ceny" posts its form to /api/watchlist/refresh, and the page comes back with
-// the refreshed prices. This island keeps the state and the effects; PriceComparisonView renders them.
-export default function PriceComparison({ itemId, shops, autoRefresh, now, pricesFailed }: Props) {
+// A product's page from its title down: its prices in its matched shops, ordered and with the cheapest marked, shown at
+// once from the stored prices, with the verdict's hero, the price track, Natura's card and when the prices were
+// checked. Each shop is refetched on its own through /api/watchlist/prices, and its card, the order, the marks, the
+// hero, the track and the check change as it answers; after each change of its rows the island tells the list beside
+// the product (PRICES_EVENT), whose row for it follows. Without JavaScript, either "Odśwież ceny" posts its form to
+// /api/watchlist/refresh, and the page comes back with the refreshed prices. This island keeps the state and the
+// effects; PriceComparisonView renders them.
+export default function PriceComparison({ itemId, product, natura, shops, autoRefresh, now, pricesFailed }: Props) {
   const [state, dispatch] = useReducer(priceComparisonReducer, { shops, now, pricesFailed }, initialState);
+  // A Natura decision that couldn't be read may hide a lower price, so the list's row says so too.
+  const unreadable = naturaUnreadable(natura?.view ?? null);
 
   const refresh = useCallback(
     (shop: PricedShop) => {
@@ -73,10 +90,20 @@ export default function PriceComparison({ itemId, shops, autoRefresh, now, price
     }
   }, [autoRefresh, now, refresh, shops]);
 
+  // The list beside the product hears the rows once the island has hydrated, and after each change: a refetch that
+  // starts, and each shop's answer. Its row then shows the tag these rows come to, which the page drew from the same
+  // stored rows, so nothing moves until a shop answers. It asks no shop.
+  useEffect(() => {
+    const detail: PricesEventDetail = { itemId, shops: rowShopsOfIsland(state.rows, { naturaUnreadable: unreadable }) };
+    window.dispatchEvent(new CustomEvent(PRICES_EVENT, { detail }));
+  }, [itemId, state.rows, unreadable]);
+
   return (
     <PriceComparisonView
       itemId={itemId}
+      product={product}
       state={state}
+      natura={natura}
       onRefresh={() => {
         for (const row of state.rows) {
           refresh(row.shop);

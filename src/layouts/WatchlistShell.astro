@@ -1,0 +1,107 @@
+---
+// The frame of the watchlist's two screens, the list (/watchlist) and a product's page, on the paper. From lg (1024 px)
+// up it's one screen: the header on top, then the list in a 420 px column on the left, its head, its rows scrolling on
+// their own and its footer, beside the main pane, which scrolls on its own. Below lg it's a phone's screen, scrolling
+// as a whole: on the list, its head, then the main pane, so a search's results sit above the rows, then the rows and
+// the footer; on a product's page, only the main pane. The parts come in the `head`, `rows` and `footer` slots and the
+// default one, the main pane's. A product's page without the list's parts gets the main pane alone, at full width.
+// The frame keeps its content clear of a phone's notch and rounded corners, which viewport-fit=cover lets the page
+// reach. It opens with a skip link, shown only while it has the keyboard's focus, to the page's content: on the list,
+// the list; on a product's page, the product, past the header and the list beside it, which grows with the watchlist.
+import AppHeader from "@/components/shell/AppHeader.astro";
+import { buttonVariants } from "@/components/ui/button";
+import Layout from "@/layouts/Layout.astro";
+import { cn } from "@/lib/utils";
+
+interface Props {
+  title: string;
+  /** The list's screen, or a product's page. */
+  mode: "list" | "product";
+  /** The signed-in user's email, for the header, or null. */
+  email: string | null;
+  /** The search text the page was opened with, for the header's search field, or null. */
+  query?: string | null;
+  /**
+   * The id of the list's heading, in the `head` slot, which names the list beside a product (the aside) once, so its
+   * rows' list needs no name of its own there.
+   */
+  listHeadingId?: string;
+}
+
+const { title, mode, email, query = null, listHeadingId } = Astro.props;
+const hasList = Astro.slots.has("head") || Astro.slots.has("rows") || Astro.slots.has("footer");
+// The main pane's id, which the skip link leads to.
+const CONTENT_ID = "content";
+
+// The list's column from lg: 420 px wide, with a 1.5 px edge towards the main pane, beside the main pane. The one row
+// of a product's page, and the rows track of the list's, is bounded by the screen's height, so their parts scroll.
+const COLUMNS = "lg:grid-cols-[calc(var(--spacing)*105)_minmax(0,1fr)]";
+const EDGE = "lg:border-r-hairline";
+// Each part's padding: an 18 px gutter on a phone, and the handoff's paddings from lg.
+const HEAD = "flex flex-col px-4.5 pt-5.5 lg:px-7 lg:pt-7 lg:pb-4";
+// 10 px above the rows from lg, so the selected row's lift and focus outline aren't cut off where its scrolling starts,
+// and 12 px kept at either edge when the keyboard scrolls a row in, so its outline isn't cut there either.
+const ROWS = "px-4.5 pt-3.5 pb-2 lg:min-h-0 lg:scroll-py-3 lg:overflow-y-auto lg:px-7 lg:pt-2.5 lg:pb-4.5";
+// A page passes its footer only when it has one to show, and a slot passed conditionally still counts as given, so
+// the footer's bar hides itself when nothing rendered in it.
+const FOOTER = "px-5 pt-1.5 pb-6 empty:hidden lg:border-t-hairline lg:px-7 lg:py-3.5";
+// The main pane clips what spills sideways past its gutter, such as the hero's sticker, which reaches into the gutter
+// and stamps in at 1.7 times its size, so the page never scrolls sideways. From lg, where the pane scrolls on its own,
+// the clip computes to overflow-x: hidden, and a control the keyboard scrolls in keeps 12 px from the pane's edge.
+const MAIN = "overflow-x-clip px-4.5 lg:min-h-0 lg:scroll-py-3 lg:overflow-y-auto lg:px-11 lg:pt-7.5 lg:pb-10";
+// The skip link: a primary button, 44 px tall, over the page's top left corner, clear of the notch, while it has the
+// focus, and seen by screen readers only otherwise.
+const SKIP_LINK = cn(
+  buttonVariants({ size: "touch" }),
+  "fixed top-[calc(var(--spacing)*3+env(safe-area-inset-top))] left-[calc(var(--spacing)*3+env(safe-area-inset-left))] z-30 not-focus:sr-only",
+);
+---
+
+<Layout title={title} lang="pl" theme="user">
+  <div class="flex min-h-dvh flex-col bg-paper pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] text-foreground lg:h-dvh">
+    <a href={`#${CONTENT_ID}`} class:list={SKIP_LINK}>
+      {mode === "list" ? "Przejdź do listy" : "Przejdź do produktu"}
+    </a>
+    <AppHeader mode={mode} email={email} query={query} />
+    {mode === "list" ? (
+      <main
+        id={CONTENT_ID}
+        class:list={["flex flex-1 flex-col lg:grid lg:min-h-0 lg:grid-rows-[auto_minmax(0,1fr)_auto]", COLUMNS]}
+      >
+        <div class:list={[HEAD, EDGE, "lg:col-start-1 lg:row-start-1"]}>
+          <slot name="head" />
+        </div>
+        <div class:list={[MAIN, "lg:col-start-2 lg:row-span-3 lg:row-start-1"]}>
+          <slot />
+        </div>
+        <div class:list={[ROWS, EDGE, "lg:col-start-1 lg:row-start-2"]}>
+          <slot name="rows" />
+        </div>
+        <div class:list={[FOOTER, EDGE, "lg:col-start-1 lg:row-start-3"]}>
+          <slot name="footer" />
+        </div>
+      </main>
+    ) : (
+      <div
+        class:list={["flex flex-1 flex-col lg:min-h-0", hasList && ["lg:grid lg:grid-rows-[minmax(0,1fr)]", COLUMNS]]}
+      >
+        {hasList && (
+          <aside aria-labelledby={listHeadingId} class:list={["hidden lg:flex lg:min-h-0 lg:flex-col", EDGE]}>
+            <div class:list={HEAD}>
+              <slot name="head" />
+            </div>
+            <div class:list={[ROWS, "lg:flex-1"]}>
+              <slot name="rows" />
+            </div>
+            <div class:list={FOOTER}>
+              <slot name="footer" />
+            </div>
+          </aside>
+        )}
+        <main id={CONTENT_ID} class:list={[MAIN, "flex-1"]}>
+          <slot />
+        </main>
+      </div>
+    )}
+  </div>
+</Layout>

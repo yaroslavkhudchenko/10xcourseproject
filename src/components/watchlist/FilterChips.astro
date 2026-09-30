@@ -1,0 +1,68 @@
+---
+// The list's filters as links, which work without JavaScript: Wszystkie, Promocje and Do sprawdzenia, each with how
+// many products it holds, counted over the whole list (filterCounts). A chip's link keeps only the page and the filter
+// (filterHref), so it drops the search and asks no shop. The active chip is filled with the ink. The chips are drawn
+// 38 px on a phone and 34 px from lg, each with a 44 px hit area: on a phone their row scrolls sideways, reaching the
+// screen's edges through the shell's 18 px gutter, with room above and below for the hit areas and the focus outline,
+// and a chip the keyboard reaches scrolls in as far as the gutter, which the row keeps after its last chip, so its
+// outline isn't cut at the screen's edge; from lg it wraps, with a row gap that keeps the hit areas apart. The browser
+// leaves a chip that's partly on screen where it is when it takes the focus, so the script scrolls it in; without
+// JavaScript the chips are plain links all the same. Astro includes the script once per page.
+import { filterHref, LIST_FILTERS, type ListFilter } from "@/lib/services/watchlist-rows";
+import { cn } from "@/lib/utils";
+
+interface Props {
+  /** The page the chips link on: the list, or the page of the product it's shown beside. */
+  path: string;
+  /** The filter the list is shown with. */
+  active: ListFilter;
+  /** How many products each chip holds. */
+  counts: Record<ListFilter, number>;
+}
+
+const { path, active, counts } = Astro.props;
+
+const LABELS: Record<ListFilter, string> = {
+  all: "Wszystkie",
+  promo: "Promocje",
+  check: "Do sprawdzenia",
+};
+---
+
+<nav
+  aria-label="Filtry listy"
+  data-filter-chips
+  class="-mx-4.5 -my-1 scroll-px-4.5 overflow-x-auto px-4.5 py-1 [scrollbar-width:none] lg:mx-0 lg:my-0 lg:scroll-px-0 lg:overflow-visible lg:px-0 lg:py-0"
+>
+  <ul class="flex w-max gap-2 lg:w-auto lg:flex-wrap lg:gap-y-2.5">
+    {LIST_FILTERS.map((filter) => (
+      <li class="shrink-0">
+        <a
+          href={filterHref(path, filter)}
+          aria-current={filter === active ? "true" : undefined}
+          class:list={cn(
+            "hit-area flex h-9.5 items-center gap-1.75 rounded-full border-hairline px-3.25 text-compact font-bold whitespace-nowrap lg:h-8.5",
+            filter === active
+              ? "border-foreground bg-foreground text-background"
+              : "border-border text-foreground hover:border-foreground",
+          )}
+        >
+          {LABELS[filter]}
+          <span class="font-mono text-meta font-medium opacity-70">{counts[filter]}</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+</nav>
+
+<script>
+  // A chip that takes the focus while its row scrolls sideways comes fully into view, with the row's scroll padding
+  // after it, so its focus outline shows whole.
+  for (const row of document.querySelectorAll<HTMLElement>("nav[data-filter-chips]")) {
+    row.addEventListener("focusin", (event) => {
+      if (event.target instanceof HTMLElement && row.scrollWidth > row.clientWidth) {
+        event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
+    });
+  }
+</script>

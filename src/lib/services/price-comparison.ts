@@ -176,6 +176,77 @@ export function compareShops<Row extends ShopPrice>(rows: readonly Row[], now: n
   };
 }
 
+/** What a product's prices come to, before the time it's judged at: see PriceVerdict. */
+type Judgement =
+  | { kind: "unread" }
+  | Extract<ComparisonSummary, { kind: "cheapest" }>
+  | { kind: "only" | "unavailable" | "stale"; shop: PricedShop; price: number; pricedAt: string }
+  | { kind: "none" };
+
+/**
+ * What a product's prices say, in one verdict for its row on the list, its page's hero and the list's live tag:
+ *
+ * - `unread`: a price of the product couldn't be read, and it may be the lowest, so no shop is named
+ * - `cheapest`: the cheapest shop or shops, with their price, the time its age counts from and the savings, as
+ *   compareShops gives them
+ * - `only`: the product's one shop, with its fresh price that can be ordered online
+ * - `unavailable`: no shop can be named, and some fresh price can't be ordered online: the lowest such
+ * - `stale`: no shop can be named, and some price is out of date or its item gone from the shop: the lowest such
+ * - `none`: no price at all
+ *
+ * `at` is the time it was judged at, in milliseconds, so everything it says reads its ages at that one moment.
+ */
+export type PriceVerdict = Judgement & { at: number };
+
+/**
+ * The verdict on a product's prices as compareShops compared them at `now`, where `unread` says whether any of its
+ * prices couldn't be read. The first rule that applies wins, in PriceVerdict's order, so a price that can't be named
+ * cheapest never wins over one that can, and a price that can't be read keeps every shop from being named.
+ */
+export function verdictOf(
+  compared: { rows: readonly (ShopPrice & ShopVerdict)[]; summary: ComparisonSummary },
+  now: number,
+  unread: boolean,
+): PriceVerdict {
+  return { ...judgementOf(compared, unread), at: now };
+}
+
+function judgementOf(
+  { rows, summary }: { rows: readonly (ShopPrice & ShopVerdict)[]; summary: ComparisonSummary },
+  unread: boolean,
+): Judgement {
+  if (unread) {
+    return { kind: "unread" };
+  }
+  if (summary.kind === "cheapest") {
+    return summary;
+  }
+  // A lone row is compared with nothing: it's the only price, when it may be named at all.
+  const lone = summary.kind === "only" ? lowestOffer(rows.filter((row) => row.eligible)) : null;
+  if (lone !== null) {
+    return { kind: "only", ...lone };
+  }
+  // A fresh price that isn't eligible is one that can't be ordered online.
+  const unorderable = lowestOffer(rows.filter((row) => row.state === "fresh" && !row.eligible));
+  if (unorderable !== null) {
+    return { kind: "unavailable", ...unorderable };
+  }
+  const outOfDate = lowestOffer(rows.filter((row) => row.state === "stale" || row.state === "missing"));
+  return outOfDate === null ? { kind: "none" } : { kind: "stale", ...outOfDate };
+}
+
+/** The lowest price among the rows that have one, with its shop and when it was fetched; the first of a tie. */
+function lowestOffer(rows: readonly ShopPrice[]): { shop: PricedShop; price: number; pricedAt: string } | null {
+  let lowest: { shop: PricedShop; price: number; pricedAt: string } | null = null;
+  for (const { shop, latest } of rows) {
+    const offer = latest?.offer ?? null;
+    if (offer !== null && (lowest === null || toGrosze(offer.price) < toGrosze(lowest.price))) {
+      lowest = { shop, price: offer.price, pricedAt: offer.pricedAt };
+    }
+  }
+  return lowest;
+}
+
 function judge<Row extends ShopPrice>(row: Row, now: number): Judged<Row> {
   const state = priceState(row.latest, now);
   const offer = row.latest?.offer ?? null;
@@ -261,6 +332,29 @@ export function formatPrice(amount: number): string {
   return pln.format(amount);
 }
 
+/** An amount's złote and grosze as digits, apart, as a shelf label draws them. */
+export interface PriceParts {
+  zlote: string;
+  grosze: string;
+}
+
+/**
+ * An amount in złoty split as the price labels draw it: its złote, grouped with the no-break space formatPrice writes
+ * ("12 345"), and its grosze ("67"). It reads the parts formatPrice's own formatter writes, so both round alike.
+ */
+export function priceParts(amount: number): PriceParts {
+  let zlote = "";
+  let grosze = "";
+  for (const { type, value } of pln.formatToParts(amount)) {
+    if (type === "integer" || type === "group" || type === "minusSign") {
+      zlote += value;
+    } else if (type === "fraction") {
+      grosze += value;
+    }
+  }
+  return { zlote, grosze };
+}
+
 /**
  * A date such as "2026-09-30" as the pages show a promotion's end, "30.09". It's a calendar date without a time, so no
  * time zone can move it to another day; anything else is shown as it came.
@@ -268,6 +362,16 @@ export function formatPrice(amount: number): string {
 export function formatDay(isoDate: string): string {
   const date = /^\d{4}-(\d{2})-(\d{2})$/.exec(isoDate);
   return date === null ? isoDate : `${date[2]}.${date[1]}`;
+}
+
+/**
+ * The day an instant fell on in Poland, as formatDay writes a date: "20.09" for a product added at 10:00 on 20
+ * September. It reads the instant on the shopper's own calendar, as a promotion's end is read, so the server and the
+ * browser write the same day. Null for a time that doesn't parse.
+ */
+export function formatDayOf(iso: string): string | null {
+  const time = Date.parse(iso);
+  return Number.isNaN(time) ? null : formatDay(polishDate(time));
 }
 
 /** A shop item a watched product's prices come from: a shop whose prices are fetched, and the shop's own id for it. */
@@ -371,14 +475,26 @@ export function keyText({ shop, shopItemId }: PriceKey): string {
 const NO_PRICES_YET = "Jeszcze bez cen. Otwórz produkt, aby je pobrać.";
 
 /**
- * A watched product's comparison as its row on the list says it, in one line with the price's age:
+ * What a price that couldn't be read says in its place, on the product's page and on the list alike: never that it
+ * was never fetched.
+ */
+export const PRICE_UNREAD_TEXT = "Nie udało się wczytać ceny.";
+
+/**
+ * A watched product's comparison as its row on the list says it, in one line with the price's age, following the
+ * product's verdict (verdictOf):
  *
+ * - that a price couldn't be read, when `unread` says one couldn't
  * - the cheapest shop or shops and their price, how much less it is than the next shop that can be compared, and why
  *   each other shop can't be: its price is out of date ("cena nieaktualna"), it can't be ordered online, or it has no
  *   price
  * - the only shop's price, marked "nieaktualna" when it's out of date or the shop no longer returns the item, or
  *   "niedostępny online"
- * - that no shop's price can be named cheapest, or that no price has been fetched yet
+ * - the lowest price that can't be ordered online, when no shop's price can be named cheapest and some fresh one can't
+ *   be ordered, and why each other shop can't be compared
+ * - that the prices are out of date, when no shop's price can be named cheapest
+ * - that no price has been fetched yet, when no shop has been checked, or else which shops don't return the product
+ *   and which haven't been checked
  *
  * `summary` and `rows` are what compareShops gave at `now`.
  */
@@ -386,48 +502,104 @@ export function listSummaryText(
   summary: ComparisonSummary,
   rows: readonly (ShopPrice & ShopVerdict)[],
   now: number,
+  unread = false,
 ): string {
-  switch (summary.kind) {
+  const verdict = verdictOf({ rows, summary }, now, unread);
+  switch (verdict.kind) {
+    case "unread":
+      return PRICE_UNREAD_TEXT;
     case "cheapest": {
-      const shops = namesOf(summary.shops);
-      const price = formatPrice(summary.price);
+      const shops = namesOf(verdict.shops);
+      const price = formatPrice(verdict.price);
       // A tie names several shops, so a comma sets their price apart.
-      const head = summary.shops.length > 1 ? `Najtaniej: ${shops}, ${price}` : `Najtaniej: ${shops} ${price}`;
-      const savings =
-        summary.savings === null
-          ? ""
-          : `, o ${formatPrice(summary.savings.amount)} taniej niż ${SHOP_LABELS[summary.savings.than].name}`;
-      const others = rows
-        .filter((row) => !row.eligible)
-        .map((row) => `${SHOP_LABELS[row.shop].name}: ${whyNotCompared(row.state)}`);
-      return [`${head}${savings}`, ageText(summary.ageFrom, now), ...others].join(" · ");
+      const head = verdict.shops.length > 1 ? `Najtaniej: ${shops}, ${price}` : `Najtaniej: ${shops} ${price}`;
+      const savings = verdict.savings === null ? "" : `, ${savingsText(verdict.savings)}`;
+      const others = whyEachNot(rows.filter((row) => !row.eligible));
+      return [`${head}${savings}`, ageText(verdict.ageFrom, now), ...others].join(" · ");
     }
-    case "only": {
-      const row = rows.find((candidate) => candidate.shop === summary.shop);
-      const offer = row?.latest?.offer ?? null;
-      if (row === undefined || offer === null) {
-        return NO_PRICES_YET;
+    case "only":
+    case "unavailable":
+    case "stale": {
+      // The only shop's line says why its price can't be named, when it can't.
+      if (verdict.kind === "only" || rows.length === 1) {
+        const line = [
+          `Tylko ${SHOP_LABELS[verdict.shop].in}: ${formatPrice(verdict.price)}`,
+          ageText(verdict.pricedAt, now),
+        ];
+        if (verdict.kind === "stale") {
+          line.push("nieaktualna");
+        } else if (verdict.kind === "unavailable") {
+          line.push("niedostępny online");
+        }
+        return line.join(" · ");
       }
-      const line = [`Tylko ${SHOP_LABELS[row.shop].in}: ${formatPrice(offer.price)}`, ageText(offer.pricedAt, now)];
-      if (row.state === "stale" || row.state === "missing") {
-        line.push("nieaktualna");
-      } else if (!offer.available) {
-        line.push("niedostępny online");
+      if (verdict.kind === "stale") {
+        return "Ceny nieaktualne. Odśwież ceny lub otwórz produkt.";
       }
-      return line.join(" · ");
+      const head = `Niedostępny online: ${SHOP_LABELS[verdict.shop].name} ${formatPrice(verdict.price)}`;
+      const others = whyEachNot(rows.filter((row) => row.shop !== verdict.shop));
+      return [head, ageText(verdict.pricedAt, now), ...others].join(" · ");
     }
     case "none":
-      return rows.every((row) => row.state === "none")
-        ? NO_PRICES_YET
-        : "Ceny nieaktualne. Odśwież ceny lub otwórz produkt.";
+      return rows.every((row) => row.latest === null) ? NO_PRICES_YET : noPriceLine(rows);
   }
 }
 
-/** Shop names as a line lists them: "Natura", "Rossmann i Natura", "Rossmann, Hebe i Natura". */
-function namesOf(shops: readonly PricedShop[]): string {
-  const names = shops.map((shop) => SHOP_LABELS[shop].name);
+/** Why each of these shops' prices can't be named cheapest, as a line lists them: "Rossmann: cena nieaktualna". */
+function whyEachNot(rows: readonly (ShopPrice & ShopVerdict)[]): string[] {
+  return rows.map((row) => `${SHOP_LABELS[row.shop].name}: ${whyNotCompared(row.state)}`);
+}
+
+/**
+ * The line of a product without any price once some shop was checked: which shops answered without it, and which
+ * haven't been checked yet, so opening the product can't look like it would fetch a price the shop doesn't have.
+ */
+function noPriceLine(rows: readonly ShopPrice[]): string {
+  const shops = rows.map(
+    ({ shop, latest }) =>
+      `${SHOP_LABELS[shop].name}: ${latest === null ? "jeszcze nie sprawdzono" : "nie zwraca tego produktu"}`,
+  );
+  return ["Brak ceny online", ...shops].join(" · ");
+}
+
+/** How much less the cheapest price is than the next shop's, as the pages say it: "o 4,00 zł taniej niż Rossmann". */
+export function savingsText(savings: { amount: number; than: PricedShop }): string {
+  return `o ${formatPrice(savings.amount)} taniej niż ${SHOP_LABELS[savings.than].name}`;
+}
+
+/**
+ * Shops as a line lists them, by their names or after "w": "Natura", "Rossmann i Natura", "Rossmann, Hebe i Natura",
+ * or "w Rossmannie i w Naturze".
+ */
+export function namesOf(shops: readonly PricedShop[], label: "name" | "in" = "name"): string {
+  const names = shops.map((shop) => SHOP_LABELS[shop][label]);
   const last = names.pop() ?? "";
   return names.length === 0 ? last : `${names.join(", ")} i ${last}`;
+}
+
+/**
+ * How long ago `iso` was, on ageText's steps, as it reads after "sprzed", such as "cena sprzed 2 dni": "chwili", then
+ * minutes, hours, "doby" under 48 hours, and days. A time ahead of `now` reads as a moment ago; null for a time that
+ * doesn't parse.
+ */
+export function sinceText(iso: string, now: number): string | null {
+  const age = now - Date.parse(iso);
+  if (Number.isNaN(age)) {
+    return null;
+  }
+  if (age < MINUTE_MS) {
+    return "chwili";
+  }
+  if (age < HOUR_MS) {
+    return `${Math.floor(age / MINUTE_MS)} min`;
+  }
+  if (age < DAY_MS) {
+    return `${Math.floor(age / HOUR_MS)} godz.`;
+  }
+  if (age < 2 * DAY_MS) {
+    return "doby";
+  }
+  return `${Math.floor(age / DAY_MS)} dni`;
 }
 
 /**

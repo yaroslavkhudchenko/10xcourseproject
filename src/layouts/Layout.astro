@@ -1,23 +1,68 @@
 ---
 import "../styles/global.css";
+import { Font } from "astro:assets";
 import Banner from "@/components/Banner.astro";
 import { missingConfigs } from "@/lib/config-status";
+import { DARK_THEME, LIGHT_THEME, THEME_CHANGE_EVENT, THEME_STORAGE_KEY, type Theme } from "@/lib/theme";
 
 interface Props {
   title?: string;
   lang?: string;
+  /**
+   * The theme the page is drawn in. "user", the default, is the user's stored choice, else the system's, which a head
+   * script sets before the first paint and follows while the page is open. "dark" or "light" pins the page to that
+   * theme, with no script.
+   */
+  theme?: "user" | Theme;
 }
 
-const { title = "10x Astro Starter", lang = "en" } = Astro.props;
+const { title = "10x Astro Starter", lang = "en", theme = "user" } = Astro.props;
 ---
 
 <!doctype html>
-<html lang={lang} class="dark">
+<html lang={lang} class:list={{ [DARK_THEME]: theme === DARK_THEME }}>
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <title>{title}</title>
+    {theme === "user" && <script
+      is:inline
+      define:vars={{
+        storageKey: THEME_STORAGE_KEY,
+        darkTheme: DARK_THEME,
+        lightTheme: LIGHT_THEME,
+        themeChangeEvent: THEME_CHANGE_EVENT,
+      }}
+    >
+      // Before the first paint, so the page never flashes the other theme: an inline script runs as the parser
+      // reaches it, ahead of the stylesheet, where a processed one would wait until the page has been read.
+      const root = document.documentElement;
+      const system = matchMedia("(prefers-color-scheme: dark)");
+      const storedChoice = () => {
+        try {
+          return localStorage.getItem(storageKey);
+        } catch {
+          // Storage can be blocked (a private window, a browser set to block site data): the system then decides.
+          return null;
+        }
+      };
+      const stored = storedChoice();
+      root.classList.toggle(darkTheme, stored === darkTheme || (stored !== lightTheme && system.matches));
+      // While the user hasn't picked a theme, the page follows the system's as it switches, not only on the next page.
+      // The choice is read again at each switch, so one made with the theme switch since the page loaded wins. The
+      // theme switches hear of the change, to say again whether the dark theme is on.
+      system.addEventListener("change", (event) => {
+        const choice = storedChoice();
+        if (choice === darkTheme || choice === lightTheme) {
+          return;
+        }
+        root.classList.toggle(darkTheme, event.matches);
+        document.dispatchEvent(new Event(themeChangeEvent));
+      });
+    </script>}
+    <Font cssVariable="--font-bricolage" preload />
+    <Font cssVariable="--font-dm-mono" />
   </head>
   <body>
     {missingConfigs.map((cfg) => (

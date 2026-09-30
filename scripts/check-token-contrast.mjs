@@ -1,8 +1,10 @@
-// Design token contrast check: proves that the dark theme in src/styles/global.css keeps the text and focus-ring pairs
-// listed in PAIRS below, the ones the product page renders, readable by WCAG 2's contrast ratio: 4.5:1 for text (1.4.3)
-// and 3:1 for the focus ring (1.4.11). Each pair is measured at the opacity its component renders it with, as SURFACES
-// copies it from src/components/ui, over both stops of the page's bg-cosmic gradient. A pair the page starts to render
-// joins PAIRS, and a changed opacity in a component changes here too.
+// Design token contrast check: proves that both themes in src/styles/global.css, the light one in :root and the dark one
+// in .dark, keep the text, focus and field-border pairs listed in PAIRS below readable by WCAG 2's contrast ratio: 4.5:1
+// for text and 3:1 for large text (1.4.3), and 3:1 for a focus outline or a text field's border against what surrounds
+// it (1.4.11). Each pair is measured at the opacity its component renders it with, as SURFACES copies it from
+// src/components/ui and the views, over the theme's paper (bg-paper): its --background, and wherever the paper shows
+// through, also a dot of its grid.
+// A pair a view starts to render joins PAIRS, and a changed opacity in a component changes here too.
 // Run: node scripts/check-token-contrast.mjs
 // It reads only the CSS file, so it needs no server, no browser and no dependency.
 
@@ -52,6 +54,7 @@ const OKLCH = new RegExp(
   String.raw`^oklch\(\s*(${NUMBER})(%?)\s+(${NUMBER})(%?)\s+(${NUMBER})(?:deg)?\s*(?:/\s*(${NUMBER})(%?)\s*)?\)$`,
   "i",
 );
+const VAR = /^var\(\s*--([\w-]+)\s*\)$/;
 
 /** A token's value as { rgb, alpha }, or null when it isn't an oklch() colour this check can read. */
 function parseOklch(value) {
@@ -66,134 +69,268 @@ function parseOklch(value) {
   return { rgb: oklchToSrgb(lightness, chroma, Number(h)), alpha };
 }
 
-// The one .dark block, without comments: <html> carries the class, so its values are the ones every page renders.
+// The custom properties that aren't colours, which the blocks may hold: they are neither parsed nor measured.
+const NOT_COLORS = new Set(["radius"]);
+
+// Each theme's block, without comments. <html> gets the dark theme's class, or a wrapper does inside a light page, so
+// each block's values are the ones its theme renders.
 const css = readFileSync(new URL(`../${CSS_FILE}`, import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-const darkBlocks = [...css.matchAll(/^\.dark\s*\{([^}]*)\}/gm)];
-if (darkBlocks.length !== 1) {
-  check(`one .dark { … } block in ${CSS_FILE}`, false, `found ${darkBlocks.length}`);
-  process.exit(1);
+const THEMES = [
+  { theme: "light", block: ":root", pattern: /^:root\s*\{([^}]*)\}/gm },
+  { theme: "dark", block: ".dark", pattern: /^\.dark\s*\{([^}]*)\}/gm },
+];
+
+/**
+ * The block's colour tokens by name, each as { rgb, alpha }, or null when it can't be read. Every custom property in it
+ * is a colour, written as oklch(L C H) or oklch(L C H / A), or var(--name) of another colour in the same block, since a
+ * var() resolves where the block applies. One this check can't read fails by its name, and so does every pair that
+ * needs it: it is never skipped.
+ */
+function readTokens(block, body) {
+  const values = new Map();
+  for (const declaration of body.split(";")) {
+    const text = declaration.trim();
+    // Plain properties, such as color-scheme, aren't tokens.
+    if (!text.startsWith("--")) continue;
+    const match = /^--([\w-]+)\s*:([\s\S]*)$/.exec(text);
+    if (!match) {
+      check(`"${text}" in ${block}`, false, "can't read it as --name: value");
+      continue;
+    }
+    const [, name, value] = match;
+    if (!NOT_COLORS.has(name)) values.set(name, value.trim());
+  }
+
+  const tokens = new Map();
+  const resolve = (name, seen) => {
+    if (tokens.has(name)) return tokens.get(name);
+    const value = values.get(name);
+    const reference = VAR.exec(value);
+    let color = null;
+    if (reference === null) {
+      color = parseOklch(value);
+      if (color === null) {
+        check(`--${name} in ${block}`, false, `can't read "${value}" as oklch(L C H), oklch(L C H / A) or var(--name)`);
+      }
+    } else {
+      const [, target] = reference;
+      if (seen.includes(target)) {
+        check(`--${name} in ${block}`, false, `var(--${target}) closes a loop of var()s`);
+      } else if (!values.has(target)) {
+        check(`--${name} in ${block}`, false, `var(--${target}) isn't a colour set in ${block}`);
+      } else {
+        color = resolve(target, [...seen, target]);
+      }
+    }
+    tokens.set(name, color);
+    return color;
+  };
+  for (const name of values.keys()) resolve(name, [name]);
+  return tokens;
 }
 
-// Every custom property in the block is a colour, written as oklch(L C H) or oklch(L C H / A). One this check can't
-// read fails by its name, and so does every pair that needs it: it is never skipped.
-const tokens = new Map();
-for (const declaration of darkBlocks[0][1].split(";")) {
-  const text = declaration.trim();
-  // Plain properties, such as color-scheme, aren't tokens.
-  if (!text.startsWith("--")) continue;
-  const match = /^(--[\w-]+)\s*:([\s\S]*)$/.exec(text);
-  if (!match) {
-    check(`"${text}" in .dark`, false, "can't read it as --name: value");
-    continue;
+const tokensByTheme = new Map();
+for (const { theme, block, pattern } of THEMES) {
+  const blocks = [...css.matchAll(pattern)];
+  if (blocks.length !== 1) {
+    check(`one ${block} { … } block in ${CSS_FILE}`, false, `found ${blocks.length}`);
+    process.exit(1);
   }
-  const [, name, value] = match;
-  const color = parseOklch(value.trim());
-  tokens.set(name.slice(2), color);
-  if (color === null) {
-    check(`${name} in .dark`, false, `can't read "${value.trim()}" as oklch(L C H) or oklch(L C H / A)`);
+  tokensByTheme.set(theme, readTokens(block, blocks[0][1]));
+}
+
+// Both blocks set the same tokens: a .dark wrapper inside a light page would otherwise keep the light value of the one
+// .dark leaves out, where its var() was resolved.
+for (const { theme, block } of THEMES) {
+  for (const { theme: other, block: otherBlock } of THEMES) {
+    if (other === theme) continue;
+    for (const name of tokensByTheme.get(theme).keys()) {
+      if (!tokensByTheme.get(other).has(name)) {
+        check(`--${name} in ${otherBlock}`, false, `set in ${block} but not in ${otherBlock}`);
+      }
+    }
   }
 }
 
-// The page's canvas is bg-cosmic, a gradient from --background through --background-glow and back, so every pair is
-// measured over both stops.
-const CANVAS = ["background", "background-glow"];
-
-// What the product page puts text and focus rings on, as layers over the canvas, bottom first: each a token and the
-// opacity, in percent, its component renders it at. Tailwind's /NN modifier mixes the token with transparent, which
+// What the views put text, focus outlines and field borders on, as layers over the paper, bottom first: each a token and
+// the opacity, in percent, its component renders it at. Tailwind's /NN modifier mixes the token with transparent, which
 // keeps its colour and multiplies its alpha.
 const CARD = [["card", 100]];
 const SURFACES = {
-  canvas: [],
+  paper: [],
   card: CARD, // Card and the default Alert: bg-card
-  "destructive alert": [["destructive", 10]], // Alert destructive: bg-destructive/10
-  "success alert": [["success", 10]], // Alert success: bg-success/10
-  "warning alert": [["warning", 10]], // Alert warning: bg-warning/10
+  popover: [["popover", 100]], // the account menu's panel on a phone: bg-popover
+  muted: [["muted", 100]], // the raised fills: bg-muted
+  "destructive alert": [["destructive", 10]], // Alert destructive: bg-destructive/10, as in Natura's declined card
+  "destructive alert in a card": [...CARD, ["destructive", 10]], // the same Alert in Natura's card
+  destructive: [["destructive", 100]], // Button and Badge destructive: bg-destructive
+  "destructive hover": [["destructive", 90]], // Button destructive, and a link's Badge: hover:bg-destructive/90
+  "destructive hover in a card": [...CARD, ["destructive", 90]],
+  success: [["success", 100]], // Badge promo, the promotion's pill: bg-success
+  "success alert": [["success", 100]], // Alert success: bg-success
   "success badge in a card": [...CARD, ["success", 15]], // Badge success: bg-success/15
-  "warning badge": [["warning", 15]], // Badge warning on the canvas: a match's size warning
+  warning: [["warning", 100]], // a warning pill: bg-warning
+  "warning alert": [["warning", 100]], // Alert warning: bg-warning
+  "warning badge": [["warning", 15]], // Badge warning on the paper: a match's size warning
   "warning badge in a card": [...CARD, ["warning", 15]], // Badge warning: bg-warning/15
   primary: [["primary", 100]], // Button default: bg-primary
-  "primary in a card": [...CARD, ["primary", 100]],
   "primary hover": [["primary", 90]], // Button default: hover:bg-primary/90
   "primary hover in a card": [...CARD, ["primary", 90]],
-  "outline button": [["input", 30]], // Button outline: dark:bg-input/30
-  "outline button hover": [["input", 50]], // Button outline: dark:hover:bg-input/50
+  "outline button": CARD, // Button outline, and the theme switch: bg-card
+  "outline button hover": [["accent", 100]], // Button outline: hover:bg-accent
+  "active chip": [["foreground", 100]], // an active filter chip: bg-foreground
 };
+// Where a component's dark: variant draws another surface, each theme's own. None does today: the outline Button's
+// dark: fills went with the redesign, which draws it on the card in both themes.
+const THEME_SURFACES = {
+  light: {},
+  dark: {},
+};
+// The paper labels, which stay light in both themes and carry --label-ink: the price tags and the hero ("sun", "tag-warn"
+// and "tag-plain"), the stickers, the avatar's initial and a product's tile without a photo.
+const LABELS = [
+  "sun",
+  "tag-warn",
+  "tag-plain",
+  "sticker-info",
+  "sticker-plain",
+  "avatar",
+  "tile-1",
+  "tile-2",
+  "tile-3",
+  "tile-4",
+];
+for (const label of LABELS) SURFACES[label] = [[label, 100]];
+
+// A dot of the paper's grid, measured at its centre, under a glyph pixel: the worst case of what sits on the paper.
+const DOT = ["background-dot", 100];
 
 const TEXT = 4.5; // WCAG 1.4.3, text at normal size
-const FOCUS = 3; // WCAG 1.4.11, a focus indicator against what surrounds it
+const LARGE_TEXT = 3; // WCAG 1.4.3, large text: at least 24 px, or 18.66 px bold
+const NON_TEXT = 3; // WCAG 1.4.11, a focus outline or a field's border against what surrounds it
 
 // Each pair: the token drawn, the opacity it's drawn at, what it's drawn on, and the ratio it needs.
 const PAIRS = [
   // Headings, prices and body text: the page's text-foreground, and a Card's text-card-foreground.
-  ["foreground", 100, "canvas", TEXT],
+  ["foreground", 100, "paper", TEXT],
   ["foreground", 100, "card", TEXT],
   ["card-foreground", 100, "card", TEXT],
-  // Hints, sizes, and each price's source and age.
-  ["muted-foreground", 100, "canvas", TEXT],
+  ["foreground", 100, "muted", TEXT],
+  // A shop's card while its shop is asked again: the price's digits fade to 60 % (Price's pending), large text at 46 px
+  // and more for the złote and 20 px extra bold for the grosze, while its "zł", small text, stays at full strength.
+  ["foreground", 60, "card", LARGE_TEXT],
+  // Hints, sizes, and each price's source and age; Natura's declined card, a ghost on the paper, and a match's note in
+  // the dashed footer of Natura's card.
+  ["muted-foreground", 100, "paper", TEXT],
   ["muted-foreground", 100, "card", TEXT],
-  // Text links: "← Moja lista" on the canvas, "Zobacz w sklepie" in a card. The session alert's sign-in link takes the
-  // alert description's warning-foreground/90, measured with the warnings below.
-  ["link", 100, "canvas", TEXT],
+  ["muted-foreground", 100, "muted", TEXT],
+  // The account menu's panel: its text, and the signed-in email in muted-foreground.
+  ["popover-foreground", 100, "popover", TEXT],
+  ["muted-foreground", 100, "popover", TEXT],
+  // Text links, the Button's link and underlined variants and the Badge's link: "← Moja lista" on the paper, "Zobacz w
+  // sklepie" in a card. The session alert's sign-in link takes the alert description's warning-foreground, measured
+  // with the warnings below.
+  ["link", 100, "paper", TEXT],
   ["link", 100, "card", TEXT],
-  // Primary buttons at rest and on hover: "Dopasuj w Naturze" on the canvas, "To ten produkt" in a candidate's card.
+  // The default Button at rest and on hover: "Dopasuj w Naturze" on the paper, "To ten produkt" in a candidate's card.
   ["primary-foreground", 100, "primary", TEXT],
-  ["primary-foreground", 100, "primary in a card", TEXT],
   ["primary-foreground", 100, "primary hover", TEXT],
   ["primary-foreground", 100, "primary hover in a card", TEXT],
-  // Outline buttons ("Odśwież ceny", "Żaden z nich"): the text inherits the page's, and hover sets accent-foreground.
+  // The outline Button ("Odśwież ceny", "Żaden z nich") and the theme switch's icon: text-foreground, and on hover
+  // accent-foreground.
   ["foreground", 100, "outline button", TEXT],
   ["accent-foreground", 100, "outline button hover", TEXT],
-  // Errors: the destructive Alert's text and its description at /90. The page shows no error text outside an Alert.
+  // The destructive Button and Badge, at rest and on hover.
+  ["destructive-foreground", 100, "destructive", TEXT],
+  ["destructive-foreground", 100, "destructive hover", TEXT],
+  ["destructive-foreground", 100, "destructive hover in a card", TEXT],
+  // The filter chips: an inactive chip's label and its count at 70% on the paper, an active chip's on its fill.
+  ["foreground", 70, "paper", TEXT],
+  ["background", 100, "active chip", TEXT],
+  ["background", 70, "active chip", TEXT],
+  // The paper labels' text: the hanging tags (Badge tag-sun and tag-warn) on sun and tag-warn among them.
+  ...LABELS.map((label) => ["label-ink", 100, label, TEXT]),
+  // Errors: the destructive Alert's text and its description at /90, on the paper and in Natura's card, where a
+  // decision that wasn't saved is told. The page shows no error text outside an Alert.
   ["destructive", 100, "destructive alert", TEXT],
   ["destructive", 90, "destructive alert", TEXT],
-  // Success: a note on the canvas or in a card, the Alert's text and description, and "Najtaniej" as a Badge.
-  ["success-foreground", 100, "canvas", TEXT],
+  ["destructive", 100, "destructive alert in a card", TEXT],
+  ["destructive", 90, "destructive alert in a card", TEXT],
+  // Success: the promotion's pill (Badge promo), a note on the paper or in a card, the Alert's text, whose description
+  // takes the same colour, and "Najtaniej" as a Badge in a card.
+  ["success-foreground", 100, "success", TEXT],
+  ["success-foreground", 100, "paper", TEXT],
   ["success-foreground", 100, "card", TEXT],
   ["success-foreground", 100, "success alert", TEXT],
-  ["success-foreground", 90, "success alert", TEXT],
   ["success-foreground", 100, "success badge in a card", TEXT],
-  // Warnings: the same, with a price row's notices in its card, "nieaktualna" as a Badge in a card, and a match's size
-  // warning as a Badge on the canvas.
-  ["warning-foreground", 100, "canvas", TEXT],
+  // Warnings: the same, with a warning pill, a price row's notices in its card, "nieaktualna" as a Badge in a card, and
+  // a match's size warning as a Badge on the paper.
+  ["warning-foreground", 100, "warning", TEXT],
+  ["warning-foreground", 100, "paper", TEXT],
   ["warning-foreground", 100, "card", TEXT],
   ["warning-foreground", 100, "warning alert", TEXT],
-  ["warning-foreground", 90, "warning alert", TEXT],
   ["warning-foreground", 100, "warning badge", TEXT],
   ["warning-foreground", 100, "warning badge in a card", TEXT],
-  // The focus ring, the base layer's outline-ring/50 and the components' ring-ring/50, around a control on each surface.
-  ["ring", 50, "canvas", FOCUS],
-  ["ring", 50, "card", FOCUS],
-  ["ring", 50, "warning alert", FOCUS],
+  // The focus outline, drawn in --ring at full opacity, around a control on each surface: in the account menu's panel,
+  // around the theme switch and "Wyloguj".
+  ["ring", 100, "paper", NON_TEXT],
+  ["ring", 100, "card", NON_TEXT],
+  ["ring", 100, "popover", NON_TEXT],
+  ["ring", 100, "muted", NON_TEXT],
+  ["ring", 100, "warning alert", NON_TEXT],
+  // A text field's border, the search's on the paper and a field's in a card.
+  ["input", 100, "paper", NON_TEXT],
+  ["input", 100, "card", NON_TEXT],
 ];
 
-/** The pair's contrast over one stop of the canvas, or why it can't be measured. */
-function measure(stop, [color, percent, surface]) {
-  const layers = [...SURFACES[surface], [color, percent]];
-  const unreadable = [stop, ...layers.map(([token]) => token)].find((token) => !tokens.get(token));
+/** The pair's contrast in one theme, over its paper or a dot of it, or why it can't be measured. */
+function measure(theme, layers, [color, percent]) {
+  const tokens = tokensByTheme.get(theme);
+  const block = THEMES.find((entry) => entry.theme === theme).block;
+  const needed = ["background", ...layers.map(([token]) => token), color];
+  const unreadable = needed.find((token) => !tokens.get(token));
   if (unreadable !== undefined) {
-    return { problem: tokens.has(unreadable) ? `can't read --${unreadable}` : `--${unreadable} isn't set in .dark` };
+    return { problem: tokens.has(unreadable) ? `can't read --${unreadable}` : `--${unreadable} isn't set in ${block}` };
   }
-  const canvas = tokens.get(stop);
-  if (canvas.alpha < 1) return { problem: `--${stop} must be opaque, since it is the page's canvas` };
+  const paper = tokens.get("background");
+  if (paper.alpha < 1) return { problem: "--background must be opaque, since it is the page's paper" };
   const blend = (beneath, [token, opacity]) => {
     const { rgb, alpha } = tokens.get(token);
     return over(rgb, (alpha * opacity) / 100, beneath);
   };
-  const background = SURFACES[surface].reduce(blend, canvas.rgb);
+  const background = layers.reduce(blend, paper.rgb);
   return { ratio: contrast(blend(background, [color, percent]), background) };
 }
 
-for (const stop of CANVAS) {
+/**
+ * Whether the paper shows through the surface: none of its layers is opaque as drawn. A layer that can't be read fails
+ * the pair anyway, so it counts as opaque, and the pair fails once.
+ */
+function showsPaper(theme, layers) {
+  const tokens = tokensByTheme.get(theme);
+  return !layers.some(([token, opacity]) => {
+    const color = tokens.get(token);
+    return !color || color.alpha * opacity >= 100;
+  });
+}
+
+for (const { theme } of THEMES) {
+  const surfaces = { ...SURFACES, ...THEME_SURFACES[theme] };
   for (const pair of PAIRS) {
     const [color, percent, surface, minimum] = pair;
     const drawn = percent === 100 ? color : `${color}/${percent}`;
-    const name = `${drawn} on ${surface === "canvas" ? stop : `${surface} over ${stop}`}`;
-    const { ratio, problem } = measure(stop, pair);
-    if (problem === undefined) {
-      // Rounded down, so a failing ratio never reads as the minimum.
-      check(name, ratio >= minimum, `${(Math.floor(ratio * 100) / 100).toFixed(2)}:1, needs ${minimum}:1`);
-    } else {
-      check(name, false, problem);
+    const layers = surfaces[surface];
+    const variants = [{ name: surface, layers }];
+    if (showsPaper(theme, layers)) variants.push({ name: `${surface} over a dot`, layers: [DOT, ...layers] });
+    for (const variant of variants) {
+      const name = `${theme}: ${drawn} on ${variant.name}`;
+      const { ratio, problem } = measure(theme, variant.layers, pair);
+      if (problem === undefined) {
+        // Rounded down, so a failing ratio never reads as the minimum.
+        check(name, ratio >= minimum, `${(Math.floor(ratio * 100) / 100).toFixed(2)}:1, needs ${minimum}:1`);
+      } else {
+        check(name, false, problem);
+      }
     }
   }
 }

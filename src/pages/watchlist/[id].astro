@@ -1,15 +1,30 @@
 ---
+import { ChevronLeft } from "lucide-react";
+import SubmitOnce from "@/components/SubmitOnce.astro";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
+import ListFooter from "@/components/watchlist/ListFooter.astro";
+import ListHead from "@/components/watchlist/ListHead.astro";
+import ListRows from "@/components/watchlist/ListRows.astro";
+import { naturaUnreadable, type NaturaCardInput } from "@/components/watchlist/natura-card";
 import NaturaSection from "@/components/watchlist/NaturaSection.astro";
 import PriceComparison from "@/components/watchlist/PriceComparison";
-import type { PriceComparisonShop } from "@/components/watchlist/price-comparison-state";
-import ProductHeader from "@/components/watchlist/ProductHeader.astro";
+import {
+  initialState,
+  rowShopsOfIsland,
+  type PriceComparisonShop,
+} from "@/components/watchlist/price-comparison-state";
 import ProductUnavailable from "@/components/watchlist/ProductUnavailable.astro";
-import Layout from "@/layouts/Layout.astro";
-import { ERROR_PARAM, PRICES_PARAM } from "@/lib/notices";
+import WatchlistShell from "@/layouts/WatchlistShell.astro";
+import { ERROR_PARAM, LIST_PRICES_PARAM, PRICES_NOTICES, PRICES_PARAM } from "@/lib/notices";
 import { decideMatchStep } from "@/lib/services/match-step";
-import { listMatches, matchErrorMessage, recordLookup } from "@/lib/services/matches";
+import {
+  listMatches,
+  listMatchStates,
+  matchErrorMessage,
+  recordLookup,
+  type MatchStatesRead,
+} from "@/lib/services/matches";
 import {
   chooseView,
   decisionNotice,
@@ -20,17 +35,25 @@ import {
   type NaturaView,
 } from "@/lib/services/natura-view";
 import { keyText, SHOP_LABELS, type PricedShop } from "@/lib/services/price-comparison";
-import { parsePriceRefreshCode, type PriceRefreshCode } from "@/lib/services/price-refresh";
-import { readLatestPrices, recordPriceChecks } from "@/lib/services/prices";
+import { parsePriceRefreshCode } from "@/lib/services/price-refresh";
+import { listLatestPrices, readLatestPrices, recordPriceChecks, type ListPricesRead } from "@/lib/services/prices";
 import { isOwnNavigation } from "@/lib/services/search-query";
 import { shopGateFor } from "@/lib/services/shop-gate";
 import { lookupInNatura } from "@/lib/services/shop-matching";
-import { getWatchlistProduct, parseWatchlistItemId, productFullName } from "@/lib/services/watchlist";
+import { getWatchlistProduct, listWatchlist, parseWatchlistItemId, productFullName } from "@/lib/services/watchlist";
+import {
+  filterHref,
+  listChipsOf,
+  listRowsOf,
+  parseListFilter,
+  rowProductOf,
+  rowTagOf,
+} from "@/lib/services/watchlist-rows";
 import { shopUnavailableText } from "@/lib/shop-messages";
 import { cn } from "@/lib/utils";
-import type { MatchedItem, ShopMatch, WatchlistProduct } from "@/types";
+import type { MatchedItem, ShopMatch, WatchlistItem, WatchlistProduct } from "@/types";
 
-const { supabase } = Astro.locals;
+const { user, supabase } = Astro.locals;
 const params = Astro.url.searchParams;
 // A link on another site or a prefetch must not spend the cap everyone shares: only the user's own navigation may make
 // opening the page ask a shop, for a Natura lookup or a price.
@@ -40,12 +63,20 @@ const ownNavigation = isOwnNavigation(Astro.request.headers);
 // call. The product and its stored decisions need only the id, so both are read at once; the decisions count only
 // once the product is there.
 const id = parseWatchlistItemId(Astro.params.id);
-const [product, matches]: [WatchlistProduct | null | "failed", ShopMatch[] | null] =
+type ProductReads = [WatchlistProduct | null | "failed", ShopMatch[] | null];
+const productReads: Promise<ProductReads> =
   id === null
-    ? [null, null]
+    ? Promise.resolve<ProductReads>([null, null])
     : supabase
-      ? await Promise.all([getWatchlistProduct(supabase, id), listMatches(supabase, id)])
-      : ["failed", null];
+      ? Promise.all([getWatchlistProduct(supabase, id), listMatches(supabase, id)])
+      : Promise.resolve<ProductReads>(["failed", null]);
+// The list beside the product, from lg: the list page's own three reads, at the same time as the product's. They ask
+// no shop, and a phone, which doesn't show the list, still makes them, since the server can't know the screen's width.
+type ListReads = [WatchlistItem[] | null, MatchStatesRead | null, ListPricesRead | null];
+const listReads: Promise<ListReads> = supabase
+  ? Promise.all([listWatchlist(supabase), listMatchStates(supabase), listLatestPrices(supabase)])
+  : Promise.resolve<ListReads>([null, null, null]);
+const [[product, matches], [items, matchRead, priceRead]] = await Promise.all([productReads, listReads]);
 if (product === null) {
   Astro.response.status = 404;
 } else if (product === "failed") {
@@ -93,7 +124,7 @@ if (supabase && product !== null && product !== "failed") {
         // Another tab stored a decision meanwhile; it stands.
         natura = { kind: "decided" };
       } else if (lookup.kind === "accepted") {
-        // A match that wasn't saved has no price row, so the section shows its item.
+        // A match that wasn't saved has no price row, so its card shows its item.
         natura = matchedView(lookup.candidate, "auto", product, { unsaved });
       } else {
         natura = notFoundView(fetchedAt, product);
@@ -145,75 +176,140 @@ const title =
     : product === "failed"
       ? "Nie udało się wczytać produktu"
       : productFullName(product);
-// A decision's notice and error, which the Natura section shows next to its buttons.
+// A decision's notice and error, which Natura's card shows.
 const notice = decisionNotice(params);
 const error = matchErrorMessage(params.get(ERROR_PARAM));
+// Natura for the island's card. A choice's candidates stay out of the island: the section below it holds their forms.
+const naturaInput: NaturaCardInput | null =
+  natura === null
+    ? null
+    : { view: natura.kind === "choose" ? { ...natura, options: [] } : natura, notice, error, unsaved };
+const choice = natura?.kind === "choose" ? natura : null;
 
-// What "Odśwież ceny" came to when its form was posted without JavaScript, in the page's own words: a code the app
-// didn't send shows nothing.
-const PRICE_NOTICES: Record<PriceRefreshCode, { text: string; warning: boolean }> = {
-  done: { text: "Ceny odświeżone.", warning: false },
-  partial: {
-    text: "Nie wszystkie ceny udało się odświeżyć. Tam, gdzie się nie udało, widać ostatnią znaną cenę i jej wiek.",
-    warning: true,
-  },
-  none: { text: "Nic do odświeżenia.", warning: false },
-  failed: { text: "Nie udało się odświeżyć cen. Spróbuj ponownie za chwilę.", warning: true },
-};
+// What "Odśwież ceny" came to when its form was posted without JavaScript, in the product's own words (notices.ts): a
+// code the app didn't send shows nothing.
 const pricesCode = parsePriceRefreshCode(params.get(PRICES_PARAM));
-const pricesNotice = pricesCode === null ? null : PRICE_NOTICES[pricesCode];
+const pricesNotice = pricesCode === null ? null : PRICES_NOTICES[pricesCode];
+
+// The phone's way back to the list, with the filter the list was shown with (a row's link carries it); any other value
+// of `f` goes back to the whole list.
+const backHref = filterHref("/watchlist", parseListFilter(params.get("f")));
+// The brand and the size beside it, as the product's row on the list shows them.
+const backEyebrow = product === null || product === "failed" ? null : rowProductOf(product).eyebrow;
+
+// The list beside the product, from lg, as the list page shows it, with this product's row selected. The row's tag is
+// judged from this page's own reads, the ones the island starts from, so the two agree from the first paint, with
+// JavaScript or without; the island then keeps it up to date (PRICES_EVENT). The chips and "Odśwież ceny" keep the
+// product, and a product that isn't there leaves them to the list.
+const shown = product !== null && product !== "failed" ? product : null;
+const selectedTag =
+  shown === null
+    ? null
+    : rowTagOf(
+        rowShopsOfIsland(initialState({ shops: priceShops, now: renderedAt, pricesFailed }).rows, {
+          naturaUnreadable: naturaUnreadable(natura),
+        }),
+        Date.parse(renderedAt),
+      );
+const listRows =
+  items === null
+    ? null
+    : listRowsOf(items, matchRead, priceRead, Date.now()).map((row) =>
+        selectedTag !== null && row.itemId === shown?.id ? { ...row, tag: selectedTag } : row,
+      );
+const { counts, filter } = listChipsOf(listRows, matchRead !== null && priceRead !== null, params.get("f"));
+const listPath = shown === null ? "/watchlist" : `/watchlist/${shown.id}`;
+// "Moja lista", the heading of the list beside the product, which names the list's landmark.
+const LIST_HEADING_ID = "list-heading";
 ---
 
-<Layout title={`${title} · Drogeria Radar`} lang="pl">
-  <div class="bg-cosmic min-h-screen p-4 text-foreground sm:p-8">
-    <main class="mx-auto flex max-w-lg flex-col gap-6">
-      <a href="/watchlist" class:list={cn(buttonVariants({ variant: "link", size: "inline" }), "self-start")}>
-        ← Moja lista
-      </a>
+<WatchlistShell
+  title={`${title} · Drogeria Radar`}
+  mode="product"
+  email={user?.email ?? null}
+  listHeadingId={LIST_HEADING_ID}
+>
+  <ListHead
+    slot="head"
+    headingId={LIST_HEADING_ID}
+    level={2}
+    count={items?.length ?? null}
+    path={listPath}
+    filter={filter}
+    counts={counts}
+    refreshCode={parsePriceRefreshCode(params.get(LIST_PRICES_PARAM))}
+    back={shown?.id ?? null}
+  />
+  <ListRows
+    slot="rows"
+    rows={listRows}
+    filter={filter}
+    matchesFailed={matchRead === null}
+    pricesFailed={priceRead === null}
+    selectedId={shown?.id ?? null}
+  />
+  {counts !== null && <ListFooter slot="footer" />}
 
-      {product === null ? (
-        <ProductUnavailable reason="not-found" error={error} />
-      ) : product === "failed" ? (
-        <ProductUnavailable reason="failed" />
-      ) : (
-        <>
-          <ProductHeader product={product} />
-
-          <section aria-labelledby="prices-heading" class="flex flex-col gap-3">
-            <h2 id="prices-heading" class="text-lg font-semibold">
-              Ceny
-            </h2>
-            {pricesNotice && (
-              <Alert
-                variant={pricesNotice.warning ? "warning" : "success"}
-                role={pricesNotice.warning ? "alert" : "status"}
-              >
-                <AlertDescription>{pricesNotice.text}</AlertDescription>
-              </Alert>
-            )}
-            <PriceComparison
-              client:load
-              itemId={product.id}
-              shops={priceShops}
-              autoRefresh={ownNavigation}
-              now={renderedAt}
-              pricesFailed={pricesFailed}
-            />
-          </section>
-
-          <NaturaSection view={natura} productId={product.id} unsaved={unsaved} notice={notice} error={error} />
-        </>
-      )}
-    </main>
+  {/* A phone's top row, back to the list. From lg the header and the list stand beside the product instead. */}
+  <div class="flex items-center justify-between gap-3 pt-1 lg:hidden">
+    <a href={backHref} class:list={cn(buttonVariants({ variant: "link", size: "inline" }), "h-11 gap-0.5 text-base")}>
+      <ChevronLeft aria-hidden="true" strokeWidth={2.4} className="size-5.5" />
+      Moja lista
+    </a>
+    {backEyebrow && (
+      <span class="font-mono text-meta tracking-eyebrow wrap-break-word text-muted-foreground uppercase">
+        {backEyebrow}
+      </span>
+    )}
   </div>
+
+  {product === null ? (
+    <div class="flex flex-col gap-3 pt-2 lg:pt-0">
+      <ProductUnavailable reason="not-found" error={error} />
+    </div>
+  ) : product === "failed" ? (
+    <div class="flex flex-col gap-3 pt-2 lg:pt-0">
+      <ProductUnavailable reason="failed" />
+    </div>
+  ) : (
+    <div class="flex flex-col gap-6 pt-2 pb-28 lg:gap-6.5 lg:pt-0 lg:pb-0">
+      {/* Below lg the island's bottom bar is fixed over the screen's foot, so the page's content ends above it. */}
+      {pricesNotice && (
+        <Alert variant={pricesNotice.warning ? "warning" : "success"} role={pricesNotice.warning ? "alert" : "status"}>
+          <AlertDescription>{pricesNotice.text}</AlertDescription>
+        </Alert>
+      )}
+      <PriceComparison
+        client:load
+        itemId={product.id}
+        product={{
+          brand: product.brand,
+          name: product.name,
+          caption: product.caption,
+          sizeText: product.sizeText,
+          imageUrl: product.imageUrl,
+          addedAt: product.addedAt,
+        }}
+        natura={naturaInput}
+        shops={priceShops}
+        autoRefresh={ownNavigation}
+        now={renderedAt}
+        pricesFailed={pricesFailed}
+      />
+
+      {/* Natura's card, among the island's cards, points here when the user has candidates to choose from. */}
+      {choice && <NaturaSection view={choice} productId={product.id} />}
+    </div>
+  )}
+  <SubmitOnce />
   <script>
     // The codes are the ones the frontmatter reads its notices by, from a module that imports nothing, so this script
     // ships no server code.
     import { NOTICE_PARAMS } from "@/lib/notices";
 
     // A notice shows once: the address bar forgets the code that brought it, a decision's (matched, declined, decided,
-    // error) or the no-JavaScript refresh's (prices), so a reload or a copied link doesn't show it again. Every other
-    // parameter and the hash stay.
+    // error), the product's no-JavaScript refresh's (prices) or the list's refresh's (list-prices), so a reload or a
+    // copied link doesn't show it again. Every other parameter, the list's filter among them, and the hash stay.
     const url = new URL(window.location.href);
     if (NOTICE_PARAMS.some((code) => url.searchParams.has(code))) {
       for (const code of NOTICE_PARAMS) {
@@ -222,4 +318,4 @@ const pricesNotice = pricesCode === null ? null : PRICE_NOTICES[pricesCode];
       history.replaceState(history.state, "", url);
     }
   </script>
-</Layout>
+</WatchlistShell>

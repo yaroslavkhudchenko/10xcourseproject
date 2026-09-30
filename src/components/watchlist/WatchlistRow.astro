@@ -1,0 +1,99 @@
+---
+// A row of the list, or of the search results: the product's thumbnail, its brand and size above its name, and on the
+// right its price tag, or, for a search result, what the user can do with it. On the list the tag's price has its shop
+// and age on a line of its own under the tag (RowTag), the row links to the product's page, keeping the list's filter,
+// lifts on hover unless the user asked for reduced motion, and screen readers hear its whole comparison in one line,
+// the row service's summary, instead of the drawn tag and its line. Beside a product's page, that product's row is
+// selected, and its tag and line follow the product's refresh (RowTag). A search result isn't on the list yet, so it
+// links nowhere and stays put, and its action comes in the default slot.
+import ProductThumb from "@/components/watchlist/ProductThumb";
+import RowTag from "@/components/watchlist/RowTag";
+import { filterHref, type ListFilter, type ListRow, type RowProduct } from "@/lib/services/watchlist-rows";
+import { cn } from "@/lib/utils";
+
+type Props =
+  | {
+      /** A product on the list. */
+      row: ListRow;
+      /** The filter the list is shown with, which the product's page keeps. */
+      filter: ListFilter;
+      /**
+       * Whether the product's page shows the list beside it: the row gets a 2 px edge, the sun's shadow and the lift,
+       * and its focus outline sits outside the shadow, which is the ring's colour in the dark theme. Its tag follows
+       * the product's refresh.
+       */
+      selected?: boolean;
+    }
+  | {
+      /** A search result, with its action in the default slot. */
+      product: RowProduct;
+      /**
+       * The ids of the result's brand and size and of its name, which its action names its product by
+       * (aria-describedby), apart for each result on the page.
+       */
+      textIds?: { eyebrow: string; name: string };
+    };
+
+const props = Astro.props;
+const listed = "row" in props ? props : null;
+const product: RowProduct = "row" in props ? props.row : props.product;
+const textIds = "row" in props ? undefined : props.textIds;
+const selected = listed?.selected ?? false;
+const Element = listed === null ? "div" : "a";
+const href =
+  listed === null ? undefined : filterHref(`/watchlist/${encodeURIComponent(listed.row.itemId)}`, listed.filter);
+// A list row is a grid: the thumbnail, the brand and name, and the tag, then the tag's line in a row of its own, which
+// may run from the name's edge to the tag's, ending under the tag. A tag without a price has no line, and no such row.
+const TAG_LINE = "col-span-2 col-start-2 row-start-2 justify-self-end text-right";
+---
+
+<Element
+  href={href}
+  aria-current={selected ? "page" : undefined}
+  class:list={cn(
+    "rounded-row border-2 border-transparent bg-card p-3",
+    listed === null
+      ? "flex items-center gap-3"
+      : "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 transition motion-safe:hover:-translate-0.5 motion-reduce:transition-none",
+    selected && "-translate-0.5 border-foreground shadow-selected focus-visible:outline-offset-6",
+  )}
+>
+  <ProductThumb brand={product.brand} imageUrl={product.imageUrl} size="row" />
+  <span class="flex min-w-0 flex-1 flex-col gap-0.75">
+    {product.eyebrow && (
+      <span
+        id={textIds?.eyebrow}
+        class="font-mono text-meta tracking-eyebrow wrap-break-word text-muted-foreground uppercase"
+      >
+        {product.eyebrow}
+      </span>
+    )}
+    <span id={textIds?.name} class="text-body leading-tight font-semibold wrap-break-word">
+      {product.name}
+    </span>
+  </span>
+  {listed === null ? (
+    <span class="shrink-0">
+      <slot />
+    </span>
+  ) : (
+    <>
+      {/*
+        The selected row's tag follows its product's refresh, so it's the one island among the rows. The list beside
+        the product shows only from lg (64rem, 1024 px), so a narrower screen never hydrates it; its HTML shows the tag
+        the page drew all the same.
+      */}
+      {selected ? (
+        <RowTag
+          client:media="(min-width: 64rem)"
+          tag={listed.row.tag}
+          itemId={listed.row.itemId}
+          metaClassName={TAG_LINE}
+        />
+      ) : (
+        <RowTag tag={listed.row.tag} metaClassName={TAG_LINE} />
+      )}
+      <span class="sr-only">{listed.row.summary}</span>
+    </>
+  )}
+</Element>

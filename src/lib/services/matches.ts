@@ -257,7 +257,7 @@ export async function listMatches(supabase: SupabaseClient, itemId?: string): Pr
     return null;
   }
   const read = parseRows(data, rowSchema);
-  if (read === null || (itemId !== undefined && read.dropped > 0)) {
+  if (read === null || (itemId !== undefined && read.odd.length > 0)) {
     return null;
   }
   return read.rows.map(toMatch);
@@ -270,13 +270,34 @@ const stateRowSchema = z.discriminatedUnion("state", [
   z.object({ ...stateColumns, state: z.literal("matched"), shop_item_id: z.string() }),
   z.object({ ...stateColumns, state: z.enum(["unmatched", "not_found"]) }),
 ]);
+// An odd row, read for its shop and its product alone, so it can still say whose decision couldn't be read. A shop the
+// app doesn't know holds no decision any page reads, whatever the row's product; a shop that can't be read may be any.
+const oddShopSchema = z.object({ shop_id: z.string() });
+const knownShopSchema = z.enum(SHOP_IDS);
+const stateProductSchema = z.object({ watchlist_item_id: stateColumns.watchlist_item_id });
+
+/**
+ * Where the products on the list stand in each shop, the products some of whose decisions came back odd, so the list
+ * never shows such a product as one still to be matched, and how many odd rows couldn't say which product they're about.
+ */
+export interface MatchStatesRead {
+  states: ShopMatchState[];
+  /** The ids of the products with a decision that couldn't be read, each once. */
+  unread: string[];
+  /**
+   * How many odd rows couldn't say which product they're about. Such a row may be any product's decision, so the list
+   * counts every product without a readable decision as one whose decision couldn't be read.
+   */
+  unattributed: number;
+}
 
 /**
  * Where each product on the user's list stands in each shop, with a match's item id, read with one query for the whole
- * list and only the columns the list needs. Odd rows, such as a match without its item, are dropped and logged. Null
- * when the decisions couldn't be read.
+ * list and only the columns the list needs. Odd rows, such as a match without its item, are logged, their products
+ * reported and those without one counted, which never empties the list; an odd row of a shop the app doesn't know is
+ * left out. Null only when the decisions couldn't be read at all.
  */
-export async function listMatchStates(supabase: SupabaseClient): Promise<ShopMatchState[] | null> {
+export async function listMatchStates(supabase: SupabaseClient): Promise<MatchStatesRead | null> {
   const { data, error } = await supabase
     .from(TABLE)
     .select("watchlist_item_id, shop_id, state, shop_item_id")
@@ -286,7 +307,24 @@ export async function listMatchStates(supabase: SupabaseClient): Promise<ShopMat
     return null;
   }
   const read = parseRows(data, stateRowSchema);
-  return read?.rows.map(toMatchState) ?? null;
+  if (read === null) {
+    return null;
+  }
+  const unread = new Set<string>();
+  let unattributed = 0;
+  for (const raw of read.odd) {
+    const shop = oddShopSchema.safeParse(raw);
+    if (shop.success && !knownShopSchema.safeParse(shop.data.shop_id).success) {
+      continue;
+    }
+    const product = stateProductSchema.safeParse(raw);
+    if (product.success) {
+      unread.add(product.data.watchlist_item_id);
+    } else {
+      unattributed++;
+    }
+  }
+  return { states: read.rows.map(toMatchState), unread: [...unread], unattributed };
 }
 
 function toMatchState(row: z.infer<typeof stateRowSchema>): ShopMatchState {
@@ -297,26 +335,28 @@ function toMatchState(row: z.infer<typeof stateRowSchema>): ShopMatchState {
 }
 
 /**
- * Checks each row on its own, so one odd row doesn't hide the others: the rows that parse, and how many didn't, which
- * is logged. Null when the answer isn't a list.
+ * Checks each row on its own, so one odd row doesn't hide the others: the rows that parse, and the ones that didn't,
+ * as they came, whose count is logged. Null when the answer isn't a list.
  */
-function parseRows<Row>(data: unknown, schema: z.ZodType<Row>): { rows: Row[]; dropped: number } | null {
+function parseRows<Row>(data: unknown, schema: z.ZodType<Row>): { rows: Row[]; odd: unknown[] } | null {
   if (!Array.isArray(data)) {
     logFailure("unexpected list shape", typeof data);
     return null;
   }
   const rows: Row[] = [];
+  const odd: unknown[] = [];
   for (const raw of data) {
     const row = schema.safeParse(raw);
     if (row.success) {
       rows.push(row.data);
+    } else {
+      odd.push(raw);
     }
   }
-  const dropped = data.length - rows.length;
-  if (dropped > 0) {
-    logFailure("unexpected rows dropped", String(dropped));
+  if (odd.length > 0) {
+    logFailure("unexpected rows dropped", String(odd.length));
   }
-  return { rows, dropped };
+  return { rows, odd };
 }
 
 function toMatch(row: z.infer<typeof rowSchema>): ShopMatch {

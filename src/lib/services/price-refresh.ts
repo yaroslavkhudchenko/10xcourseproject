@@ -1,10 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { LIST_PRICES_PARAM } from "@/lib/notices";
 import { keyText } from "@/lib/services/price-comparison";
 import { recordPriceChecks, type PriceRecordResult } from "@/lib/services/prices";
 import type { ShopGate } from "@/lib/services/shop-gate";
 import { fetchNaturaPrices } from "@/lib/services/shops/natura";
 import { fetchRossmannPrice } from "@/lib/services/shops/rossmann";
 import { isRefusal } from "@/lib/services/shops/shop-outcome";
+import { parseWatchlistItemId } from "@/lib/services/watchlist";
+import { parseListFilter, type ListFilter } from "@/lib/services/watchlist-rows";
 import type { PriceCheck, PriceKey, ShopId, ShopUnavailable } from "@/types";
 
 // Refreshing pinned items' prices, for a product's page and for the list: every request goes through the gate, and
@@ -108,7 +111,10 @@ function notFetched(): PriceCheck {
   return { kind: "unavailable", reason: "failed" };
 }
 
-/** The codes the refresh form's route redirects with, as `?prices=<code>`, which each page turns into its own text. */
+/**
+ * The codes the refresh form's route redirects with, which each page turns into its own text: `?prices=<code>` after a
+ * product's own refresh, and `?list-prices=<code>` after the list's (listRefreshBackTo).
+ */
 export const PRICE_REFRESH_CODES = ["done", "partial", "none", "failed"] as const;
 
 /**
@@ -130,7 +136,49 @@ export function refreshCodeOf({ results, saved }: PriceRefresh): PriceRefreshCod
   return answered === results.length && saved === "saved" ? "done" : "partial";
 }
 
-/** A `?prices=` code, or null for anything the app didn't send itself, so a link can't put words on a page. */
+/**
+ * A refresh's code, from `?prices=` or `?list-prices=`, or null for anything the app didn't send itself, so a link
+ * can't put words on a page.
+ */
 export function parsePriceRefreshCode(value: string | null): PriceRefreshCode | null {
   return PRICE_REFRESH_CODES.find((code) => code === value) ?? null;
+}
+
+/** Where the list's "Odśwież ceny" goes back to: the product page it was posted from, or the list, and its filter. */
+export interface ListRefreshBack {
+  /** The id of the product whose page the list was shown beside, or null for the list's own page. */
+  back: string | null;
+  /** The filter the list was shown with, which the page it goes back to keeps. */
+  f: ListFilter;
+}
+
+/**
+ * The list refresh's `back` and `f` fields, as its form posts them: the product page it was posted from, by the
+ * product's id, or none for the list, and the list's filter, a filter no chip links to, or one that isn't text, being
+ * every product's. Null for a `back` that isn't a product's id (empty, not a UUID, or a file), which only a crafted
+ * post sends: the route then refreshes nothing, so it costs no shop request, and goes back to the list with no code.
+ * The route reads them once, before any refresh.
+ */
+export function listRefreshBackOf(
+  back: FormDataEntryValue | null,
+  f: FormDataEntryValue | null,
+): ListRefreshBack | null {
+  const itemId = back === null ? null : parseWatchlistItemId(back);
+  if (back !== null && itemId === null) {
+    return null;
+  }
+  return { back: itemId, f: parseListFilter(typeof f === "string" ? f : null) };
+}
+
+/**
+ * Where the list's "Odśwież ceny" goes back to with its code (listRefreshBackOf): the product page it was posted from,
+ * or the list, keeping the list's filter unless it's every product's.
+ */
+export function listRefreshBackTo({ back, f }: ListRefreshBack, code: PriceRefreshCode): string {
+  const params = new URLSearchParams();
+  if (f !== "all") {
+    params.set("f", f);
+  }
+  params.set(LIST_PRICES_PARAM, code);
+  return `${back === null ? "/watchlist" : `/watchlist/${back}`}?${params.toString()}`;
 }

@@ -80,27 +80,44 @@ const scriptsConfig = defineConfig({
   rules: { "no-console": "off" },
 });
 
-// The product page runs these modules in the browser, in its price island (with the shadcn components and the cn()
-// helper the island renders with) or in its address-bar script (the notice codes), so none may import server-only code:
-// a well-meant import would pull zod, Supabase or the shop gate into the page's JavaScript. Type-only imports are erased
-// from the bundle, so they stay allowed. The names below are the `@/` ones, so a relative path, which would slip past
-// them, has to go through the alias too.
-const ISLAND_MESSAGE = "The product page runs this file in the browser, so it must stay free of server-only code.";
+// The watchlist's pages run these modules in the browser: the product page's price island and the selected list row's
+// tag beside it (RowTag), with every piece, rule and shadcn component they render with and the cn() helper; the address
+// bar's script (the notice codes); and the theme switch's script (the theme's names). So none may import server-only
+// code: a well-meant import would pull zod, Supabase or the shop gate into the page's JavaScript. Type-only imports are
+// erased from the bundle, so they stay allowed. The names below are the `@/` ones, so a relative path, which would slip
+// past them, has to go through the alias too. A module an island starts to import joins `files`.
+const ISLAND_MESSAGE = "The watchlist's pages run this file in the browser, so it must stay free of server-only code.";
 const islandConfig = defineConfig({
   files: [
     "src/lib/services/price-comparison.ts",
+    "src/lib/services/watchlist-rows.ts",
     "src/lib/shop-messages.ts",
     "src/lib/json-request.ts",
     "src/lib/notices.ts",
+    "src/lib/theme.ts",
     "src/lib/utils.ts",
     "src/components/ui/alert.tsx",
     "src/components/ui/badge.tsx",
     "src/components/ui/button.tsx",
     "src/components/ui/card.tsx",
+    "src/components/watchlist/natura-card.ts",
     "src/components/watchlist/price-comparison-state.ts",
+    "src/components/watchlist/shop-fills.ts",
+    "src/components/watchlist/thumb-tile.ts",
+    "src/components/watchlist/NaturaCard.tsx",
+    "src/components/watchlist/Price.tsx",
     "src/components/watchlist/PriceComparison.tsx",
     "src/components/watchlist/PriceComparisonView.tsx",
+    "src/components/watchlist/PriceTrack.tsx",
+    "src/components/watchlist/ProductThumb.tsx",
+    "src/components/watchlist/ProductTitle.tsx",
+    "src/components/watchlist/RefreshBar.tsx",
+    "src/components/watchlist/RefreshForm.tsx",
+    "src/components/watchlist/RowTag.tsx",
+    "src/components/watchlist/ShopCard.tsx",
     "src/components/watchlist/ShopLink.tsx",
+    "src/components/watchlist/Sticker.tsx",
+    "src/components/watchlist/VerdictHero.tsx",
   ],
   rules: {
     "no-restricted-imports": [
@@ -108,7 +125,8 @@ const islandConfig = defineConfig({
       {
         patterns: [
           {
-            // Every service is server-side except the comparison rules, which the island shares with the pages.
+            // Every service is server-side except the comparison rules and the list's row rules, which the islands
+            // share with the pages.
             group: [
               "zod",
               "zod/*",
@@ -118,6 +136,7 @@ const islandConfig = defineConfig({
               "@/lib/supabase",
               "@/lib/services/*",
               "!@/lib/services/price-comparison",
+              "!@/lib/services/watchlist-rows",
             ],
             message: ISLAND_MESSAGE,
             allowTypeImports: true,
@@ -133,9 +152,10 @@ const islandConfig = defineConfig({
   },
 });
 
-// The product page, its components and its kitchen sink are built from the design tokens in src/styles/global.css and
-// the components in src/components/ui only, so a Tailwind palette class, an arbitrary px/rem value or an arbitrary
-// colour in any string there fails: a class, class:list or className value, a cn() argument or a template literal.
+// The watchlist's two pages, their shell, their components, the shadcn components and the kitchen sinks are built from
+// the design tokens in src/styles/global.css and the components in src/components/ui only, so a Tailwind palette class,
+// an arbitrary px/rem value or an arbitrary colour in any string there fails: a class, class:list or className value,
+// a cn() argument or a template literal.
 // The patterns start from the /10x-ui scan's: its palette part, widened to every colour utility's prefix (a border's
 // side, ring-offset, decoration, caret, accent, placeholder) and to Tailwind 4.3's mauve, mist, olive and taupe; its
 // px/rem part; and its colour functions, plus oklab(), as arbitrary values such as bg-[#0a0e1a] or text-[oklch(…)].
@@ -149,7 +169,15 @@ const ARBITRARY_COLOR = String.raw`-\[(#|rgba?\(|hsla?\(|oklch\(|oklab\()`;
 const TOKEN_MESSAGE =
   "Use a design token from src/styles/global.css (for example bg-card or text-muted-foreground) or a component from src/components/ui, not a Tailwind palette class or an arbitrary value.";
 const tokenConfig = defineConfig({
-  files: ["src/pages/watchlist/\\[id\\].astro", "src/components/watchlist/**/*.{astro,tsx}", "src/dev/**/*.{astro,ts}"],
+  files: [
+    "src/pages/watchlist.astro",
+    "src/pages/watchlist/\\[id\\].astro",
+    "src/layouts/WatchlistShell.astro",
+    "src/components/shell/**/*.{astro,tsx}",
+    "src/components/ui/**/*.{astro,tsx}",
+    "src/components/watchlist/**/*.{astro,tsx}",
+    "src/dev/**/*.{astro,ts}",
+  ],
   rules: {
     "no-restricted-syntax": [
       "error",
@@ -169,8 +197,9 @@ const testConfig = defineConfig({
 
 export default defineConfig(
   includeIgnoreFile(gitignorePath),
-  // Skills and their helper scripts are written by the 10x CLI, not project code.
-  globalIgnores([".claude/"]),
+  // Skills and their helper scripts are written by the 10x CLI, not project code, and a change's design handoff is a
+  // reference kept byte for byte as its designer sent it.
+  globalIgnores([".claude/", "context/**/handoff/"]),
   baseConfig,
   reactConfig,
   eslintPluginAstro.configs["flat/recommended"],

@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=DM+Mono:wght@400;500&family=Figtree:wght@400;500;600;700;800&display=swap">
+<style>
+body{margin:0;background:#E6E3DD;font-family:Figtree,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#0B7D6E}a:hover{color:#075C51}
+*{box-sizing:border-box}
+@keyframes dr-stamp{0%{transform:rotate(12deg) scale(1.7);opacity:0}55%{opacity:1}100%{transform:rotate(12deg) scale(1);opacity:1}}
+</style>
+</helmet>
+
+<section id="turn-2" style="padding:56px 64px 32px;display:flex;flex-direction:column;gap:28px">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:920px">
+    <div style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6B6660">Propozycja 2 · Etykiety i naklejki</div>
+    <div style="font-size:30px;font-weight:800;color:#1D2528;letter-spacing:-.01em">Ceny jak na sklepowej półce</div>
+    <div style="font-size:16px;color:#5F6B6F;line-height:1.5;text-wrap:pretty">Ceny zapisane jak na etykiecie cenowej, z groszami w indeksie górnym. Naklejka ocenia dzisiejszą cenę, a pasek pokazuje, gdzie wypada każdy sklep względem najniższej ceny z 30 dni. Etykiety i naklejki zostają jasne także w ciemnym motywie, jak papier pod lampą. Kliknij produkt albo filtr na liście.</div>
+  </div>
+
+  <div id="2a" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;align-items:center;gap:10px"><span style="background:#1D2528;color:#fff;font-weight:700;font-size:13px;padding:4px 10px;border-radius:999px">2a</span><span style="font-weight:700;color:#1D2528;font-size:16px">Desktop · 1280 px</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:40px">
+      <sc-for list="{{ modes2 }}" as="m" hint-placeholder-count="2">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:14px;font-weight:600;color:#5F6B6F">{{ m.label }}</div>
+          <div style="{{ m.vars }}">
+            <div style="width:1280px;height:1000px;background-color:var(--paper);background-image:radial-gradient(var(--dot) 1px, transparent 1.4px);background-size:18px 18px;color:var(--ink);font-family:'Bricolage Grotesque',sans-serif;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.14)">
+              <header style="height:78px;flex-shrink:0;display:flex;align-items:center;gap:28px;padding:0 32px;border-bottom:1.5px solid var(--hair)">
+                <div style="display:flex;align-items:center;gap:12px;width:356px;flex-shrink:0">
+                  <div style="width:38px;height:38px;border-radius:50%;background-color:var(--sun);background-image:conic-gradient(from 20deg, rgba(31,27,45,.28) 0deg 62deg, transparent 62deg);border:2px solid #1F1B2D;display:grid;place-items:center;flex-shrink:0"><div style="width:18px;height:18px;border-radius:50%;border:2px solid #1F1B2D;display:grid;place-items:center"><div style="width:5px;height:5px;border-radius:50%;background:#1F1B2D"></div></div></div>
+                  <div style="font-size:22px;font-weight:800;letter-spacing:-.03em;white-space:nowrap">Drogeria <span style="text-decoration:underline;text-decoration-color:var(--sun);text-decoration-thickness:5px;text-underline-offset:5px">Radar</span></div>
+                </div>
+                <div style="flex:1;max-width:560px;height:52px;border-radius:16px;background:var(--card);border:2px solid var(--field-edge);display:flex;align-items:center;gap:10px;padding:0 6px 0 16px;color:var(--soft)">
+                  <svg style="flex-shrink:0" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                  <span style="flex:1;min-width:0;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Szukaj produktu, np. nivea soft 300 ml</span>
+                  <span style="font-family:'DM Mono',monospace;font-size:12px;padding:2px 8px;border-radius:7px;border:1.5px solid var(--hair);flex-shrink:0">/</span>
+                  <button style="height:38px;padding:0 18px;border-radius:11px;border:0;background:var(--btn);color:var(--btn-ink);font-family:inherit;font-size:14px;font-weight:700;white-space:nowrap;flex-shrink:0;cursor:pointer">Szukaj</button>
+                </div>
+                <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+                  <button style="width:42px;height:42px;border-radius:50%;border:1.5px solid var(--hair);background:var(--card);color:var(--ink);display:grid;place-items:center;cursor:pointer;flex-shrink:0">
+                    <sc-if value="{{ m.dark }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg></sc-if>
+                    <sc-if value="{{ m.light }}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg></sc-if>
+                  </button>
+                  <div style="width:38px;height:38px;border-radius:50%;background:#E7DCFF;border:2px solid #1F1B2D;color:#1F1B2D;display:grid;place-items:center;font-weight:800;font-size:15px;flex-shrink:0">A</div>
+                  <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--soft);white-space:nowrap">ania@example.com</span>
+                  <button style="height:38px;padding:0 12px;border-radius:10px;border:1.5px solid var(--hair);background:transparent;color:var(--ink);font-family:inherit;font-size:13px;font-weight:700;white-space:nowrap;flex-shrink:0;cursor:pointer">Wyloguj</button>
+                </div>
+              </header>
+
+              <div style="flex:1;min-height:0;display:grid;grid-template-columns:420px minmax(0,1fr)">
+                <aside style="border-right:1.5px solid var(--hair);display:flex;flex-direction:column;min-height:0">
+                  <div style="padding:28px 28px 16px;display:flex;flex-direction:column;gap:16px">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                      <div style="display:flex;align-items:center;gap:10px;min-width:0">
+                        <span style="font-size:34px;font-weight:800;letter-spacing:-.035em;line-height:1;white-space:nowrap">Moja lista</span>
+                        <span style="width:30px;height:30px;border-radius:50%;background:var(--sun);border:2px solid #1F1B2D;color:#1F1B2D;display:grid;place-items:center;font-size:14px;font-weight:800;flex-shrink:0;transform:rotate(var(--tilt2))">4</span>
+                      </div>
+                      <button style="height:38px;padding:0 12px;border-radius:12px;border:1.5px solid var(--hair);background:var(--card);color:var(--ink);font-family:inherit;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>Odśwież ceny</button>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                      <sc-for list="{{ chips2 }}" as="c" hint-placeholder-count="3">
+                        <button onClick="{{ c.onClick }}" style="height:34px;padding:0 13px;border-radius:999px;border:1.5px solid {{ c.border }};background:{{ c.bg }};color:{{ c.fg }};font-family:inherit;font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;white-space:nowrap;cursor:pointer">{{ c.label }}<span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:500;opacity:.7">{{ c.count }}</span></button>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <div style="flex:1;min-height:0;overflow:auto;padding:6px 28px 18px;display:flex;flex-direction:column;gap:12px">
+                    <sc-for list="{{ items2 }}" as="it" hint-placeholder-count="4">
+                      <div onClick="{{ it.onSelect }}" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;background:var(--card);border:2px solid {{ it.edge }};box-shadow:{{ it.shadow }};transform:{{ it.lift }};transition:transform .15s ease, box-shadow .15s ease;cursor:pointer" style-hover="transform:translate(-2px,-2px)">
+                        <div style="width:50px;height:50px;border-radius:14px;background:{{ it.thumbBg }};color:#1F1B2D;display:grid;place-items:center;font-size:20px;font-weight:800;flex-shrink:0">{{ it.initial }}</div>
+                        <div style="min-width:0;flex:1;display:flex;flex-direction:column;gap:3px">
+                          <span style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft)">{{ it.brand }} · {{ it.size }}</span>
+                          <span style="font-size:15px;font-weight:600;line-height:1.25">{{ it.name }}</span>
+                        </div>
+                        <div style="flex-shrink:0;min-width:86px;padding:7px 10px;border-radius:12px;background:{{ it.tagBg }};color:{{ it.tagFg }};display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+                          <div style="display:flex;align-items:flex-start;line-height:1"><span style="font-size:22px;font-weight:800;letter-spacing:-.03em">{{ it.tagZl }}</span><span style="font-size:12px;font-weight:800;margin-left:1px;text-decoration:underline;text-underline-offset:2px">{{ it.tagGr }}</span></div>
+                          <span style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap">{{ it.tagLabel }}</span>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="padding:14px 28px;border-top:1.5px solid var(--hair);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--soft)">Ceny online z rossmann.pl i drogerienatura.pl</div>
+                </aside>
+
+                <main style="min-height:0;overflow:auto;padding:30px 44px 40px;display:flex;flex-direction:column;gap:26px">
+                  <div style="display:flex;align-items:center;gap:20px">
+                    <div style="width:80px;height:80px;border-radius:22px;background:{{ sel2.thumbBg }};border:2px solid #1F1B2D;color:#1F1B2D;display:grid;place-items:center;font-size:32px;font-weight:800;flex-shrink:0;transform:rotate(var(--tilt2))">{{ sel2.initial }}</div>
+                    <div style="display:flex;flex-direction:column;gap:6px;min-width:0;flex:1">
+                      <span style="font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--soft)">{{ sel2.brand }} · {{ sel2.size }} · dodano {{ sel2.added }}</span>
+                      <span style="font-size:40px;font-weight:800;letter-spacing:-.04em;line-height:1.02;text-wrap:balance">{{ sel2.name }}</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0">
+                      <button style="height:46px;padding:0 18px;border-radius:14px;border:2px solid #1F1B2D;background:var(--btn);color:var(--btn-ink);box-shadow:3px 3px 0 var(--btn-shadow);font-family:inherit;font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;white-space:nowrap;cursor:pointer" style-active="transform:translate(2px,2px);box-shadow:none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>Odśwież ceny</button>
+                      <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--soft);white-space:nowrap">sprawdzono {{ sel2.checked }}</span>
+                    </div>
+                  </div>
+
+                  <div style="position:relative;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:26px 32px;border-radius:26px;background:{{ sel2.heroBg }};color:#1F1B2D;border:2px solid #1F1B2D;box-shadow:6px 6px 0 var(--shadow-ink)">
+                    <div style="display:flex;flex-direction:column;gap:10px;min-width:0">
+                      <span style="font-family:'DM Mono',monospace;font-size:12px;font-weight:500;letter-spacing:.1em;text-transform:uppercase">{{ sel2.heroEyebrow }}</span>
+                      <span style="font-size:36px;font-weight:800;letter-spacing:-.035em;line-height:1">{{ sel2.heroShop }}</span>
+                      <span style="font-size:15px;font-weight:500;line-height:1.45;max-width:360px;text-wrap:pretty">{{ sel2.heroSub }}</span>
+                      <sc-if value="{{ calm }}" hint-placeholder-val="{{ false }}"><span style="align-self:flex-start;margin-top:4px;font-size:13px;font-weight:800;padding:4px 11px;border-radius:999px;background:#FFFFFF;border:1.5px solid #1F1B2D;white-space:nowrap">{{ sel2.jLabel }}</span></sc-if>
+                    </div>
+                    <div style="display:flex;align-items:flex-start;line-height:.8;padding-right:104px;flex-shrink:0">
+                      <span style="font-size:124px;font-weight:800;letter-spacing:-.055em">{{ sel2.heroZl }}</span>
+                      <span style="display:flex;flex-direction:column;align-items:flex-start;gap:10px;margin-left:6px;padding-top:8px">
+                        <span style="font-size:52px;font-weight:800;letter-spacing:-.03em;line-height:.85;padding-bottom:5px;border-bottom:5px solid #1F1B2D">{{ sel2.heroGr }}</span>
+                        <span style="font-size:24px;font-weight:700;line-height:1">zł</span>
+                      </span>
+                    </div>
+                    {{ stickerLg }}
+                  </div>
+
+                  <sc-if value="{{ sel2.hasTrack }}" hint-placeholder-val="{{ true }}">
+                    <div style="padding:22px 28px 24px;border-radius:22px;background:var(--card);border:1.5px solid var(--hair);display:flex;flex-direction:column;gap:4px">
+                      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px">
+                        <span style="font-size:19px;font-weight:800;letter-spacing:-.025em">Gdzie wypada dzisiejsza cena</span>
+                        <span style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);white-space:nowrap">{{ sel2.trackNote }}</span>
+                      </div>
+                      <span style="font-size:14px;color:var(--soft);line-height:1.45">{{ sel2.jText }}</span>
+                      <div style="position:relative;margin:58px 10px 50px;height:12px;border-radius:6px;background:var(--raised)">
+                        <div style="position:absolute;top:0;bottom:0;left:{{ sel2.bandLeft }};width:{{ sel2.bandWidth }};border-radius:6px;background:var(--sun)"></div>
+                        <sc-if value="{{ sel2.hasLow }}" hint-placeholder-val="{{ true }}">
+                          <div style="position:absolute;left:{{ sel2.lowLeft }};top:-12px;bottom:-12px;border-left:2px dashed var(--ink)">
+                            <div style="position:absolute;top:calc(100% + 6px);left:-1px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap">
+                              <span style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft)">najniższa z 30 dni</span>
+                              <span style="font-size:14px;font-weight:800">{{ sel2.lowText }}</span>
+                            </div>
+                          </div>
+                        </sc-if>
+                        <sc-for list="{{ sel2.points }}" as="p" hint-placeholder-count="2">
+                          <div style="position:absolute;left:{{ p.left }};top:50%;width:0;height:0">
+                            <div style="position:absolute;left:-13px;top:-13px;width:26px;height:26px;border-radius:50%;background:{{ p.fill }};border:2.5px solid #1F1B2D"></div>
+                            <div style="position:absolute;bottom:22px;left:0;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:1px;white-space:nowrap">
+                              <span style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft)">{{ p.name }}</span>
+                              <span style="font-size:17px;font-weight:800;letter-spacing:-.02em">{{ p.price }}</span>
+                            </div>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ sel2.noTrack }}" hint-placeholder-val="{{ false }}"><div style="padding:18px 24px;border-radius:18px;background:var(--card);border:1.5px solid var(--hair);font-size:15px;color:var(--soft)">{{ sel2.jText }}</div></sc-if>
+
+                  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;padding-top:6px">
+                    <sc-for list="{{ sel2.shops }}" as="s" hint-placeholder-count="2">
+                      <div style="position:relative;padding:22px 24px;border-radius:22px;background:{{ s.cardBg }};border:{{ s.border }};display:flex;flex-direction:column;gap:12px">
+                        <sc-if value="{{ s.tag }}" hint-placeholder-val="{{ false }}">
+                          <div style="position:absolute;top:-16px;right:22px;transform:rotate(var(--tilt));display:flex;align-items:center;gap:7px;padding:5px 12px 5px 8px;border-radius:9px;background:{{ s.tagBg }};border:2px solid #1F1B2D;color:#1F1B2D;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap"><span style="width:9px;height:9px;border-radius:50%;background:var(--paper);border:2px solid #1F1B2D"></span>{{ s.tag }}</div>
+                        </sc-if>
+                        <div style="display:flex;align-items:center;gap:10px">
+                          <span style="width:14px;height:14px;border-radius:50%;background:{{ s.fill }};border:2px solid #1F1B2D;flex-shrink:0"></span>
+                          <span style="font-size:20px;font-weight:800;letter-spacing:-.025em">{{ s.name }}</span>
+                          <span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--soft);white-space:nowrap">{{ s.site }}</span>
+                        </div>
+                        <sc-if value="{{ s.hasPrice }}" hint-placeholder-val="{{ true }}">
+                          <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap">
+                            <div style="display:flex;align-items:flex-start;line-height:.82">
+                              <span style="font-size:56px;font-weight:800;letter-spacing:-.05em">{{ s.zl }}</span>
+                              <span style="display:flex;flex-direction:column;align-items:flex-start;gap:5px;margin-left:3px;padding-top:4px">
+                                <span style="font-size:24px;font-weight:800;line-height:.85;padding-bottom:3px;border-bottom:3px solid currentColor">{{ s.gr }}</span>
+                                <span style="font-size:14px;font-weight:700;line-height:1">zł</span>
+                              </span>
+                            </div>
+                            <div style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding-bottom:3px">
+                              <sc-if value="{{ s.regular }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:var(--soft);white-space:nowrap">zamiast <s>{{ s.regular }}</s></span></sc-if>
+                              <sc-if value="{{ s.promo }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--mint);color:var(--mint-ink);white-space:nowrap">{{ s.promo }}</span></sc-if>
+                            </div>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{ s.gap }}" hint-placeholder-val="{{ false }}"><span style="font-size:15px;color:var(--soft);line-height:1.45;text-wrap:pretty">{{ s.gap }}</span></sc-if>
+                        <div style="display:flex;flex-direction:column;gap:4px;font-family:'DM Mono',monospace;font-size:12px;color:var(--soft)">
+                          <sc-if value="{{ s.low30 }}" hint-placeholder-val="{{ false }}"><span>najniższa z 30 dni wg sklepu: {{ s.low30 }}</span></sc-if>
+                          <sc-if value="{{ s.meta }}" hint-placeholder-val="{{ true }}"><span>{{ s.meta }}</span></sc-if>
+                        </div>
+                        <sc-if value="{{ s.hasPrice }}" hint-placeholder-val="{{ true }}"><a href="#2a" style="align-self:flex-start;display:flex;align-items:center;gap:6px;font-size:15px;font-weight:700;color:var(--ink);text-decoration:underline;text-decoration-color:var(--sun);text-decoration-thickness:3px;text-underline-offset:5px;white-space:nowrap">Zobacz w sklepie<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg></a></sc-if>
+                        <sc-if value="{{ s.cta }}" hint-placeholder-val="{{ false }}"><button style="align-self:flex-start;height:44px;padding:0 16px;border-radius:13px;border:2px solid #1F1B2D;background:var(--btn);color:var(--btn-ink);box-shadow:3px 3px 0 var(--btn-shadow);font-family:inherit;font-size:14px;font-weight:700;white-space:nowrap;cursor:pointer" style-active="transform:translate(2px,2px);box-shadow:none">{{ s.cta }}</button></sc-if>
+                        <sc-if value="{{ s.hasFooter }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:auto;padding-top:12px;border-top:1.5px dashed var(--hair)">
+                            <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--soft);min-width:0">{{ s.match }}</span>
+                            <sc-if value="{{ s.matchAction }}" hint-placeholder-val="{{ false }}"><button style="height:34px;padding:0 12px;border-radius:10px;border:1.5px solid var(--ink);background:transparent;color:var(--ink);font-family:inherit;font-size:13px;font-weight:700;white-space:nowrap;flex-shrink:0;cursor:pointer">{{ s.matchAction }}</button></sc-if>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+                  </div>
+                </main>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div id="2b" style="display:flex;flex-direction:column;gap:14px;margin-top:24px">
+    <div style="display:flex;align-items:center;gap:10px"><span style="background:#1D2528;color:#fff;font-weight:700;font-size:13px;padding:4px 10px;border-radius:999px">2b</span><span style="font-weight:700;color:#1D2528;font-size:16px">Mobile · 390 px</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:40px">
+      <sc-for list="{{ modes2 }}" as="m" hint-placeholder-count="2">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:14px;font-weight:600;color:#5F6B6F">{{ m.label }}</div>
+          <div style="{{ m.vars }}">
+            <div style="display:flex;gap:28px">
+
+              <div style="width:390px;height:844px;background-color:var(--paper);background-image:radial-gradient(var(--dot) 1px, transparent 1.4px);background-size:18px 18px;color:var(--ink);font-family:'Bricolage Grotesque',sans-serif;border-radius:40px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.16);border:8px solid #0E1214">
+                <div style="height:40px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 26px;font-size:14px;font-weight:700">
+                  <span>12:00</span><span style="width:90px;height:24px;border-radius:14px;background:#0E1214"></span><span style="width:24px"></span>
+                </div>
+                <div style="padding:8px 18px 0;display:flex;align-items:center;justify-content:space-between">
+                  <div style="display:flex;align-items:center;gap:9px">
+                    <div style="width:32px;height:32px;border-radius:50%;background-color:var(--sun);background-image:conic-gradient(from 20deg, rgba(31,27,45,.28) 0deg 62deg, transparent 62deg);border:2px solid #1F1B2D;display:grid;place-items:center;flex-shrink:0"><div style="width:15px;height:15px;border-radius:50%;border:2px solid #1F1B2D;display:grid;place-items:center"><div style="width:4px;height:4px;border-radius:50%;background:#1F1B2D"></div></div></div>
+                    <span style="font-size:18px;font-weight:800;letter-spacing:-.03em;white-space:nowrap">Drogeria <span style="text-decoration:underline;text-decoration-color:var(--sun);text-decoration-thickness:4px;text-underline-offset:4px">Radar</span></span>
+                  </div>
+                  <div style="width:40px;height:40px;border-radius:50%;background:#E7DCFF;border:2px solid #1F1B2D;color:#1F1B2D;display:grid;place-items:center;font-weight:800;font-size:15px">A</div>
+                </div>
+                <div style="padding:22px 18px 0;display:flex;flex-direction:column;gap:14px">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <span style="font-size:38px;font-weight:800;letter-spacing:-.04em;line-height:1">Moja lista</span>
+                    <span style="width:30px;height:30px;border-radius:50%;background:var(--sun);border:2px solid #1F1B2D;color:#1F1B2D;display:grid;place-items:center;font-size:14px;font-weight:800;transform:rotate(var(--tilt2))">4</span>
+                  </div>
+                  <div style="height:52px;border-radius:16px;background:var(--card);border:2px solid var(--field-edge);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--soft);font-size:15px">
+                    <svg style="flex-shrink:0" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg><span style="white-space:nowrap">np. nivea soft 300 ml</span>
+                  </div>
+                  <div style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -18px;padding:0 18px">
+                    <sc-for list="{{ chips2 }}" as="c" hint-placeholder-count="3">
+                      <button onClick="{{ c.onClick }}" style="height:38px;padding:0 13px;border-radius:999px;border:1.5px solid {{ c.border }};background:{{ c.bg }};color:{{ c.fg }};font-family:inherit;font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;white-space:nowrap;flex-shrink:0;cursor:pointer">{{ c.label }}<span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:500;opacity:.7">{{ c.count }}</span></button>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="flex:1;min-height:0;overflow:auto;padding:14px 18px 18px;display:flex;flex-direction:column;gap:10px">
+                  <sc-for list="{{ items2 }}" as="it" hint-placeholder-count="4">
+                    <div onClick="{{ it.onSelect }}" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;background:var(--card);cursor:pointer">
+                      <div style="width:48px;height:48px;border-radius:14px;background:{{ it.thumbBg }};color:#1F1B2D;display:grid;place-items:center;font-size:19px;font-weight:800;flex-shrink:0">{{ it.initial }}</div>
+                      <div style="min-width:0;flex:1;display:flex;flex-direction:column;gap:3px">
+                        <span style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft)">{{ it.brand }} · {{ it.size }}</span>
+                        <span style="font-size:15px;font-weight:600;line-height:1.25">{{ it.name }}</span>
+                      </div>
+                      <div style="flex-shrink:0;min-width:80px;padding:7px 9px;border-radius:12px;background:{{ it.tagBg }};color:{{ it.tagFg }};display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+                        <div style="display:flex;align-items:flex-start;line-height:1"><span style="font-size:21px;font-weight:800;letter-spacing:-.03em">{{ it.tagZl }}</span><span style="font-size:11px;font-weight:800;margin-left:1px;text-decoration:underline;text-underline-offset:2px">{{ it.tagGr }}</span></div>
+                        <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap">{{ it.tagLabel }}</span>
+                      </div>
+                    </div>
+                  </sc-for>
+                  <div style="padding:6px 2px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--soft)">Ceny online z rossmann.pl i drogerienatura.pl</div>
+                </div>
+              </div>
+
+              <div style="width:390px;height:844px;background-color:var(--paper);background-image:radial-gradient(var(--dot) 1px, transparent 1.4px);background-size:18px 18px;color:var(--ink);font-family:'Bricolage Grotesque',sans-serif;border-radius:40px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.16);border:8px solid #0E1214">
+                <div style="height:40px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 26px;font-size:14px;font-weight:700">
+                  <span>12:00</span><span style="width:90px;height:24px;border-radius:14px;background:#0E1214"></span><span style="width:24px"></span>
+                </div>
+                <div style="padding:4px 12px 0;display:flex;align-items:center;justify-content:space-between">
+                  <div style="height:44px;display:flex;align-items:center;gap:2px;padding:0 6px;font-size:16px;font-weight:700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>Moja lista</div>
+                  <span style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);padding-right:8px">{{ sel2.brand }} · {{ sel2.size }}</span>
+                </div>
+                <div style="flex:1;min-height:0;overflow:auto;padding:8px 18px 24px;display:flex;flex-direction:column;gap:24px">
+                  <div style="display:flex;gap:14px;align-items:center;padding-right:48px">
+                    <div style="width:56px;height:56px;border-radius:16px;background:{{ sel2.thumbBg }};border:2px solid #1F1B2D;color:#1F1B2D;display:grid;place-items:center;font-size:22px;font-weight:800;flex-shrink:0;transform:rotate(var(--tilt2))">{{ sel2.initial }}</div>
+                    <span style="font-size:25px;font-weight:800;letter-spacing:-.035em;line-height:1.08;text-wrap:balance">{{ sel2.name }}</span>
+                  </div>
+
+                  <div style="position:relative;padding:20px;border-radius:22px;background:{{ sel2.heroBg }};color:#1F1B2D;border:2px solid #1F1B2D;box-shadow:5px 5px 0 var(--shadow-ink);display:flex;flex-direction:column;gap:10px">
+                    <span style="font-family:'DM Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.1em;text-transform:uppercase">{{ sel2.heroEyebrow }}</span>
+                    <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap">
+                      <div style="display:flex;align-items:flex-start;line-height:.8">
+                        <span style="font-size:84px;font-weight:800;letter-spacing:-.055em">{{ sel2.heroZl }}</span>
+                        <span style="display:flex;flex-direction:column;align-items:flex-start;gap:7px;margin-left:4px;padding-top:5px">
+                          <span style="font-size:36px;font-weight:800;letter-spacing:-.03em;line-height:.85;padding-bottom:4px;border-bottom:4px solid #1F1B2D">{{ sel2.heroGr }}</span>
+                          <span style="font-size:18px;font-weight:700;line-height:1">zł</span>
+                        </span>
+                      </div>
+                      <span style="font-size:22px;font-weight:800;letter-spacing:-.03em;padding-bottom:6px">{{ sel2.heroShop }}</span>
+                    </div>
+                    <span style="font-size:14px;font-weight:500;line-height:1.4;text-wrap:pretty">{{ sel2.heroSub }}</span>
+                    <sc-if value="{{ calm }}" hint-placeholder-val="{{ false }}"><span style="align-self:flex-start;font-size:12px;font-weight:800;padding:4px 10px;border-radius:999px;background:#FFFFFF;border:1.5px solid #1F1B2D;white-space:nowrap">{{ sel2.jLabel }}</span></sc-if>
+                    {{ stickerSm }}
+                  </div>
+
+                  <sc-if value="{{ sel2.hasTrack }}" hint-placeholder-val="{{ true }}">
+                    <div style="padding:18px 18px 20px;border-radius:20px;background:var(--card);border:1.5px solid var(--hair);display:flex;flex-direction:column;gap:4px">
+                      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+                        <span style="font-size:17px;font-weight:800;letter-spacing:-.025em">Gdzie wypada cena</span>
+                        <span style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);white-space:nowrap">{{ sel2.trackNote }}</span>
+                      </div>
+                      <span style="font-size:13px;color:var(--soft);line-height:1.45">{{ sel2.jText }}</span>
+                      <div style="position:relative;margin:54px 8px 48px;height:10px;border-radius:5px;background:var(--raised)">
+                        <div style="position:absolute;top:0;bottom:0;left:{{ sel2.bandLeft }};width:{{ sel2.bandWidth }};border-radius:5px;background:var(--sun)"></div>
+                        <sc-if value="{{ sel2.hasLow }}" hint-placeholder-val="{{ true }}">
+                          <div style="position:absolute;left:{{ sel2.lowLeft }};top:-11px;bottom:-11px;border-left:2px dashed var(--ink)">
+                            <div style="position:absolute;top:calc(100% + 6px);left:-1px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap">
+                              <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft)">najniższa z 30 dni</span>
+                              <span style="font-size:13px;font-weight:800">{{ sel2.lowText }}</span>
+                            </div>
+                          </div>
+                        </sc-if>
+                        <sc-for list="{{ sel2.points }}" as="p" hint-placeholder-count="2">
+                          <div style="position:absolute;left:{{ p.left }};top:50%;width:0;height:0">
+                            <div style="position:absolute;left:-12px;top:-12px;width:24px;height:24px;border-radius:50%;background:{{ p.fill }};border:2.5px solid #1F1B2D"></div>
+                            <div style="position:absolute;bottom:20px;left:0;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:1px;white-space:nowrap">
+                              <span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft)">{{ p.name }}</span>
+                              <span style="font-size:15px;font-weight:800;letter-spacing:-.02em">{{ p.price }}</span>
+                            </div>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ sel2.noTrack }}" hint-placeholder-val="{{ false }}"><div style="padding:16px 18px;border-radius:18px;background:var(--card);border:1.5px solid var(--hair);font-size:14px;color:var(--soft);line-height:1.45">{{ sel2.jText }}</div></sc-if>
+
+                  <sc-for list="{{ sel2.shops }}" as="s" hint-placeholder-count="2">
+                    <div style="position:relative;padding:18px;border-radius:20px;background:{{ s.cardBg }};border:{{ s.border }};display:flex;flex-direction:column;gap:10px">
+                      <sc-if value="{{ s.tag }}" hint-placeholder-val="{{ false }}">
+                        <div style="position:absolute;top:-15px;right:18px;transform:rotate(var(--tilt));display:flex;align-items:center;gap:6px;padding:4px 10px 4px 7px;border-radius:8px;background:{{ s.tagBg }};border:2px solid #1F1B2D;color:#1F1B2D;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap"><span style="width:8px;height:8px;border-radius:50%;background:var(--paper);border:2px solid #1F1B2D"></span>{{ s.tag }}</div>
+                      </sc-if>
+                      <div style="display:flex;align-items:center;gap:9px">
+                        <span style="width:13px;height:13px;border-radius:50%;background:{{ s.fill }};border:2px solid #1F1B2D;flex-shrink:0"></span>
+                        <span style="font-size:18px;font-weight:800;letter-spacing:-.025em">{{ s.name }}</span>
+                        <span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:10px;color:var(--soft);white-space:nowrap">{{ s.site }}</span>
+                      </div>
+                      <sc-if value="{{ s.hasPrice }}" hint-placeholder-val="{{ true }}">
+                        <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">
+                          <div style="display:flex;align-items:flex-start;line-height:.82">
+                            <span style="font-size:46px;font-weight:800;letter-spacing:-.05em">{{ s.zl }}</span>
+                            <span style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-left:3px;padding-top:3px">
+                              <span style="font-size:20px;font-weight:800;line-height:.85;padding-bottom:3px;border-bottom:3px solid currentColor">{{ s.gr }}</span>
+                              <span style="font-size:12px;font-weight:700;line-height:1">zł</span>
+                            </span>
+                          </div>
+                          <div style="display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding-bottom:2px">
+                            <sc-if value="{{ s.regular }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--soft);white-space:nowrap">zamiast <s>{{ s.regular }}</s></span></sc-if>
+                            <sc-if value="{{ s.promo }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--mint);color:var(--mint-ink);white-space:nowrap">{{ s.promo }}</span></sc-if>
+                          </div>
+                        </div>
+                      </sc-if>
+                      <sc-if value="{{ s.gap }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:var(--soft);line-height:1.45">{{ s.gap }}</span></sc-if>
+                      <div style="display:flex;flex-direction:column;gap:3px;font-family:'DM Mono',monospace;font-size:11px;color:var(--soft)">
+                        <sc-if value="{{ s.low30 }}" hint-placeholder-val="{{ false }}"><span>najniższa z 30 dni wg sklepu: {{ s.low30 }}</span></sc-if>
+                        <sc-if value="{{ s.meta }}" hint-placeholder-val="{{ true }}"><span>{{ s.meta }}</span></sc-if>
+                      </div>
+                      <sc-if value="{{ s.hasPrice }}" hint-placeholder-val="{{ true }}"><a href="#2b" style="align-self:flex-start;min-height:36px;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:var(--ink);text-decoration:underline;text-decoration-color:var(--sun);text-decoration-thickness:3px;text-underline-offset:5px;white-space:nowrap">Zobacz w sklepie<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg></a></sc-if>
+                      <sc-if value="{{ s.cta }}" hint-placeholder-val="{{ false }}"><button style="align-self:stretch;height:46px;border-radius:14px;border:2px solid #1F1B2D;background:var(--btn);color:var(--btn-ink);box-shadow:3px 3px 0 var(--btn-shadow);font-family:inherit;font-size:15px;font-weight:700;white-space:nowrap;cursor:pointer" style-active="transform:translate(2px,2px);box-shadow:none">{{ s.cta }}</button></sc-if>
+                      <sc-if value="{{ s.hasFooter }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:10px;border-top:1.5px dashed var(--hair)">
+                          <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--soft);min-width:0">{{ s.match }}</span>
+                          <sc-if value="{{ s.matchAction }}" hint-placeholder-val="{{ false }}"><button style="height:36px;padding:0 12px;border-radius:10px;border:1.5px solid var(--ink);background:transparent;color:var(--ink);font-family:inherit;font-size:13px;font-weight:700;white-space:nowrap;flex-shrink:0;cursor:pointer">{{ s.matchAction }}</button></sc-if>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="flex-shrink:0;display:flex;align-items:center;gap:14px;padding:12px 18px 24px;border-top:1.5px solid var(--hair);background:var(--card)">
+                  <span style="flex:1;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--soft);line-height:1.5">Sprawdzono<br>{{ sel2.checked }}</span>
+                  <button style="height:52px;padding:0 22px;border-radius:16px;border:2px solid #1F1B2D;background:var(--btn);color:var(--btn-ink);box-shadow:3px 3px 0 var(--btn-shadow);font-family:inherit;font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px;white-space:nowrap;cursor:pointer" style-active="transform:translate(2px,2px);box-shadow:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>Odśwież ceny</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<section id="turn-1" style="padding:56px 64px 32px;display:flex;flex-direction:column;gap:28px">
+  <div style="display:flex;flex-direction:column;gap:6px;max-width:900px">
+    <div style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6B6660">Propozycja 1 · Drogeria Radar</div>
+    <div style="font-size:30px;font-weight:800;color:#1D2528;letter-spacing:-.01em">Lista i produkt w jednym widoku, jasny i ciemny motyw</div>
+    <div style="font-size:16px;color:#5F6B6F;line-height:1.5;text-wrap:pretty">Na komputerze lista obserwowanych produktów i porównanie cen stoją obok siebie. Na telefonie to dwa ekrany: lista z wyszukiwarką oraz produkt z przyciskiem „Odśwież ceny” w zasięgu kciuka. Kliknij produkt na liście, aby zmienić widok szczegółów.</div>
+  </div>
+
+  <div id="1a" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;align-items:center;gap:10px"><span style="background:#1D2528;color:#fff;font-weight:700;font-size:13px;padding:4px 10px;border-radius:999px">1a</span><span style="font-weight:700;color:#1D2528;font-size:16px">Desktop · 1280 px</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:40px">
+      <sc-for list="{{ modes }}" as="m" hint-placeholder-count="2">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:14px;font-weight:600;color:#5F6B6F">{{ m.label }}</div>
+          <div style="{{ m.vars }}">
+            <div style="width:1280px;height:820px;background:var(--bg);color:var(--ink);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.12);font-variant-numeric:tabular-nums">
+              <header style="height:68px;flex-shrink:0;display:flex;align-items:center;gap:24px;padding:0 28px;border-bottom:1px solid var(--line);background:var(--surface)">
+                <div style="display:flex;align-items:center;gap:10px;width:308px">
+                  <div style="width:32px;height:32px;border-radius:10px;background:var(--pri);display:grid;place-items:center">
+                    <div style="width:14px;height:14px;border-radius:50%;border:2.5px solid var(--pri-ink);display:grid;place-items:center"><div style="width:4px;height:4px;border-radius:50%;background:var(--pri-ink)"></div></div>
+                  </div>
+                  <div style="font-weight:800;font-size:18px;letter-spacing:-.01em">Drogeria Radar</div>
+                </div>
+                <div style="flex:1;display:flex;gap:8px;max-width:560px">
+                  <div style="flex:1;height:44px;border-radius:12px;background:var(--raised);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--muted);font-size:15px;border:1px solid transparent">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                    <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Szukaj produktu, np. nivea soft 300 ml</span>
+                  </div>
+                  <button style="white-space:nowrap;flex-shrink:0;height:44px;padding:0 20px;border-radius:12px;border:0;background:var(--pri);color:var(--pri-ink);font:600 15px Figtree,sans-serif;cursor:pointer">Szukaj</button>
+                </div>
+                <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+                  <button style="white-space:nowrap;flex-shrink:0;width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--ink);display:grid;place-items:center;cursor:pointer">
+                    <sc-if value="{{ m.dark }}" hint-placeholder-val="{{ false }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg></sc-if>
+                    <sc-if value="{{ m.light }}" hint-placeholder-val="{{ true }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path></svg></sc-if>
+                  </button>
+                  <div style="display:flex;align-items:center;gap:10px;padding:4px 6px 4px 4px;border-radius:12px;border:1px solid var(--line)">
+                    <div style="width:32px;height:32px;border-radius:9px;background:var(--pri-soft);color:var(--pri-text);display:grid;place-items:center;font-weight:700;font-size:14px">A</div>
+                    <span style="font-size:14px;color:var(--muted)">ania@example.com</span>
+                    <button style="white-space:nowrap;flex-shrink:0;height:32px;padding:0 10px;border-radius:8px;border:0;background:transparent;color:var(--ink);font:500 14px Figtree,sans-serif;cursor:pointer">Wyloguj</button>
+                  </div>
+                </div>
+              </header>
+
+              <div style="flex:1;min-height:0;display:grid;grid-template-columns:380px minmax(0,1fr)">
+                <aside style="border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--surface)">
+                  <div style="padding:22px 20px 14px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px">
+                    <div style="min-width:0">
+                      <div style="font-size:22px;font-weight:800;letter-spacing:-.01em">Moja lista</div>
+                      <div style="font-size:14px;color:var(--muted);margin-top:2px">4 produkty · ceny z 10 min temu</div>
+                    </div>
+                    <button style="white-space:nowrap;flex-shrink:0;height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--ink);font:600 13px Figtree,sans-serif;display:flex;align-items:center;gap:6px;cursor:pointer">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>Odśwież ceny
+                    </button>
+                  </div>
+                  <div style="flex:1;overflow:auto;padding:0 12px 12px;display:flex;flex-direction:column;gap:4px">
+                    <sc-for list="{{ items }}" as="it" hint-placeholder-count="4">
+                      <div onClick="{{ it.onSelect }}" style="display:flex;gap:12px;padding:12px;border-radius:14px;cursor:pointer;background:{{ it.rowBg }};border:1px solid {{ it.rowBorder }}">
+                        <div style="width:52px;height:52px;flex-shrink:0;border-radius:12px;background:var(--raised);display:grid;place-items:center;font-weight:800;font-size:18px;color:var(--muted)">{{ it.initial }}</div>
+                        <div style="min-width:0;flex:1;display:flex;flex-direction:column;gap:6px">
+                          <div style="font-size:15px;font-weight:600;line-height:1.3"><span style="color:var(--muted);font-weight:500">{{ it.brand }}</span> {{ it.name }}</div>
+                          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                            <span style="font-size:13px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap;flex-shrink:0;background:{{ it.chipBg }};color:{{ it.chipFg }}">{{ it.chip }}</span>
+                            <span style="font-size:13px;color:var(--muted);white-space:nowrap">{{ it.size }} · {{ it.age }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <div style="padding:12px 20px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)">Ceny online z rossmann.pl i drogerienatura.pl.</div>
+                </aside>
+
+                <main style="overflow:auto;padding:28px 36px;display:flex;flex-direction:column;gap:22px">
+                  <div style="display:flex;gap:20px;align-items:center">
+                    <div style="width:88px;height:88px;border-radius:20px;background:var(--surface);border:1px solid var(--line);display:grid;place-items:center;font-weight:800;font-size:30px;color:var(--muted)">{{ sel.initial }}</div>
+                    <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+                      <div style="font-size:14px;font-weight:600;color:var(--muted)">{{ sel.brand }}</div>
+                      <div style="font-size:28px;font-weight:800;letter-spacing:-.015em;line-height:1.15">{{ sel.name }}</div>
+                      <div style="font-size:14px;color:var(--muted)">{{ sel.size }} · dodano {{ sel.added }}</div>
+                    </div>
+                  </div>
+
+                  <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;padding:24px;border-radius:20px;background:{{ sel.vBg }}">
+                    <div style="display:flex;flex-direction:column;gap:6px">
+                      <div style="font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:{{ sel.vFg }}">{{ sel.vEyebrow }}</div>
+                      <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+                        <span style="font-size:44px;font-weight:800;letter-spacing:-.02em;line-height:1">{{ sel.vPrice }}</span>
+                        <span style="font-size:22px;font-weight:700">{{ sel.vShop }}</span>
+                      </div>
+                      <div style="font-size:15px;color:var(--ink);opacity:.85">{{ sel.vSub }}</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;justify-content:center;gap:8px;padding-left:20px;border-left:1px solid var(--line)">
+                      <span style="align-self:flex-start;font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;flex-shrink:0;background:var(--surface);color:{{ sel.vFg }}">{{ sel.jLabel }}</span>
+                      <div style="font-size:14px;line-height:1.45;color:var(--ink);text-wrap:pretty">{{ sel.jText }}</div>
+                    </div>
+                  </div>
+
+                  <div style="display:flex;align-items:center;justify-content:space-between">
+                    <div style="font-size:18px;font-weight:700">Ceny w sklepach</div>
+                    <button style="white-space:nowrap;flex-shrink:0;height:40px;padding:0 16px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 14px Figtree,sans-serif;display:flex;align-items:center;gap:8px;cursor:pointer">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>Odśwież ceny
+                    </button>
+                  </div>
+
+                  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px">
+                    <sc-for list="{{ sel.shops }}" as="s" hint-placeholder-count="2">
+                      <div style="padding:20px;border-radius:18px;background:var(--surface);border:1.5px solid {{ s.border }};display:flex;flex-direction:column;gap:10px">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                          <div style="font-size:17px;font-weight:700">{{ s.name }}</div>
+                          <sc-if value="{{ s.cheapest }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;flex-shrink:0;background:var(--pri);color:var(--pri-ink)">Najtaniej</span></sc-if>
+                          <sc-if value="{{ s.stale }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;flex-shrink:0;background:var(--warn-soft);color:var(--warn-text)">nieaktualna</span></sc-if>
+                        </div>
+                        <sc-if value="{{ s.hasPrice }}" hint-placeholder-val="{{ true }}">
+                          <div style="display:flex;align-items:baseline;gap:10px">
+                            <span style="font-size:32px;font-weight:800;letter-spacing:-.02em">{{ s.price }}</span>
+                            <s style="font-size:15px;color:var(--muted)">{{ s.regular }}</s>
+                          </div>
+                          <div style="display:flex;flex-wrap:wrap;gap:6px">
+                            <sc-if value="{{ s.promo }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;font-weight:600;padding:3px 9px;border-radius:8px;white-space:nowrap;background:var(--pri-soft);color:var(--pri-text)">{{ s.promo }}</span></sc-if>
+                            <sc-if value="{{ s.low30 }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;padding:3px 9px;border-radius:8px;white-space:nowrap;background:var(--raised);color:var(--muted)">najniższa z 30 dni wg sklepu: {{ s.low30 }}</span></sc-if>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{ s.gap }}" hint-placeholder-val="{{ false }}"><div style="font-size:15px;color:var(--muted);line-height:1.45">{{ s.gap }}</div></sc-if>
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:10px;border-top:1px solid var(--line);margin-top:auto">
+                          <span style="font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;white-space:nowrap;min-width:0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>{{ s.meta }}</span>
+                          <sc-if value="{{ s.hasPrice }}" hint-placeholder-val="{{ true }}"><a href="#1a" style="font-size:14px;font-weight:600;color:var(--pri-text);text-decoration:none;display:flex;align-items:center;gap:5px;white-space:nowrap;flex-shrink:0">Zobacz w sklepie<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg></a></sc-if>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+
+                  <div style="display:flex;align-items:center;gap:16px;padding:16px 20px;border-radius:16px;border:1px dashed var(--line)">
+                    <div style="font-size:15px;font-weight:700;flex-shrink:0">Drogerie Natura</div>
+                    <div style="font-size:14px;color:var(--muted);flex:1">{{ sel.naturaText }}</div>
+                    <sc-if value="{{ sel.naturaAction }}" hint-placeholder-val="{{ true }}"><button style="white-space:nowrap;flex-shrink:0;height:38px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 14px Figtree,sans-serif;cursor:pointer">{{ sel.naturaAction }}</button></sc-if>
+                  </div>
+                </main>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div id="1b" style="display:flex;flex-direction:column;gap:14px;margin-top:24px">
+    <div style="display:flex;align-items:center;gap:10px"><span style="background:#1D2528;color:#fff;font-weight:700;font-size:13px;padding:4px 10px;border-radius:999px">1b</span><span style="font-weight:700;color:#1D2528;font-size:16px">Mobile · 390 px</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:40px">
+      <sc-for list="{{ modes }}" as="m" hint-placeholder-count="2">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:14px;font-weight:600;color:#5F6B6F">{{ m.label }}</div>
+          <div style="{{ m.vars }}">
+            <div style="display:flex;gap:28px;font-variant-numeric:tabular-nums">
+
+              <div style="width:390px;height:844px;background:var(--bg);color:var(--ink);border-radius:40px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.14);border:8px solid #0E1214">
+                <div style="height:40px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 26px;font-size:14px;font-weight:700">
+                  <span>12:00</span><span style="width:90px;height:24px;border-radius:14px;background:#0E1214"></span><span style="width:24px"></span>
+                </div>
+                <div style="padding:10px 18px 0;display:flex;align-items:center;justify-content:space-between">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <div style="width:28px;height:28px;border-radius:9px;background:var(--pri);display:grid;place-items:center"><div style="width:12px;height:12px;border-radius:50%;border:2px solid var(--pri-ink);display:grid;place-items:center"><div style="width:3px;height:3px;border-radius:50%;background:var(--pri-ink)"></div></div></div>
+                    <span style="font-weight:800;font-size:16px">Drogeria Radar</span>
+                  </div>
+                  <div style="width:40px;height:40px;border-radius:12px;background:var(--pri-soft);color:var(--pri-text);display:grid;place-items:center;font-weight:700">A</div>
+                </div>
+                <div style="padding:18px 18px 0;display:flex;flex-direction:column;gap:14px">
+                  <div style="font-size:30px;font-weight:800;letter-spacing:-.015em">Moja lista</div>
+                  <div style="height:48px;border-radius:14px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--muted);font-size:15px">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>np. nivea soft 300 ml
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between">
+                    <span style="font-size:14px;color:var(--muted)">4 produkty · ceny z 10 min temu</span>
+                    <button style="white-space:nowrap;flex-shrink:0;height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--ink);font:600 13px Figtree,sans-serif;display:flex;align-items:center;gap:6px">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>Odśwież
+                    </button>
+                  </div>
+                </div>
+                <div style="flex:1;overflow:auto;padding:12px 18px 18px;display:flex;flex-direction:column;gap:10px">
+                  <sc-for list="{{ items }}" as="it" hint-placeholder-count="4">
+                    <div onClick="{{ it.onSelect }}" style="display:flex;gap:12px;align-items:center;padding:14px;border-radius:18px;background:var(--surface);border:1px solid var(--line);cursor:pointer">
+                      <div style="width:52px;height:52px;flex-shrink:0;border-radius:12px;background:var(--raised);display:grid;place-items:center;font-weight:800;font-size:18px;color:var(--muted)">{{ it.initial }}</div>
+                      <div style="min-width:0;flex:1;display:flex;flex-direction:column;gap:6px">
+                        <div style="font-size:15px;font-weight:600;line-height:1.3"><span style="color:var(--muted);font-weight:500">{{ it.brand }}</span> {{ it.name }}</div>
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                          <span style="font-size:13px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap;flex-shrink:0;background:{{ it.chipBg }};color:{{ it.chipFg }}">{{ it.chip }}</span>
+                          <span style="font-size:13px;color:var(--muted)">{{ it.size }}</span>
+                        </div>
+                      </div>
+                      <svg style="flex-shrink:0;color:var(--muted)" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+                    </div>
+                  </sc-for>
+                  <div style="font-size:12px;color:var(--muted);padding:4px 2px">Ceny online z rossmann.pl i drogerienatura.pl.</div>
+                </div>
+              </div>
+
+              <div style="width:390px;height:844px;background:var(--bg);color:var(--ink);border-radius:40px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.14);border:8px solid #0E1214">
+                <div style="height:40px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 26px;font-size:14px;font-weight:700">
+                  <span>12:00</span><span style="width:90px;height:24px;border-radius:14px;background:#0E1214"></span><span style="width:24px"></span>
+                </div>
+                <div style="padding:4px 10px 0">
+                  <div style="height:44px;display:inline-flex;align-items:center;gap:4px;padding:0 8px;font-size:15px;font-weight:600;color:var(--pri-text)">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg>Moja lista
+                  </div>
+                </div>
+                <div style="flex:1;overflow:auto;padding:4px 18px 16px;display:flex;flex-direction:column;gap:16px">
+                  <div style="display:flex;gap:14px;align-items:center">
+                    <div style="width:64px;height:64px;flex-shrink:0;border-radius:16px;background:var(--surface);border:1px solid var(--line);display:grid;place-items:center;font-weight:800;font-size:22px;color:var(--muted)">{{ sel.initial }}</div>
+                    <div style="min-width:0">
+                      <div style="font-size:13px;font-weight:600;color:var(--muted)">{{ sel.brand }}</div>
+                      <div style="font-size:19px;font-weight:800;line-height:1.2;letter-spacing:-.01em">{{ sel.name }}</div>
+                      <div style="font-size:13px;color:var(--muted);margin-top:2px">{{ sel.size }}</div>
+                    </div>
+                  </div>
+                  <div style="padding:18px;border-radius:20px;background:{{ sel.vBg }};display:flex;flex-direction:column;gap:6px">
+                    <div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:{{ sel.vFg }}">{{ sel.vEyebrow }}</div>
+                    <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                      <span style="font-size:36px;font-weight:800;letter-spacing:-.02em;line-height:1">{{ sel.vPrice }}</span>
+                      <span style="font-size:18px;font-weight:700">{{ sel.vShop }}</span>
+                    </div>
+                    <div style="font-size:14px;opacity:.85">{{ sel.vSub }}</div>
+                    <div style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;padding-top:12px;border-top:1px solid var(--line)">
+                      <span style="flex-shrink:0;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;flex-shrink:0;background:var(--surface);color:{{ sel.vFg }}">{{ sel.jLabel }}</span>
+                      <span style="font-size:13px;line-height:1.4">{{ sel.jText }}</span>
+                    </div>
+                  </div>
+                  <div style="font-size:16px;font-weight:700;margin-top:4px">Ceny w sklepach</div>
+                  <sc-for list="{{ sel.shops }}" as="s" hint-placeholder-count="2">
+                    <div style="padding:16px;border-radius:18px;background:var(--surface);border:1.5px solid {{ s.border }};display:flex;flex-direction:column;gap:8px">
+                      <div style="display:flex;align-items:center;justify-content:space-between">
+                        <span style="font-size:16px;font-weight:700">{{ s.name }}</span>
+                        <sc-if value="{{ s.cheapest }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;flex-shrink:0;background:var(--pri);color:var(--pri-ink)">Najtaniej</span></sc-if>
+                        <sc-if value="{{ s.stale }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap;flex-shrink:0;background:var(--warn-soft);color:var(--warn-text)">nieaktualna</span></sc-if>
+                      </div>
+                      <sc-if value="{{ s.hasPrice }}" hint-placeholder-val="{{ true }}">
+                        <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:26px;font-weight:800;letter-spacing:-.02em">{{ s.price }}</span><s style="font-size:14px;color:var(--muted)">{{ s.regular }}</s></div>
+                        <div style="display:flex;flex-wrap:wrap;gap:6px">
+                          <sc-if value="{{ s.promo }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;font-weight:600;padding:3px 8px;border-radius:8px;white-space:nowrap;background:var(--pri-soft);color:var(--pri-text)">{{ s.promo }}</span></sc-if>
+                          <sc-if value="{{ s.low30 }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;padding:3px 8px;border-radius:8px;white-space:nowrap;background:var(--raised);color:var(--muted)">30 dni wg sklepu: {{ s.low30 }}</span></sc-if>
+                        </div>
+                      </sc-if>
+                      <sc-if value="{{ s.gap }}" hint-placeholder-val="{{ false }}"><div style="font-size:14px;color:var(--muted);line-height:1.45">{{ s.gap }}</div></sc-if>
+                      <div style="display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px solid var(--line)">
+                        <span style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ s.meta }}</span>
+                        <sc-if value="{{ s.hasPrice }}" hint-placeholder-val="{{ true }}"><a href="#1b" style="min-height:32px;display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600;color:var(--pri-text);text-decoration:none;white-space:nowrap;flex-shrink:0">Zobacz w sklepie<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg></a></sc-if>
+                      </div>
+                    </div>
+                  </sc-for>
+                  <div style="padding:14px 16px;border-radius:16px;border:1px dashed var(--line);display:flex;flex-direction:column;gap:6px">
+                    <span style="font-size:14px;font-weight:700">Drogerie Natura</span>
+                    <span style="font-size:13px;color:var(--muted);line-height:1.4">{{ sel.naturaText }}</span>
+                  </div>
+                </div>
+                <div style="flex-shrink:0;padding:12px 18px 22px;border-top:1px solid var(--line);background:var(--surface)">
+                  <button style="white-space:nowrap;flex-shrink:0;width:100%;height:52px;border-radius:14px;border:0;background:var(--pri);color:var(--pri-ink);font:700 16px Figtree,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>Odśwież ceny
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<sc-if value="{{ showRef }}" hint-placeholder-val="{{ true }}">
+<section id="ref" style="padding:40px 64px 80px;display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <div style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6B6660">Punkt wyjścia</div>
+    <div style="font-size:22px;font-weight:800;color:#1D2528">Obecny interfejs (odtworzony z kodu, 390 px)</div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;font-family:ui-sans-serif,system-ui,sans-serif">
+    <div style="width:390px;min-height:760px;background-image:linear-gradient(to bottom,#0a0e1a,#0f1529,#0a0e1a);color:#fff;padding:16px;border-radius:12px">
+      <div style="display:flex;flex-direction:column;gap:24px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div><div style="font-size:24px;line-height:32px;font-weight:700">Moja lista</div><div style="font-size:14px;line-height:20px;color:rgba(219,234,254,.6)">ania@example.com</div></div>
+          <button style="white-space:nowrap;flex-shrink:0;min-height:44px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;padding:0 12px;font-size:14px">Wyloguj</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <label style="font-size:14px;color:rgba(219,234,254,.8)">Szukaj produktu</label>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1;min-height:44px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);padding:0 12px;display:flex;align-items:center;color:rgba(255,255,255,.4);font-size:16px">np. nivea soft 300 ml</div>
+            <button style="white-space:nowrap;flex-shrink:0;min-height:44px;border-radius:8px;border:0;background:#9333ea;color:#fff;padding:0 16px;font-weight:500;font-size:16px">Szukaj</button>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <div style="font-size:18px;font-weight:600">Obserwowane produkty</div>
+            <button style="white-space:nowrap;flex-shrink:0;min-height:44px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;padding:0 12px;font-size:14px">Odśwież ceny</button>
+          </div>
+          <sc-for list="{{ refItems }}" as="r" hint-placeholder-count="4">
+            <div style="display:flex;flex-direction:column;gap:8px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);padding:12px">
+              <div style="display:flex;align-items:center;gap:12px">
+                <img src="assets/favicon.png" alt="" style="width:56px;height:56px;border-radius:8px;background:#fff;object-fit:contain;flex-shrink:0">
+                <div style="min-width:0">
+                  <div style="font-weight:500;font-size:16px;line-height:24px"><span style="color:rgba(219,234,254,.8)">{{ r.brand }}</span> {{ r.name }}</div>
+                  <div style="font-size:14px;line-height:20px;color:rgba(219,234,254,.8)">{{ r.size }} · dodano 20 września 2026</div>
+                </div>
+              </div>
+              <span style="font-size:14px;line-height:20px;color:{{ r.tone }}">{{ r.line }}</span>
+            </div>
+          </sc-for>
+          <div style="font-size:12px;color:rgba(219,234,254,.5)">Ceny online z rossmann.pl i drogerienatura.pl.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width:390px;min-height:760px;background-image:linear-gradient(to bottom,#0a0e1a,#0f1529,#0a0e1a);color:#fff;padding:16px;border-radius:12px">
+      <div style="display:flex;flex-direction:column;gap:24px">
+        <div style="min-height:44px;display:flex;align-items:center;color:#d8b4fe;font-size:14px;font-weight:500">← Moja lista</div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05)">
+          <img src="assets/favicon.png" alt="" style="width:56px;height:56px;border-radius:8px;background:#fff;object-fit:contain">
+          <div><div style="font-weight:500"><span style="color:rgba(219,234,254,.8)">Nivea</span> Soft krem intensywnie nawilżający</div><div style="font-size:14px;color:rgba(219,234,254,.8)">300 ml</div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:18px;font-weight:600">Ceny</div>
+          <div style="display:flex;flex-direction:column;gap:4px;padding:12px;border-radius:12px;border:1px solid rgba(52,211,153,.4);background:rgba(255,255,255,.05)">
+            <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-weight:600">Natura</span><span style="font-size:12px;font-weight:500;padding:2px 8px;border-radius:999px;white-space:nowrap;flex-shrink:0;background:rgba(52,211,153,.15);color:#a7f3d0">Najtaniej</span></div>
+            <div style="font-size:24px;font-weight:700">22,99 zł</div>
+            <div style="font-size:14px;color:rgba(219,234,254,.8)">zamiast <s>27,99 zł</s> · promocja do 05.10</div>
+            <div style="font-size:14px;color:rgba(219,234,254,.8)">najniższa cena z 30 dni wg sklepu: 23,99 zł</div>
+            <div style="font-size:14px;color:rgba(219,234,254,.8)">cena online w drogerienatura.pl · 5 min temu</div>
+            <div style="min-height:44px;display:flex;align-items:center;color:#d8b4fe;font-size:14px;font-weight:500;text-decoration:underline;text-underline-offset:4px">Zobacz w sklepie</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05)">
+            <span style="font-weight:600">Rossmann</span>
+            <div style="font-size:24px;font-weight:700">26,99 zł</div>
+            <div style="font-size:14px;color:rgba(219,234,254,.8)">cena online w rossmann.pl · 10 min temu</div>
+            <div style="min-height:44px;display:flex;align-items:center;color:#d8b4fe;font-size:14px;font-weight:500;text-decoration:underline;text-underline-offset:4px">Zobacz w sklepie</div>
+          </div>
+          <button style="white-space:nowrap;flex-shrink:0;width:100%;min-height:44px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;font-size:14px;font-weight:500">Odśwież ceny</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:18px;font-weight:600">Drogerie Natura</div>
+          <div style="font-size:14px;color:#a7f3d0">Dopasowano automatycznie: ten sam EAN i rozmiar.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;signature&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;sunflower&quot;,&quot;mint&quot;,&quot;sky&quot;,&quot;lilac&quot;],&quot;default&quot;:&quot;sunflower&quot;,&quot;tsType&quot;:&quot;'sunflower'|'mint'|'sky'|'lilac'&quot;,&quot;section&quot;:&quot;Propozycja 2&quot;},&quot;playful&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Propozycja 2&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;mint&quot;,&quot;apricot&quot;,&quot;blue&quot;],&quot;default&quot;:&quot;mint&quot;,&quot;tsType&quot;:&quot;'mint'|'apricot'|'blue'&quot;,&quot;section&quot;:&quot;Propozycja 1&quot;},&quot;showReference&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const ACCENTS = {
+  mint: {
+    light: { pri: '#0B7D6E', soft: '#DFF2EC', text: '#08695D', ink: '#FFFFFF' },
+    dark: { pri: '#4ED3B8', soft: 'rgba(78,211,184,.14)', text: '#72E0C9', ink: '#08201B' },
+  },
+  apricot: {
+    light: { pri: '#B84E1B', soft: '#FCE9DD', text: '#9E4216', ink: '#FFFFFF' },
+    dark: { pri: '#FF9A5C', soft: 'rgba(255,154,92,.15)', text: '#FFB485', ink: '#2A1206' },
+  },
+  blue: {
+    light: { pri: '#2F6FDB', soft: '#E3ECFC', text: '#2458B3', ink: '#FFFFFF' },
+    dark: { pri: '#7EA8FF', soft: 'rgba(126,168,255,.15)', text: '#9DBDFF', ink: '#0A1630' },
+  },
+};
+const BASE = {
+  light: { '--bg': '#F7F5F0', '--surface': '#FFFFFF', '--raised': '#F1EEE7', '--ink': '#1D2528', '--muted': '#5C676B', '--line': '#E6E1D7', '--warn-soft': '#FBF0D6', '--warn-text': '#835409' },
+  dark: { '--bg': '#121719', '--surface': '#1A2124', '--raised': '#243034', '--ink': '#EDF2F0', '--muted': '#A0ADB1', '--line': '#2C373A', '--warn-soft': 'rgba(242,192,99,.15)', '--warn-text': '#F2C969' },
+};
+const TONES = {
+  ok: ['var(--pri-soft)', 'var(--pri-text)'],
+  warn: ['var(--warn-soft)', 'var(--warn-text)'],
+  plain: ['var(--raised)', 'var(--muted)'],
+};
+const ITEMS = [
+  {
+    brand: 'Nivea', name: 'Soft krem intensywnie nawilżający', size: '300 ml', initial: 'N', added: '20 września 2026',
+    chip: 'Natura 22,99 zł', tone: 'ok', age: '5 min temu',
+    v: { tone: 'ok', eyebrow: 'Najtaniej dziś', price: '22,99 zł', shop: 'w Naturze', sub: 'o 4,00 zł taniej niż Rossmann · 5 min temu', jLabel: 'Dobra cena', jText: 'Poniżej najniższej ceny z 30 dni wg sklepu (23,99 zł). Za mało historii, by porównać z Twoimi zakupami.' },
+    shops: [
+      { name: 'Natura', price: '22,99 zł', regular: '27,99 zł', promo: 'promocja do 05.10', low30: '23,99 zł', meta: 'drogerienatura.pl · 5 min temu', cheapest: true },
+      { name: 'Rossmann', price: '26,99 zł', meta: 'rossmann.pl · 10 min temu' },
+    ],
+    natura: 'Dopasowano automatycznie: ten sam EAN i rozmiar.', naturaAction: 'Zmień dopasowanie',
+  },
+  {
+    brand: 'Isana', name: 'Żel pod prysznic Mango', size: '500 ml', initial: 'I', added: '21 września 2026',
+    chip: 'Rossmann 7,49 zł', tone: 'ok', age: '10 min temu',
+    v: { tone: 'ok', eyebrow: 'Najtaniej dziś', price: '7,49 zł', shop: 'w Rossmannie', sub: 'o 1,50 zł taniej niż Natura · 10 min temu', jLabel: 'Zwykła cena', jText: 'Równa najniższej cenie z 30 dni wg sklepu. Nie ma powodu czekać ani się spieszyć.' },
+    shops: [
+      { name: 'Rossmann', price: '7,49 zł', low30: '7,49 zł', meta: 'rossmann.pl · 10 min temu', cheapest: true },
+      { name: 'Natura', price: '8,99 zł', meta: 'drogerienatura.pl · 12 min temu' },
+    ],
+    natura: 'Dopasowano: potwierdzone przez Ciebie.', naturaAction: 'Zmień dopasowanie',
+  },
+  {
+    brand: 'Ziaja', name: 'Mleczko do ciała kozie mleko', size: '400 ml', initial: 'Z', added: '24 września 2026',
+    chip: 'Tylko Rossmann 12,99 zł', tone: 'plain', age: 'wczoraj',
+    v: { tone: 'plain', eyebrow: 'Jedna cena do porównania', price: '12,99 zł', shop: 'w Rossmannie', sub: 'wczoraj · Natura czeka na dopasowanie', jLabel: 'Brak porównania', jText: 'Dopasuj produkt w Naturze, aby zobaczyć, gdzie jest taniej.' },
+    shops: [
+      { name: 'Rossmann', price: '12,99 zł', meta: 'rossmann.pl · wczoraj' },
+      { name: 'Natura', gap: 'Produkt jeszcze niedopasowany. Otwórz go, aby wyszukać go w Naturze.', meta: 'drogerienatura.pl' },
+    ],
+    natura: 'Otwórz produkt, aby dopasować go w Naturze.', naturaAction: 'Dopasuj w Naturze',
+  },
+  {
+    brand: 'Colgate', name: 'Total pasta do zębów', size: '75 ml', initial: 'C', added: '26 września 2026',
+    chip: 'Cena nieaktualna', tone: 'warn', age: '2 dni temu',
+    v: { tone: 'warn', eyebrow: 'Ostatnia znana cena', price: '11,49 zł', shop: 'w Rossmannie', sub: '2 dni temu · cena może być nieaktualna', jLabel: 'Odśwież', jText: 'Nie udało się pobrać ceny ze sklepu Rossmann. Pokazujemy ostatnią znaną cenę.' },
+    shops: [
+      { name: 'Rossmann', price: '11,49 zł', low30: '10,99 zł', meta: 'rossmann.pl · 2 dni temu', stale: true },
+    ],
+    natura: 'Brak w Naturze — Twój wybór.', naturaAction: null,
+  },
+];
+const REF = [
+  { brand: 'Nivea', name: 'Soft krem intensywnie nawilżający', size: '300 ml', line: 'Najtaniej: Natura 22,99 zł, o 4,00 zł taniej niż Rossmann · 5 min temu', tone: '#a7f3d0' },
+  { brand: 'Isana', name: 'Żel pod prysznic Mango', size: '500 ml', line: 'Najtaniej: Rossmann 7,49 zł, o 1,50 zł taniej niż Natura · 10 min temu', tone: '#a7f3d0' },
+  { brand: 'Ziaja', name: 'Mleczko do ciała kozie mleko', size: '400 ml', line: 'Tylko w Rossmannie: 12,99 zł · wczoraj', tone: 'rgba(219,234,254,.8)' },
+  { brand: 'Colgate', name: 'Total pasta do zębów', size: '75 ml', line: 'Rossmann: nieaktualna · 2 dni temu', tone: '#fde68a' },
+];
+
+const h2 = React.createElement;
+const SIG = { sunflower: '#FFD23F', mint: '#8EE3B4', sky: '#9CC4FF', lilac: '#CDB8FF' };
+const MODE2 = {
+  light: { '--paper': '#FBF5E9', '--card': '#FFFFFF', '--raised': '#F3ECDD', '--ink': '#1F1B2D', '--soft': '#6A6478', '--hair': '#E9DFCB', '--dot': 'rgba(31,27,45,.075)', '--shadow-ink': '#1F1B2D', '--field-edge': '#1F1B2D', '--btn': '#1F1B2D', '--btn-ink': '#FFF8E7', '--btn-shadow': 'var(--sun)', '--mint': '#CFF3DD', '--mint-ink': '#0F5E3A' },
+  dark: { '--paper': '#17151F', '--card': '#221F2E', '--raised': '#2D2A3C', '--ink': '#F8F1E2', '--soft': '#B9B1C7', '--hair': '#37324B', '--dot': 'rgba(248,241,226,.06)', '--shadow-ink': '#000000', '--field-edge': '#4A4560', '--btn': 'var(--sun)', '--btn-ink': '#1F1B2D', '--btn-shadow': '#000000', '--mint': '#1F3D31', '--mint-ink': '#8BE8B8' },
+};
+const SHOPFILL = { Rossmann: '#BCD6FF', Natura: '#B5EDCB' };
+const TAG2 = { ok: ['var(--sun)', '#1F1B2D'], warn: ['#FFD2BD', '#1F1B2D'], plain: ['var(--raised)', 'var(--ink)'] };
+const HERO2 = { ok: 'var(--sun)', plain: '#FBF5E9', warn: '#FFD2BD' };
+const FILTERS = [
+  { key: 'all', label: 'Wszystkie', test: () => true },
+  { key: 'promo', label: 'Promocje', test: it => it.shops.some(s => s.promo) },
+  { key: 'check', label: 'Do sprawdzenia', test: it => it.check },
+];
+const fmt = n => n.toFixed(2).replace('.', ',') + ' zł';
+const split = n => { const [zl, gr] = n.toFixed(2).split('.'); return { zl, gr }; };
+const STAR = 'polygon(' + Array.from({ length: 24 }, (_, i) => { const a = (Math.PI * 2 * i) / 24 - Math.PI / 2, r = i % 2 ? 41 : 50; return (50 + r * Math.cos(a)).toFixed(2) + '% ' + (50 + r * Math.sin(a)).toFixed(2) + '%'; }).join(',') + ')';
+function sticker(sz, pos, label, fill, key) {
+  return h2('div', { key, style: { position: 'absolute', ...pos, width: sz, height: sz, transform: 'rotate(12deg)', animation: 'dr-stamp .55s cubic-bezier(.2,1.5,.4,1) both', zIndex: 2, pointerEvents: 'none' } },
+    h2('div', { style: { position: 'absolute', inset: 0, background: '#1F1B2D', clipPath: STAR } }),
+    h2('div', { style: { position: 'absolute', inset: 3, background: fill, clipPath: STAR } }),
+    h2('div', { style: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: '#1F1B2D', fontFamily: "'Bricolage Grotesque',sans-serif", fontWeight: 800, fontSize: Math.round(sz * 0.17), lineHeight: 1, letterSpacing: '-.02em' } },
+      ...label.split('\n').map((t, i) => h2('span', { key: i }, t))));
+}
+const ITEMS2 = [
+  { brand: 'Nivea', name: 'Soft krem intensywnie nawilżający', size: '300 ml', added: '20.09', initial: 'N', thumb: '#DCE6FF',
+    tone: 'ok', tagPrice: 22.99, tagLabel: 'Natura', check: false, checked: '5 min temu',
+    hero: { tone: 'ok', eyebrow: 'Najtaniej dziś', shop: 'w Naturze', price: 22.99, sub: 'o 4,00 zł taniej niż Rossmann · sprawdzono 5 min temu' },
+    sticker: 'Dobra\ncena!', stickerFill: '#B5EDCB', jLabel: 'Dobra cena', jText: 'Poniżej najniższej ceny z 30 dni wg sklepu. Historia Twoich cen jest jeszcze za krótka, więc porównujemy z danymi sklepu.', trackNote: 'różnica 4,00 zł', low30ref: 23.99,
+    shops: [
+      { name: 'Natura', site: 'drogerienatura.pl', price: 22.99, regular: 27.99, promo: 'promocja do 05.10', low30: 23.99, meta: 'cena online · 5 min temu', cheapest: true, match: 'dopasowano automatycznie: EAN i rozmiar', matchAction: 'Zmień' },
+      { name: 'Rossmann', site: 'rossmann.pl', price: 26.99, meta: 'cena online · 10 min temu' },
+    ] },
+  { brand: 'Isana', name: 'Żel pod prysznic Mango', size: '500 ml', added: '21.09', initial: 'I', thumb: '#FFE1CC',
+    tone: 'ok', tagPrice: 7.49, tagLabel: 'Rossmann', check: false, checked: '10 min temu',
+    hero: { tone: 'ok', eyebrow: 'Najtaniej dziś', shop: 'w Rossmannie', price: 7.49, sub: 'o 1,50 zł taniej niż Natura · sprawdzono 10 min temu' },
+    sticker: 'Zwykła\ncena', stickerFill: '#FFFFFF', jLabel: 'Zwykła cena', jText: 'Równa najniższej cenie z 30 dni wg sklepu.', trackNote: 'różnica 1,50 zł', low30ref: 7.49,
+    shops: [
+      { name: 'Rossmann', site: 'rossmann.pl', price: 7.49, low30: 7.49, meta: 'cena online · 10 min temu', cheapest: true },
+      { name: 'Natura', site: 'drogerienatura.pl', price: 8.99, meta: 'cena online · 12 min temu', match: 'dopasowanie potwierdzone przez Ciebie', matchAction: 'Zmień' },
+    ] },
+  { brand: 'Ziaja', name: 'Mleczko do ciała kozie mleko', size: '400 ml', added: '24.09', initial: 'Z', thumb: '#E3F2D3',
+    tone: 'plain', tagPrice: 12.99, tagLabel: 'Tylko Rossmann', check: true, checked: 'wczoraj',
+    hero: { tone: 'plain', eyebrow: 'Jedyna znana cena', shop: 'w Rossmannie', price: 12.99, sub: 'sprawdzono wczoraj · Natura czeka na dopasowanie' },
+    sticker: 'Tylko\n1 sklep', stickerFill: '#D4E5FF', jLabel: 'Brak porównania', jText: 'Dopasuj produkt w Naturze, aby porównać ceny.', trackNote: '', low30ref: null,
+    shops: [
+      { name: 'Rossmann', site: 'rossmann.pl', price: 12.99, meta: 'cena online · wczoraj' },
+      { name: 'Natura', site: 'drogerienatura.pl', price: null, gap: 'Produkt nie jest jeszcze dopasowany w Naturze.', cta: 'Dopasuj w Naturze' },
+    ] },
+  { brand: 'Colgate', name: 'Total pasta do zębów', size: '75 ml', added: '26.09', initial: 'C', thumb: '#F1DDF7',
+    tone: 'warn', tagPrice: 11.49, tagLabel: 'Nieaktualna', check: true, checked: '2 dni temu',
+    hero: { tone: 'warn', eyebrow: 'Ostatnia znana cena', shop: 'w Rossmannie', price: 11.49, sub: '2 dni temu · cena może być nieaktualna' },
+    sticker: 'Stara\ncena', stickerFill: '#FFFFFF', jLabel: 'Nieaktualna', jText: 'Nie udało się pobrać ceny ze sklepu Rossmann. Pokazujemy ostatnią znaną cenę.', trackNote: 'cena sprzed 2 dni', low30ref: 10.99,
+    shops: [
+      { name: 'Rossmann', site: 'rossmann.pl', price: 11.49, low30: 10.99, meta: 'cena online · 2 dni temu', stale: true },
+      { name: 'Natura', site: 'drogerienatura.pl', price: null, gap: 'Brak w Naturze — Twój wybór.', ghost: true, matchAction: 'Dopasuj ponownie' },
+    ] },
+];
+function turn2(c) {
+  const playful = c.props.playful ?? true;
+  const sun = SIG[c.props.signature] || SIG.sunflower;
+  const modes2 = ['light', 'dark'].map(k => ({ label: k === 'light' ? 'Jasny motyw' : 'Ciemny motyw', dark: k === 'dark', light: k === 'light',
+    vars: { ...MODE2[k], '--sun': sun, '--tilt': playful ? '-3deg' : '0deg', '--tilt2': playful ? '-6deg' : '0deg' } }));
+  const f = c.state.f2 || 'all', si = c.state.sel2 || 0;
+  const chips2 = FILTERS.map(x => { const on = x.key === f; return { label: x.label, count: String(ITEMS2.filter(x.test).length),
+    bg: on ? 'var(--ink)' : 'transparent', fg: on ? 'var(--paper)' : 'var(--ink)', border: on ? 'var(--ink)' : 'var(--hair)',
+    onClick: () => c.setState({ f2: x.key }) }; });
+  const test = FILTERS.find(x => x.key === f).test;
+  const items2 = ITEMS2.map((it, i) => ({ it, i })).filter(o => test(o.it)).map(({ it, i }) => {
+    const on = i === si, t = TAG2[it.tone], p = split(it.tagPrice);
+    return { brand: it.brand, name: it.name, size: it.size, initial: it.initial, thumbBg: it.thumb,
+      tagBg: t[0], tagFg: t[1], tagZl: p.zl, tagGr: p.gr, tagLabel: it.tagLabel,
+      edge: on ? 'var(--ink)' : 'transparent', shadow: on ? '4px 4px 0 var(--sun)' : 'none', lift: on ? 'translate(-2px,-2px)' : 'none',
+      onSelect: () => c.setState({ sel2: i }) };
+  });
+  const s = ITEMS2[si];
+  const priced = s.shops.filter(x => x.price != null);
+  const low = s.low30ref;
+  const vals = priced.map(x => x.price).concat(low != null ? [low] : []);
+  const hasTrack = vals.length >= 2;
+  let points = [], bandLeft = '0%', bandWidth = '0%', lowLeft = '0%';
+  if (hasTrack) {
+    const lo = Math.min(...vals), hi = Math.max(...vals), span = (hi - lo) || 1, pad = span * 0.22;
+    const pos = v => 6 + ((v - (lo - pad)) / (span + 2 * pad)) * 88;
+    points = priced.map(x => ({ name: x.name, price: fmt(x.price), left: pos(x.price).toFixed(1) + '%', fill: SHOPFILL[x.name] }));
+    if (priced.length > 1) { const ps = priced.map(x => x.price), a = pos(Math.min(...ps)), b = pos(Math.max(...ps)); bandLeft = a.toFixed(1) + '%'; bandWidth = (b - a).toFixed(1) + '%'; }
+    if (low != null) lowLeft = pos(low).toFixed(1) + '%';
+  }
+  const hp = split(s.hero.price);
+  const shops = s.shops.map(x => { const has = x.price != null, p = has ? split(x.price) : { zl: '', gr: '' };
+    return { name: x.name, site: x.site, fill: SHOPFILL[x.name], hasPrice: has, zl: p.zl, gr: p.gr,
+      regular: x.regular != null ? fmt(x.regular) : null, promo: x.promo || null, low30: x.low30 != null ? fmt(x.low30) : null,
+      meta: x.meta || null, gap: x.gap || null, cta: x.cta || null, match: x.match || '', matchAction: x.matchAction || null,
+      hasFooter: !!(x.match || x.matchAction),
+      tag: x.cheapest ? 'Najtaniej' : x.stale ? 'Nieaktualna' : null, tagBg: x.cheapest ? 'var(--sun)' : '#FFD2BD',
+      border: x.ghost ? '2px dashed var(--hair)' : x.cheapest ? '2px solid var(--ink)' : x.stale ? '2px solid #F4A07A' : '2px solid var(--hair)',
+      cardBg: x.ghost ? 'transparent' : 'var(--card)' }; });
+  const sel2 = { brand: s.brand, name: s.name, size: s.size, added: s.added, initial: s.initial, thumbBg: s.thumb, checked: s.checked,
+    heroBg: HERO2[s.hero.tone], heroEyebrow: s.hero.eyebrow, heroShop: s.hero.shop, heroSub: s.hero.sub, heroZl: hp.zl, heroGr: hp.gr,
+    jLabel: s.jLabel, jText: s.jText, trackNote: s.trackNote, hasTrack, noTrack: !hasTrack, points, bandLeft, bandWidth,
+    hasLow: hasTrack && low != null, lowLeft, lowText: low != null ? fmt(low) : '', shops };
+  return { modes2, chips2, items2, sel2, calm: !playful,
+    stickerLg: playful ? sticker(128, { top: -28, right: -34 }, s.sticker, s.stickerFill, 'lg' + si) : null,
+    stickerSm: playful ? sticker(86, { top: -28, right: -8 }, s.sticker, s.stickerFill, 'sm' + si) : null };
+}
+
+class Component extends DCLogic {
+  state = { sel: 0, sel2: 0, f2: 'all' };
+  renderVals() {
+    const acc = ACCENTS[this.props.accent] || ACCENTS.mint;
+    const mode = (key, label) => {
+      const a = acc[key];
+      return { key, label, dark: key === 'dark', light: key === 'light',
+        vars: { ...BASE[key], '--pri': a.pri, '--pri-soft': a.soft, '--pri-text': a.text, '--pri-ink': a.ink } };
+    };
+    const items = ITEMS.map((it, i) => {
+      const selected = i === this.state.sel;
+      const [chipBg, chipFg] = TONES[it.tone];
+      return { ...it, chipBg, chipFg,
+        rowBg: selected ? 'var(--pri-soft)' : 'transparent',
+        rowBorder: selected ? 'var(--pri-soft)' : 'transparent',
+        onSelect: () => this.setState({ sel: i }) };
+    });
+    const s = ITEMS[this.state.sel];
+    const [vBg, vFg] = TONES[s.v.tone];
+    const sel = { ...s, vBg, vFg, vEyebrow: s.v.eyebrow, vPrice: s.v.price, vShop: s.v.shop, vSub: s.v.sub,
+      jLabel: s.v.jLabel, jText: s.v.jText, naturaText: s.natura, naturaAction: s.naturaAction,
+      shops: s.shops.map(sh => ({ regular: '', promo: null, low30: null, gap: null, cheapest: false, stale: false, ...sh,
+        hasPrice: !!sh.price,
+        border: sh.cheapest ? 'var(--pri)' : sh.stale ? 'var(--warn-text)' : 'var(--line)' })) };
+    return { modes: [mode('light', 'Jasny motyw'), mode('dark', 'Ciemny motyw')], items, sel,
+      refItems: REF, showRef: this.props.showReference ?? true, ...turn2(this) };
+  }
+}
+</script>
+</body>
+</html>

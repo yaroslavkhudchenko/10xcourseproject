@@ -2,36 +2,67 @@
 @import "tw-animate-css";
 /* The dev-only kitchen sink adds no CSS, under astro dev too: its markup may use only classes the app already has. */
 @source not "../dev";
+/* The design handoff and the docs in context/ aren't the app: their HTML and scripts must not add classes to it. */
+@source not "../../context";
+/* Nor the 10x CLI's skills in .claude/, or an agent's git worktree there: a local build then scans what CI scans. */
+@source not "../../.claude";
 
 @custom-variant dark (&:is(.dark *));
 
+/* The two themes, from the "Etykiety i naklejki" handoff (context/changes/etykiety-redesign/handoff/README.md): the
+   light one here in :root, the default, and the dark one in .dark, which the class on <html> switches on (Layout.astro
+   picks it). A value taken from the handoff names its colour there in a comment. Both blocks set every token, and a
+   var() in either names a token of its own block, so a .dark wrapper inside a light page switches them all. The
+   --chart-* and --sidebar-* tokens are unused and keep shadcn's values. scripts/check-token-contrast.mjs reads both
+   blocks and checks the contrast of the text, focus and field-border pairs listed in it, in each theme. */
 :root {
+  color-scheme: light;
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --background-glow: oklch(0.97 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --link: oklch(0.496 0.265 301.924);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --thumbnail: oklch(1 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --success: oklch(0.596 0.145 163.225);
-  --success-foreground: oklch(0.432 0.095 166.913);
-  --warning: oklch(0.769 0.188 70.08);
-  --warning-foreground: oklch(0.473 0.137 46.201);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --background: oklch(0.972 0.017 84.6); /* #FBF5E9, the paper */
+  --background-dot: oklch(0.236 0.034 293.8 / 7.5%); /* rgba(31,27,45,.075), the paper's dot grid */
+  --foreground: oklch(0.236 0.034 293.8); /* #1F1B2D, the ink */
+  --card: oklch(1 0 0); /* #FFFFFF */
+  --card-foreground: var(--foreground);
+  --popover: oklch(1 0 0); /* #FFFFFF */
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.236 0.034 293.8); /* #1F1B2D */
+  --primary-foreground: oklch(0.98 0.024 88.2); /* #FFF8E7 */
+  --primary-shadow: var(--sun);
+  --link: oklch(0.236 0.034 293.8); /* #1F1B2D */
+  --secondary: oklch(0.945 0.021 85.9); /* #F3ECDD */
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.945 0.021 85.9); /* #F3ECDD */
+  --muted-foreground: oklch(0.516 0.032 299); /* #6A6478 */
+  --thumbnail: oklch(1 0 0); /* #FFFFFF */
+  --accent: oklch(0.945 0.021 85.9); /* #F3ECDD */
+  --accent-foreground: var(--foreground);
+  /* shadcn's red-600, oklch(0.577 0.245 27.325), darkened with its hue and chroma kept: on this paper a destructive
+     Alert's description, at /90, reached only 3.11:1 over a dot of the grid, where it needs 4.5:1. */
+  --destructive: oklch(0.43 0.245 27.325);
+  /* The text on a destructive Button's or Badge's fill: #FFF8E7, as --primary-foreground. */
+  --destructive-foreground: oklch(0.98 0.024 88.2);
+  --success: oklch(0.932 0.048 158.5); /* #CFF3DD */
+  --success-foreground: oklch(0.427 0.094 157.5); /* #0F5E3A */
+  --warning: oklch(0.897 0.058 46.4); /* #FFD2BD */
+  --warning-foreground: oklch(0.452 0.119 41.8); /* #8A3A17 */
+  --border: oklch(0.906 0.029 84.6); /* #E9DFCB */
+  --input: oklch(0.236 0.034 293.8); /* #1F1B2D */
+  --ring: oklch(0.236 0.034 293.8); /* #1F1B2D */
+  --sun: oklch(0.879 0.162 90.9); /* #FFD23F */
+  --label-ink: oklch(0.236 0.034 293.8); /* #1F1B2D */
+  --shadow-ink: oklch(0.236 0.034 293.8); /* #1F1B2D */
+  --tag-warn: oklch(0.897 0.058 46.4); /* #FFD2BD */
+  --tag-warn-border: oklch(0.781 0.113 45); /* #F4A07A */
+  --tag-plain: oklch(0.972 0.017 84.6); /* #FBF5E9 */
+  --shop-rossmann: oklch(0.871 0.064 259.4); /* #BCD6FF */
+  --shop-natura: oklch(0.898 0.074 157.9); /* #B5EDCB */
+  --sticker-info: oklch(0.917 0.04 258.8); /* #D4E5FF */
+  --sticker-plain: oklch(1 0 0); /* #FFFFFF */
+  --avatar: oklch(0.914 0.049 299.8); /* #E7DCFF */
+  --tile-1: oklch(0.925 0.036 268.3); /* #DCE6FF */
+  --tile-2: oklch(0.929 0.043 57.1); /* #FFE1CC */
+  --tile-3: oklch(0.942 0.044 128.4); /* #E3F2D3 */
+  --tile-4: oklch(0.921 0.041 318.4); /* #F1DDF7 */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -47,39 +78,54 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-/* The theme every page renders in (<html class="dark">): the navy-and-purple "cosmic" look the pages painted with
-   palette classes, as tokens. A value taken from the pages names in its comment the Tailwind palette colour or the hex
-   gradient stop it replaces; the others keep shadcn's neutral dark values. scripts/check-token-contrast.mjs reads this
-   block and checks the contrast of the text and focus pairs listed in it. */
+/* The labels, stickers, tiles and shop colours stay light in the dark theme, like the paper labels they are, and keep
+   their dark --label-ink text. */
 .dark {
   color-scheme: dark;
-  --background: oklch(0.1663 0.0262 269.371); /* #0a0e1a */
-  --background-glow: oklch(0.2014 0.0412 269.806); /* #0f1529 */
-  --foreground: oklch(1 0 0); /* white */
-  --card: oklch(1 0 0 / 5%); /* white/5 */
-  --card-foreground: oklch(1 0 0); /* white */
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.558 0.288 302.321); /* purple-600 */
-  --primary-foreground: oklch(1 0 0); /* white */
-  --link: oklch(0.827 0.119 306.383); /* purple-300 */
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(1 0 0 / 10%); /* white/10 */
-  /* One value for blue-100 at 80, 70 and 60%: 80%, which 12 of the 16 uses had. */
-  --muted-foreground: oklch(0.932 0.032 255.585 / 80%); /* blue-100/80 */
-  --thumbnail: oklch(1 0 0); /* white, behind product photos */
-  --accent: oklch(1 0 0 / 10%); /* white/10 */
-  --accent-foreground: oklch(0.985 0 0);
+  --background: oklch(0.203 0.02 293.7); /* #17151F, the paper */
+  --background-dot: oklch(0.96 0.021 85.9 / 6%); /* rgba(248,241,226,.06), the paper's dot grid */
+  --foreground: oklch(0.96 0.021 85.9); /* #F8F1E2, the ink */
+  --card: oklch(0.25 0.028 293.4); /* #221F2E */
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.25 0.028 293.4); /* #221F2E */
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.879 0.162 90.9); /* #FFD23F */
+  --primary-foreground: oklch(0.236 0.034 293.8); /* #1F1B2D */
+  --primary-shadow: oklch(0 0 0); /* #000000 */
+  --link: oklch(0.96 0.021 85.9); /* #F8F1E2 */
+  --secondary: oklch(0.296 0.033 291.9); /* #2D2A3C */
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.296 0.033 291.9); /* #2D2A3C */
+  --muted-foreground: oklch(0.774 0.032 302.2); /* #B9B1C7 */
+  --thumbnail: oklch(1 0 0); /* #FFFFFF, behind product photos */
+  --accent: oklch(0.296 0.033 291.9); /* #2D2A3C */
+  --accent-foreground: var(--foreground);
   --destructive: oklch(0.808 0.114 19.571); /* red-300 */
-  --success: oklch(0.765 0.177 163.223); /* emerald-400 */
-  --success-foreground: oklch(0.905 0.093 164.15); /* emerald-200 */
-  --warning: oklch(0.828 0.189 84.429); /* amber-400 */
-  --warning-foreground: oklch(0.924 0.12 95.746); /* amber-200 */
-  --border: oklch(1 0 0 / 10%); /* white/10 */
-  --input: oklch(1 0 0 / 20%); /* white/20 */
-  /* Drawn at 50% (outline-ring/50, ring-ring/50), where it still reaches 3:1 against the canvas and a card. */
-  --ring: oklch(0.827 0.119 306.383); /* purple-300 */
+  /* The text on a destructive Button's or Badge's fill, which is light here: #1F1B2D, the light theme's ink. */
+  --destructive-foreground: oklch(0.236 0.034 293.8);
+  --success: oklch(0.332 0.042 166.2); /* #1F3D31 */
+  --success-foreground: oklch(0.86 0.112 160.3); /* #8BE8B8 */
+  --warning: oklch(0.308 0.044 39.2); /* #43281F */
+  --warning-foreground: oklch(0.841 0.095 46.6); /* #FFB896 */
+  --border: oklch(0.334 0.044 293); /* #37324B */
+  /* #6E6986, lighter than the handoff's #4A4560, which the field's border needs to reach 3:1 against the paper. */
+  --input: oklch(0.537 0.045 292.8);
+  --ring: oklch(0.879 0.162 90.9); /* #FFD23F */
+  --sun: oklch(0.879 0.162 90.9); /* #FFD23F */
+  --label-ink: oklch(0.236 0.034 293.8); /* #1F1B2D */
+  --shadow-ink: oklch(0 0 0); /* #000000 */
+  --tag-warn: oklch(0.897 0.058 46.4); /* #FFD2BD */
+  --tag-warn-border: oklch(0.781 0.113 45); /* #F4A07A */
+  --tag-plain: oklch(0.972 0.017 84.6); /* #FBF5E9 */
+  --shop-rossmann: oklch(0.871 0.064 259.4); /* #BCD6FF */
+  --shop-natura: oklch(0.898 0.074 157.9); /* #B5EDCB */
+  --sticker-info: oklch(0.917 0.04 258.8); /* #D4E5FF */
+  --sticker-plain: oklch(1 0 0); /* #FFFFFF */
+  --avatar: oklch(0.914 0.049 299.8); /* #E7DCFF */
+  --tile-1: oklch(0.925 0.036 268.3); /* #DCE6FF */
+  --tile-2: oklch(0.929 0.043 57.1); /* #FFE1CC */
+  --tile-3: oklch(0.942 0.044 128.4); /* #E3F2D3 */
+  --tile-4: oklch(0.921 0.041 318.4); /* #F1DDF7 */
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -96,12 +142,16 @@
 }
 
 @theme inline {
+  /* The web fonts, self-hosted through Astro's Fonts API (astro.config.mjs): <Font /> in Layout.astro sets the
+     variables. Bricolage Grotesque is every text's font, DM Mono the meta text's. */
+  --font-sans: var(--font-bricolage);
+  --font-mono: var(--font-dm-mono);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --color-background: var(--background);
-  --color-background-glow: var(--background-glow);
+  --color-background-dot: var(--background-dot);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
@@ -109,6 +159,7 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-shadow: var(--primary-shadow);
   --color-link: var(--link);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -118,6 +169,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
@@ -125,6 +177,21 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-sun: var(--sun);
+  --color-label-ink: var(--label-ink);
+  --color-shadow-ink: var(--shadow-ink);
+  --color-tag-warn: var(--tag-warn);
+  --color-tag-warn-border: var(--tag-warn-border);
+  --color-tag-plain: var(--tag-plain);
+  --color-shop-rossmann: var(--shop-rossmann);
+  --color-shop-natura: var(--shop-natura);
+  --color-sticker-info: var(--sticker-info);
+  --color-sticker-plain: var(--sticker-plain);
+  --color-avatar: var(--avatar);
+  --color-tile-1: var(--tile-1);
+  --color-tile-2: var(--tile-2);
+  --color-tile-3: var(--tile-3);
+  --color-tile-4: var(--tile-4);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -140,13 +207,220 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* The handoff's scale (handoff/README.md: "Typography", "Radii", "Shadows", "Tilt"), so a view never needs an
+   arbitrary px value. Tailwind's own steps cover the rest: tracking-tighter (-0.05em, a card's złote), tracking-tight
+   (-0.025em, a shop's name) and tracking-widest (0.1em, the hero's eyebrow), text-xs to text-xl, and the spacing
+   scale's quarter steps, such as size-10.5 for 42 px. A role drawn larger on a desktop has a second token ending in
+   -lg, its value from lg (1024 px) up: text-price-hero lg:text-price-hero-lg; the product's title and its thumbnail
+   take theirs from xl (1280 px), where the pane beside the list has room for them. A token added here also joins
+   cn()'s names in src/lib/utils.ts, where src/lib/utils.test.ts checks it: tailwind-merge doesn't know it otherwise,
+   and would drop it next to a class it takes for the same kind, such as a text colour. */
+@theme {
+  /* A product's title. */
+  --text-product-title: 1.5625rem; /* 25 px */
+  --text-product-title--line-height: 1.08;
+  --text-product-title-lg: 2.5rem; /* 40 px */
+  --text-product-title-lg--line-height: 1.02;
+  /* "Moja lista", larger on a phone. */
+  --text-list-title: 2.375rem; /* 38 px */
+  --text-list-title--line-height: 1;
+  --text-list-title-lg: 2.125rem; /* 34 px */
+  --text-list-title-lg--line-height: 1;
+  /* The hero's shop, "w Naturze". */
+  --text-hero-shop: 1.375rem; /* 22 px */
+  --text-hero-shop--line-height: 1;
+  --text-hero-shop-lg: 2.25rem; /* 36 px */
+  --text-hero-shop-lg--line-height: 1;
+  /* The prices, as Price draws them: the złote, the grosze beside their top and "zł" under the grosze. */
+  --text-price-hero: 5.25rem; /* 84 px */
+  --text-price-hero--line-height: 0.8;
+  --text-price-hero-lg: 7.75rem; /* 124 px */
+  --text-price-hero-lg--line-height: 0.8;
+  --text-price-hero-grosze: 2.25rem; /* 36 px */
+  --text-price-hero-grosze--line-height: 0.85;
+  --text-price-hero-grosze-lg: 3.25rem; /* 52 px */
+  --text-price-hero-grosze-lg--line-height: 0.85;
+  --text-price-hero-unit: 1.125rem; /* 18 px */
+  --text-price-hero-unit--line-height: 1;
+  --text-price-hero-unit-lg: 1.5rem; /* 24 px */
+  --text-price-hero-unit-lg--line-height: 1;
+  --text-price-card: 2.875rem; /* 46 px */
+  --text-price-card--line-height: 0.82;
+  --text-price-card-lg: 3.5rem; /* 56 px */
+  --text-price-card-lg--line-height: 0.82;
+  --text-price-card-grosze: 1.25rem; /* 20 px */
+  --text-price-card-grosze--line-height: 0.85;
+  --text-price-card-grosze-lg: 1.5rem; /* 24 px */
+  --text-price-card-grosze-lg--line-height: 0.85;
+  --text-price-card-unit: 0.75rem; /* 12 px */
+  --text-price-card-unit--line-height: 1;
+  --text-price-card-unit-lg: 0.875rem; /* 14 px */
+  --text-price-card-unit-lg--line-height: 1;
+  /* A list row's price tag, the same on every screen. */
+  --text-price-tag: 1.375rem; /* 22 px */
+  --text-price-tag--line-height: 1;
+  --text-price-tag-grosze: 0.75rem; /* 12 px */
+  --text-price-tag-grosze--line-height: 1;
+  /* A shop's name in its card. */
+  --text-shop-name: 1.125rem; /* 18 px */
+  --text-shop-name-lg: 1.25rem; /* 20 px */
+  /* The price track's card: its title, and a marker's price above the track. */
+  --text-track-title: 1.0625rem; /* 17 px */
+  --text-track-title--line-height: 1.2;
+  --text-track-title-lg: 1.1875rem; /* 19 px */
+  --text-track-title-lg--line-height: 1.2;
+  --text-track-price: 0.9375rem; /* 15 px */
+  --text-track-price--line-height: 1.2;
+  --text-track-price-lg: 1.0625rem; /* 17 px */
+  --text-track-price-lg--line-height: 1.2;
+  /* The wordmark and the sticker's label, in LogoMark's and Sticker's own two sizes. */
+  --text-wordmark-sm: 1.125rem; /* 18 px */
+  --text-wordmark-lg: 1.375rem; /* 22 px */
+  --text-sticker-sm: 0.9375rem; /* 15 px, 17 % of the 86 px sticker */
+  --text-sticker-sm--line-height: 1;
+  --text-sticker-lg: 1.375rem; /* 22 px, 17 % of the 128 px sticker */
+  --text-sticker-lg--line-height: 1;
+  /* The initial on a product title's tile. */
+  --text-thumb-title: 1.375rem; /* 22 px */
+  --text-thumb-title-lg: 2rem; /* 32 px */
+  /* The compact buttons' and the filter chips' labels. */
+  --text-compact: 0.8125rem; /* 13 px */
+  /* A list row's name, the search field's text and the avatar's initial. */
+  --text-body: 0.9375rem; /* 15 px */
+  /* DM Mono's meta text: a row's eyebrow, a filter chip's count and the list's source footer. */
+  --text-meta: 0.6875rem; /* 11 px */
+  /* The label under a list row's price tag, in DM Mono. */
+  --text-micro: 0.625rem; /* 10 px */
+
+  --tracking-price: -0.055em; /* the hero's złote */
+  --tracking-title: -0.04em; /* a product's title, and "Moja lista" on a phone */
+  --tracking-heading: -0.035em; /* "Moja lista", the hero's shop, and a product's title on a phone */
+  --tracking-wordmark: -0.03em; /* the wordmark, the price tag's złote and the hero's grosze */
+  --tracking-sticker: -0.02em; /* the sticker's label, and a track marker's price */
+  --tracking-meta: 0.04em; /* the source footer and the bottom bar's check, in DM Mono */
+  --tracking-eyebrow: 0.06em; /* a row's eyebrow, the price tag's label and the track's labels, in DM Mono */
+  --tracking-tag: 0.08em; /* the hanging tag, and a product's eyebrow */
+
+  --radius-tag: 0.5625rem; /* 9 px, the hanging tag */
+  --radius-button-sm: 0.75rem; /* 12 px, the outline button: the handoff's small buttons */
+  --radius-button: 0.875rem; /* 14 px, the primary button */
+  --radius-button-lg: 1rem; /* 16 px, the 52 px "Odśwież ceny" in a phone's bottom bar */
+  --radius-thumb: 0.875rem; /* 14 px, a list row's thumbnail */
+  --radius-thumb-title: 1rem; /* 16 px, a product title's thumbnail on a phone */
+  --radius-thumb-title-lg: 1.375rem; /* 22 px */
+  --radius-search: 1rem; /* 16 px, the search field */
+  --radius-search-button: 0.6875rem; /* 11 px, the search field's own "Szukaj", inside the field's radius */
+  --radius-kbd: 0.4375rem; /* 7 px, the search field's "/" hint */
+  --radius-price-tag: 0.75rem; /* 12 px, a list row's price tag */
+  --radius-row: 1.125rem; /* 18 px, a list row */
+  --radius-card: 1.25rem; /* 20 px, a card on a phone */
+  --radius-card-lg: 1.375rem; /* 22 px */
+  --radius-hero: 1.375rem; /* 22 px, the verdict's hero on a phone */
+  --radius-hero-lg: 1.625rem; /* 26 px */
+
+  /* The hairline: every 1.5 px border of the handoff, as border-hairline, or border-t-hairline and the other sides. */
+  --border-width-hairline: 1.5px;
+  /* The 2.5 px ink edge of a shop's marker on the price track. */
+  --border-width-marker: 2.5px;
+
+  /* The sticker's stamp as it appears: from 1.7 times its size, unseen, to its size. It scales through the scale
+     property, so the sticker's own rotate stays. Sticker plays it only as motion-safe:animate-stamp. */
+  --animate-stamp: stamp 550ms cubic-bezier(0.2, 1.5, 0.4, 1) both;
+
+  @keyframes stamp {
+    0% {
+      opacity: 0;
+      scale: 1.7;
+    }
+    55% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 1;
+      scale: 1;
+    }
+  }
+}
+
+/* The hard shadows, with no blur. They name theme colours, so they're inline: each utility then reads the colour where
+   it's drawn, and a .dark wrapper switches it too. */
+@theme inline {
+  --shadow-primary: 3px 3px 0 var(--primary-shadow); /* the primary button, which drops it while pressed */
+  --shadow-hero: 5px 5px 0 var(--shadow-ink); /* the verdict's hero on a phone */
+  --shadow-hero-lg: 6px 6px 0 var(--shadow-ink);
+  --shadow-selected: 4px 4px 0 var(--sun); /* the selected list row */
+}
+
+/* A control drawn below 44 × 44 px, the tap target of a phone held at the shelf, keeps its drawn size and gets a hit
+   area of at least 44 × 44 px centred on it: an ::after box, positioned from the control, so the layout never moves.
+   The control becomes position: relative. It must not clip its overflow, and its neighbours must leave the area room,
+   or a tap there reaches them instead. Inside an element with the data-show-hit-areas attribute, as in the kitchen
+   sink, each area is outlined. */
+@utility hit-area {
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, calc(var(--spacing) * 11));
+    height: max(100%, calc(var(--spacing) * 11));
+    translate: -50% -50%;
+  }
+
+  [data-show-hit-areas] &::after {
+    outline: 1px dashed var(--muted-foreground);
+  }
+}
+
+/* The logo's radar: the sun, swept across 62° by the label ink at 28 % (the handoff's rgba(31,27,45,.28)). */
+@utility bg-radar {
+  background-color: var(--sun);
+  background-image: conic-gradient(
+    from 20deg,
+    color-mix(in oklch, var(--label-ink) 28%, transparent) 0deg 62deg,
+    transparent 62deg
+  );
+}
+
+/* The redesigned pages' canvas: the paper, with its dot grid. */
+@utility bg-paper {
+  background-color: var(--background);
+  background-image: radial-gradient(var(--background-dot) 1px, transparent 1.4px);
+  background-size: 18px 18px;
+}
+
+/* The starter's navy gradient, which /, /dashboard and /auth/* paint with until S-07 restyles them. Its stops are the
+   old dark theme's --background and --background-glow, as fixed values, so those pages keep their look in the new
+   dark theme. */
 @utility bg-cosmic {
-  background-image: linear-gradient(to bottom, var(--background), var(--background-glow), var(--background));
+  background-image: linear-gradient(
+    to bottom,
+    oklch(0.1663 0.0262 269.371),
+    oklch(0.2014 0.0412 269.806),
+    oklch(0.1663 0.0262 269.371)
+  );
 }
 
 @layer base {
+  /* Every element's outline is already in --ring, so a control's transition has no colour to fade when it gains
+     focus. */
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring;
+  }
+  /* The handoff's focus: a 2 px outline in --ring at full opacity, 2 px off the control, on every element a keyboard
+     reaches. The components draw no ring of their own. A real outline also shows in forced-colors mode, where a
+     box-shadow ring vanishes. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  /* A phone's product page keeps its refresh bar fixed over the screen's foot (RefreshBar.tsx), so a control the
+     keyboard scrolls to stops above the bar rather than under it: the page's own padding below its content is the
+     bar's room, 7rem, and the home bar's inset. From lg the bar is gone and the page doesn't scroll as a whole. */
+  html:has([data-refresh-bar]) {
+    scroll-padding-bottom: calc(var(--spacing) * 28 + env(safe-area-inset-bottom));
   }
   body {
     @apply bg-background text-foreground;

@@ -1,20 +1,29 @@
 import { isJsonMediaType } from "@/lib/json-request";
 import {
+  ageText,
   compareShops,
   formatPrice,
+  namesOf,
+  PRICE_UNREAD_TEXT,
+  savingsText,
   SHOP_LABELS,
+  sinceText,
+  verdictOf,
   type Comparison,
   type LatestCheck,
   type PricedShop,
+  type PriceVerdict,
+  type ShopPrice,
 } from "@/lib/services/price-comparison";
+import type { RowShop } from "@/lib/services/watchlist-rows";
 import { priceMissingText, priceUnavailableText } from "@/lib/shop-messages";
 import type { LatestPrice, PriceRefreshAnswer, SearchUnavailableReason, ShopOffer } from "@/types";
 
 // The product page's price island, without React: each matched shop's latest price, whether its refetch runs, why the
 // last one gave no answer, whether the page couldn't read its stored price, and what screen readers hear of the
 // answers. Every change goes through the reducer, and the order and marks always come from compareShops, withheld while
-// a stored price is unread (compareRows), so Vitest can check them in Node. It runs in the browser, so it imports
-// nothing server-only.
+// a stored price is unread (compareRows), so Vitest can check them in Node. What the product area says of it, its hero,
+// its price track and its caption, is decided here too. It runs in the browser, so it imports nothing server-only.
 
 /** The route that refetches one shop of one product (src/pages/api/watchlist/prices.ts). */
 export const PRICES_ROUTE = "/api/watchlist/prices";
@@ -223,7 +232,7 @@ function settled(row: ShopRow, result: RefreshResult): ShopRow {
  */
 export function gapText(row: Pick<ShopRow, "shop" | "latest" | "readFailed">): string {
   if (row.readFailed) {
-    return "Nie udało się wczytać ceny.";
+    return PRICE_UNREAD_TEXT;
   }
   if (row.latest === null) {
     return "Jeszcze bez ceny";
@@ -254,6 +263,360 @@ function compareRows(rows: readonly ShopRow[], now: number): Comparison<ShopRow>
 
 /** A row as the island renders it, with its verdict. */
 export type ComparedRow = Comparison<ShopRow>["rows"][number];
+
+/** What the product's island knows of Natura's match beside its rows: whether the page couldn't read it. */
+export interface NaturaRead {
+  /** Natura's stored decision couldn't be read (naturaUnreadable), so a match it hides could name a lower price. */
+  naturaUnreadable?: boolean;
+}
+
+/**
+ * The verdict on the island's prices at the state's time (verdictOf), as comparisonOf compares them: `unread` while
+ * some row's stored price couldn't be read, which a failed read of all the stored prices (`pricesFailed`) marks on
+ * every row, and while Natura's match couldn't be read (`naturaUnreadable`). The price that couldn't be read may be
+ * the lowest, so then the product area names no shop.
+ */
+export function verdictOfState(
+  state: PriceComparisonState,
+  { naturaUnreadable = false }: NaturaRead = {},
+): PriceVerdict {
+  return verdictOf(comparisonOf(state), state.now, naturaUnreadable || state.rows.some((row) => row.readFailed));
+}
+
+/**
+ * The `window` event the product's island sends after each change of its rows, so the list beside the product can
+ * bring its row's tag up to date: once it has hydrated, and as each shop's refetch starts and is answered. Its detail
+ * is a PricesEventDetail.
+ */
+export const PRICES_EVENT = "drogeria:prices";
+
+/**
+ * What PRICES_EVENT carries: which product, and each of its shops as the island holds it: its latest check and whether
+ * its price couldn't be read. The list's row recomputes its tag from them (rowTagOf); a Natura match that couldn't be
+ * read goes as a Natura shop whose price couldn't be read.
+ */
+export interface PricesEventDetail {
+  itemId: string;
+  shops: RowShop[];
+}
+
+/**
+ * The product's shops as the list's row compares them (RowShop), from the island's rows: each row's shop, its latest
+ * check and whether its stored price couldn't be read, and, while Natura's match couldn't be read (`naturaUnreadable`),
+ * Natura as a shop whose price couldn't be read, since that match could name a lower price. The island sends them with
+ * PRICES_EVENT after each change of its rows, and the page judges the selected row's first tag by the rows the island
+ * starts with, so the list beside the product and the product agree from the first paint.
+ */
+export function rowShopsOfIsland(rows: readonly ShopRow[], { naturaUnreadable = false }: NaturaRead = {}): RowShop[] {
+  const shops: RowShop[] = rows.map(({ shop, latest, readFailed }) => ({ shop, latest, readFailed }));
+  if (naturaUnreadable && !shops.some(({ shop }) => shop === "natura")) {
+    shops.push({ shop: "natura", latest: null, readFailed: true });
+  }
+  return shops;
+}
+
+/**
+ * The shops a PRICES_EVENT carries for the product `itemId`, as the island sent them, or null for any other event: one
+ * about another product, or one without its detail. The list's selected row recomputes its tag from them (rowTagOf).
+ */
+export function shopsOfPricesEvent(event: Event, itemId: string): RowShop[] | null {
+  if (event.type !== PRICES_EVENT || !(event instanceof CustomEvent)) {
+    return null;
+  }
+  const detail: unknown = event.detail;
+  return isPricesDetail(detail) && detail.itemId === itemId ? detail.shops : null;
+}
+
+/** A PRICES_EVENT's detail as the island sends it: its product's id and its shops. */
+function isPricesDetail(value: unknown): value is PricesEventDetail {
+  return isRecord(value) && typeof value.itemId === "string" && Array.isArray(value.shops);
+}
+
+/** What the product area knows of Natura beside the prices: whether its match is still to be made. */
+export interface NaturaContext {
+  naturaUndecided: boolean;
+}
+
+/**
+ * The product's hero, from its verdict: its tone, the line above the price, the shop or shops it names after "w", the
+ * price, the line below it, and the sticker it wears. Stickers state facts only, "Tylko 1 sklep" (`one-shop`) and
+ * "Stara cena" (`stale`), until FR-012 judges whether a price is good.
+ */
+export interface Hero {
+  tone: "sun" | "plain" | "warn";
+  eyebrow: string;
+  shops: string | null;
+  price: number | null;
+  sub: string | null;
+  sticker: "one-shop" | "stale" | null;
+}
+
+/**
+ * The hero of a product whose prices came to `verdict`, reading every age at the time it was judged. The line below
+ * the price gives how much less the cheapest price is and the age of the price it names (a tie's oldest), says when
+ * Natura still waits for its match beside the only price, and warns that a stale price may be out of date.
+ */
+export function heroOf(verdict: PriceVerdict, { naturaUndecided }: NaturaContext): Hero {
+  switch (verdict.kind) {
+    case "cheapest":
+      return {
+        tone: "sun",
+        eyebrow: "Najtaniej dziś",
+        shops: namesOf(verdict.shops, "in"),
+        price: verdict.price,
+        sub: parts(
+          verdict.savings === null ? null : savingsText(verdict.savings),
+          checkedText(verdict.ageFrom, verdict.at),
+        ),
+        sticker: null,
+      };
+    case "only":
+      return {
+        tone: "plain",
+        eyebrow: "Jedyna znana cena",
+        shops: SHOP_LABELS[verdict.shop].in,
+        price: verdict.price,
+        sub: parts(
+          checkedText(verdict.pricedAt, verdict.at),
+          naturaUndecided ? `${SHOP_LABELS.natura.name} czeka na dopasowanie` : null,
+        ),
+        sticker: "one-shop",
+      };
+    case "unavailable":
+      return {
+        tone: "plain",
+        eyebrow: "Niedostępny online",
+        shops: SHOP_LABELS[verdict.shop].in,
+        price: verdict.price,
+        sub: checkedText(verdict.pricedAt, verdict.at),
+        sticker: null,
+      };
+    case "stale":
+      return {
+        tone: "warn",
+        eyebrow: "Ostatnia znana cena",
+        shops: SHOP_LABELS[verdict.shop].in,
+        price: verdict.price,
+        sub: parts(ageText(verdict.pricedAt, verdict.at), "cena może być nieaktualna"),
+        sticker: "stale",
+      };
+    case "unread":
+      return {
+        tone: "plain",
+        eyebrow: "Nie udało się wczytać cen",
+        shops: null,
+        price: null,
+        sub: null,
+        sticker: null,
+      };
+    case "none":
+      return { tone: "plain", eyebrow: "Jeszcze bez ceny", shops: null, price: null, sub: null, sticker: null };
+  }
+}
+
+/** When a check or a price was, as the product area says it: "sprawdzono 5 min temu". */
+function checkedText(iso: string, now: number): string {
+  return `sprawdzono ${ageText(iso, now)}`;
+}
+
+/** The parts of a line that are there, as the pages join them. */
+function parts(...texts: (string | null)[]): string {
+  return texts.filter((text) => text !== null).join(" · ");
+}
+
+/** One priced shop on the price track: which shop, its price as the pages write it, and where it sits, in percent. */
+export interface TrackMarker {
+  shop: PricedShop;
+  price: string;
+  x: number;
+}
+
+/**
+ * The price track: one marker per shop with a price; the band from the lowest to the highest shop price, when there
+ * are two or more; the tick of the 30-day low the verdict's shop reports, with its label and value; and the note on
+ * the right. Every position is a percentage of the track's width.
+ */
+export interface Track {
+  markers: TrackMarker[];
+  band: { from: number; to: number } | null;
+  low: { x: number; label: string; price: string } | null;
+  note: string | null;
+}
+
+/**
+ * The price track of the rows (the comparison's, in its order) under `verdict`, or null with fewer than two values to
+ * place: the prices of the rows with an offer, and the 30-day low of the verdict's shop, the lowest of a tie's, when
+ * it reports one. The values spread over the track's middle 88 %, padded by 22 % of their span on each side, and a
+ * span of zero counts as 1 zł. The note says how much less the cheapest price is, or how old a stale one is.
+ */
+export function trackOf(rows: readonly ShopPrice[], verdict: PriceVerdict): Track | null {
+  const offers = rows.flatMap(({ shop, latest }) => (latest?.offer ? [{ shop, price: latest.offer.price }] : []));
+  const low = lowestOf(rows, verdictShops(verdict));
+  const values = low === null ? offers.map(({ price }) => price) : [...offers.map(({ price }) => price), low];
+  if (values.length < 2) {
+    return null;
+  }
+  const min = Math.min(...values);
+  const span = Math.max(...values) - min || 1;
+  const pad = 0.22 * span;
+  const x = (value: number) => 6 + ((value - (min - pad)) / (span + 2 * pad)) * 88;
+  const prices = offers.map(({ price }) => price);
+  return {
+    markers: offers.map(({ shop, price }) => ({ shop, price: formatPrice(price), x: x(price) })),
+    band: prices.length < 2 ? null : { from: x(Math.min(...prices)), to: x(Math.max(...prices)) },
+    low: low === null ? null : { x: x(low), label: "najniższa z 30 dni", price: formatPrice(low) },
+    note: trackNote(verdict),
+  };
+}
+
+/** The shops a verdict names: the cheapest shop or shops, or the one shop whose price it gives. */
+function verdictShops(verdict: PriceVerdict): PricedShop[] {
+  switch (verdict.kind) {
+    case "cheapest":
+      return verdict.shops;
+    case "only":
+    case "unavailable":
+    case "stale":
+      return [verdict.shop];
+    case "unread":
+    case "none":
+      return [];
+  }
+}
+
+/** The lowest 30-day low these shops report, or null when none does. */
+function lowestOf(rows: readonly ShopPrice[], shops: readonly PricedShop[]): number | null {
+  const lows = rows.flatMap(({ shop, latest }) => {
+    const low = latest?.offer?.lowestPrice30d ?? null;
+    return shops.includes(shop) && low !== null ? [low] : [];
+  });
+  return lows.length === 0 ? null : Math.min(...lows);
+}
+
+/** Where a marker's label sits above it: centred on it, ending at it (to its left) or starting at it (to its right). */
+export type MarkerLabelSide = "center" | "end" | "start";
+
+// How close two markers may come, in percent of the track, before their centred labels would run into each other: a
+// label is about as wide as 30 % of a phone's track.
+const CLOSE_MARKERS = 30;
+
+/**
+ * Where each marker's label sits, in the markers' order. A label is centred on its marker, unless its neighbour along
+ * the track is closer than 30 %: then the one on the left ends at its marker and the one on the right starts at its
+ * own, so equal or nearby prices never write over each other. A marker with close neighbours on both sides keeps its
+ * label centred. Markers at the same place keep their order, left to right.
+ */
+export function markerLabelSides(markers: readonly Pick<TrackMarker, "x">[]): MarkerLabelSide[] {
+  const along = markers.map(({ x }, index) => ({ x, index })).sort((a, b) => a.x - b.x || a.index - b.index);
+  const turns = markers.map(() => ({ left: false, right: false }));
+  for (let place = 1; place < along.length; place++) {
+    if (along[place].x - along[place - 1].x < CLOSE_MARKERS) {
+      turns[along[place - 1].index].left = true;
+      turns[along[place].index].right = true;
+    }
+  }
+  return turns.map(({ left, right }) => {
+    if (left === right) {
+      return "center";
+    }
+    return left ? "end" : "start";
+  });
+}
+
+/** The track's note, set in capitals by the view: the cheapest price's savings, or a stale price's age. */
+function trackNote(verdict: PriceVerdict): string | null {
+  if (verdict.kind === "cheapest") {
+    return verdict.savings === null ? null : `różnica ${formatPrice(verdict.savings.amount)}`;
+  }
+  if (verdict.kind === "stale") {
+    const since = sinceText(verdict.pricedAt, verdict.at);
+    return since === null ? null : `cena sprzed ${since}`;
+  }
+  return null;
+}
+
+/**
+ * What the price track's card says, beside the track or in its place: the only price asks for Natura's match while it
+ * waits, and a stale price asks for a refresh. Null when there's nothing to say.
+ */
+export function trackHint(verdict: PriceVerdict, { naturaUndecided }: NaturaContext): string | null {
+  if (verdict.kind === "only" && naturaUndecided) {
+    return "Dopasuj produkt w Naturze, aby porównać ceny.";
+  }
+  if (verdict.kind === "stale") {
+    return "Odśwież ceny, aby sprawdzić aktualną cenę.";
+  }
+  return null;
+}
+
+/**
+ * What the caption and the phone's bar say for when the prices were checked while a shop's stored price couldn't be
+ * read: that shop's check may be the oldest, so no other shop's age may stand for them all, and it may well have been
+ * checked, so it never reads as never checked.
+ */
+const CHECKS_UNREAD_TEXT = "nie udało się wczytać";
+
+/** When a product's shops were checked, as a whole: a check couldn't be read, the oldest check, or none was made. */
+type ChecksOf = { kind: "unread" } | { kind: "checked"; oldest: string } | { kind: "never" };
+
+/**
+ * When the rows' shops were checked: `unread` while some row's stored price couldn't be read, which a failed read of
+ * all the stored prices (`pricesFailed`) marks on every row; otherwise the oldest check among the shops that have one,
+ * so no age makes a price look fresher than it is, and `never` when no shop has one. A shop never checked shows its
+ * own gap and is left out. A refetch that stores nothing keeps its shop's check.
+ */
+function checksOf(rows: readonly Pick<ShopRow, "latest" | "readFailed">[]): ChecksOf {
+  if (rows.some((row) => row.readFailed)) {
+    return { kind: "unread" };
+  }
+  let oldest: string | null = null;
+  for (const { latest } of rows) {
+    if (latest !== null && (oldest === null || checkTime(latest.lastCheckedAt) < checkTime(oldest))) {
+      oldest = latest.lastCheckedAt;
+    }
+  }
+  return oldest === null ? { kind: "never" } : { kind: "checked", oldest };
+}
+
+/**
+ * When the product's prices were checked, as the caption under "Odśwież ceny" says it (checksOf): "sprawdzono" and
+ * the oldest check's age; that the checks couldn't be read while a shop's stored price couldn't be; and "jeszcze nie
+ * sprawdzono" only when no shop was checked and every price was read.
+ */
+export function checkedCaption(rows: readonly Pick<ShopRow, "latest" | "readFailed">[], now: number): string {
+  const checks = checksOf(rows);
+  switch (checks.kind) {
+    case "unread":
+      return CHECKS_UNREAD_TEXT;
+    case "checked":
+      return `sprawdzono ${ageText(checks.oldest, now)}`;
+    case "never":
+      return "jeszcze nie sprawdzono";
+  }
+}
+
+/**
+ * What the phone's bottom bar writes under "Sprawdzono", by checkedCaption's rule: the oldest check's age, or that the
+ * checks couldn't be read while a shop's stored price couldn't be. Null when no shop was checked, and the bar then
+ * gives the caption on its own.
+ */
+export function checkedAge(rows: readonly Pick<ShopRow, "latest" | "readFailed">[], now: number): string | null {
+  const checks = checksOf(rows);
+  switch (checks.kind) {
+    case "unread":
+      return CHECKS_UNREAD_TEXT;
+    case "checked":
+      return ageText(checks.oldest, now);
+    case "never":
+      return null;
+  }
+}
+
+/** A check's time in milliseconds; one that doesn't parse counts as the oldest, since nothing says it's recent. */
+function checkTime(iso: string): number {
+  const time = Date.parse(iso);
+  return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
+}
 
 const FAILED: RefreshResult = { kind: "unavailable", reason: "failed" };
 const SESSION_ENDED: RefreshResult = { kind: "session-ended" };

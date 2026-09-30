@@ -1,7 +1,8 @@
 ---
 // A product's page when there's no product to show: none by that id on the user's list, or one that couldn't be read.
 // The page renders it in the product's place and keeps its status (404 or 503) and title; the dev kitchen sink shows
-// each branch.
+// each branch. Its heading takes the product title's sizes (ProductTitle), where the product's name would stand: the
+// desktop's from xl (1280 px), and the phone's below it, where the pane beside the list is too narrow for them.
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 type Props =
@@ -19,11 +20,13 @@ type Props =
 const props = Astro.props;
 // Only the not-found branch shows a decision's error.
 const error = props.reason === "not-found" ? (props.error ?? null) : null;
+const HEADING =
+  "text-product-title font-extrabold tracking-heading text-balance xl:text-product-title-lg xl:tracking-title";
 ---
 
 {props.reason === "not-found" ? (
   <>
-    <h1 class="text-2xl font-bold">Nie znaleziono produktu.</h1>
+    <h1 class:list={HEADING}>Nie znaleziono produktu.</h1>
     {error && (
       <Alert variant="destructive">
         <AlertDescription>{error}</AlertDescription>
@@ -32,7 +35,7 @@ const error = props.reason === "not-found" ? (props.error ?? null) : null;
   </>
 ) : (
   <>
-    <h1 class="text-2xl font-bold">Nie udało się wczytać produktu.</h1>
-    <p class="text-sm text-muted-foreground">Odśwież stronę, aby spróbować ponownie.</p>
+    <h1 class:list={HEADING}>Nie udało się wczytać produktu.</h1>
+    <p class="text-sm text-muted-foreground lg:text-body">Odśwież stronę, aby spróbować ponownie.</p>
   </>
 )}

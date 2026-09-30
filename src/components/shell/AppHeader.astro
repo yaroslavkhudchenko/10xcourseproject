@@ -1,0 +1,62 @@
+---
+// The watchlist's header. From lg (1024 px) up, on the list and on a product's page alike: the logo in a 356 px block,
+// so the search lines up with the main pane, the search with its "/" hint, then the theme switch, the account's avatar
+// and, from xl (1280 px), its email, and "Wyloguj": below xl the email would leave the search no room, and the avatar
+// names the account to screen readers instead. Below lg only the list's screen has a header: the smaller logo and the
+// account menu, which holds the email, the theme switch and "Wyloguj". A product's screen on a phone has its own row
+// back to the list.
+import AccountMenu from "@/components/shell/AccountMenu.astro";
+import LogoMark from "@/components/shell/LogoMark.astro";
+import SearchForm from "@/components/shell/SearchForm.astro";
+import ThemeToggle from "@/components/shell/ThemeToggle.astro";
+import { buttonVariants } from "@/components/ui/button";
+import { initialOf } from "@/components/watchlist/thumb-tile";
+import { cn } from "@/lib/utils";
+
+interface Props {
+  /** The screen the header tops: the list, or a product's page. */
+  mode: "list" | "product";
+  /** The signed-in user's email, or null when there's none to show. */
+  email: string | null;
+  /** The search text the page was opened with, or null. */
+  query: string | null;
+  /** Keeps the search field's id apart where the kitchen sink draws the header more than once. */
+  idPrefix?: string;
+}
+
+const { mode, email, query, idPrefix = "" } = Astro.props;
+---
+
+<header class="hidden h-19.5 shrink-0 items-center gap-7 border-b-hairline px-8 lg:flex">
+  <div class="w-89 shrink-0">
+    <LogoMark size="lg" />
+  </div>
+  <SearchForm id={`${idPrefix}q`} value={query} variant="header" class="max-w-140 min-w-0 flex-1" />
+  <div class="ml-auto flex shrink-0 items-center gap-3">
+    <ThemeToggle />
+    {/*
+      The avatar draws the email's first letter. From xl the email beside it spells the account out; below xl, where
+      that email is hidden, the avatar tells screen readers the account itself, so they hear it once at every width.
+    */}
+    <span class="grid size-9.5 shrink-0 place-items-center rounded-full border-2 border-label-ink bg-avatar text-body font-extrabold text-label-ink">
+      <span aria-hidden="true">{initialOf(email)}</span>
+      {email && <span class="sr-only xl:hidden">Konto: {email}</span>}
+    </span>
+    {email && (
+      <span title={email} class="hidden max-w-48 truncate font-mono text-xs text-muted-foreground xl:block">
+        {email}
+      </span>
+    )}
+    <form method="POST" action="/api/auth/signout">
+      <button type="submit" class:list={cn(buttonVariants({ variant: "outline", size: "compact" }))}>
+        Wyloguj
+      </button>
+    </form>
+  </div>
+</header>
+{mode === "list" && (
+  <header class="flex items-center justify-between gap-3 px-4.5 pt-2 lg:hidden">
+    <LogoMark size="sm" />
+    <AccountMenu email={email} />
+  </header>
+)}

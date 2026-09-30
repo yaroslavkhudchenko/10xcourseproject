@@ -304,6 +304,43 @@ describe("listTargets", () => {
     ]);
   });
 
+  it("refetches an item whose price row couldn't be read, as one never checked", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // Felix's item was checked 5 minutes ago, but its row came back odd.
+    const { client } = stubClient({
+      ...listAnswers,
+      latest_price_observations: {
+        data: [
+          latestRow("rossmann", "26900", 20 * MINUTE),
+          latestRow("natura", "NV89063", 2 * 24 * 60 * MINUTE),
+          { ...latestRow("rossmann", "131225", 5 * MINUTE), available: "yes" },
+        ],
+      },
+    });
+
+    expect(await listTargets(client)).toEqual<PriceKey[]>([
+      { shop: "rossmann", shopItemId: "131225" },
+      { shop: "rossmann", shopItemId: "11790" },
+      { shop: "natura", shopItemId: "NV89063" },
+      { shop: "rossmann", shopItemId: "26900" },
+    ]);
+  });
+
+  it("doesn't refetch the Natura item of a product whose match row couldn't be read", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({
+      ...listAnswers,
+      watchlist_matches: {
+        data: [{ watchlist_item_id: SOFT_ID, shop_id: "natura", state: "repinned", shop_item_id: "NV89063" }],
+      },
+    });
+
+    expect(await listTargets(client)).toEqual<PriceKey[]>([
+      { shop: "rossmann", shopItemId: "11790" },
+      { shop: "rossmann", shopItemId: "26900" },
+    ]);
+  });
+
   it.each(["watchlist_items", "watchlist_matches", "latest_price_observations"] as const)(
     "gives failed when %s can't be read, since it can't tell what's out of date",
     async (table) => {
@@ -313,4 +350,50 @@ describe("listTargets", () => {
       expect(await listTargets(client)).toBe("failed");
     },
   );
+
+  it("refetches the items without a readable row when a price row can't say whose it is, instead of failing", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // Felix's item was checked 5 minutes ago, but its row came back without its shop: Felix, like Nivea MEN, which was
+    // never checked, has no readable row, so both are fetched, which also repairs Felix's latest row.
+    const { client } = stubClient({
+      ...listAnswers,
+      latest_price_observations: {
+        data: [
+          latestRow("rossmann", "26900", 20 * MINUTE),
+          latestRow("natura", "NV89063", 2 * 24 * 60 * MINUTE),
+          { ...latestRow("rossmann", "131225", 5 * MINUTE), shop_id: null },
+        ],
+      },
+    });
+
+    expect(await listTargets(client)).toEqual<PriceKey[]>([
+      { shop: "rossmann", shopItemId: "131225" },
+      { shop: "rossmann", shopItemId: "11790" },
+      { shop: "natura", shopItemId: "NV89063" },
+      { shop: "rossmann", shopItemId: "26900" },
+    ]);
+  });
+
+  it.each<{ why: string; table: "watchlist_matches" | "latest_price_observations"; row: unknown }>([
+    {
+      why: "a match row can't say whose it is",
+      table: "watchlist_matches",
+      row: { watchlist_item_id: null, shop_id: "natura", state: "unmatched" },
+    },
+    {
+      why: "a price row is of a shop the list doesn't compare",
+      table: "latest_price_observations",
+      row: { ...latestRow("rossmann", "131225", 5 * MINUTE), shop_id: "dm" },
+    },
+  ])("refreshes the items it can read when $why, instead of failing", async ({ table, row }) => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({ ...listAnswers, [table]: { data: [...listAnswers[table].data, row] } });
+
+    // Nivea Soft's Natura match was read, so its SKU is fetched as before.
+    expect(await listTargets(client)).toEqual<PriceKey[]>([
+      { shop: "rossmann", shopItemId: "11790" },
+      { shop: "natura", shopItemId: "NV89063" },
+      { shop: "rossmann", shopItemId: "26900" },
+    ]);
+  });
 });

@@ -3,18 +3,25 @@ import {
   ageText,
   compareShops,
   formatDay,
+  formatDayOf,
   formatPrice,
   listPricedItems,
   listSummaryText,
+  namesOf,
   needsRefetch,
+  PRICE_UNREAD_TEXT,
+  priceParts,
   priceState,
   productPriceKeys,
   REFETCH_AFTER_MS,
+  sinceText,
   STALE_AFTER_MS,
   staleTargets,
+  verdictOf,
   type LatestCheck,
   type PricedItem,
   type PricedShop,
+  type ShopPrice,
 } from "@/lib/services/price-comparison";
 import type { LatestPrice, ShopMatchState } from "@/types";
 
@@ -324,6 +331,177 @@ describe("compareShops", () => {
   });
 });
 
+describe("verdictOf", () => {
+  /** The verdict on these rows, compared at NOW, with or without a price that couldn't be read. */
+  const verdictOn = (rows: ShopPrice[], unread = false) => verdictOf(compareShops(rows, NOW), NOW, unread);
+
+  const cheaperNatura = row("natura", check({ price: 16.99, checkedAgo: 2 * HOUR }));
+
+  it("says a price couldn't be read before anything else, whatever the other prices say", () => {
+    const rows = [row("rossmann", check({ price: 26.99 })), cheaperNatura];
+
+    expect(verdictOn(rows, true)).toEqual({ kind: "unread", at: NOW });
+    expect(verdictOn(rows).kind).toBe("cheapest");
+    expect(verdictOn([row("rossmann", null)], true)).toEqual({ kind: "unread", at: NOW });
+  });
+
+  it("names the cheapest shop with its price, its age and the savings, as the comparison gives them", () => {
+    expect(verdictOn([row("rossmann", check({ price: 26.99 })), cheaperNatura])).toEqual({
+      kind: "cheapest",
+      shops: ["natura"],
+      price: 16.99,
+      ageFrom: ago(2 * HOUR),
+      savings: { amount: 10, than: "rossmann" },
+      at: NOW,
+    });
+  });
+
+  it("names both shops of a tie, with the older price's age and no savings", () => {
+    const rows = [
+      row("rossmann", check({ price: 16.99, checkedAgo: 5 * MINUTE })),
+      row("natura", check({ price: 16.99, checkedAgo: HOUR })),
+    ];
+
+    expect(verdictOn(rows)).toEqual({
+      kind: "cheapest",
+      shops: ["rossmann", "natura"],
+      price: 16.99,
+      ageFrom: ago(HOUR),
+      savings: null,
+      at: NOW,
+    });
+  });
+
+  it.each<{ why: string; lower: LatestCheck }>([
+    { why: "a lower price 1 ms past 24 hours old", lower: check({ price: 9.99, checkedAgo: STALE_AFTER_MS + 1 }) },
+    {
+      why: "a lower price whose promotion ended yesterday",
+      lower: check({ price: 5.99, promoEndsOn: ENDED_YESTERDAY }),
+    },
+    {
+      why: "a lower price whose item the shop no longer returns",
+      lower: check({ price: 5.99, status: "missing", checkedAgo: MINUTE, pricedAgo: HOUR }),
+    },
+  ])("names the fresh price cheapest beside $why, which can't win", ({ lower }) => {
+    expect(verdictOn([row("rossmann", lower), cheaperNatura])).toMatchObject({
+      kind: "cheapest",
+      shops: ["natura"],
+      price: 16.99,
+      savings: null,
+    });
+  });
+
+  it("names the only fresh price cheapest beside a shop never checked", () => {
+    expect(verdictOn([row("rossmann", check({ price: 26.99 })), row("natura", null)])).toMatchObject({
+      kind: "cheapest",
+      shops: ["rossmann"],
+      savings: null,
+    });
+  });
+
+  it("gives only for the one shop's fresh price that can be ordered online, up to exactly 24 hours old", () => {
+    expect(verdictOn([row("rossmann", check({ price: 26.99, checkedAgo: STALE_AFTER_MS }))])).toEqual({
+      kind: "only",
+      shop: "rossmann",
+      price: 26.99,
+      pricedAt: ago(STALE_AFTER_MS),
+      at: NOW,
+    });
+    expect(verdictOn([row("rossmann", check({ price: 26.99, checkedAgo: STALE_AFTER_MS + 1 }))]).kind).toBe("stale");
+  });
+
+  it("gives unavailable for the one shop's fresh price that can't be ordered online", () => {
+    expect(verdictOn([row("rossmann", check({ price: 26.99, available: false }))])).toEqual({
+      kind: "unavailable",
+      shop: "rossmann",
+      price: 26.99,
+      pricedAt: ago(5 * MINUTE),
+      at: NOW,
+    });
+  });
+
+  it("gives the lowest offer that can't be ordered online when neither shop's can be", () => {
+    const rows = [
+      row("rossmann", check({ price: 26.99, available: false })),
+      row("natura", check({ price: 24.99, available: false, checkedAgo: HOUR })),
+    ];
+
+    expect(verdictOn(rows)).toEqual({
+      kind: "unavailable",
+      shop: "natura",
+      price: 24.99,
+      pricedAt: ago(HOUR),
+      at: NOW,
+    });
+  });
+
+  it("gives a fresh offer that can't be ordered online before a lower stale one", () => {
+    const rows = [
+      row("rossmann", check({ price: 12.99, checkedAgo: 2 * DAY })),
+      row("natura", check({ price: 24.99, available: false })),
+    ];
+
+    expect(verdictOn(rows)).toMatchObject({ kind: "unavailable", shop: "natura", price: 24.99 });
+  });
+
+  it.each<{ why: string; latest: LatestCheck; pricedAt: string }>([
+    {
+      why: "1 ms past 24 hours old",
+      latest: check({ price: 26.99, checkedAgo: STALE_AFTER_MS + 1 }),
+      pricedAt: ago(STALE_AFTER_MS + 1),
+    },
+    {
+      why: "from a promotion that ended yesterday",
+      latest: check({ price: 26.99, promoEndsOn: ENDED_YESTERDAY }),
+      pricedAt: ago(5 * MINUTE),
+    },
+    {
+      why: "for an item the shop no longer returns",
+      latest: check({ price: 26.99, status: "missing", checkedAgo: MINUTE, pricedAgo: 3 * HOUR }),
+      pricedAt: ago(3 * HOUR),
+    },
+  ])("gives stale with the last price when the one shop's price is $why", ({ latest, pricedAt }) => {
+    expect(verdictOn([row("rossmann", latest)])).toEqual({
+      kind: "stale",
+      shop: "rossmann",
+      price: 26.99,
+      pricedAt,
+      at: NOW,
+    });
+  });
+
+  it("gives the lowest stale offer when no shop's price is fresh", () => {
+    const rows = [
+      row("rossmann", check({ price: 26.99, checkedAgo: 2 * DAY })),
+      row("natura", check({ price: 16.99, status: "missing", checkedAgo: MINUTE, pricedAgo: 3 * DAY })),
+    ];
+
+    expect(verdictOn(rows)).toEqual({
+      kind: "stale",
+      shop: "natura",
+      price: 16.99,
+      pricedAt: ago(3 * DAY),
+      at: NOW,
+    });
+  });
+
+  it("gives none when no shop has a price", () => {
+    expect(verdictOn([])).toEqual({ kind: "none", at: NOW });
+    expect(verdictOn([row("rossmann", null)])).toEqual({ kind: "none", at: NOW });
+    expect(verdictOn([row("rossmann", neverPriced)])).toEqual({ kind: "none", at: NOW });
+    expect(verdictOn([row("rossmann", null), row("natura", neverPriced)])).toEqual({ kind: "none", at: NOW });
+  });
+});
+
+describe("namesOf", () => {
+  it('lists shops on their own or after "w", joined the Polish way', () => {
+    expect(namesOf(["natura"])).toBe("Natura");
+    expect(namesOf(["rossmann", "natura"])).toBe("Rossmann i Natura");
+    expect(namesOf(["rossmann", "natura"], "in")).toBe("w Rossmannie i w Naturze");
+    expect(namesOf([])).toBe("");
+  });
+});
+
 describe("ageText", () => {
   it.each([
     { age: 0, text: "przed chwilą" },
@@ -347,6 +525,29 @@ describe("ageText", () => {
   });
 });
 
+describe("sinceText", () => {
+  it.each([
+    { age: 0, text: "chwili" },
+    { age: 59 * SECOND, text: "chwili" },
+    { age: MINUTE, text: "1 min" },
+    { age: HOUR - 1, text: "59 min" },
+    { age: HOUR, text: "1 godz." },
+    { age: DAY - 1, text: "23 godz." },
+    { age: DAY, text: "doby" },
+    { age: 2 * DAY - 1, text: "doby" },
+    { age: 2 * DAY, text: "2 dni" },
+    { age: 10 * DAY + 5 * HOUR, text: "10 dni" },
+    // A browser clock a little behind the server's.
+    { age: -30 * SECOND, text: "chwili" },
+  ])('reads $age ms after "sprzed" as $text, on ageText\'s steps', ({ age, text }) => {
+    expect(sinceText(ago(age), NOW)).toBe(text);
+  });
+
+  it("gives nothing for a time that doesn't parse", () => {
+    expect(sinceText("wczoraj", NOW)).toBeNull();
+  });
+});
+
 describe("formatting", () => {
   it("writes prices in złoty the Polish way", () => {
     expect(formatPrice(16.99)).toBe(`16,99${NO_BREAK_SPACE}zł`);
@@ -357,6 +558,50 @@ describe("formatting", () => {
     expect(formatDay("2026-09-30")).toBe("30.09");
     expect(formatDay("2027-01-05")).toBe("05.01");
   });
+
+  it("writes the day an instant fell on in Poland, as day and month", () => {
+    expect(formatDayOf("2026-09-20T08:00:00.000Z")).toBe("20.09");
+    // 00:30 on 21 September in Poland, in summer time, is still 20 September in UTC.
+    expect(formatDayOf("2026-09-20T22:30:00.000Z")).toBe("21.09");
+    // 00:30 on 1 January in Poland, in winter time.
+    expect(formatDayOf("2026-12-31T23:30:00.000Z")).toBe("01.01");
+  });
+
+  it("gives no day for a time that doesn't parse", () => {
+    expect(formatDayOf("wczoraj")).toBeNull();
+  });
+});
+
+describe("priceParts", () => {
+  it("splits a price into its złote and its grosze", () => {
+    expect(priceParts(22.99)).toEqual({ zlote: "22", grosze: "99" });
+    expect(priceParts(0.99)).toEqual({ zlote: "0", grosze: "99" });
+  });
+
+  it("writes both grosze digits, even for a whole price", () => {
+    expect(priceParts(5)).toEqual({ zlote: "5", grosze: "00" });
+    expect(priceParts(12.5)).toEqual({ zlote: "12", grosze: "50" });
+  });
+
+  it("groups the złote as formatPrice does: with a no-break space, from five digits", () => {
+    // Polish leaves a four-digit amount ungrouped.
+    expect(priceParts(1234.56)).toEqual({ zlote: "1234", grosze: "56" });
+    expect(priceParts(12345.67)).toEqual({ zlote: `12${NO_BREAK_SPACE}345`, grosze: "67" });
+  });
+
+  it("rounds as formatPrice does, carrying into the złote", () => {
+    expect(priceParts(16.999)).toEqual({ zlote: "17", grosze: "00" });
+    expect(priceParts(2.675)).toEqual({ zlote: "2", grosze: "68" });
+  });
+
+  it.each([22.99, 5, 0.99, 1234.56, 12345.67, 16.999, 2.675])(
+    "reads %d as the parts of formatPrice's text",
+    (amount) => {
+      const { zlote, grosze } = priceParts(amount);
+
+      expect(`${zlote},${grosze}${NO_BREAK_SPACE}zł`).toBe(formatPrice(amount));
+    },
+  );
 });
 
 describe("productPriceKeys", () => {
@@ -555,11 +800,36 @@ describe("listSummaryText", () => {
     );
   });
 
-  it("says there are no prices yet when none has been fetched", () => {
+  it("says when no shop's fresh price can be ordered online, never that the prices are out of date", () => {
+    const rossmannToo = row("rossmann", check({ price: 26.99, available: false }));
+    const naturaUnorderable = row("natura", check({ price: 24.99, available: false }));
+
+    expect(listLine(rossmannToo, naturaUnorderable)).toBe(
+      line("Niedostępny online: Natura 24,99 zł · 5 min temu · Rossmann: niedostępny online"),
+    );
+    expect(listLine(row("rossmann", check({ price: 12.99, checkedAgo: 2 * DAY })), naturaUnorderable)).toBe(
+      line("Niedostępny online: Natura 24,99 zł · 5 min temu · Rossmann: cena nieaktualna"),
+    );
+  });
+
+  it("says a price couldn't be read, whatever the other prices say", () => {
+    const { summary, rows } = compareShops([row("rossmann", check({ price: 26.99 })), row("natura", null)], NOW);
+
+    expect(listSummaryText(summary, rows, NOW, true)).toBe(PRICE_UNREAD_TEXT);
+    expect(PRICE_UNREAD_TEXT).toBe("Nie udało się wczytać ceny.");
+  });
+
+  it("says there are no prices yet when no shop has been checked", () => {
     const noPrices = "Jeszcze bez cen. Otwórz produkt, aby je pobrać.";
 
-    expect(listLine(row("rossmann", null), row("natura", neverPriced))).toBe(noPrices);
+    expect(listLine(row("rossmann", null), row("natura", null))).toBe(noPrices);
     expect(listLine(row("rossmann", null))).toBe(noPrices);
-    expect(listLine(row("rossmann", neverPriced))).toBe(noPrices);
+  });
+
+  it("says a shop doesn't return a product checked before its first price, never that there are no prices yet", () => {
+    expect(listLine(row("rossmann", neverPriced))).toBe("Brak ceny online · Rossmann: nie zwraca tego produktu");
+    expect(listLine(row("rossmann", null), row("natura", neverPriced))).toBe(
+      "Brak ceny online · Rossmann: jeszcze nie sprawdzono · Natura: nie zwraca tego produktu",
+    );
   });
 });
