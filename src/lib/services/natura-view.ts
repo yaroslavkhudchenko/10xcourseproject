@@ -1,4 +1,4 @@
-import { DECISION_CODES, DECISION_NOTICES } from "@/lib/notices";
+import { DECISION_CODES, DECISION_NOTICES, REPIN_PARAM } from "@/lib/notices";
 import { replacesFieldOf } from "@/lib/services/matches";
 import { matchDifferences } from "@/lib/services/matching";
 import { formatPrice, SHOP_LABELS } from "@/lib/services/price-comparison";
@@ -104,8 +104,12 @@ export interface StoredViewOptions {
   repinning?: boolean;
 }
 
-/** A candidate of the choice that changes a stored decision, marked when it's the item the product is matched to. */
-export type RepinOption = NaturaOption & { current: boolean };
+/**
+ * A candidate of the choice that changes a stored decision, marked when it's the item the product is matched to
+ * (`current`), and offered to confirm (`confirm`) unless it's the item of a match the user confirmed: an automatic
+ * match's item can still be confirmed in place, which makes the match the user's own.
+ */
+export type RepinOption = NaturaOption & { current: boolean; confirm: boolean };
 
 /** A line the choice says about its searches, in the warning colour when Natura gave no answer. */
 export interface NaturaMessage {
@@ -116,9 +120,9 @@ export interface NaturaMessage {
 /**
  * The choice of Natura's candidates the user opens to change a stored decision, below the shops' cards, while the card
  * keeps showing the decision (storedView with `repinning`). It says what found the candidates, offers each with its
- * flags, the current match marked, says why there are fewer or none, and offers "Żaden z nich" only from a match. Its
- * forms post the decision they replace, and "Anuluj" leaves the decision as it was. It isn't a NaturaView: the card
- * has no kind for it.
+ * flags, the current match marked and offered to confirm only while the rule matched it on its own, says why there are
+ * fewer or none, and offers "Żaden z nich" only from a match. Its forms post the decision they replace, and "Anuluj"
+ * leaves the decision as it was. It isn't a NaturaView: the card has no kind for it.
  */
 export interface NaturaRepin {
   kind: "repin";
@@ -170,7 +174,7 @@ function pageHref(own: NaturaProduct, filter: ListFilter, params: Record<string,
 function actionOf(own: NaturaProduct, { filter, repinning = false }: StoredViewOptions): NaturaAction {
   return repinning
     ? { kind: "cancel", href: pageHref(own, filter) }
-    : { kind: "repin", href: pageHref(own, filter, { repin: "1" }) };
+    : { kind: "repin", href: pageHref(own, filter, { [REPIN_PARAM]: "1" }) };
 }
 
 /**
@@ -279,9 +283,11 @@ const FOUND_BY = { ean: "po kodzie EAN", name: "po nazwie", both: "po kodzie EAN
 
 /**
  * The choice Natura's searches at `fetchedAt` give the user for changing the product's stored decision (`current`):
- * the candidates in the lookup's order, the current match marked, and "Żaden z nich" from a match. A name search
- * without an answer, a lookup that found nothing and Natura not answering each say so: from a match, "Żaden z nich"
- * still declines it. Every link keeps the list's filter.
+ * the candidates in the lookup's order, the current match marked, and "Żaden z nich" from a match. Every candidate is
+ * offered to confirm but the item of a match the user confirmed: confirming an automatic match's own item makes the
+ * match the user's, so a false alarm on it stops counting as one to check. A name search without an answer, a lookup
+ * that found nothing and Natura not answering each say so: from a match, "Żaden z nich" still declines it. Every link
+ * keeps the list's filter.
  */
 export function repinView(
   choices: NaturaChoices,
@@ -293,6 +299,8 @@ export function repinView(
   // A decline has no "Żaden z nich": the user leaves it as it is with "Anuluj".
   const decline = current.state === "matched";
   const currentId = current.item?.shopItemId ?? null;
+  // The item the user confirmed already, offered no more; an automatic match's item is still offered.
+  const confirmedId = current.decidedBy === "user" ? currentId : null;
   const shared = {
     kind: "repin",
     decline,
@@ -312,6 +320,7 @@ export function repinView(
         options: choices.options.map((option) => ({
           ...optionView(option, fetchedAt, own),
           current: option.candidate.shopItemId === currentId,
+          confirm: option.candidate.shopItemId !== confirmedId,
         })),
         message: incomplete === null ? null : { text: incomplete, warning: true },
       };

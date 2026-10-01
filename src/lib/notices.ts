@@ -2,8 +2,9 @@ import type { PriceRefreshCode } from "@/lib/services/price-refresh";
 
 // The parameters a page's address bar brings a notice with, and the notices' texts, defined once for the routes that
 // send them, the pages' frontmatter, the list's head, the product page's Natura section and both pages' address-bar
-// scripts: a saved Natura decision's, what each "Odśwież ceny" came to, "Dodaj"'s and a removal's. The scripts run in
-// the browser, so this module imports nothing but a type, which the bundle drops.
+// scripts: a saved Natura decision's, what each "Odśwież ceny" came to, "Dodaj"'s and a removal's, with the one that
+// opens a re-pin's choice, which the product page's address bar forgets too. The scripts run in the browser, so this
+// module imports nothing but a type, which the bundle drops.
 
 /** The parameters a saved Natura decision comes back with (/api/watchlist/matches), in the order the page reads them. */
 export const DECISION_CODES = ["matched", "declined", "decided"] as const;
@@ -67,6 +68,14 @@ export const REMOVAL_NOTICES: Record<RemovalCode, string> = {
 };
 
 /**
+ * What the product's page says for each when the product isn't there any more, as a status: a removal whose answer
+ * didn't come may still have gone through, and the missing product shows it did.
+ */
+export const REMOVAL_GONE_NOTICES: Record<RemovalCode, string> = {
+  failed: "Produktu nie ma już na Twojej liście.",
+};
+
+/**
  * The id of a product page's removal confirm, which the address of a removal that didn't go through points to
  * (`#remove`): the confirm stands at the page's foot, so the page opens there, at its error, not at its top.
  */
@@ -82,10 +91,25 @@ export const PRICES_PARAM = "prices";
 export const LIST_PRICES_PARAM = "list-prices";
 
 /**
- * Every parameter a notice comes with, which the product page's address bar forgets once the notice has shown: a
- * decision's, a decision's error, the product's no-JavaScript refresh's, the list's refresh's and a failed removal's.
+ * The parameter that opens a stored decision's choice on its product's page (`?repin=1`), from "Zmień" or "Dopasuj
+ * ponownie". The page's address bar forgets it once the choice has rendered, so going back to it or reloading lands on
+ * the plain page and asks Natura nothing.
  */
-export const NOTICE_PARAMS = [...DECISION_CODES, ERROR_PARAM, PRICES_PARAM, LIST_PRICES_PARAM, REMOVAL_PARAM] as const;
+export const REPIN_PARAM = "repin";
+
+/**
+ * Every parameter the product page's address bar forgets: a notice's, once the notice has shown (a decision's, a
+ * decision's error, the product's no-JavaScript refresh's, the list's refresh's and a failed removal's), and the
+ * re-pin's, once its choice has rendered.
+ */
+export const NOTICE_PARAMS = [
+  ...DECISION_CODES,
+  ERROR_PARAM,
+  PRICES_PARAM,
+  LIST_PRICES_PARAM,
+  REMOVAL_PARAM,
+  REPIN_PARAM,
+] as const;
 
 /**
  * Every parameter the list shows a notice by, which the list's address bar forgets once the notice has shown:

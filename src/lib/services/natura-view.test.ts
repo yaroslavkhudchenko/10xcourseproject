@@ -386,13 +386,14 @@ describe("repinView", () => {
     incomplete,
   });
 
-  it("offers a match's choice with its item marked, Żaden z nich, and the match every form replaces", () => {
+  it("offers an automatic match's choice with its item marked and offered, Żaden z nich, and the match it replaces", () => {
+    // Confirming the item the rule matched on its own makes the match the user's.
     expect(repinView(found("both"), matchedDecision, FETCHED_AT, product, "all")).toEqual({
       kind: "repin",
       intro: "Znalezione w Naturze po kodzie EAN i po nazwie. Wybierz ten sam produkt albo „Żaden z nich”.",
       options: [
-        { ...optionView(matchedItem, FETCHED_AT, product), current: true },
-        { ...optionView(otherSize, FETCHED_AT, product), current: false },
+        { ...optionView(matchedItem, FETCHED_AT, product), current: true, confirm: true },
+        { ...optionView(otherSize, FETCHED_AT, product), current: false, confirm: true },
       ],
       message: null,
       decline: true,
@@ -401,13 +402,22 @@ describe("repinView", () => {
     });
   });
 
-  it("offers a decline's choice with nothing marked and no Żaden z nich, only Anuluj", () => {
+  it("marks the item of a match the user confirmed without offering it again, and offers every other candidate", () => {
+    const confirmed: RepinnableMatch = { ...decision, decidedBy: "user", state: "matched", item: item("300 ml") };
+
+    expect(repinView(found("both"), confirmed, FETCHED_AT, product, "all").options).toEqual([
+      { ...optionView(matchedItem, FETCHED_AT, product), current: true, confirm: false },
+      { ...optionView(otherSize, FETCHED_AT, product), current: false, confirm: true },
+    ]);
+  });
+
+  it("offers a decline's choice with nothing marked, every candidate offered, and no Żaden z nich, only Anuluj", () => {
     expect(repinView(found("both"), declinedDecision, FETCHED_AT, product, "all")).toEqual({
       kind: "repin",
       intro: "Znalezione w Naturze po kodzie EAN i po nazwie. Wybierz ten sam produkt albo „Anuluj”.",
       options: [
-        { ...optionView(matchedItem, FETCHED_AT, product), current: false },
-        { ...optionView(otherSize, FETCHED_AT, product), current: false },
+        { ...optionView(matchedItem, FETCHED_AT, product), current: false, confirm: true },
+        { ...optionView(otherSize, FETCHED_AT, product), current: false, confirm: true },
       ],
       message: null,
       decline: false,

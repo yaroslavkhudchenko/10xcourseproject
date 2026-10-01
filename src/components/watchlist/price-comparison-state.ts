@@ -34,19 +34,25 @@ export const REFRESH_FORM_ROUTE = "/api/watchlist/refresh";
 const REFRESH_TIMEOUT_MS = 20_000;
 
 /**
- * One matched shop as the page hands it to the island: the shop, its item's page, its stored price, if any, and whether
- * the page couldn't read that price.
+ * One matched shop as the page hands it to the island: the shop, the item the page shows there, its item's page, its
+ * stored price, if any, and whether the page couldn't read that price.
  */
 export interface PriceComparisonShop {
   shop: PricedShop;
+  /** The shop's item the page shows, which each refetch names. */
+  shopItemId: string;
   productUrl: string | null;
   latest: LatestPrice | null;
   /** The page read the stored prices, but not this shop's: its row came back odd. */
   readFailed?: boolean;
 }
 
-/** What one refetch came to: the route's answer, or that the session ended and the user has to sign in again. */
-export type RefreshResult = PriceRefreshAnswer | { kind: "session-ended" };
+/**
+ * What one refetch came to: the route's answer; that the session ended and the user has to sign in again; or that the
+ * shop's stored match is no longer the item the page shows (`match-changed`), because it was re-pinned elsewhere, so
+ * the page has to be reloaded.
+ */
+export type RefreshResult = PriceRefreshAnswer | { kind: "session-ended" } | { kind: "match-changed" };
 
 /** Why the last refetch gave no answer, shown next to the last known price. */
 export interface RefreshNotice {
@@ -55,11 +61,13 @@ export interface RefreshNotice {
 }
 
 /**
- * One shop's row: its item's page, its latest check, whether a refetch runs, why the last one gave no answer, and
- * whether the page couldn't read its stored price.
+ * One shop's row: the item the page shows, its item's page, its latest check, whether a refetch runs, why the last one
+ * gave no answer, and whether the page couldn't read its stored price.
  */
 export interface ShopRow {
   shop: PricedShop;
+  /** The shop's item the page shows, which each refetch names. */
+  shopItemId: string;
   productUrl: string | null;
   latest: LatestCheck | null;
   pending: boolean;
@@ -79,6 +87,8 @@ export interface PriceComparisonState {
   now: number;
   /** A refetch found the session ended. */
   sessionEnded: boolean;
+  /** A refetch found a shop's stored match is no longer the item the page shows: the page has to be reloaded. */
+  matchChanged: boolean;
   /**
    * What the island's live region says: one message per answer of the current round, in the order the answers came.
    * A round starts with a refetch while none runs.
@@ -122,8 +132,9 @@ export function initialState({
   pricesFailed?: boolean;
 }): PriceComparisonState {
   return {
-    rows: shops.map(({ shop, productUrl, latest, readFailed }) => ({
+    rows: shops.map(({ shop, shopItemId, productUrl, latest, readFailed }) => ({
       shop,
+      shopItemId,
       productUrl,
       latest,
       pending: false,
@@ -132,6 +143,7 @@ export function initialState({
     })),
     now: Date.parse(now),
     sessionEnded: false,
+    matchChanged: false,
     announcements: [],
   };
 }
@@ -148,6 +160,7 @@ export function priceComparisonReducer(
       return {
         ...state,
         sessionEnded: false,
+        matchChanged: false,
         rows: state.rows.map((row) => (row.shop === action.shop ? { ...row, pending: true, notice: null } : row)),
         announcements: newRound ? [] : state.announcements,
       };
@@ -159,6 +172,7 @@ export function priceComparisonReducer(
         rows,
         now: action.at,
         sessionEnded: state.sessionEnded || action.result.kind === "session-ended",
+        matchChanged: state.matchChanged || action.result.kind === "match-changed",
         announcements: said === null ? state.announcements : [...state.announcements, said],
       };
     }
@@ -170,7 +184,8 @@ export function priceComparisonReducer(
 /**
  * What the live region says about one shop's answer, judged on the rows that answer made, at `now`: the new price, and
  * whether it's now the cheapest, as the rows mark it, or the text the row shows next to the last known price. Null for
- * an ended session, which the page's own alert announces with its link to sign in.
+ * an ended session and for a changed match, which the page's own alerts announce, with their links to sign in and to
+ * reload the page.
  */
 function announcement(rows: ShopRow[], now: number, shop: PricedShop, result: RefreshResult): string | null {
   const { name } = SHOP_LABELS[shop];
@@ -186,6 +201,7 @@ function announcement(rows: ShopRow[], now: number, shop: PricedShop, result: Re
     case "unavailable":
       return priceUnavailableText(name, result.reason, result.until, hasPrice);
     case "session-ended":
+    case "match-changed":
       return null;
   }
 }
@@ -221,6 +237,7 @@ function settled(row: ShopRow, result: RefreshResult): ShopRow {
         notice: result.until === undefined ? { reason: result.reason } : { reason: result.reason, until: result.until },
       };
     case "session-ended":
+    case "match-changed":
       return idle;
   }
 }
@@ -620,14 +637,17 @@ function checkTime(iso: string): number {
 
 const FAILED: RefreshResult = { kind: "unavailable", reason: "failed" };
 const SESSION_ENDED: RefreshResult = { kind: "session-ended" };
+const MATCH_CHANGED: RefreshResult = { kind: "match-changed" };
 
 /**
- * Asks the route to refetch one shop of the product, as JSON, which only the app's own pages can send. It never
- * throws: a request that fails or runs out of time is a failed refetch.
+ * Asks the route to refetch one shop of the product, naming the item the page shows there (`shopItemId`), as JSON,
+ * which only the app's own pages can send. It never throws: a request that fails or runs out of time is a failed
+ * refetch.
  */
 export async function requestRefresh(
   itemId: string,
   shop: PricedShop,
+  shopItemId: string,
   send: typeof fetch = fetch,
 ): Promise<RefreshResult> {
   // A timer of its own rather than AbortSignal.timeout, which Safari before 16 lacks; it covers reading the answer too.
@@ -639,7 +659,7 @@ export async function requestRefresh(
     const response = await send(PRICES_ROUTE, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ itemId, shop }),
+      body: JSON.stringify({ itemId, shop, shopItemId }),
       // A signed-out request is redirected to the sign-in page: not following the redirect tells at once.
       redirect: "manual",
       signal: controller.signal,
@@ -653,12 +673,13 @@ export async function requestRefresh(
 }
 
 /** The parts of a `Response` the island reads, so a test can stand in for a redirect the browser didn't follow. */
-export type RefreshResponse = Pick<Response, "type" | "redirected" | "ok" | "headers" | "json">;
+export type RefreshResponse = Pick<Response, "type" | "redirected" | "ok" | "status" | "headers" | "json">;
 
 /**
  * What the route's response comes to. A signed-out request is redirected to the sign-in page, so a redirect, or a page
  * in place of JSON, means the session ended: with `redirect: "manual"` the redirect comes back opaque, and one followed
- * anyway comes back as the sign-in page. An error status, and an answer that isn't the route's own, is a failed
+ * anyway comes back as the sign-in page. A conflict the route answers `changed` means the shop's stored match is no
+ * longer the item the page shows. Any other error status, and an answer that isn't the route's own, is a failed
  * refetch.
  */
 export async function readRefreshResponse(response: RefreshResponse): Promise<RefreshResult> {
@@ -669,7 +690,8 @@ export async function readRefreshResponse(response: RefreshResponse): Promise<Re
     // An error page is a failure; a page that loaded fine is the sign-in page.
     return response.ok ? SESSION_ENDED : FAILED;
   }
-  if (!response.ok) {
+  // Only the route's answer and its conflict carry a body the island reads.
+  if (!response.ok && response.status !== 409) {
     return FAILED;
   }
   let body: unknown;
@@ -677,6 +699,9 @@ export async function readRefreshResponse(response: RefreshResponse): Promise<Re
     body = await response.json();
   } catch {
     return FAILED;
+  }
+  if (response.status === 409) {
+    return isRecord(body) && body.error === "changed" ? MATCH_CHANGED : FAILED;
   }
   return parseRefreshAnswer(body) ?? FAILED;
 }

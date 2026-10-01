@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decideMatchStep, type MatchStep, type MatchStepInput } from "@/lib/services/match-step";
+import { autoRefreshOf, decideMatchStep, type MatchStep, type MatchStepInput } from "@/lib/services/match-step";
 import type { ShopMatch } from "@/types";
 
 const decision = { watchlistItemId: "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb", checkedAt: "2026-09-27T19:45:12+00:00" };
@@ -191,5 +191,28 @@ describe("decideMatchStep: the choice that changes a stored decision (?repin=1)"
     expect(
       decideMatchStep({ matches: null, shop: "natura", retrying: false, repinning: true, ownNavigation: own }),
     ).toEqual({ kind: "read-failed" });
+  });
+});
+
+describe("autoRefreshOf: whether opening the page refetches its prices on its own", () => {
+  /** The page's step for the stored match, opened with `?repin=1` or without, by the user's own navigation or not. */
+  const stepFor = (repinning: boolean, ownNavigation: boolean) =>
+    decideMatchStep({ matches: [matched], shop: "natura", retrying: false, repinning, ownNavigation });
+
+  it("refetches on the user's own navigation beside a stored decision", () => {
+    expect(autoRefreshOf(stepFor(false, true), true)).toBe(true);
+  });
+
+  it("refetches nothing while a re-pin's choice is open, which has already cost Natura its two searches", () => {
+    expect(stepFor(true, true).kind).toBe("repin");
+    expect(autoRefreshOf(stepFor(true, true), true)).toBe(false);
+  });
+
+  it.each([false, true])("refetches nothing on a navigation that isn't the user's own (?repin=1: %s)", (repinning) => {
+    expect(autoRefreshOf(stepFor(repinning, false), false)).toBe(false);
+  });
+
+  it.each([true, false])("follows the navigation alone without a step (own navigation: %s)", (own) => {
+    expect(autoRefreshOf(null, own)).toBe(own);
   });
 });

@@ -989,6 +989,34 @@ Shop requests per page view and action (lesson "Bound what each page view and ac
   - The local stack runs the same image (`supabase/postgres:17.6.1.166`, reporting "PostgreSQL 17.6"), so the research's probes P1–P3 ran on production's version. That closes research open question 7.
   - An upgrade after that link would show in the dashboard (Project Settings → Infrastructure).
 
+### Implementation review fixes
+
+- **The review** (`reviews/impl-review.md`, 2026-10-01): NEEDS ATTENTION, with 1 warning and 5 observations. The owner had all six fixed, F1 through Fix A. A subagent wrote the fixes, and the main session reviewed, gated and break-checked them. What's left for later is in `follow-ups/review-fixes.md`.
+- **F1, a page left open after a re-pin elsewhere:**
+  - Each island refetch names the shop item its page shows (`shopItemId` in `PriceComparisonShop` and `ShopRow`), and `priceRequestSchema` requires it, through the shared `shopItemIdSchema`, which `matches.ts` now exports.
+  - `priceTargetFor` (`price-targets.ts`) still fetches only the item the user's rows give. When that differs from the one named, it gives `changed`, which the route answers with 409 before any shop request.
+  - The island reads that 409 as `match-changed`. The row stays as it was, and a warning Alert, built like the session one, says "Dopasowanie w Naturze się zmieniło." with a link that reloads the product's page with the list's filter.
+  - `refresh(shop, shopItemId)` takes the id from its caller: the page's `shops` for the automatic refetch, and the state's row for the button.
+  - Smoke's price posts carry a `shopItemId`. The kitchen sink's island states gain `match-changed`, where Rossmann answers with a price and Natura with `match-changed`, with its legend line beside `session-ended`'s.
+- **F2:** `REPIN_PARAM` (`notices.ts`) joins `NOTICE_PARAMS`, so the product page's address bar forgets `?repin=1` once the choice has rendered. Going back to it or reloading it lands on the plain page and asks Natura nothing.
+  - This amends Phase 3's note that the address bar keeps `repin=1`. A reload of an open choice, say after Natura was busy, now shows the plain page, and "Zmień" opens the choice again.
+  - The two production uses of the literal (`[id].astro`, `natura-view.ts`) take the constant.
+- **F3:** each re-pin option carries `confirm`, which is false only for the item of a match the user confirmed.
+  - An automatic match's item shows "Obecne dopasowanie" and "To ten produkt". Confirming it posts the decision it replaces, so the same compare-and-swap makes the match the user's own, and a false alarm stops counting in "Do sprawdzenia".
+  - The kitchen sink's `CONFIRMED` is retyped `RepinnableMatch` and draws a "confirmed + repin" fixture, with the badge only.
+- **F4:** `autoRefreshOf(step, ownNavigation)` (`match-step.ts`, tested) replaces the page's inline rule. The page keeps its step in scope.
+- **F5:** with `REMOVAL_GONE_NOTICES` and `removalGoneNotice()`, the not-found page shows "Produktu nie ma już na Twojej liście." as a success status after `?removal=failed`. The kitchen sink draws that state.
+- **F6:** smoke gains a `removal` helper and four steps: an anonymous user is redirected, a post from another site is refused, a crafted id goes to `/watchlist` with no code, and a product no one has goes to `/watchlist?f=check&removed=gone`.
+- **CLAUDE.md:** line 50 only, and the course block is untouched.
+- **Gates:** 1,171 tests, lint, `astro check` with 0 errors and 0 warnings, the build with 6 fonts, 136 contrast pairs, and smoke's 28 steps against the dev server.
+- **Break-checks:** seven, each going red and then restored. The route's target ignoring the item shown and the island reading the 409 as a failure (F1), the address bar keeping `repin` (F2), no confirm on an automatic current item (F3), a refetch while re-pinning (F4), and no notice on the not-found page (F5).
+- **Checked on dev by the agent (2026-10-02):** the throwaway local user `s08-p5-…`, with Rossmann and Natura disabled locally. `shop_requests` stayed at 126 throughout.
+  - **F1:** Q3 was re-pinned "from another tab" through the user's own REST call. The product's "Odśwież ceny" then showed "Dopasowanie w Naturze się zmieniło. Odśwież stronę, aby zobaczyć aktualne ceny." with the product's own link, and never the new item's name. Q2's refresh, its match unchanged, showed no such alert.
+  - **F2:** `/watchlist/<Q1>?f=check&repin=1` became `?f=check` once the choice rendered.
+  - **F3:** confirming Q1's own automatic match (DOVE for a NIVEA product) went to `?f=check&matched=1`. The row is now `decided_by` `user`, and "Do sprawdzenia" fell from 1 to 0.
+  - **F5:** `/watchlist/<a product no one has>?removal=failed` said "Produktu nie ma już na Twojej liście." as a status.
+  - **Kitchen sink:** it draws the reload alert and the not-found notice in both themes. In its re-pin choices, the automatic matches' current items offer "To ten produkt", and the user-confirmed one shows the badge only.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.

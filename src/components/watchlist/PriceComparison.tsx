@@ -66,10 +66,11 @@ export default function PriceComparison({
   // A Natura decision that couldn't be read may hide a lower price, so the list's row says so too.
   const unreadable = naturaUnreadable(natura?.view ?? null);
 
+  // Each refetch names the shop's item the page shows, so the route can tell when it's no longer the shop's match.
   const refresh = useCallback(
-    (shop: PricedShop) => {
+    (shop: PricedShop, shopItemId: string) => {
       dispatch(start(shop));
-      void requestRefresh(itemId, shop).then((result) => {
+      void requestRefresh(itemId, shop, shopItemId).then((result) => {
         dispatch(done(shop, result, Date.now()));
       });
     },
@@ -98,9 +99,9 @@ export default function PriceComparison({
     }
     autoStarted.current = true;
     const renderedAt = Date.parse(now);
-    for (const { shop, latest } of shops) {
+    for (const { shop, shopItemId, latest } of shops) {
       if (needsRefetch(latest, renderedAt)) {
-        refresh(shop);
+        refresh(shop, shopItemId);
       }
     }
   }, [autoRefresh, now, refresh, shops]);
@@ -122,7 +123,7 @@ export default function PriceComparison({
       natura={natura}
       onRefresh={() => {
         for (const row of state.rows) {
-          refresh(row.shop);
+          refresh(row.shop, row.shopItemId);
         }
       }}
     />

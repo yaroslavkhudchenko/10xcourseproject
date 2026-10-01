@@ -9,6 +9,7 @@ import {
   PRICES_PARAM,
   REMOVAL_PARAM,
   REMOVED_PARAM,
+  REPIN_PARAM,
   withoutNotices,
 } from "@/lib/notices";
 
@@ -32,9 +33,16 @@ describe("LIST_NOTICE_PARAMS, which the list's address bar forgets", () => {
 });
 
 describe("NOTICE_PARAMS, which the product page's address bar forgets", () => {
-  it("holds a decision's, an error's, both refreshes' and a failed removal's", () => {
+  it("holds a decision's, an error's, both refreshes', a failed removal's and a re-pin's", () => {
     expect(NOTICE_PARAMS).toEqual(
-      expect.arrayContaining([...DECISION_CODES, ERROR_PARAM, PRICES_PARAM, LIST_PRICES_PARAM, REMOVAL_PARAM]),
+      expect.arrayContaining([
+        ...DECISION_CODES,
+        ERROR_PARAM,
+        PRICES_PARAM,
+        LIST_PRICES_PARAM,
+        REMOVAL_PARAM,
+        REPIN_PARAM,
+      ]),
     );
   });
 
@@ -63,7 +71,11 @@ describe("withoutNotices, which both pages' address-bar scripts forget their not
 
   it("gives null for an address without any of them, which has nothing to forget", () => {
     expect(withoutNotices(`${BASE}/watchlist?f=check&q=nivea`, LIST_NOTICE_PARAMS)).toBeNull();
-    expect(withoutNotices(`${BASE}/watchlist/x?repin=1`, NOTICE_PARAMS)).toBeNull();
+    expect(withoutNotices(`${BASE}/watchlist/x?f=check`, NOTICE_PARAMS)).toBeNull();
+  });
+
+  it("drops a re-pin's parameter and keeps the filter, so going back to its choice asks Natura nothing", () => {
+    expect(withoutNotices(`${BASE}/watchlist/x?f=check&repin=1`, NOTICE_PARAMS)).toBe(`${BASE}/watchlist/x?f=check`);
   });
 
   it("drops a parameter it names even when the address holds it more than once", () => {

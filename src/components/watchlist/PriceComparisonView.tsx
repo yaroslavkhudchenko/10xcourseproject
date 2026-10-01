@@ -24,7 +24,7 @@ import ProductTitle, { type TitleProduct } from "@/components/watchlist/ProductT
 import RefreshBar from "@/components/watchlist/RefreshBar";
 import ShopCard from "@/components/watchlist/ShopCard";
 import VerdictHero from "@/components/watchlist/VerdictHero";
-import type { ListFilter } from "@/lib/services/watchlist-rows";
+import { filterHref, type ListFilter } from "@/lib/services/watchlist-rows";
 
 interface Props {
   /** The watched product's id, which both refresh forms post. */
@@ -79,6 +79,23 @@ export default function PriceComparisonView({ itemId, listFilter, product, state
                 Zaloguj się ponownie
               </a>
               , aby odświeżyć ceny.
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
+      {state.matchChanged && (
+        <Alert variant="warning">
+          <AlertDescription>
+            <p>
+              Dopasowanie w Naturze się zmieniło.{" "}
+              {/* The product's page anew, with the list's filter: it shows the match as it stands now. */}
+              <a
+                href={filterHref(`/watchlist/${itemId}`, listFilter)}
+                className="hit-area whitespace-nowrap underline hover:decoration-2"
+              >
+                Odśwież stronę
+              </a>
+              , aby zobaczyć aktualne ceny.
             </p>
           </AlertDescription>
         </Alert>

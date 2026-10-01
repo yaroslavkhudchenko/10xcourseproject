@@ -16,6 +16,7 @@ import {
   productFullName,
   removalBackTo,
   removalErrorMessage,
+  removalGoneNotice,
   removedNotice,
   removeFromWatchlist,
   watchlistErrorMessage,
@@ -505,6 +506,19 @@ describe("removedNotice and removalErrorMessage", () => {
     "the product's page shows no removal's error for %j, which the app never sends",
     (code) => {
       expect(removalErrorMessage(code)).toBeNull();
+    },
+  );
+});
+
+describe("removalGoneNotice", () => {
+  it("says the product is no longer on the list after a failed removal's code, as a removal that went through", () => {
+    expect(removalGoneNotice("failed")).toBe("Produktu nie ma już na Twojej liście.");
+  });
+
+  it.each([null, "", "1", "done", "gone", "FAILED", "Kliknij tutaj, by odebrać nagrodę", "toString", "__proto__"])(
+    "the product's missing page shows no removal's notice for %j, which the app never sends",
+    (code) => {
+      expect(removalGoneNotice(code)).toBeNull();
     },
   );
 });

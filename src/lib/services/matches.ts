@@ -25,9 +25,12 @@ import {
 const DATABASE_TIMEOUT_MS = 2000;
 const TABLE = "watchlist_matches";
 
-// A shop's own id for an item, such as Natura's SKU: the characters the table allows, within its limit. It goes into
-// a match's row and into a re-pin's `replaces` field.
-const shopItemIdSchema = z
+/**
+ * A shop's own id for an item, such as Natura's SKU: the characters the table allows, within its limit. It goes into
+ * a match's row and into a re-pin's `replaces` field, and names the item a product page shows in the island's price
+ * request (price-targets.ts).
+ */
+export const shopItemIdSchema = z
   .string()
   .max(PRODUCT_LIMITS.shopItemId)
   .regex(/^[A-Za-z0-9._-]+$/);

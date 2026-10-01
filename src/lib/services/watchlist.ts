@@ -4,6 +4,7 @@ import {
   ERROR_PARAM,
   REMOVAL_ANCHOR,
   REMOVAL_CODES,
+  REMOVAL_GONE_NOTICES,
   REMOVAL_NOTICES,
   REMOVAL_PARAM,
   REMOVED_CODES,
@@ -321,6 +322,15 @@ export function removedNotice(value: string | null): string | null {
 export function removalErrorMessage(value: string | null): string | null {
   const code = REMOVAL_CODES.find((each) => each === value);
   return code === undefined ? null : REMOVAL_NOTICES[code];
+}
+
+/**
+ * The product page's text for a failed removal's `?removal=` code when the product isn't there any more, which a
+ * removal whose answer didn't come may still have deleted, or null for anything the app didn't send itself.
+ */
+export function removalGoneNotice(value: string | null): string | null {
+  const code = REMOVAL_CODES.find((each) => each === value);
+  return code === undefined ? null : REMOVAL_GONE_NOTICES[code];
 }
 
 function logFailure(reason: string, detail: string): void {

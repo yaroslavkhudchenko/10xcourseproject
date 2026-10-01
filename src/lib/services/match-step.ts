@@ -55,3 +55,12 @@ export function decideMatchStep({ matches, shop, retrying, repinning, ownNavigat
 function isRepinnable(match: ShopMatch): match is RepinnableMatch {
   return match.state !== "not_found";
 }
+
+/**
+ * Whether the product's island may refetch out-of-date prices on its own when the page opens, by the page's step for
+ * the shop (null when it has none). Only the user's own navigation lets it, and not while the user changes the stored
+ * decision: the re-pin's choice has already cost Natura its two searches, so opening it asks Natura nothing more.
+ */
+export function autoRefreshOf(step: MatchStep | null, ownNavigation: boolean): boolean {
+  return ownNavigation && step?.kind !== "repin";
+}

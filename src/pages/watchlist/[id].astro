@@ -17,8 +17,15 @@ import {
 import ProductUnavailable from "@/components/watchlist/ProductUnavailable.astro";
 import RemoveProduct from "@/components/watchlist/RemoveProduct.astro";
 import WatchlistShell from "@/layouts/WatchlistShell.astro";
-import { ERROR_PARAM, LIST_PRICES_PARAM, PRICES_NOTICES, PRICES_PARAM, REMOVAL_PARAM } from "@/lib/notices";
-import { decideMatchStep } from "@/lib/services/match-step";
+import {
+  ERROR_PARAM,
+  LIST_PRICES_PARAM,
+  PRICES_NOTICES,
+  PRICES_PARAM,
+  REMOVAL_PARAM,
+  REPIN_PARAM,
+} from "@/lib/notices";
+import { autoRefreshOf, decideMatchStep, type MatchStep } from "@/lib/services/match-step";
 import {
   listMatches,
   listMatchStates,
@@ -50,6 +57,7 @@ import {
   parseWatchlistItemId,
   productFullName,
   removalErrorMessage,
+  removalGoneNotice,
 } from "@/lib/services/watchlist";
 import {
   filterHref,
@@ -94,7 +102,7 @@ if (product === null) {
 }
 
 const retrying = params.get("retry") === "1";
-const repinning = params.get("repin") === "1";
+const repinning = params.get(REPIN_PARAM) === "1";
 // The filter the list was shown with, which every link, form and redirect of the page keeps, so the list beside the
 // product keeps its chip; any other value of `f` is the whole list.
 const listFilter = parseListFilter(params.get("f"));
@@ -105,8 +113,10 @@ let repin: NaturaRepin | null = null;
 let unsaved = false;
 // The product's stored match in Natura, or the one this render just stored: its prices are shown next to Rossmann's.
 let naturaItem: MatchedItem | null = null;
+// What the page does for Natura, which also tells whether the island may refetch prices on its own (autoRefreshOf).
+let step: MatchStep | null = null;
 if (supabase && product !== null && product !== "failed") {
-  const step = decideMatchStep({ matches, shop: "natura", retrying, repinning, ownNavigation });
+  step = decideMatchStep({ matches, shop: "natura", retrying, repinning, ownNavigation });
   if (step.kind === "read-failed") {
     // Without the stored decision, a lookup could ask again about what the user has already settled.
     natura = { kind: "read-failed" };
@@ -187,14 +197,12 @@ if (supabase && product !== null && product !== "failed") {
   const unread = new Set((read?.unread ?? []).map(keyText));
   priceShops = matched.map(({ shop, shopItemId, productUrl }) => {
     const key = keyText({ shop, shopItemId });
-    return { shop, productUrl, latest: latest.get(key) ?? null, readFailed: unread.has(key) };
+    return { shop, shopItemId, productUrl, latest: latest.get(key) ?? null, readFailed: unread.has(key) };
   });
 }
 // The server's time for the island's first render, so the ages it shows match this page's HTML.
 const renderedAt = new Date().toISOString();
-// Only the user's own navigation lets the island refetch out-of-date prices on its own, and not while the user changes
-// the stored decision: the choice has already cost Natura its two searches, so opening it asks Natura nothing more.
-const autoRefresh = ownNavigation && repin === null;
+const autoRefresh = autoRefreshOf(step, ownNavigation);
 
 const title =
   product === null
@@ -217,9 +225,11 @@ const choice = repin ?? (natura?.kind === "choose" ? natura : null);
 // code the app didn't send shows nothing.
 const pricesCode = parsePriceRefreshCode(params.get(PRICES_PARAM));
 const pricesNotice = pricesCode === null ? null : PRICES_NOTICES[pricesCode];
-// A removal that failed comes back here with its code, which opens the confirm again with its error (notices.ts): a
-// code the app didn't send shows nothing.
+// A removal that failed comes back here with its code, which opens the confirm again with its error, or, when the
+// product isn't there any more because the removal went through after all, says so (notices.ts): a code the app
+// didn't send shows nothing.
 const removalError = removalErrorMessage(params.get(REMOVAL_PARAM));
+const removalGone = removalGoneNotice(params.get(REMOVAL_PARAM));
 
 // The phone's way back to the list, with the filter the list was shown with (a row's link carries it).
 const backHref = filterHref("/watchlist", listFilter);
@@ -294,7 +304,7 @@ const LIST_HEADING_ID = "list-heading";
 
   {product === null ? (
     <div class="flex flex-col gap-3 pt-2 lg:pt-0">
-      <ProductUnavailable reason="not-found" error={error} />
+      <ProductUnavailable reason="not-found" error={error} notice={removalGone} />
     </div>
   ) : product === "failed" ? (
     <div class="flex flex-col gap-3 pt-2 lg:pt-0">
@@ -341,8 +351,9 @@ const LIST_HEADING_ID = "list-heading";
 
     // A notice shows once: the address bar forgets the code that brought it, a decision's (matched, declined, decided,
     // error), the product's no-JavaScript refresh's (prices), the list's refresh's (list-prices) or a failed removal's
-    // (removal), so a reload or a copied link doesn't show it again. Every other parameter, the list's filter among
-    // them, and the hash stay (withoutNotices).
+    // (removal), so a reload or a copied link doesn't show it again. It forgets a re-pin's (repin) too once its choice
+    // has rendered, so going back to the choice or reloading it asks Natura nothing. Every other parameter, the list's
+    // filter among them, and the hash stay (withoutNotices).
     const forgotten = withoutNotices(window.location.href, NOTICE_PARAMS);
     if (forgotten !== null) {
       history.replaceState(history.state, "", forgotten);

@@ -515,6 +515,29 @@ describe("recordDecision: a re-pin replaces only the decision its form was shown
     ]);
   });
 
+  it("makes an automatic match the user's own when they confirm its item, only while it's still the one shown", async () => {
+    // The re-pin's choice offers the item the rule matched on its own: confirming it stores the same item as matched,
+    // decided by the user, over that very match.
+    const { client, queries } = stubClient(duplicate, changed);
+
+    const result = await recordDecision(
+      client,
+      ITEM_ID,
+      "natura",
+      { action: "confirm", item: itemOf(soft) },
+      { state: "matched", shopItemId: "NV89063" },
+    );
+
+    expect(result).toBe("saved");
+    expect(queries).toEqual([
+      insertInto({ watchlist_item_id: ITEM_ID, shop_id: "natura", ...confirmed }),
+      updateOver(confirmed, [
+        ["eq", "state", "matched"],
+        ["eq", "shop_item_id", "NV89063"],
+      ]),
+    ]);
+  });
+
   it("turns the user's decline into a match only while the decline still stands", async () => {
     const { client, queries } = stubClient(duplicate, changed);
 

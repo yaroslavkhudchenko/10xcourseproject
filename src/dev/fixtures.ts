@@ -37,7 +37,7 @@ import {
 } from "@/lib/services/natura-view";
 import { SHOP_LABELS, STALE_AFTER_MS, type PricedShop } from "@/lib/services/price-comparison";
 import { parseSize } from "@/lib/services/size";
-import { removalErrorMessage } from "@/lib/services/watchlist";
+import { removalErrorMessage, removalGoneNotice } from "@/lib/services/watchlist";
 import { shopUnavailableText } from "@/lib/shop-messages";
 import type {
   CandidateOption,
@@ -103,15 +103,20 @@ function offer(price: number, extra: Partial<ShopOffer> = {}): ShopOffer {
 const NATURA_PROMO = offer(22.99, { regularPrice: 27.99, lowestPrice30d: 23.99, promoEndsOn: "2026-10-05" });
 const NATURA_SKU = "NV10000";
 
-/** A shop's row as the page hands it to the island: its item's page, and its stored price or none. */
+/** The item the page shows in a shop: the product's own in Rossmann, and its match in Natura. */
+function itemIn(shop: PricedShop): string {
+  return shop === "rossmann" ? PRODUCT.sourceItemId : NATURA_SKU;
+}
+
+/** A shop's row as the page hands it to the island: its item, the item's page, and its stored price or none. */
 function row(shop: PricedShop, latest: LatestPrice | null): PriceComparisonShop {
-  return { shop, productUrl: HERE, latest };
+  return { shop, shopItemId: itemIn(shop), productUrl: HERE, latest };
 }
 
 /** A shop's row whose last check found `price`, `ago` before the page was rendered. */
 function priced(shop: PricedShop, price: ShopOffer, ago: number): PriceComparisonShop {
   const at = new Date(NOW_MS - ago).toISOString();
-  const shopItemId = shop === "rossmann" ? PRODUCT.sourceItemId : NATURA_SKU;
+  const shopItemId = itemIn(shop);
   return row(shop, { shop, shopItemId, lastCheckedAt: at, lastStatus: "price", offer: { ...price, pricedAt: at } });
 }
 
@@ -123,6 +128,7 @@ const CHECKED = [ROSSMANN_CHECKED, priced("natura", NATURA_PROMO, 5 * MINUTE)];
 const REFETCH = [start("rossmann"), start("natura")];
 const MISSING: RefreshResult = { kind: "missing", checkedAt: CHECKED_AT, saved: true };
 const SESSION_ENDED: RefreshResult = { kind: "session-ended" };
+const MATCH_CHANGED: RefreshResult = { kind: "match-changed" };
 
 /** The island's state for `shops` as the server rendered it at NOW, then after each action in turn. */
 function island(shops: PriceComparisonShop[], ...actions: PriceComparisonAction[]): PriceComparisonState {
@@ -158,8 +164,9 @@ const DECISION = { watchlistItemId: PRODUCT_ID, shop: "natura", checkedAt: "2026
 
 // The product's match, found by its EAN and size, as it's stored: the re-pin's states open its choice.
 const AUTO_MATCHED: RepinnableMatch = { ...DECISION, decidedBy: "auto", state: "matched", item: NATURA_ITEM };
-// The user confirmed the candidate in another size (the first of CANDIDATES), so the match's size is flagged.
-const CONFIRMED: ShopMatch = {
+// The user confirmed the candidate in another size (the first of CANDIDATES), so the match's size is flagged. Its
+// re-pin's choice marks it without offering it again.
+const CONFIRMED: RepinnableMatch = {
   ...DECISION,
   decidedBy: "user",
   state: "matched",
@@ -311,6 +318,18 @@ const PRICE_STATES: Omit<PriceFixture, "product">[] = [
       ...REFETCH,
       done("rossmann", SESSION_ENDED, ANSWERED_AT),
       done("natura", SESSION_ENDED, ANSWERED_AT),
+    ),
+    natura: MATCHED,
+  },
+  {
+    code: "match-changed",
+    text: "dopasowanie w Naturze zmieniono w innej karcie: cena Natury zostaje, a strona prosi o odświeżenie",
+    // "Odśwież ceny" on a page left open: Rossmann answers, while Natura's stored match is no longer the page's item.
+    state: island(
+      CHECKED,
+      ...REFETCH,
+      done("rossmann", { kind: "price", offer: offer(26.99), checkedAt: CHECKED_AT, saved: true }, ANSWERED_AT),
+      done("natura", MATCH_CHANGED, ANSWERED_AT),
     ),
     natura: MATCHED,
   },
@@ -503,11 +522,19 @@ export const NATURA_FIXTURES: NaturaFixture[] = [
   },
   {
     code: "matched + repin",
-    text: "po „Zmień”: karta wskazuje wybór poniżej i ma „Anuluj”, a wybór z obu wyszukiwań oznacza obecne dopasowanie",
+    text: "po „Zmień”: karta ma „Anuluj”, a wybór z obu wyszukiwań oznacza obecne, automatyczne dopasowanie i daje je potwierdzić",
     idPrefix: "natura-repin",
     natura: MATCHED_REPINNING,
     state: island(CHECKED),
     repin: repinOf(FOUND_BY_BOTH, AUTO_MATCHED),
+  },
+  {
+    code: "confirmed + repin",
+    text: "po „Zmień” przy dopasowaniu potwierdzonym przez Ciebie: wybór oznacza je, ale nie daje go potwierdzić ponownie",
+    idPrefix: "natura-confirmed-repin",
+    natura: naturaOf(storedView(CONFIRMED, PRODUCT, REPINNING)),
+    state: island([ROSSMANN_CHECKED, priced("natura", offer(17.99), 5 * MINUTE)]),
+    repin: repinOf(FOUND_BY_BOTH, CONFIRMED),
   },
   {
     code: "repin + incomplete",
@@ -701,6 +728,12 @@ export const ALONE_FIXTURES: PriceFixture[] = ALONE_STATES.map((fixture) => ({ .
 
 /** The page's text for `?error=gone`, which its not-found branch shows: a decision posted for a product not listed. */
 export const GONE_ERROR = matchErrorMessage("gone");
+
+/**
+ * The page's text for `?removal=failed`, which its not-found branch shows: a removal whose answer didn't come, and
+ * which went through after all.
+ */
+export const REMOVAL_GONE_NOTICE = removalGoneNotice("failed");
 
 /**
  * One state of "Usuń z listy" at the foot of the product's page, with the kitchen sink's label for it: whether its
