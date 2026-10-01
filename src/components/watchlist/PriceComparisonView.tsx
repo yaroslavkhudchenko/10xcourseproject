@@ -24,10 +24,13 @@ import ProductTitle, { type TitleProduct } from "@/components/watchlist/ProductT
 import RefreshBar from "@/components/watchlist/RefreshBar";
 import ShopCard from "@/components/watchlist/ShopCard";
 import VerdictHero from "@/components/watchlist/VerdictHero";
+import { filterHref, type ListFilter } from "@/lib/services/watchlist-rows";
 
 interface Props {
   /** The watched product's id, which both refresh forms post. */
   itemId: string;
+  /** The filter the list is shown with, which both refresh forms post, so the page they come back to keeps it. */
+  listFilter: ListFilter;
   /** The product the title names. */
   product: TitleProduct;
   /** The island's state: its rows, whether each refetch runs, and what the last answers said. */
@@ -52,7 +55,7 @@ interface Props {
 // tested rules (price-comparison-state.ts, natura-card.ts); this only maps it. It keeps no state and runs no effect,
 // so every state the reducer can reach renders the same in the island and in the kitchen sink, and a view rendered
 // without the island fetches nothing.
-export default function PriceComparisonView({ itemId, product, state, natura, onRefresh }: Props) {
+export default function PriceComparisonView({ itemId, listFilter, product, state, natura, onRefresh }: Props) {
   const view = natura?.view ?? null;
   // The rows' order and marks, withheld while a stored price is unread, and the verdict judged on the same rows.
   const { rows } = comparisonOf(state);
@@ -80,16 +83,41 @@ export default function PriceComparisonView({ itemId, product, state, natura, on
           </AlertDescription>
         </Alert>
       )}
-      <ProductTitle product={product} itemId={itemId} caption={caption} refreshing={refreshing} onRefresh={onRefresh} />
+      {state.matchChanged && (
+        <Alert variant="warning">
+          <AlertDescription>
+            <p>
+              Dopasowanie w Naturze się zmieniło.{" "}
+              {/* The product's page anew, with the list's filter: it shows the match as it stands now. */}
+              <a
+                href={filterHref(`/watchlist/${itemId}`, listFilter)}
+                className="hit-area whitespace-nowrap underline hover:decoration-2"
+              >
+                Odśwież stronę
+              </a>
+              , aby zobaczyć aktualne ceny.
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
+      <ProductTitle
+        product={product}
+        itemId={itemId}
+        listFilter={listFilter}
+        caption={caption}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+      />
       <VerdictHero hero={heroOf(verdict, context)} />
       <PriceTrack track={track} hint={hint} />
-      <ShopGrid itemId={itemId} rows={rows} now={state.now} natura={natura === null ? null : naturaCardOf(natura)} />
+      <ShopGrid rows={rows} now={state.now} natura={natura === null ? null : naturaCardOf(natura)} />
       {/* Screen readers hear each shop's answer here, outside the cards, so nothing live moves when they re-sort. */}
       <p role="status" aria-live="polite" className="sr-only">
         {state.announcements.join(" ")}
       </p>
       <RefreshBar
         itemId={itemId}
+        listFilter={listFilter}
         age={checkedAge(state.rows, state.now)}
         caption={caption}
         refreshing={refreshing}
@@ -100,13 +128,11 @@ export default function PriceComparisonView({ itemId, product, state, natura, on
 }
 
 interface GridProps {
-  /** The watched product's id, which Natura's card links lead to. */
-  itemId: string;
   /** The shops' rows in the comparison's order, with their marks (comparisonOf). */
   rows: readonly ComparedRow[];
   /** The time the prices' ages are read at, in milliseconds. */
   now: number;
-  /** What Natura's card says (naturaCardOf), or null for no card of its own. */
+  /** What Natura's card says (naturaCardOf), its links included, or null for no card of its own. */
   natura: NaturaCardModel | null;
 }
 
@@ -116,7 +142,7 @@ interface GridProps {
  * its match's footer, and, while Natura has no price row, its card without a price after them. The kitchen sink draws
  * it on its own, with every state of Natura.
  */
-export function ShopGrid({ itemId, rows, now, natura }: GridProps) {
+export function ShopGrid({ rows, now, natura }: GridProps) {
   const headingId = useId();
   const naturaPriced = rows.some((row) => row.shop === "natura");
   if (rows.length === 0 && natura === null) {
@@ -131,7 +157,7 @@ export function ShopGrid({ itemId, rows, now, natura }: GridProps) {
         {rows.map((row) => (
           <li key={row.shop}>
             {row.shop === "natura" && natura !== null ? (
-              <NaturaCard card={natura} itemId={itemId} row={row} now={now} />
+              <NaturaCard card={natura} row={row} now={now} />
             ) : (
               <ShopCard row={row} now={now} />
             )}
@@ -139,7 +165,7 @@ export function ShopGrid({ itemId, rows, now, natura }: GridProps) {
         ))}
         {natura !== null && !naturaPriced && (
           <li key="natura">
-            <NaturaCard card={natura} itemId={itemId} row={null} now={now} />
+            <NaturaCard card={natura} row={null} now={now} />
           </li>
         )}
       </ul>

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { LIST_PRICES_PARAM } from "@/lib/notices";
+import { LIST_PRICES_PARAM, PRICES_PARAM } from "@/lib/notices";
 import { keyText } from "@/lib/services/price-comparison";
 import { recordPriceChecks, type PriceRecordResult } from "@/lib/services/prices";
 import type { ShopGate } from "@/lib/services/shop-gate";
@@ -7,7 +7,7 @@ import { fetchNaturaPrices } from "@/lib/services/shops/natura";
 import { fetchRossmannPrice } from "@/lib/services/shops/rossmann";
 import { isRefusal } from "@/lib/services/shops/shop-outcome";
 import { parseWatchlistItemId } from "@/lib/services/watchlist";
-import { parseListFilter, type ListFilter } from "@/lib/services/watchlist-rows";
+import { filterHref, parseListFilter, type ListFilter } from "@/lib/services/watchlist-rows";
 import type { PriceCheck, PriceKey, ShopId, ShopUnavailable } from "@/types";
 
 // Refreshing pinned items' prices, for a product's page and for the list: every request goes through the gate, and
@@ -113,7 +113,7 @@ function notFetched(): PriceCheck {
 
 /**
  * The codes the refresh form's route redirects with, which each page turns into its own text: `?prices=<code>` after a
- * product's own refresh, and `?list-prices=<code>` after the list's (listRefreshBackTo).
+ * product's own refresh (productRefreshBackTo), and `?list-prices=<code>` after the list's (listRefreshBackTo).
  */
 export const PRICE_REFRESH_CODES = ["done", "partial", "none", "failed"] as const;
 
@@ -167,18 +167,21 @@ export function listRefreshBackOf(
   if (back !== null && itemId === null) {
     return null;
   }
-  return { back: itemId, f: parseListFilter(typeof f === "string" ? f : null) };
+  return { back: itemId, f: parseListFilter(f) };
 }
 
 /**
  * Where the list's "Odśwież ceny" goes back to with its code (listRefreshBackOf): the product page it was posted from,
- * or the list, keeping the list's filter unless it's every product's.
+ * or the list, keeping the list's filter unless it's every product's (filterHref).
  */
 export function listRefreshBackTo({ back, f }: ListRefreshBack, code: PriceRefreshCode): string {
-  const params = new URLSearchParams();
-  if (f !== "all") {
-    params.set("f", f);
-  }
-  params.set(LIST_PRICES_PARAM, code);
-  return `${back === null ? "/watchlist" : `/watchlist/${back}`}?${params.toString()}`;
+  return filterHref(back === null ? "/watchlist" : `/watchlist/${back}`, f, { [LIST_PRICES_PARAM]: code });
+}
+
+/**
+ * Where a product's own "Odśwież ceny", posted without JavaScript, goes back to with its code: the product's page,
+ * keeping the list's filter unless it's every product's (filterHref). The id must already be a UUID.
+ */
+export function productRefreshBackTo(itemId: string, filter: ListFilter, code: PriceRefreshCode): string {
+  return filterHref(`/watchlist/${itemId}`, filter, { [PRICES_PARAM]: code });
 }

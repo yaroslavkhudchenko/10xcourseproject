@@ -1,7 +1,7 @@
 import ProductThumb from "@/components/watchlist/ProductThumb";
 import RefreshForm from "@/components/watchlist/RefreshForm";
 import { formatDayOf } from "@/lib/services/price-comparison";
-import { rowProductOf, type NamedProduct } from "@/lib/services/watchlist-rows";
+import { rowProductOf, type ListFilter, type NamedProduct } from "@/lib/services/watchlist-rows";
 import type { WatchlistItem } from "@/types";
 
 /** The product as its title shows it: what its list row shows, and when it was added. */
@@ -11,6 +11,8 @@ interface Props {
   product: TitleProduct;
   /** The watched product's id, which the title row's "Odśwież ceny" posts. */
   itemId: string;
+  /** The filter the list is shown with, which the title row's "Odśwież ceny" posts too. */
+  listFilter: ListFilter;
   /** When the prices were checked (checkedCaption), under "Odśwież ceny". */
   caption: string;
   /** Some shop's refetch runs, so "Odśwież ceny" waits. */
@@ -25,7 +27,7 @@ interface Props {
 // size in the row back to the list. The name and the brand and size are the list row's (rowProductOf), so the list and
 // the product agree; the heading reads the brand before the name, so screen readers hear the product's full name. It
 // keeps no state, so it renders the same in the island and in the kitchen sink.
-export default function ProductTitle({ product, itemId, caption, refreshing, onRefresh }: Props) {
+export default function ProductTitle({ product, itemId, listFilter, caption, refreshing, onRefresh }: Props) {
   const { eyebrow, name, brand, imageUrl } = rowProductOf(product);
   const added = formatDayOf(product.addedAt);
   // Set in capitals by the view, as the list's rows set theirs: "NIVEA · 300 ML · DODANO 20.09".
@@ -45,7 +47,7 @@ export default function ProductTitle({ product, itemId, caption, refreshing, onR
         </h1>
       </div>
       <div className="hidden shrink-0 flex-col items-end gap-2 lg:flex">
-        <RefreshForm itemId={itemId} pending={refreshing} onRefresh={onRefresh} size="title" />
+        <RefreshForm itemId={itemId} listFilter={listFilter} pending={refreshing} onRefresh={onRefresh} size="title" />
         <p className="text-meta text-muted-foreground font-mono whitespace-nowrap">{caption}</p>
       </div>
     </div>

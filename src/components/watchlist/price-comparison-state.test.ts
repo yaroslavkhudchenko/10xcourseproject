@@ -68,11 +68,13 @@ function stored(shop: PricedShop, shopItemId: string, price: number, pricedAgo =
 
 const rossmann = (latest: LatestPrice | null = stored("rossmann", "26900", 26.99)): PriceComparisonShop => ({
   shop: "rossmann",
+  shopItemId: "26900",
   productUrl: "https://www.rossmann.pl/Produkt/NIVEA-Soft,26900,13049",
   latest,
 });
 const natura = (latest: LatestPrice | null = stored("natura", "NV89063", 29.99)): PriceComparisonShop => ({
   shop: "natura",
+  shopItemId: "NV89063",
   productUrl: "https://www.drogerienatura.pl/nivea-soft",
   latest,
 });
@@ -99,6 +101,7 @@ describe("price comparison state", () => {
 
     expect(state.now).toBe(RENDERED_AT);
     expect(state.sessionEnded).toBe(false);
+    expect(state.matchChanged).toBe(false);
     expect(state.rows.map(({ shop, pending, notice }) => [shop, pending, notice])).toEqual([
       ["rossmann", false, null],
       ["natura", false, null],
@@ -213,6 +216,24 @@ describe("price comparison state", () => {
     expect(run(state, start("rossmann")).sessionEnded).toBe(false);
   });
 
+  it("says the shop's match changed, keeping its row's price and notice, and clears it on the next attempt", () => {
+    // Rossmann's last refetch left a notice; Natura's match was re-pinned elsewhere while the page stood open.
+    const before = run(
+      initialState({ shops: [rossmann(), natura()], now: RENDERED }),
+      start("rossmann"),
+      done("rossmann", { kind: "unavailable", reason: "busy" }, ANSWERED_AT),
+    );
+
+    const state = run(before, start("natura"), done("natura", { kind: "match-changed" }, ANSWERED_AT + 1));
+
+    expect(state.matchChanged).toBe(true);
+    // The row shows its last known price as it was, and says nothing itself: the page's alert asks for a reload.
+    expect(rowOf(state, "natura")).toEqual({ ...rowOf(before, "natura"), pending: false });
+    expect(rowOf(state, "rossmann")).toEqual(rowOf(before, "rossmann"));
+    expect(state.announcements).toEqual([]);
+    expect(run(state, start("natura")).matchChanged).toBe(false);
+  });
+
   it("moves the clock on, so a price that turns stale loses its mark", () => {
     // Rossmann's lower price is a minute short of stale when the page is rendered.
     const before = initialState({
@@ -269,6 +290,7 @@ describe("a price read that failed", () => {
       result: { kind: "unavailable", reason: "paused", until: "2026-09-28T12:15:00.000Z" },
     },
     { kind: "session-ended", result: { kind: "session-ended" } },
+    { kind: "match-changed", result: { kind: "match-changed" } },
   ])("keeps the mark when the shop's answer is $kind", ({ result }) => {
     const state = run(unread(), start("natura"), done("natura", result, ANSWERED_AT));
 
@@ -489,6 +511,7 @@ function response({
     type,
     redirected,
     ok: status >= 200 && status < 300,
+    status,
     headers: new Headers(contentType === null ? {} : { "Content-Type": contentType }),
     json: () =>
       body === undefined ? Promise.reject(new SyntaxError("Unexpected end of JSON input")) : Promise.resolve(body),
@@ -526,9 +549,17 @@ describe("readRefreshResponse", () => {
     expect(await readRefreshResponse(answer)).toEqual({ kind: "session-ended" });
   });
 
+  it("says the shop's match changed for the route's conflict, so the page asks for a reload", async () => {
+    expect(await readRefreshResponse(response({ status: 409, body: { error: "changed" } }))).toEqual({
+      kind: "match-changed",
+    });
+  });
+
   it.each<{ why: string; answer: RefreshResponse }>([
     { why: "an error page", answer: response({ status: 500, contentType: "text/html" }) },
     { why: "an error in JSON", answer: response({ status: 404, body: { error: "gone" } }) },
+    { why: "another conflict", answer: response({ status: 409, body: { error: "gone" } }) },
+    { why: "a conflict whose body can't be read", answer: response({ status: 409 }) },
     { why: "a body that isn't JSON", answer: response({}) },
     { why: "an answer of another shape", answer: response({ body: { kind: "price", offer: offer(16.99) } }) },
   ])("fails the refetch for $why", async ({ answer }) => {
@@ -556,27 +587,40 @@ describe("parseRefreshAnswer", () => {
 });
 
 describe("requestRefresh", () => {
-  it("posts the product and the shop as JSON, and doesn't follow a redirect", async () => {
+  it("posts the product, the shop and the item the page shows as JSON, and doesn't follow a redirect", async () => {
     const send = vi.fn<typeof fetch>(() =>
       Promise.resolve(
         new Response(JSON.stringify(priceAnswer(16.99)), { headers: { "Content-Type": "application/json" } }),
       ),
     );
 
-    expect(await requestRefresh(ITEM_ID, "natura", send)).toEqual(priceAnswer(16.99));
+    expect(await requestRefresh(ITEM_ID, "natura", "NV89063", send)).toEqual(priceAnswer(16.99));
     expect(send).toHaveBeenCalledTimes(1);
     const [url, init] = send.mock.calls[0];
     expect(url).toBe(PRICES_ROUTE);
     expect(init).toMatchObject({ method: "POST", redirect: "manual" });
     expect(new Headers(init?.headers).get("Content-Type")).toBe("application/json");
-    expect(init?.body).toBe(JSON.stringify({ itemId: ITEM_ID, shop: "natura" }));
+    expect(init?.body).toBe(JSON.stringify({ itemId: ITEM_ID, shop: "natura", shopItemId: "NV89063" }));
     expect(init?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("reads the route's conflict as a changed match", async () => {
+    const send = vi.fn<typeof fetch>(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ error: "changed" }), {
+          status: 409,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    expect(await requestRefresh(ITEM_ID, "natura", "NV81063", send)).toEqual({ kind: "match-changed" });
   });
 
   it("fails the refetch when the request fails", async () => {
     const send = vi.fn<typeof fetch>(() => Promise.reject(new TypeError("Failed to fetch")));
 
-    expect(await requestRefresh(ITEM_ID, "rossmann", send)).toEqual({ kind: "unavailable", reason: "failed" });
+    expect(await requestRefresh(ITEM_ID, "rossmann", "26900", send)).toEqual({ kind: "unavailable", reason: "failed" });
   });
 });
 

@@ -89,6 +89,7 @@ const scriptsConfig = defineConfig({
 const ISLAND_MESSAGE = "The watchlist's pages run this file in the browser, so it must stay free of server-only code.";
 const islandConfig = defineConfig({
   files: [
+    "src/lib/services/matching.ts",
     "src/lib/services/price-comparison.ts",
     "src/lib/services/watchlist-rows.ts",
     "src/lib/shop-messages.ts",
@@ -125,8 +126,8 @@ const islandConfig = defineConfig({
       {
         patterns: [
           {
-            // Every service is server-side except the comparison rules and the list's row rules, which the islands
-            // share with the pages.
+            // Every service is server-side except the comparison rules, the list's row rules and the matching rule
+            // whose comparisons the row rules use, which the islands share with the pages.
             group: [
               "zod",
               "zod/*",
@@ -135,6 +136,7 @@ const islandConfig = defineConfig({
               "astro:*",
               "@/lib/supabase",
               "@/lib/services/*",
+              "!@/lib/services/matching",
               "!@/lib/services/price-comparison",
               "!@/lib/services/watchlist-rows",
             ],

@@ -14,6 +14,7 @@ import {
   listChipsOf,
   listRowOf,
   listRowsOf,
+  naturaMismatchOf,
   naturaStateOf,
   parseListFilter,
   rowProductOf,
@@ -21,6 +22,7 @@ import {
   rowTagOf,
   type ListRow,
   type NaturaListState,
+  type NaturaMismatch,
   type PriceTag,
   type RowShop,
 } from "@/lib/services/watchlist-rows";
@@ -88,6 +90,7 @@ const soft: WatchlistItem = {
   name: "Soft ",
   caption: "krem uniwersalny, nawilżający",
   sizeText: "300 ml",
+  size: { value: 300, unit: "ml" },
   imageUrl: "https://www.rossmann.pl/zdjecia/26900.jpg",
   addedAt: "2026-09-20T08:00:00.000Z",
 };
@@ -96,8 +99,30 @@ const soft: WatchlistItem = {
 const naturaOnPromotion = shop("natura", check({ price: 22.99, regularPrice: 27.99 }));
 const rossmannRegular = shop("rossmann", check({ price: 26.99, checkedAgo: 10 * MINUTE }));
 
-/** The row of Nivea Soft with these shops and this Natura state, at NOW. */
-const rowOf = (shops: RowShop[], natura: NaturaListState = "matched"): ListRow => listRowOf(soft, shops, natura, NOW);
+/** Nivea Soft's row with these shops and this Natura state, and what its match differs in unseen, at NOW. */
+const rowOf = (shops: RowShop[], natura: NaturaListState = "matched", mismatch?: NaturaMismatch): ListRow =>
+  listRowOf(soft, shops, natura, NOW, mismatch);
+
+/** What a match the list reads may differ from its product in: its brand, its size, and who decided on it. */
+type MatchFields = Partial<Pick<Extract<ShopMatchState, { state: "matched" }>, "brand" | "size" | "decidedBy">>;
+
+/**
+ * A product's match in Natura, as the list reads it (listMatchStates): by default an automatic match to Natura's Nivea
+ * Soft, of the same brand and size as the product.
+ */
+const naturaMatch = (watchlistItemId: string, fields: MatchFields = {}): ShopMatchState => ({
+  watchlistItemId,
+  shop: "natura",
+  state: "matched",
+  shopItemId: "NV89063",
+  brand: "NIVEA",
+  size: { value: 300, unit: "ml" },
+  decidedBy: "auto",
+  ...fields,
+});
+
+/** Nothing differs unseen. */
+const NO_MISMATCH: NaturaMismatch = { size: false, brand: false };
 
 describe("parseListFilter", () => {
   it("reads each filter the chips link to", () => {
@@ -112,6 +137,10 @@ describe("parseListFilter", () => {
       expect(parseListFilter(raw)).toBe("all");
     },
   );
+
+  it("reads a form's field that isn't text as every product", () => {
+    expect(parseListFilter(new File(["promo"], "f.txt"))).toBe("all");
+  });
 });
 
 describe("listRowOf: the product", () => {
@@ -252,6 +281,12 @@ describe("the price tag", () => {
     );
   });
 
+  it("shows a match that differs from the product with the tag of one that agrees: the row looks as drawn", () => {
+    const shops = [rossmannRegular, naturaOnPromotion];
+
+    expect(rowOf(shops, "matched", { size: true, brand: true }).tag).toEqual(rowOf(shops).tag);
+  });
+
   it("shows no price while Natura's match can't be read, since it may name a lower one", () => {
     expect(rowOf([rossmannRegular], "unreadable").tag).toEqual({
       tone: "outline",
@@ -336,6 +371,14 @@ describe("the Do sprawdzenia filter", () => {
     expect(rowOf(shops, natura).check).toBe(true);
   });
 
+  it.each<{ why: string; mismatch: NaturaMismatch }>([
+    { why: "another size", mismatch: { size: true, brand: false } },
+    { why: "another brand", mismatch: { size: false, brand: true } },
+    { why: "another size and brand", mismatch: { size: true, brand: true } },
+  ])("holds a product with fresh prices whose Natura match has $why, unseen", ({ mismatch }) => {
+    expect(rowOf([rossmannRegular, naturaOnPromotion], "matched", mismatch).check).toBe(true);
+  });
+
   it.each<{ why: string; shops: RowShop[]; natura: NaturaListState }>([
     { why: "fresh prices in both shops", shops: [rossmannRegular, naturaOnPromotion], natura: "matched" },
     { why: "Natura declined by the user", shops: [rossmannRegular], natura: "unmatched" },
@@ -346,6 +389,13 @@ describe("the Do sprawdzenia filter", () => {
     },
   ])("leaves out a product with $why", ({ shops, natura }) => {
     expect(rowOf(shops, natura).check).toBe(false);
+  });
+
+  it("leaves out a decline whatever mismatch comes with it: only a match can differ from the product", () => {
+    const row = rowOf([rossmannRegular], "unmatched", { size: true, brand: true });
+
+    expect(row.check).toBe(false);
+    expect(row.summary).toBe(said("Tylko w Rossmannie: 26,99 zł · 10 min temu. Natura: brak (Twój wybór)."));
   });
 });
 
@@ -364,6 +414,16 @@ describe("the row's line for screen readers", () => {
     const only = shop("rossmann", check({ price: 12.99, checkedAgo: DAY }));
 
     expect(rowOf([only], natura).summary).toBe(said(`Tylko w Rossmannie: 12,99 zł · wczoraj. ${status}`));
+  });
+
+  it.each<{ mismatch: NaturaMismatch; status: string }>([
+    { mismatch: { size: true, brand: false }, status: "Natura: sprawdź dopasowanie, inny rozmiar." },
+    { mismatch: { size: false, brand: true }, status: "Natura: sprawdź dopasowanie, inna marka." },
+    { mismatch: { size: true, brand: true }, status: "Natura: sprawdź dopasowanie, inny rozmiar i marka." },
+  ])("says what to check about a Natura match that differs unseen: $status", ({ mismatch, status }) => {
+    expect(rowOf([rossmannRegular, naturaOnPromotion], "matched", mismatch).summary).toBe(
+      said(`Najtaniej: Natura 22,99 zł, o 4,00 zł taniej niż Rossmann · 5 min temu. ${status}`),
+    );
   });
 
   it("says a price or a match couldn't be read, never that the product has no price or awaits a match", () => {
@@ -409,6 +469,18 @@ describe("the chips", () => {
     { path: `/watchlist/${SOFT_ID}?f=promo&matched=1&list-prices=done`, filter: "all", href: `/watchlist/${SOFT_ID}` },
   ])("links $filter on $path to $href, keeping only the page and the filter", ({ path, filter, href }) => {
     expect(filterHref(path, filter)).toBe(href);
+  });
+
+  it.each<{ filter: (typeof LIST_FILTERS)[number]; params: Record<string, string>; href: string }>([
+    { filter: "check", params: { retry: "1" }, href: `/watchlist/${SOFT_ID}?f=check&retry=1` },
+    { filter: "promo", params: { repin: "1" }, href: `/watchlist/${SOFT_ID}?f=promo&repin=1` },
+    { filter: "all", params: { matched: "1" }, href: `/watchlist/${SOFT_ID}?matched=1` },
+    { filter: "check", params: { error: "failed" }, href: `/watchlist/${SOFT_ID}?f=check&error=failed` },
+    { filter: "check", params: {}, href: `/watchlist/${SOFT_ID}?f=check` },
+    { filter: "check", params: { a: "1", b: "x y" }, href: `/watchlist/${SOFT_ID}?f=check&a=1&b=x+y` },
+  ])("adds $params after the filter $filter: $href", ({ filter, params, href }) => {
+    // The address it's built from had its own query, which it drops.
+    expect(filterHref(`/watchlist/${SOFT_ID}?repin=1&prices=done`, filter, params)).toBe(href);
   });
 
   it("shows the chips of a list whose reads worked, with the filter the address names", () => {
@@ -464,7 +536,7 @@ describe("rowShopsOf", () => {
 describe("naturaStateOf", () => {
   const state = (watchlistItemId: string, decision: ShopMatchState["state"]): ShopMatchState =>
     decision === "matched"
-      ? { watchlistItemId, shop: "natura", state: "matched", shopItemId: "NV89063" }
+      ? naturaMatch(watchlistItemId)
       : { watchlistItemId, shop: "natura", state: decision, shopItemId: null };
 
   it.each(["matched", "unmatched", "not_found"] as const)("gives a product's %s decision in Natura", (decision) => {
@@ -502,6 +574,62 @@ describe("naturaStateOf", () => {
   });
 });
 
+describe("naturaMismatchOf", () => {
+  /** The list's read of the decisions, holding only these. */
+  const readOf = (...states: ShopMatchState[]) => ({ states, unread: [], unattributed: 0 });
+
+  it.each<{ why: string; fields: MatchFields; mismatch: NaturaMismatch }>([
+    { why: "another size", fields: { size: { value: 200, unit: "ml" } }, mismatch: { size: true, brand: false } },
+    { why: "another brand", fields: { brand: "YOPE" }, mismatch: { size: false, brand: true } },
+    {
+      why: "another size and brand",
+      fields: { brand: "YOPE", size: { value: 200, unit: "ml" } },
+      mismatch: { size: true, brand: true },
+    },
+  ])("gives what an automatic match with $why differs in", ({ fields, mismatch }) => {
+    expect(naturaMismatchOf(soft, readOf(naturaMatch(SOFT_ID, fields)))).toEqual(mismatch);
+  });
+
+  it.each<{ why: string; product: Partial<WatchlistItem>; fields: MatchFields }>([
+    {
+      // They saw "Inny rozmiar" and "Inna marka" on the candidate before "To ten produkt".
+      why: "a match the user confirmed, which they saw differ",
+      product: {},
+      fields: { brand: "YOPE", size: { value: 200, unit: "ml" }, decidedBy: "user" },
+    },
+    { why: "a match that agrees, of a sub-brand in the same size", product: {}, fields: { brand: "NIVEA MEN" } },
+    { why: "a match of an unknown size", product: {}, fields: { size: null } },
+    { why: "a match of an unknown brand", product: {}, fields: { brand: null } },
+    { why: "a product of an unknown size", product: { size: null }, fields: { size: { value: 200, unit: "ml" } } },
+    { why: "a product of an unknown brand", product: { brand: null }, fields: { brand: "YOPE" } },
+  ])("gives no mismatch for $why", ({ product, fields }) => {
+    expect(naturaMismatchOf({ ...soft, ...product }, readOf(naturaMatch(SOFT_ID, fields)))).toEqual(NO_MISMATCH);
+  });
+
+  it("gives no mismatch without a Natura match of the product's own, or when the decisions couldn't be read", () => {
+    const declined: ShopMatchState = { watchlistItemId: SOFT_ID, shop: "natura", state: "unmatched", shopItemId: null };
+    const notFound: ShopMatchState = { watchlistItemId: SOFT_ID, shop: "natura", state: "not_found", shopItemId: null };
+    const inHebe: ShopMatchState = {
+      watchlistItemId: SOFT_ID,
+      shop: "hebe",
+      state: "matched",
+      shopItemId: "000000000000218807",
+      brand: "YOPE",
+      size: { value: 200, unit: "ml" },
+      decidedBy: "auto",
+    };
+
+    expect(naturaMismatchOf(soft, readOf(declined))).toEqual(NO_MISMATCH);
+    expect(naturaMismatchOf(soft, readOf(notFound))).toEqual(NO_MISMATCH);
+    // Another shop's match, and another product's Natura match, aren't the product's Natura match.
+    expect(naturaMismatchOf(soft, readOf(inHebe))).toEqual(NO_MISMATCH);
+    expect(naturaMismatchOf(soft, readOf(naturaMatch(OTHER_ID, { brand: "YOPE" })))).toEqual(NO_MISMATCH);
+    // Its product says its decision couldn't be read instead (naturaStateOf).
+    expect(naturaMismatchOf(soft, { states: [], unread: [SOFT_ID], unattributed: 0 })).toEqual(NO_MISMATCH);
+    expect(naturaMismatchOf(soft, null)).toEqual(NO_MISMATCH);
+  });
+});
+
 describe("the list beside a row that can't say whose it is", () => {
   const ZIAJA_ID = "7d3e8b1a-2c4f-4e6a-8b9c-1d2e3f4a5b6c";
   const product = (id: string, sourceItemId: string, name: string): WatchlistItem => ({
@@ -514,7 +642,7 @@ describe("the list beside a row that can't say whose it is", () => {
   // Nivea Soft is matched in Natura; Ziaja's lotion and Felix are declined there.
   const products = [soft, product(ZIAJA_ID, "300200", "Mleczko do ciała"), product(OTHER_ID, "131225", "Felix")];
   const states: ShopMatchState[] = [
-    { watchlistItemId: SOFT_ID, shop: "natura", state: "matched", shopItemId: "NV89063" },
+    naturaMatch(SOFT_ID),
     { watchlistItemId: ZIAJA_ID, shop: "natura", state: "unmatched", shopItemId: null },
     { watchlistItemId: OTHER_ID, shop: "natura", state: "unmatched", shopItemId: null },
   ];
@@ -627,5 +755,56 @@ describe("the list beside a row that can't say whose it is", () => {
     it("gives an empty list no rows", () => {
       expect(listRowsOf([], matchRead, priceRead, NOW)).toEqual([]);
     });
+  });
+});
+
+describe("listRowsOf: a Natura match that differs from its product", () => {
+  // Nivea Soft's fresh prices in both shops, so only its match can make it a product to check.
+  const prices: LatestPrice[] = [
+    { shop: "rossmann", shopItemId: "26900", ...check({ price: 26.99, checkedAgo: 10 * MINUTE }) },
+    { shop: "natura", shopItemId: "NV89063", ...check({ price: 22.99, regularPrice: 27.99 }) },
+  ];
+  const priceLine = said("Najtaniej: Natura 22,99 zł, o 4,00 zł taniej niż Rossmann · 5 min temu.");
+
+  /** Nivea Soft's row, as the list builds it from its reads, with this match in Natura. */
+  function rowWith(fields: MatchFields): ListRow {
+    const matchRead = { states: [naturaMatch(SOFT_ID, fields)], unread: [], unattributed: 0 };
+    return listRowsOf([soft], matchRead, { prices, unread: [], unattributed: 0 }, NOW)[0];
+  }
+
+  it.each<{ why: string; fields: MatchFields; status: string }>([
+    {
+      why: "another size",
+      fields: { size: { value: 200, unit: "ml" } },
+      status: "Natura: sprawdź dopasowanie, inny rozmiar.",
+    },
+    { why: "another brand", fields: { brand: "YOPE" }, status: "Natura: sprawdź dopasowanie, inna marka." },
+    {
+      why: "another size and brand",
+      fields: { brand: "YOPE", size: { value: 200, unit: "ml" } },
+      status: "Natura: sprawdź dopasowanie, inny rozmiar i marka.",
+    },
+  ])("counts a product whose automatic match has $why in Do sprawdzenia, saying why", ({ fields, status }) => {
+    const row = rowWith(fields);
+
+    expect(row.check).toBe(true);
+    expect(row.summary).toBe(`${priceLine} ${status}`);
+    // The row looks as drawn: its tag is the one of a match that agrees.
+    expect(row.tag).toEqual(rowWith({}).tag);
+  });
+
+  it.each<{ why: string; fields: MatchFields }>([
+    {
+      why: "the user confirmed, having seen it differ",
+      fields: { brand: "YOPE", size: { value: 200, unit: "ml" }, decidedBy: "user" },
+    },
+    { why: "agrees with it", fields: {} },
+    { why: "is of an unknown size", fields: { size: null } },
+    { why: "is of an unknown brand", fields: { brand: null } },
+  ])("leaves out a product whose Natura match $why, and its line says nothing of it", ({ fields }) => {
+    const row = rowWith(fields);
+
+    expect(row.check).toBe(false);
+    expect(row.summary).toBe(priceLine);
   });
 });

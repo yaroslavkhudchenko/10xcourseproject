@@ -1,11 +1,17 @@
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { REFRESH_FORM_ROUTE } from "@/components/watchlist/price-comparison-state";
+import type { ListFilter } from "@/lib/services/watchlist-rows";
 import { cn } from "@/lib/utils";
 
 interface Props {
   /** The watched product's id, which the form posts. */
   itemId: string;
+  /**
+   * The filter the list is shown with, which the form posts, so the product's page comes back with it; left out for
+   * every product's, which the page's address doesn't name.
+   */
+  listFilter: ListFilter;
   /** Some shop's refetch runs: one per shop at a time, since a second tap would only spend the cap again. */
   pending: boolean;
   /**
@@ -35,11 +41,12 @@ const SIZES = {
 const PENDING = "aria-disabled:pointer-events-none aria-disabled:opacity-50";
 
 // A product's "Odśwież ceny", which refreshes this product only: screen readers hear "Odśwież ceny tego produktu",
-// since the list's own refreshes every product. Without JavaScript it posts the product's id to the refresh route, and
-// the page comes back with the refreshed prices; with the island, each shop is refetched in place and its card updates
-// as it answers, and a submit while a refetch runs does nothing. The title row on a desktop and a phone's bottom bar
-// each hold one, and the page shows one of them at each width.
-export default function RefreshForm({ itemId, pending, onRefresh, size, className }: Props) {
+// since the list's own refreshes every product. Without JavaScript it posts the product's id and the list's filter to
+// the refresh route, and the page comes back with the refreshed prices and the list beside it keeps its chip; with the
+// island, each shop is refetched in place and its card updates as it answers, and a submit while a refetch runs does
+// nothing. The title row on a desktop and a phone's bottom bar each hold one, and the page shows one of them at each
+// width.
+export default function RefreshForm({ itemId, listFilter, pending, onRefresh, size, className }: Props) {
   const look = SIZES[size];
   return (
     <form
@@ -59,6 +66,7 @@ export default function RefreshForm({ itemId, pending, onRefresh, size, classNam
       }
     >
       <input type="hidden" name="itemId" value={itemId} />
+      {listFilter !== "all" && <input type="hidden" name="f" value={listFilter} />}
       <Button
         type="submit"
         size="touch"

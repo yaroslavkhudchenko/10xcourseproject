@@ -11,6 +11,11 @@ type Props =
       reason: "not-found";
       /** Why a decision wasn't saved (`?error=`), as text: a decision posted for a product that isn't there ends here. */
       error?: string | null;
+      /**
+       * What a removal came to (`?removal=`), as text: a removal whose answer didn't come ends here when it went
+       * through after all.
+       */
+      notice?: string | null;
     }
   | {
       /** The product couldn't be read. */
@@ -18,8 +23,9 @@ type Props =
     };
 
 const props = Astro.props;
-// Only the not-found branch shows a decision's error.
+// Only the not-found branch shows a decision's error and a removal's notice.
 const error = props.reason === "not-found" ? (props.error ?? null) : null;
+const notice = props.reason === "not-found" ? (props.notice ?? null) : null;
 const HEADING =
   "text-product-title font-extrabold tracking-heading text-balance xl:text-product-title-lg xl:tracking-title";
 ---
@@ -27,6 +33,11 @@ const HEADING =
 {props.reason === "not-found" ? (
   <>
     <h1 class:list={HEADING}>Nie znaleziono produktu.</h1>
+    {notice && (
+      <Alert variant="success" role="status">
+        <AlertDescription>{notice}</AlertDescription>
+      </Alert>
+    )}
     {error && (
       <Alert variant="destructive">
         <AlertDescription>{error}</AlertDescription>

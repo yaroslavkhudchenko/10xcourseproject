@@ -87,11 +87,33 @@ check(
   `insert ${show(bAdded)}, user A reads ${show(aAfter)}`,
 );
 
-// 6. S-01 has no way to change or delete a row.
+// 6. A row can't change, and only its owner removes it: another user's delete matches no row, as RLS filters it out,
+// and without a session there's no delete at all. A removed product can then be added again, as a new row.
 const updated = await a.client.from("watchlist_items").update({ name: "Changed" }).eq("id", aRowId);
 check("user A can't update their row", updated.error?.code === "42501", show(updated));
-const deleted = await a.client.from("watchlist_items").delete().eq("id", aRowId);
-check("user A can't delete their row", deleted.error?.code === "42501", show(deleted));
+const readRow = () => a.client.from("watchlist_items").select("id").eq("id", aRowId);
+const bRemoved = await b.client.from("watchlist_items").delete().eq("id", aRowId).select("id");
+const afterBRemoved = await readRow();
+check(
+  "user B can't remove user A's row",
+  !bRemoved.error && bRemoved.data?.length === 0 && afterBRemoved.data?.length === 1,
+  `delete ${show(bRemoved)}, user A reads ${show(afterBRemoved)}`,
+);
+const anonRemoved = await anon.from("watchlist_items").delete().eq("id", aRowId);
+check("anon can't remove a row", anonRemoved.error?.code === "42501", show(anonRemoved));
+const removed = await a.client.from("watchlist_items").delete().eq("id", aRowId).select("id");
+const afterRemoved = await readRow();
+check(
+  "user A removes their own row",
+  !removed.error && removed.data?.length === 1 && removed.data[0].id === aRowId && afterRemoved.data?.length === 0,
+  `delete ${show(removed)}, user A reads ${show(afterRemoved)}`,
+);
+const readded = await a.client.from("watchlist_items").insert(rossmannItem("26900")).select("id").single();
+check(
+  "user A adds the same product again after removing it",
+  !readded.error && Boolean(readded.data?.id) && readded.data.id !== aRowId,
+  show(readded),
+);
 
 // 7. Without a session, nothing is readable or writable.
 const anonRead = await anon.from("watchlist_items").select("id");

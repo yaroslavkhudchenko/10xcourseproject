@@ -1,9 +1,23 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "astro/zod";
+import {
+  ERROR_PARAM,
+  REMOVAL_ANCHOR,
+  REMOVAL_CODES,
+  REMOVAL_GONE_NOTICES,
+  REMOVAL_NOTICES,
+  REMOVAL_PARAM,
+  REMOVED_CODES,
+  REMOVED_NOTICES,
+  REMOVED_PARAM,
+  type RemovalCode,
+  type RemovedCode,
+} from "@/lib/notices";
 import { optionalText, optionalUrl } from "@/lib/services/form-fields";
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import { isRossmannImage, isRossmannProductUrl } from "@/lib/services/shops/rossmann";
 import { parseSize } from "@/lib/services/size";
+import { filterHref, type ListFilter } from "@/lib/services/watchlist-rows";
 import { SHOP_IDS, type ProductCandidate, type WatchlistItem, type WatchlistProduct } from "@/types";
 
 // All reads and writes go through the user's own client, so RLS keeps every row private to its owner. Each database
@@ -127,6 +141,8 @@ export async function addToWatchlist(supabase: SupabaseClient, candidate: Produc
   return { kind: "added", id: inserted.data.id };
 }
 
+// A product as the list reads it. Its brand and size are what its matches are compared with (FR-007), so a row whose
+// size can't be read is odd, never one without a size.
 const rowSchema = z.object({
   id: z.string(),
   source: z.enum(SHOP_IDS),
@@ -135,6 +151,8 @@ const rowSchema = z.object({
   name: z.string(),
   caption: z.string().nullable(),
   size_text: z.string().nullable(),
+  size_value: z.number().positive().nullable(),
+  size_unit: z.enum(["ml", "g", "pcs"]).nullable(),
   image_url: z.string().nullable(),
   created_at: z.string(),
 });
@@ -143,7 +161,7 @@ const rowSchema = z.object({
 export async function listWatchlist(supabase: SupabaseClient): Promise<WatchlistItem[] | null> {
   const { data, error } = await supabase
     .from("watchlist_items")
-    .select("id, source, source_item_id, brand, name, caption, size_text, image_url, created_at")
+    .select("id, source, source_item_id, brand, name, caption, size_text, size_value, size_unit, image_url, created_at")
     .order("created_at", { ascending: false })
     .abortSignal(AbortSignal.timeout(DATABASE_TIMEOUT_MS));
   if (error) {
@@ -173,6 +191,7 @@ export async function listWatchlist(supabase: SupabaseClient): Promise<Watchlist
 }
 
 function toItem(row: z.infer<typeof rowSchema>): WatchlistItem {
+  const { size_value: value, size_unit: unit } = row;
   return {
     id: row.id,
     source: row.source,
@@ -181,15 +200,14 @@ function toItem(row: z.infer<typeof rowSchema>): WatchlistItem {
     name: row.name,
     caption: row.caption,
     sizeText: row.size_text,
+    size: value !== null && unit !== null ? { value, unit } : null,
     imageUrl: row.image_url,
     addedAt: row.created_at,
   };
 }
 
-// A product's page also needs the size and EANs its shop lookups compare with, and the product's page in its shop.
+// A product's page also needs the EANs its shop lookups look for, and the product's page in its shop.
 const productRowSchema = rowSchema.extend({
-  size_value: z.number().positive().nullable(),
-  size_unit: z.enum(["ml", "g", "pcs"]).nullable(),
   eans: z.array(z.string()),
   product_url: z.string().nullable(),
 });
@@ -227,8 +245,92 @@ export async function getWatchlistProduct(
     );
     return "failed";
   }
-  const { size_value: value, size_unit: unit, eans, product_url: productUrl } = parsed.data;
-  return { ...toItem(parsed.data), size: value !== null && unit !== null ? { value, unit } : null, eans, productUrl };
+  const { eans, product_url: productUrl } = parsed.data;
+  return { ...toItem(parsed.data), eans, productUrl };
+}
+
+/**
+ * What removing a product came to: `removed`, or `gone` when the user had no product by that id any more, as after a
+ * second post or a removal in another tab; RLS answers another user's product the same way.
+ */
+export type RemoveResult = "removed" | "gone" | "failed";
+
+// The rows a removal's delete gives back: none, or the one row its id names, by its id.
+const deletedSchema = z.array(z.object({ id: z.string() })).max(1);
+
+/**
+ * Removes a product from the user's watchlist: their own row and, through the foreign key's cascade, their own
+ * decisions for it, never a price observation, which references no product (FR-005). The delete asks for its rows
+ * back, so `removed` is read only from the row it removed, and no row back is `gone`. An error, or an answer that
+ * can't be read, is `failed`, logged, never `gone`. The id must already be a UUID.
+ */
+export async function removeFromWatchlist(supabase: SupabaseClient, id: string): Promise<RemoveResult> {
+  const { data, error } = await supabase
+    .from("watchlist_items")
+    .delete()
+    .eq("id", id)
+    .select("id")
+    .abortSignal(AbortSignal.timeout(DATABASE_TIMEOUT_MS));
+  if (error) {
+    logFailure("delete failed", error.message);
+    return "failed";
+  }
+  const rows: unknown = data;
+  const deleted = deletedSchema.safeParse(rows);
+  if (!deleted.success) {
+    logFailure("unexpected delete result", Array.isArray(rows) ? `${rows.length} rows` : typeof rows);
+    return "failed";
+  }
+  return deleted.data.length === 1 ? "removed" : "gone";
+}
+
+/** What a removal's post came to, as the page it goes back to says it: the removal's result, or no Supabase. */
+export type RemovalOutcome = RemoveResult | "config";
+
+/**
+ * Where a removal's post goes back to, keeping the list's filter unless it's every product's (filterHref): the list,
+ * saying the product was removed (`?removed=done`), wasn't on it any more (`?removed=gone`) or that Supabase isn't
+ * configured (`?error=config`); or, after a failure, the product's page, whose confirm opens again with its error,
+ * pointed to by the address (`?removal=failed#remove`). Each page turns the code into its own text.
+ */
+export function removalBackTo(itemId: string, outcome: RemovalOutcome, filter: ListFilter): string {
+  switch (outcome) {
+    case "removed":
+      return filterHref("/watchlist", filter, { [REMOVED_PARAM]: "done" satisfies RemovedCode });
+    case "gone":
+      return filterHref("/watchlist", filter, { [REMOVED_PARAM]: "gone" satisfies RemovedCode });
+    case "config":
+      return filterHref("/watchlist", filter, { [ERROR_PARAM]: "config" satisfies WatchlistError });
+    case "failed": {
+      // The confirm stands at the page's foot, so the address points to it: the page opens there, at its error.
+      const page = filterHref(`/watchlist/${itemId}`, filter, { [REMOVAL_PARAM]: "failed" satisfies RemovalCode });
+      return `${page}#${REMOVAL_ANCHOR}`;
+    }
+  }
+}
+
+/** The list's text for a removal's `?removed=` code, or null for anything the app didn't send itself. */
+export function removedNotice(value: string | null): string | null {
+  const code = REMOVED_CODES.find((each) => each === value);
+  return code === undefined ? null : REMOVED_NOTICES[code];
+}
+
+/**
+ * The product page's text for a failed removal's `?removal=` code, which opens its confirm again, or null for anything
+ * the app didn't send itself.
+ */
+export function removalErrorMessage(value: string | null): string | null {
+  const code = REMOVAL_CODES.find((each) => each === value);
+  return code === undefined ? null : REMOVAL_NOTICES[code];
+}
+
+/**
+ * The product page's text for a failed removal's `?removal=` code when the product isn't there any more, which a
+ * removal whose answer didn't come may still have deleted, or null for anything the app didn't send itself.
+ */
+export function removalGoneNotice(value: string | null): string | null {
+  const code = REMOVAL_CODES.find((each) => each === value);
+  return code === undefined ? null : REMOVAL_GONE_NOTICES[code];
 }
 
 function logFailure(reason: string, detail: string): void {

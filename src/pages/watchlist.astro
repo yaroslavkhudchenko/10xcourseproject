@@ -7,7 +7,7 @@ import ListHead from "@/components/watchlist/ListHead.astro";
 import ListRows from "@/components/watchlist/ListRows.astro";
 import SearchResults from "@/components/watchlist/SearchResults.astro";
 import WatchlistShell from "@/layouts/WatchlistShell.astro";
-import { LIST_PRICES_PARAM } from "@/lib/notices";
+import { ERROR_PARAM, EXISTS_NOTICE, EXISTS_PARAM, LIST_PRICES_PARAM, REMOVED_PARAM } from "@/lib/notices";
 import { listMatchStates } from "@/lib/services/matches";
 import { SHOP_LABELS } from "@/lib/services/price-comparison";
 import { parsePriceRefreshCode } from "@/lib/services/price-refresh";
@@ -16,7 +16,7 @@ import { shopGateFor } from "@/lib/services/shop-gate";
 import { isOwnNavigation, searchQuerySchema } from "@/lib/services/search-query";
 import { searchRossmann } from "@/lib/services/shops/rossmann";
 import { listChipsOf, listRowsOf } from "@/lib/services/watchlist-rows";
-import { listWatchlist, watchlistErrorMessage } from "@/lib/services/watchlist";
+import { listWatchlist, removedNotice, watchlistErrorMessage } from "@/lib/services/watchlist";
 import { shopUnavailableText } from "@/lib/shop-messages";
 
 const { user, supabase } = Astro.locals;
@@ -47,8 +47,10 @@ const rows = items === null ? null : listRowsOf(items, matchRead, priceRead, Dat
 // The chips, and the filter they set, only when every read worked and the list has products (listChipsOf).
 const { counts, filter } = listChipsOf(rows, matchRead !== null && priceRead !== null, params.get("f"));
 
-const notice = params.has("exists") ? "Ten produkt jest już na Twojej liście." : null;
-const error = watchlistErrorMessage(params.get("error"));
+// "Dodaj"'s notice that the product is already on the list, or what a removal came to, and an error's text, in the
+// list's own words (notices.ts): a code the app didn't send shows nothing.
+const notice = params.has(EXISTS_PARAM) ? EXISTS_NOTICE : removedNotice(params.get(REMOVED_PARAM));
+const error = watchlistErrorMessage(params.get(ERROR_PARAM));
 // "Moja lista", the page's heading, which names the rows' list too.
 const LIST_HEADING_ID = "list-heading";
 ---
@@ -121,4 +123,17 @@ const LIST_HEADING_ID = "list-heading";
     labelledBy={LIST_HEADING_ID}
   />
   {counts !== null && <ListFooter slot="footer" />}
+  <script>
+    // The parameters are the ones the frontmatter reads its notices by, from a module that imports nothing, so this
+    // script ships no server code.
+    import { LIST_NOTICE_PARAMS, withoutNotices } from "@/lib/notices";
+
+    // A notice shows once: the address bar forgets the parameter that brought it, "Dodaj"'s (exists), an error's, the
+    // list's refresh's (list-prices) or a removal's (removed), so a reload or a copied link doesn't show it again.
+    // Every other parameter, the list's filter and the search among them, and the hash stay (withoutNotices).
+    const forgotten = withoutNotices(window.location.href, LIST_NOTICE_PARAMS);
+    if (forgotten !== null) {
+      history.replaceState(history.state, "", forgotten);
+    }
+  </script>
 </WatchlistShell>

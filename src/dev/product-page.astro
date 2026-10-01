@@ -7,9 +7,10 @@
 // each frame the containing block of its phone's bottom bar, which it otherwise fixes to the screen. The view lays
 // itself out by the screen's width, not the frame's, so from 1024 to 1279 px the frames show the layout the narrower
 // pane gets there. The other sections' copies stand side by side on a wide screen. It hydrates nothing, so no island
-// effect runs, and nothing it calls reaches Supabase or a shop; its only scripts are the Natura choice's SubmitOnce and
-// the theme switch's. Tailwind doesn't scan this folder (global.css), so its markup uses only classes the app itself
-// uses, and the frames' and columns' widths and the frames' containing block are inline styles.
+// effect runs, and nothing it calls reaches Supabase or a shop; its only scripts are the forms' SubmitOnce, for the
+// Natura choice and the removal, and the theme switch's. Tailwind doesn't scan this folder (global.css), so its markup
+// uses only classes the app itself uses, and the frames' and columns' widths and the frames' containing block are
+// inline styles.
 import { RefreshCw } from "lucide-react";
 import LogoMark from "@/components/shell/LogoMark.astro";
 import ThemeToggle from "@/components/shell/ThemeToggle.astro";
@@ -32,6 +33,7 @@ import { comparisonOf } from "@/components/watchlist/price-comparison-state";
 import PriceComparisonView, { ShopGrid } from "@/components/watchlist/PriceComparisonView";
 import ProductThumb from "@/components/watchlist/ProductThumb";
 import ProductUnavailable from "@/components/watchlist/ProductUnavailable.astro";
+import RemoveProduct from "@/components/watchlist/RemoveProduct.astro";
 import Sticker from "@/components/watchlist/Sticker";
 import {
   ALONE_FIXTURES,
@@ -42,6 +44,8 @@ import {
   PRICE_FIXTURES,
   PRICE_SAMPLES,
   PRODUCT_ID,
+  REMOVAL_GONE_NOTICE,
+  REMOVE_FIXTURES,
   THUMB_FIXTURES,
 } from "@/dev/fixtures";
 import Layout from "@/layouts/Layout.astro";
@@ -150,7 +154,16 @@ const LINK_BUTTONS = [
             </dt>
             <dd class="text-sm text-muted-foreground">
               Każdy stan poniżej: tylko tokeny i komponenty z <code>src/components/ui</code>. Warianty samych
-              komponentów: sekcje od Price do Button w każdej kolumnie.
+              komponentów: sekcje od Price do Button w każdej kolumnie. Zapisane dopasowanie Natury nazywa w stopce
+              karty swoją pozycję, markę i rozmiar nad nazwą, z „Zmień”: Natura › <code>matched</code>. Jego
+              ostrzeżenia, po jednym na inny rozmiar i inną markę: Natura › <code>matched + notice</code> i{" "}
+              <code>matched + brand</code>. Flaga „Inna marka” przy kandydacie: Natura › <code>choose + error</code>.
+              Odrzucona Natura z „Dopasuj ponownie”: Natura › <code>unmatched</code>. Wybór, który zmienia zapisaną
+              decyzję, z obecnym dopasowaniem oznaczonym, a automatycznym także z „To ten produkt”, i kartą z „Anuluj”:
+              Natura › <code>matched + repin</code>, z dopasowaniem potwierdzonym przez Ciebie, tylko oznaczonym: Natura
+              › <code>confirmed + repin</code>, a dla odrzuconej Natury, bez „Żaden z nich”: Natura ›{" "}
+              <code>unmatched + repin</code>. „Usuń z listy” na dole strony, zamknięte i otwarte: Usuń z listy ›{" "}
+              <code>closed</code> i <code>open</code>.
             </dd>
           </div>
           <div class="flex flex-col gap-1">
@@ -161,8 +174,11 @@ const LINK_BUTTONS = [
               N/A w statycznym widoku: <code>:hover</code> trzeba wymusić w DevTools, raz dla każdego typu kontrolki. To
               przyciski <code>default</code> („Odśwież ceny” w wierszu tytułu i na dolnym pasku, „To ten produkt”) i{" "}
               <code>outline</code> („Żaden z nich”), linki w stylu przycisku („Dopasuj w Naturze”, „Szukaj ponownie”,
-              „Zobacz w sklepie”, „Pokaż zapisaną decyzję”), link w alercie („Zaloguj się ponownie”, Obszar produktu ›{" "}
-              <code>session-ended</code>) i przełącznik motywu.
+              „Zobacz w sklepie”, „Pokaż zapisaną decyzję”, „Zmień”, „Dopasuj ponownie” i oba „Anuluj”, Natura ›{" "}
+              <code>matched + repin</code>), linki w alertach („Zaloguj się ponownie”, Obszar produktu ›{" "}
+              <code>session-ended</code>, i „Odśwież stronę”, Obszar produktu › <code>match-changed</code>), przełącznik
+              motywu, a w „Usuń z listy” podsumowanie w stylu przycisku <code>outline</code> i przycisk{" "}
+              <code>destructive</code> (Usuń z listy › <code>open</code>).
             </dd>
           </div>
           <div class="flex flex-col gap-1">
@@ -182,7 +198,8 @@ const LINK_BUTTONS = [
               Oba „Odśwież ceny”, w wierszu tytułu (od 1024 px) i na dolnym pasku (poniżej): Obszar produktu ›{" "}
               <code>refreshing</code> i <code>read-failed-one-answered</code>. Przycisk decyzji po wysłaniu wyłącza
               dopiero skrypt SubmitOnce, po kliknięciu, więc pokazuje go wyłączony Button zaraz pod Natura ›{" "}
-              <code>choose + error</code>.
+              <code>choose + error</code>, a czerwone „Usuń z listy” po wysłaniu: Usuń z listy ›{" "}
+              <code>open, po wysłaniu</code>.
             </dd>
           </div>
           <div class="flex flex-col gap-1">
@@ -195,7 +212,10 @@ const LINK_BUTTONS = [
               <code>read-failed-one-answered</code> i <code>read-failed-one-shop</code>, a przy nieodczytanej decyzji
               Natury Obszar produktu › <code>natura-read-failed</code>. Komunikaty kart: Obszar produktu ›{" "}
               <code>notice-busy-paused</code> i <code>notice-stopped-failed</code>. Do tego Natura ›{" "}
-              <code>read-failed</code> i Gałęzie strony › <code>not-found + error</code>.
+              <code>read-failed</code> i Gałęzie strony › <code>not-found + error</code>. Wybór, który zmienia decyzję,
+              przy zablokowanej Naturze i bez wyszukiwania po nazwie: Natura › <code>repin + unavailable</code> i{" "}
+              <code>repin + incomplete</code>. Destrukcyjny Alert w otwartym potwierdzeniu po nieudanym usunięciu: Usuń
+              z listy › <code>failed</code>.
             </dd>
           </div>
           <div class="flex flex-col gap-1">
@@ -204,7 +224,9 @@ const LINK_BUTTONS = [
             </dt>
             <dd class="text-sm text-muted-foreground">
               „Jeszcze bez ceny”: Obszar produktu › <code>never-checked</code>. Odrzucona decyzja: Natura ›{" "}
-              <code>unmatched</code>. Nieznaleziony produkt: Gałęzie strony › <code>not-found</code>.
+              <code>unmatched</code>. Nieznaleziony produkt: Gałęzie strony › <code>not-found</code>, a po usunięciu,
+              które mimo braku odpowiedzi się udało: <code>not-found + removal</code>. Wybór, w którym nic nie
+              znaleziono: Natura › <code>repin + not found</code>.
             </dd>
           </div>
           <div class="flex flex-col gap-1">
@@ -259,9 +281,20 @@ const LINK_BUTTONS = [
                       <div class:list={[FRAME, wrapper]} style={FRAME_STYLE}>
                         {/* As the page stands them: the island, then the choice of Natura's candidates below it. */}
                         <div class="flex flex-col gap-6 lg:gap-6.5">
-                          <PriceComparisonView itemId={PRODUCT_ID} product={product} state={state} natura={natura} />
+                          <PriceComparisonView
+                            itemId={PRODUCT_ID}
+                            listFilter="all"
+                            product={product}
+                            state={state}
+                            natura={natura}
+                          />
                           {choice && (
-                            <NaturaSection view={choice} productId={PRODUCT_ID} idPrefix={`${theme}-area-${code}`} />
+                            <NaturaSection
+                              view={choice}
+                              productId={PRODUCT_ID}
+                              filter="all"
+                              idPrefix={`${theme}-area-${code}`}
+                            />
                           )}
                         </div>
                       </div>
@@ -281,11 +314,12 @@ const LINK_BUTTONS = [
         <p class="text-sm text-muted-foreground" style={COLUMN_STYLE}>
           Karta Natury wśród kart sklepów (<code>ShopGrid</code>, <code>naturaCardOf</code>) w każdym rodzaju widoku, z
           komunikatem o zapisie, błędem zapisu i niezapisanym wynikiem wyszukiwania, obok ceny Rossmanna. Przy wyborze
-          kandydatów pod kartami stoi sekcja wyboru (<code>NaturaSection</code>). Każdy stan jest dwa razy: w jasnym
-          motywie i w ciemnym.
+          kandydatów pod kartami stoi sekcja wyboru (<code>NaturaSection</code>), także przy wyborze, który zmienia
+          zapisaną decyzję („Zmień”, „Dopasuj ponownie”), w każdym wyniku jego wyszukiwań. Każdy stan jest dwa razy: w
+          jasnym motywie i w ciemnym.
         </p>
         <div class="flex flex-col gap-6">
-          {NATURA_FIXTURES.map(({ code, text, idPrefix, natura, state }) => (
+          {NATURA_FIXTURES.map(({ code, text, idPrefix, natura, state, repin }) => (
             <div class="flex flex-col gap-1">
               <p class="text-xs text-muted-foreground">
                 <code>{code}</code> · {text}
@@ -294,15 +328,24 @@ const LINK_BUTTONS = [
                 {COPIES.map(({ theme, wrapper }) => (
                   <div class:list={[CARDS_FRAME, wrapper]} style={FRAME_STYLE}>
                     <div class="flex flex-col gap-6 lg:gap-6.5">
-                      <ShopGrid
-                        itemId={PRODUCT_ID}
-                        rows={comparisonOf(state).rows}
-                        now={state.now}
-                        natura={naturaCardOf(natura)}
-                      />
+                      <ShopGrid rows={comparisonOf(state).rows} now={state.now} natura={naturaCardOf(natura)} />
+                      {/* The choice that changes a stored decision, below the cards, as the page stands it. */}
+                      {repin && (
+                        <NaturaSection
+                          view={repin}
+                          productId={PRODUCT_ID}
+                          filter="all"
+                          idPrefix={`${theme}-${idPrefix}`}
+                        />
+                      )}
                       {natura.view.kind === "choose" && (
                         <>
-                          <NaturaSection view={natura.view} productId={PRODUCT_ID} idPrefix={`${theme}-${idPrefix}`} />
+                          <NaturaSection
+                            view={natura.view}
+                            productId={PRODUCT_ID}
+                            filter="all"
+                            idPrefix={`${theme}-${idPrefix}`}
+                          />
                           {/* A decision's buttons once one is sent: SubmitOnce disables every one of them. */}
                           <div class="flex flex-col gap-1">
                             <p class="text-xs text-muted-foreground">
@@ -323,6 +366,55 @@ const LINK_BUTTONS = [
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section aria-labelledby="remove-heading" class="flex flex-col gap-3">
+        <h2 id="remove-heading" class="text-lg font-semibold">
+          Usuń z listy
+        </h2>
+        <p class="text-sm text-muted-foreground" style={COLUMN_STYLE}>
+          <code>RemoveProduct</code> na dole strony produktu, pod kartami sklepów i wyborem Natury, w każdej szerokości:
+          zamknięte, otwarte i po nieudanym usunięciu. Otwiera się bez JavaScriptu. Formularz usuwa zmyślony produkt,
+          którego nie ma na niczyjej liście, więc przypadkowe kliknięcie niczego nie usuwa. Każdy stan jest dwa razy: w
+          jasnym motywie i w ciemnym.
+        </p>
+        <div class="flex flex-col gap-6">
+          {REMOVE_FIXTURES.map(({ code, text, open, error }) => (
+            <div class="flex flex-col gap-1">
+              <p class="text-xs text-muted-foreground">
+                <code>{code}</code> · {text}
+              </p>
+              <div class="flex flex-wrap items-start gap-6">
+                {COPIES.map(({ theme, wrapper }) => (
+                  <div class:list={[CARDS_FRAME, wrapper]} style={FRAME_STYLE}>
+                    <RemoveProduct
+                      productId={PRODUCT_ID}
+                      filter="all"
+                      open={open}
+                      error={error}
+                      idPrefix={`${theme}-remove-${code}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          {/* The removal's button once it's sent: SubmitOnce disables it. */}
+          <div class="flex flex-col gap-1">
+            <p class="text-xs text-muted-foreground">
+              <code>open, po wysłaniu</code> · SubmitOnce wyłącza czerwone „Usuń z listy”
+            </p>
+            <div class="flex flex-wrap items-start gap-6">
+              {COPIES.map(({ wrapper }) => (
+                <div class:list={[CARDS_FRAME, wrapper]} style={FRAME_STYLE}>
+                  <Button type="button" variant="destructive" size="touch" disabled>
+                    Usuń z listy
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -354,6 +446,15 @@ const LINK_BUTTONS = [
                   </p>
                   <div class="flex flex-col gap-6">
                     <ProductUnavailable reason="not-found" error={GONE_ERROR} />
+                  </div>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <p class="text-xs text-muted-foreground">
+                    <code>not-found + removal</code> · usunięcie bez odpowiedzi, które jednak się udało (
+                    <code>?removal=failed</code>)
+                  </p>
+                  <div class="flex flex-col gap-6">
+                    <ProductUnavailable reason="not-found" notice={REMOVAL_GONE_NOTICE} />
                   </div>
                 </div>
                 <div class="flex flex-col gap-1">

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "astro/zod";
-import { listMatches, listMatchStates } from "@/lib/services/matches";
+import { listMatches, listMatchStates, shopItemIdSchema } from "@/lib/services/matches";
 import {
   listPricedItems,
   PRICED_SHOPS,
@@ -15,12 +15,21 @@ import type { PriceKey } from "@/types";
 // Which shop items a price refresh fetches, for the product page's island (/api/watchlist/prices) and for "Odśwież
 // ceny" (/api/watchlist/refresh). They come from the user's own rows, read through the user's own client, never from
 // the request, so the browser can't choose what gets fetched: RLS answers another user's product as no product at all.
+// The island's request names the shop item its page shows, but only to compare it with the one the rows give.
 
 /**
- * What the island asks /api/watchlist/prices for: which of the user's products, and which shop. It names no shop item,
- * and any other field in the body is dropped.
+ * What the island asks /api/watchlist/prices for: which of the user's products, which shop, and the shop item its page
+ * shows there. That item is never fetched on the request's word: it's only compared with the one the user's rows give
+ * (priceTargetFor). Any other field in the body is dropped.
  */
-export const priceRequestSchema = z.object({ itemId: watchlistItemIdSchema, shop: z.enum(PRICED_SHOPS) });
+export const priceRequestSchema = z.object({
+  itemId: watchlistItemIdSchema,
+  shop: z.enum(PRICED_SHOPS),
+  shopItemId: shopItemIdSchema,
+});
+
+/** The island's price request, checked (priceRequestSchema). */
+export type PriceRequest = z.infer<typeof priceRequestSchema>;
 
 /**
  * The shop item a refresh of the user's product fetches: the product's own item for Rossmann, where it was picked, and
@@ -45,6 +54,26 @@ export async function shopItemFor(
   }
   const match = matches.find((decision) => decision.shop === shop);
   return product !== null && match?.state === "matched" ? { shop, shopItemId: match.item.shopItemId } : null;
+}
+
+/**
+ * The shop item the island's request refreshes: the one the user's rows give (shopItemFor), never the one the request
+ * names, which is only compared with it. `changed` when the rows give another item than the page shows, as after a
+ * re-pin in another tab, so a page left open never shows another item's price under its item's name; `gone` when the
+ * product isn't on the user's list or has no matched item in that shop; `failed` when the rows couldn't be read.
+ */
+export async function priceTargetFor(
+  supabase: SupabaseClient,
+  request: PriceRequest,
+): Promise<PriceKey | "gone" | "changed" | "failed"> {
+  const key = await shopItemFor(supabase, request.itemId, request.shop);
+  if (key === "failed") {
+    return "failed";
+  }
+  if (key === null) {
+    return "gone";
+  }
+  return key.shopItemId === request.shopItemId ? key : "changed";
 }
 
 /**

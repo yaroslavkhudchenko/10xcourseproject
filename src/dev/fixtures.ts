@@ -3,8 +3,10 @@
 // brands its primitives are shown with. Every state is built by the product page's own code, the price island's
 // reducer, the Natura view builders and the matching rule, so the kitchen sink shows only states the page can reach.
 // The product area's states pair every price state with Natura in every kind: the states with Natura's price need a
-// saved match, and the rest stand with Rossmann's price alone, each beside another of Natura's kinds. Nothing here is
-// real user data, and nothing here asks Supabase or a shop.
+// saved match, and the rest stand with Rossmann's price alone, each beside another of Natura's kinds. Natura's own
+// states include the choice that changes a stored decision, in each of the outcomes its searches can have, and the
+// product's removal at the page's foot is drawn closed, open and after a failure. Nothing here is real user data, and
+// nothing here asks Supabase or a shop.
 import type { NaturaCardInput } from "@/components/watchlist/natura-card";
 import type { PriceSize } from "@/components/watchlist/Price";
 import type { TitleProduct } from "@/components/watchlist/ProductTitle";
@@ -21,22 +23,28 @@ import {
 import { tileOf, TILES, type Tile } from "@/components/watchlist/thumb-tile";
 import { DECISION_NOTICES } from "@/lib/notices";
 import { matchErrorMessage } from "@/lib/services/matches";
-import { pickMatch } from "@/lib/services/matching";
+import { judge, pickMatch } from "@/lib/services/matching";
 import {
   chooseView,
+  decidedView,
   matchedView,
   notFoundView,
   promptView,
+  repinView,
   storedView,
+  type NaturaRepin,
   type NaturaView,
 } from "@/lib/services/natura-view";
 import { SHOP_LABELS, STALE_AFTER_MS, type PricedShop } from "@/lib/services/price-comparison";
 import { parseSize } from "@/lib/services/size";
+import { removalErrorMessage, removalGoneNotice } from "@/lib/services/watchlist";
 import { shopUnavailableText } from "@/lib/shop-messages";
 import type {
   CandidateOption,
   LatestPrice,
   MatchedItem,
+  NaturaChoices,
+  RepinnableMatch,
   ShopCandidate,
   ShopMatch,
   ShopOffer,
@@ -95,15 +103,20 @@ function offer(price: number, extra: Partial<ShopOffer> = {}): ShopOffer {
 const NATURA_PROMO = offer(22.99, { regularPrice: 27.99, lowestPrice30d: 23.99, promoEndsOn: "2026-10-05" });
 const NATURA_SKU = "NV10000";
 
-/** A shop's row as the page hands it to the island: its item's page, and its stored price or none. */
+/** The item the page shows in a shop: the product's own in Rossmann, and its match in Natura. */
+function itemIn(shop: PricedShop): string {
+  return shop === "rossmann" ? PRODUCT.sourceItemId : NATURA_SKU;
+}
+
+/** A shop's row as the page hands it to the island: its item, the item's page, and its stored price or none. */
 function row(shop: PricedShop, latest: LatestPrice | null): PriceComparisonShop {
-  return { shop, productUrl: HERE, latest };
+  return { shop, shopItemId: itemIn(shop), productUrl: HERE, latest };
 }
 
 /** A shop's row whose last check found `price`, `ago` before the page was rendered. */
 function priced(shop: PricedShop, price: ShopOffer, ago: number): PriceComparisonShop {
   const at = new Date(NOW_MS - ago).toISOString();
-  const shopItemId = shop === "rossmann" ? PRODUCT.sourceItemId : NATURA_SKU;
+  const shopItemId = itemIn(shop);
   return row(shop, { shop, shopItemId, lastCheckedAt: at, lastStatus: "price", offer: { ...price, pricedAt: at } });
 }
 
@@ -115,6 +128,7 @@ const CHECKED = [ROSSMANN_CHECKED, priced("natura", NATURA_PROMO, 5 * MINUTE)];
 const REFETCH = [start("rossmann"), start("natura")];
 const MISSING: RefreshResult = { kind: "missing", checkedAt: CHECKED_AT, saved: true };
 const SESSION_ENDED: RefreshResult = { kind: "session-ended" };
+const MATCH_CHANGED: RefreshResult = { kind: "match-changed" };
 
 /** The island's state for `shops` as the server rendered it at NOW, then after each action in turn. */
 function island(shops: PriceComparisonShop[], ...actions: PriceComparisonAction[]): PriceComparisonState {
@@ -128,7 +142,7 @@ function unread(...actions: PriceComparisonAction[]): PriceComparisonState {
   return actions.reduce(priceComparisonReducer, initialState({ shops, now: NOW, pricesFailed: true }));
 }
 
-/** The product's item in Natura: the same EAN and size. */
+/** The product's item in Natura: the same EAN and size, and its brand in capitals, which the brand rule agrees with. */
 const NATURA_ITEM: MatchedItem = {
   shopItemId: NATURA_SKU,
   brand: "PRZYKŁAD",
@@ -139,18 +153,34 @@ const NATURA_ITEM: MatchedItem = {
   imageUrl: null,
 };
 
+/**
+ * An item of another brand in Natura with the product's EAN and size: the matching rule leaves it to the user, while
+ * before the brand rule a lookup accepted it on its own.
+ */
+const OTHER_BRAND_ITEM: MatchedItem = { ...NATURA_ITEM, shopItemId: "NV10003", brand: "WZÓR" };
+
 // A decision stored for the product in Natura, at 21:45 in Poland on 27 September.
 const DECISION = { watchlistItemId: PRODUCT_ID, shop: "natura", checkedAt: "2026-09-27T19:45:00.000Z" } as const;
 
-// The user confirmed the candidate in another size (the first of CANDIDATES), so the match's size is flagged.
-const CONFIRMED: ShopMatch = {
+// The product's match, found by its EAN and size, as it's stored: the re-pin's states open its choice.
+const AUTO_MATCHED: RepinnableMatch = { ...DECISION, decidedBy: "auto", state: "matched", item: NATURA_ITEM };
+// The user confirmed the candidate in another size (the first of CANDIDATES), so the match's size is flagged. Its
+// re-pin's choice marks it without offering it again.
+const CONFIRMED: RepinnableMatch = {
   ...DECISION,
   decidedBy: "user",
   state: "matched",
   item: { ...NATURA_ITEM, shopItemId: "NV10001", ...sized("200 ml") },
 };
-const DECLINED: ShopMatch = { ...DECISION, decidedBy: "user", state: "unmatched", item: null };
+// A lookup accepted the item of another brand on its own before the brand rule, so the match's brand is flagged.
+const AUTO_OTHER_BRAND: ShopMatch = { ...DECISION, decidedBy: "auto", state: "matched", item: OTHER_BRAND_ITEM };
+const DECLINED: RepinnableMatch = { ...DECISION, decidedBy: "user", state: "unmatched", item: null };
 const NOT_FOUND: ShopMatch = { ...DECISION, decidedBy: "auto", state: "not_found", item: null };
+
+// The kitchen sink's product is opened from the whole list, so its views' links carry no filter. A stored decision's
+// view is drawn as the page draws it before its choice is opened (REPINNING draws it with the choice open).
+const LINKS = { filter: "all" } as const;
+const REPINNING = { filter: "all", repinning: true } as const;
 
 /** Natura as the page hands it to the island, with this view and, unless `extra` adds them, no notices. */
 function naturaOf(view: NaturaView, extra: Partial<Omit<NaturaCardInput, "view">> = {}): NaturaCardInput {
@@ -158,7 +188,7 @@ function naturaOf(view: NaturaView, extra: Partial<Omit<NaturaCardInput, "view">
 }
 
 // The product's stored match, found by its EAN and size, which every price state of the product area has but one.
-const MATCHED = naturaOf(matchedView(NATURA_ITEM, "auto", PRODUCT));
+const MATCHED = naturaOf(matchedView(NATURA_ITEM, "auto", PRODUCT, LINKS));
 
 /** One state of the product area, with the kitchen sink's label for it: the island's state and the product it's for. */
 export interface PriceFixture {
@@ -292,6 +322,18 @@ const PRICE_STATES: Omit<PriceFixture, "product">[] = [
     natura: MATCHED,
   },
   {
+    code: "match-changed",
+    text: "dopasowanie w Naturze zmieniono w innej karcie: cena Natury zostaje, a strona prosi o odświeżenie",
+    // "Odśwież ceny" on a page left open: Rossmann answers, while Natura's stored match is no longer the page's item.
+    state: island(
+      CHECKED,
+      ...REFETCH,
+      done("rossmann", { kind: "price", offer: offer(26.99), checkedAt: CHECKED_AT, saved: true }, ANSWERED_AT),
+      done("natura", MATCH_CHANGED, ANSWERED_AT),
+    ),
+    natura: MATCHED,
+  },
+  {
     code: "read-failed",
     text: "nie udało się wczytać zapisanych cen",
     state: unread(),
@@ -345,19 +387,20 @@ export const HANDOFF_FIXTURES: PriceFixture[] = [
     text: "próbka z projektu: jedna cena, w Rossmannie, sprzed 3 godzin, a Natura czeka na dopasowanie",
     state: island([priced("rossmann", offer(12.99), 3 * HOUR)]),
     product: sample("Ziaja", "Mleczko do ciała", "kozie mleko", "400 ml", "2026-09-24"),
-    natura: naturaOf(promptView(PRODUCT, false)),
+    natura: naturaOf(promptView(PRODUCT, false, "all")),
   },
   {
     code: "colgate",
     text: "próbka z projektu: cena Rossmanna sprzed 2 dni, z najniższą ceną z 30 dni; Natura odrzucona",
     state: island([priced("rossmann", offer(11.49, { lowestPrice30d: 10.99 }), 2 * DAY)]),
     product: sample("Colgate", "Total", "pasta do zębów", "75 ml", "2026-09-26"),
-    natura: naturaOf(storedView(DECLINED, PRODUCT)),
+    natura: naturaOf(storedView(DECLINED, PRODUCT, LINKS)),
   },
 ];
 
-// What Natura's search by the product's EAN returned. None shares both the EAN and the size, so the matching rule
-// leaves the choice to the user, and between them the candidates carry every flag one can have.
+// What Natura's search by the product's EAN returned. The only one that shares both the EAN and the size is of
+// another brand, so the matching rule leaves the choice to the user, and between them the candidates carry every flag
+// one can have. The rule offers at most three.
 const CANDIDATES: ShopCandidate[] = [
   // The same EAN in another size.
   {
@@ -378,8 +421,8 @@ const CANDIDATES: ShopCandidate[] = [
     eans: ["2000000000018"],
     offer: offer(39.99),
   },
-  // Another EAN in the same size, without a price that can be stored.
-  { ...NATURA_ITEM, shop: "natura", shopItemId: "NV10003", eans: ["2000000000025"], offer: null },
+  // The same EAN and size, of another brand, without a price that can be stored.
+  { ...OTHER_BRAND_ITEM, shop: "natura", offer: null },
 ];
 
 /** The options the matching rule leaves to the user for these candidates, as a lookup hands them to the page. */
@@ -392,10 +435,48 @@ function leftToUser(candidates: ShopCandidate[]): CandidateOption[] {
   return pick.options;
 }
 
+// What Natura's two searches found again when the user opened the choice to change the decision: by the product's EAN,
+// the matched item, the one in another size and the one of another brand; by its name, the set as well.
+const FOUND_BY_EAN: ShopCandidate[] = [
+  { ...NATURA_ITEM, shop: "natura", offer: NATURA_PROMO },
+  ...CANDIDATES.filter((candidate) => candidate.eans.includes(EAN)),
+];
+const FOUND_BY_NAME: ShopCandidate[] = CANDIDATES.filter((candidate) => !candidate.eans.includes(EAN));
+
+/** The candidates judged by the matching rule, as the choice's lookup offers them, none accepted on its own. */
+function judged(candidates: ShopCandidate[]): CandidateOption[] {
+  return candidates.map((candidate) => ({ candidate, verdict: judge(PRODUCT, candidate) }));
+}
+
+// The choice from both searches, from the EAN search alone after a name search Natura was too busy to answer, from
+// searches that found nothing, and from an EAN search Natura refused.
+const FOUND_BY_BOTH: NaturaChoices = {
+  kind: "choices",
+  options: judged([...FOUND_BY_EAN, ...FOUND_BY_NAME]),
+  via: "both",
+  incomplete: null,
+};
+const NAME_SEARCH_BUSY: NaturaChoices = {
+  kind: "choices",
+  options: judged(FOUND_BY_EAN),
+  via: "ean",
+  incomplete: { kind: "unavailable", reason: "busy" },
+};
+const NOTHING_FOUND: NaturaChoices = { kind: "not-found" };
+const NATURA_STOPPED: NaturaChoices = { kind: "unavailable", reason: "stopped" };
+
+/** The choice that changes a stored decision, as the page builds it once Natura's searches have answered. */
+function repinOf(choices: NaturaChoices, current: RepinnableMatch): NaturaRepin {
+  return repinView(choices, current, new Date(NOW), PRODUCT, "all");
+}
+
+// The product's match with its choice open: the card points below and offers "Anuluj", and keeps its price row.
+const MATCHED_REPINNING = naturaOf(storedView(AUTO_MATCHED, PRODUCT, REPINNING));
+
 /**
  * One state of Natura, with the kitchen sink's label, the prefix that keeps its choice's ids its own, Natura as the
- * page hands it to the island, and the island's state beside it: Rossmann's price, with Natura's while its match is
- * saved.
+ * page hands it to the island, the island's state beside it, Rossmann's price, with Natura's while its match is saved,
+ * and, while the user changes a stored decision, the choice below the cards.
  */
 export interface NaturaFixture {
   code: string;
@@ -403,6 +484,7 @@ export interface NaturaFixture {
   idPrefix: string;
   natura: NaturaCardInput;
   state: PriceComparisonState;
+  repin?: NaturaRepin;
 }
 
 // Only Rossmann's price: Natura has none while its match isn't saved.
@@ -411,38 +493,93 @@ const ROSSMANN_ONLY = island([ROSSMANN_CHECKED]);
 export const NATURA_FIXTURES: NaturaFixture[] = [
   {
     code: "matched",
-    text: "dopasowane automatycznie, zaraz po wyszukaniu",
+    text: "dopasowane automatycznie, zaraz po wyszukaniu: stopka nazywa pozycję z Natury, bez ostrzeżeń, z „Zmień”",
     idPrefix: "natura-auto",
     natura: MATCHED,
     state: island(CHECKED),
   },
   {
     code: "matched + unsaved",
-    text: "dopasowane automatycznie, ale zapis się nie udał: bez wiersza ceny karta pokazuje pozycję z Natury",
+    text: "dopasowane automatycznie, ale zapis się nie udał: bez wiersza ceny karta pokazuje pozycję z Natury, bez „Zmień”",
     idPrefix: "natura-auto-unsaved",
-    natura: naturaOf(matchedView(NATURA_ITEM, "auto", PRODUCT, { unsaved: true }), { unsaved: true }),
+    natura: naturaOf(matchedView(NATURA_ITEM, "auto", PRODUCT, { ...LINKS, unsaved: true }), { unsaved: true }),
     state: ROSSMANN_ONLY,
   },
   {
     code: "matched + notice",
-    text: "potwierdzone przez Ciebie w innym rozmiarze, zaraz po zapisie",
+    text: "potwierdzone przez Ciebie w innym rozmiarze, zaraz po zapisie: stopka ostrzega o rozmiarze",
     idPrefix: "natura-confirmed",
     // The page's notice for `?matched`.
-    natura: naturaOf(storedView(CONFIRMED, PRODUCT), { notice: DECISION_NOTICES.matched }),
+    natura: naturaOf(storedView(CONFIRMED, PRODUCT, LINKS), { notice: DECISION_NOTICES.matched }),
     state: island([ROSSMANN_CHECKED, priced("natura", offer(17.99), 5 * MINUTE)]),
   },
   {
+    code: "matched + brand",
+    text: "dopasowane automatycznie, zanim porównywano marki: stopka ostrzega o innej marce",
+    idPrefix: "natura-other-brand",
+    natura: naturaOf(storedView(AUTO_OTHER_BRAND, PRODUCT, LINKS)),
+    state: island([ROSSMANN_CHECKED, priced("natura", offer(21.99), 5 * MINUTE)]),
+  },
+  {
+    code: "matched + repin",
+    text: "po „Zmień”: karta ma „Anuluj”, a wybór z obu wyszukiwań oznacza obecne, automatyczne dopasowanie i daje je potwierdzić",
+    idPrefix: "natura-repin",
+    natura: MATCHED_REPINNING,
+    state: island(CHECKED),
+    repin: repinOf(FOUND_BY_BOTH, AUTO_MATCHED),
+  },
+  {
+    code: "confirmed + repin",
+    text: "po „Zmień” przy dopasowaniu potwierdzonym przez Ciebie: wybór oznacza je, ale nie daje go potwierdzić ponownie",
+    idPrefix: "natura-confirmed-repin",
+    natura: naturaOf(storedView(CONFIRMED, PRODUCT, REPINNING)),
+    state: island([ROSSMANN_CHECKED, priced("natura", offer(17.99), 5 * MINUTE)]),
+    repin: repinOf(FOUND_BY_BOTH, CONFIRMED),
+  },
+  {
+    code: "repin + incomplete",
+    text: "po „Zmień”: wyszukiwanie po nazwie się nie udało, więc wybór ma tylko kandydatów znalezionych po EAN",
+    idPrefix: "natura-repin-incomplete",
+    natura: MATCHED_REPINNING,
+    state: island(CHECKED),
+    repin: repinOf(NAME_SEARCH_BUSY, AUTO_MATCHED),
+  },
+  {
+    code: "repin + not found",
+    text: "po „Zmień”: oba wyszukiwania nic nie znalazły; zostają „Żaden z nich” i „Anuluj”",
+    idPrefix: "natura-repin-not-found",
+    natura: MATCHED_REPINNING,
+    state: island(CHECKED),
+    repin: repinOf(NOTHING_FOUND, AUTO_MATCHED),
+  },
+  {
+    code: "repin + unavailable",
+    text: "po „Zmień”: Natura zablokowała zapytania; wybór to mówi, a „Żaden z nich” wciąż odrzuca dopasowanie",
+    idPrefix: "natura-repin-unavailable",
+    natura: MATCHED_REPINNING,
+    state: island(CHECKED),
+    repin: repinOf(NATURA_STOPPED, AUTO_MATCHED),
+  },
+  {
     code: "unmatched",
-    text: "odrzucone przez Ciebie",
+    text: "odrzucone przez Ciebie, z „Dopasuj ponownie”",
     idPrefix: "natura-declined",
-    natura: naturaOf(storedView(DECLINED, PRODUCT)),
+    natura: naturaOf(storedView(DECLINED, PRODUCT, LINKS)),
     state: ROSSMANN_ONLY,
+  },
+  {
+    code: "unmatched + repin",
+    text: "po „Dopasuj ponownie”: karta wskazuje wybór poniżej, a wybór nie ma „Żaden z nich”, tylko „Anuluj”",
+    idPrefix: "natura-declined-repin",
+    natura: naturaOf(storedView(DECLINED, PRODUCT, REPINNING)),
+    state: ROSSMANN_ONLY,
+    repin: repinOf(FOUND_BY_BOTH, DECLINED),
   },
   {
     code: "not-found",
     text: "zapisane „nie znaleziono”",
     idPrefix: "natura-not-found",
-    natura: naturaOf(storedView(NOT_FOUND, PRODUCT)),
+    natura: naturaOf(storedView(NOT_FOUND, PRODUCT, LINKS)),
     state: ROSSMANN_ONLY,
   },
   {
@@ -465,14 +602,14 @@ export const NATURA_FIXTURES: NaturaFixture[] = [
     code: "prompt",
     text: "strona otwarta z linku: przycisk zamiast wyszukiwania",
     idPrefix: "natura-prompt",
-    natura: naturaOf(promptView(PRODUCT, false)),
+    natura: naturaOf(promptView(PRODUCT, false, "all")),
     state: ROSSMANN_ONLY,
   },
   {
     code: "decided",
     text: "inna karta zapisała decyzję w międzyczasie",
     idPrefix: "natura-decided",
-    natura: naturaOf({ kind: "decided" }),
+    natura: naturaOf(decidedView(PRODUCT, "all")),
     state: ROSSMANN_ONLY,
   },
   {
@@ -486,7 +623,7 @@ export const NATURA_FIXTURES: NaturaFixture[] = [
     code: "not-found + unsaved",
     text: "świeże „nie znaleziono”, którego nie udało się zapisać",
     idPrefix: "natura-unsaved",
-    natura: naturaOf(notFoundView(new Date(NOW), PRODUCT), { unsaved: true }),
+    natura: naturaOf(notFoundView(new Date(NOW), PRODUCT, "all"), { unsaved: true }),
     state: ROSSMANN_ONLY,
   },
 ];
@@ -513,13 +650,13 @@ const ALONE_STATES: Omit<PriceFixture, "product">[] = [
     code: "lone",
     text: "jeden sklep, Natura odrzucona: nie ma z czym porównać, więc bez oznaczenia",
     state: island([ROSSMANN_CHECKED]),
-    natura: naturaOf(storedView(DECLINED, PRODUCT)),
+    natura: naturaOf(storedView(DECLINED, PRODUCT, LINKS)),
   },
   {
     code: "lone-promo",
     text: "jeden sklep w promocji do 05.10, z ceną regularną; Natura odrzucona",
     state: island([priced("rossmann", offer(22.49, { regularPrice: 26.99, promoEndsOn: "2026-10-05" }), 10 * MINUTE)]),
-    natura: naturaOf(storedView(DECLINED, PRODUCT)),
+    natura: naturaOf(storedView(DECLINED, PRODUCT, LINKS)),
   },
   {
     code: "lone-not-orderable",
@@ -535,13 +672,13 @@ const ALONE_STATES: Omit<PriceFixture, "product">[] = [
       start("rossmann"),
       done("rossmann", MISSING, ANSWERED_AT),
     ),
-    natura: naturaOf(storedView(NOT_FOUND, PRODUCT)),
+    natura: naturaOf(storedView(NOT_FOUND, PRODUCT, LINKS)),
   },
   {
     code: "lone-missing-without-price",
     text: "Rossmann nie zwraca produktu, a ceny wcześniej nie było; decyzję Natury zapisała w międzyczasie inna karta",
     state: island([row("rossmann", null)], start("rossmann"), done("rossmann", MISSING, ANSWERED_AT)),
-    natura: naturaOf({ kind: "decided" }),
+    natura: naturaOf(decidedView(PRODUCT, "all")),
   },
   {
     code: "lone-never-checked",
@@ -554,7 +691,7 @@ const ALONE_STATES: Omit<PriceFixture, "product">[] = [
     code: "lone-refreshing",
     text: "Rossmann w trakcie odświeżania; Natura czeka na dopasowanie",
     state: island([ROSSMANN_CHECKED], start("rossmann")),
-    natura: naturaOf(promptView(PRODUCT, false)),
+    natura: naturaOf(promptView(PRODUCT, false, "all")),
   },
   {
     code: "lone-notice",
@@ -564,19 +701,19 @@ const ALONE_STATES: Omit<PriceFixture, "product">[] = [
       start("rossmann"),
       done("rossmann", { kind: "unavailable", reason: "paused", until: PAUSED_UNTIL }, ANSWERED_AT),
     ),
-    natura: naturaOf(storedView(DECLINED, PRODUCT)),
+    natura: naturaOf(storedView(DECLINED, PRODUCT, LINKS)),
   },
   {
     code: "lone-read-failed",
     text: "nie udało się wczytać zapisanych cen, a dopasowania Natury nie udało się zapisać, więc nie ma jej ceny",
     state: initialState({ shops: [row("rossmann", null)], now: NOW, pricesFailed: true }),
-    natura: naturaOf(matchedView(NATURA_ITEM, "auto", PRODUCT, { unsaved: true }), { unsaved: true }),
+    natura: naturaOf(matchedView(NATURA_ITEM, "auto", PRODUCT, { ...LINKS, unsaved: true }), { unsaved: true }),
   },
   {
     code: "lone-read-failed-row",
     text: "nie udało się odczytać zapisanej ceny Rossmanna; Natura czeka na dopasowanie",
     state: island([{ ...row("rossmann", null), readFailed: true }]),
-    natura: naturaOf(promptView(PRODUCT, false)),
+    natura: naturaOf(promptView(PRODUCT, false, "all")),
   },
   {
     code: "natura-read-failed",
@@ -591,6 +728,39 @@ export const ALONE_FIXTURES: PriceFixture[] = ALONE_STATES.map((fixture) => ({ .
 
 /** The page's text for `?error=gone`, which its not-found branch shows: a decision posted for a product not listed. */
 export const GONE_ERROR = matchErrorMessage("gone");
+
+/**
+ * The page's text for `?removal=failed`, which its not-found branch shows: a removal whose answer didn't come, and
+ * which went through after all.
+ */
+export const REMOVAL_GONE_NOTICE = removalGoneNotice("failed");
+
+/**
+ * One state of "Usuń z listy" at the foot of the product's page, with the kitchen sink's label for it: whether its
+ * confirm is drawn open, as a tap on its summary opens it, and the page's text for a failed removal, which opens it too.
+ */
+export interface RemoveFixture {
+  code: string;
+  text: string;
+  open: boolean;
+  error: string | null;
+}
+
+export const REMOVE_FIXTURES: RemoveFixture[] = [
+  { code: "closed", text: "zamknięte, jak strona je pokazuje: sam przycisk", open: false, error: null },
+  {
+    code: "open",
+    text: "otwarte: co zrobi usunięcie i czerwone „Usuń z listy”, opisane tą linią",
+    open: true,
+    error: null,
+  },
+  {
+    code: "failed",
+    text: "po nieudanym usunięciu (?removal=failed): błąd otwiera potwierdzenie",
+    open: false,
+    error: removalErrorMessage("failed"),
+  },
+];
 
 /**
  * The prices each size of Price is shown with: the handoff's 22,99 zł in every size, and between them a whole price, a

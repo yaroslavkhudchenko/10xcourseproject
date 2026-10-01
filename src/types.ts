@@ -51,7 +51,10 @@ export interface ProductCandidate {
   imageUrl: string | null;
 }
 
-/** A product on the user's own watchlist, as the list shows it. */
+/**
+ * A product on the user's own watchlist, as the list shows it, with the brand and size its matches are compared with
+ * (FR-007).
+ */
 export interface WatchlistItem {
   id: string;
   source: ShopId;
@@ -60,6 +63,8 @@ export interface WatchlistItem {
   name: string;
   caption: string | null;
   sizeText: string | null;
+  /** The size parsed from its text when the product was added; null when it couldn't be. */
+  size: Size | null;
   imageUrl: string | null;
   /** When the user added it, as an ISO timestamp. */
   addedAt: string;
@@ -67,7 +72,6 @@ export interface WatchlistItem {
 
 /** A product on the user's own watchlist, as its page shows it and a shop lookup needs it. */
 export interface WatchlistProduct extends WatchlistItem {
-  size: Size | null;
   /** Helpers for shop lookups, never the product's identity (FR-004). */
   eans: string[];
   /** The product's own page in the shop it was picked from; null for products added before S-02 stored it. */
@@ -104,11 +108,26 @@ export type ShopMatch = {
 } & ({ state: "matched"; item: MatchedItem } | { state: "unmatched" | "not_found"; item: null });
 
 /**
+ * A stored decision the user can change from its card, with "Zmień" or "Dopasuj ponownie": a match, or their decline.
+ * A lookup that found nothing has no such choice: "Szukaj ponownie" looks the product up again.
+ */
+export type RepinnableMatch = ShopMatch & { state: "matched" | "unmatched" };
+
+/**
  * Where a watched product stands in one shop, as the list reads it: the decision, and for a match the shop's own id for
- * the matched item, such as Natura's SKU, which the product's prices there are observed by.
+ * the matched item, such as Natura's SKU, which the product's prices there are observed by, with the item's brand and
+ * size and who decided on it, so the list can tell an automatic match that differs from the product (FR-007).
  */
 export type ShopMatchState = { watchlistItemId: string; shop: ShopId } & (
-  { state: "matched"; shopItemId: string } | { state: "unmatched" | "not_found"; shopItemId: null }
+  | {
+      state: "matched";
+      shopItemId: string;
+      brand: string | null;
+      size: Size | null;
+      /** Whether the matching rule accepted the item on its own or the user confirmed it. */
+      decidedBy: "auto" | "user";
+    }
+  | { state: "unmatched" | "not_found"; shopItemId: null }
 );
 
 /**
@@ -151,10 +170,14 @@ export interface ShopCandidate {
   offer: ShopOffer | null;
 }
 
-/** How a candidate compares with the watched product: a shared EAN, and whether the sizes agree when both are known. */
+/**
+ * How a candidate compares with the watched product: a shared EAN, whether the sizes agree when both are known, and
+ * whether the brands agree when both are known (brandsAgree in src/lib/services/matching.ts).
+ */
 export interface CandidateVerdict {
   sharesEan: boolean;
   size: "equal" | "differs" | "unknown";
+  brand: "agrees" | "differs" | "unknown";
 }
 
 /** A candidate the user can pick, with how it compares with the product. */
@@ -173,6 +196,17 @@ export type ShopSearch = { kind: "results"; candidates: ShopCandidate[] } | Shop
 export type ShopLookup =
   | { kind: "accepted"; candidate: ShopCandidate }
   | { kind: "choose"; options: CandidateOption[]; via: "ean" | "name" }
+  | { kind: "not-found" }
+  | ShopUnavailable;
+
+/**
+ * What looking a watched product up in Natura again came to, for the user to change its stored decision: the
+ * candidates both searches found, never accepted on their own, with the searches that found them (`via`) and a name
+ * search that got no answer after an EAN search that found some (`incomplete`); nothing found, only when every search
+ * that ran answered with nothing; or why Natura gave no answer.
+ */
+export type NaturaChoices =
+  | { kind: "choices"; options: CandidateOption[]; via: "ean" | "name" | "both"; incomplete: ShopUnavailable | null }
   | { kind: "not-found" }
   | ShopUnavailable;
 

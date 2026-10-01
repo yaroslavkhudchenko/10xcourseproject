@@ -45,17 +45,23 @@ async function request(path, { method = "GET", form, json, origin = BASE_URL } =
 const missingProductId = "00000000-0000-4000-8000-000000000000";
 const missingProduct = `/watchlist/${missingProductId}`;
 
-// The product page island's price refresh. Every post names the product no one has, so none reaches a shop.
+// The product page island's price refresh. Every post names the product no one has, with a shop item as the island
+// names the one its page shows, so none reaches a shop.
 const pricesRoute = "/api/watchlist/prices";
 const priceRefresh = (options) => request(pricesRoute, { method: "POST", ...options });
-const missingProductPrice = { itemId: missingProductId, shop: "rossmann" };
+const missingProductPrice = { itemId: missingProductId, shop: "rossmann", shopItemId: "900000000" };
 
 // The list's "Odśwież ceny", a plain form post. The smoke user's list stays empty, so it has nothing to refresh.
 const listRefresh = (options) => request("/api/watchlist/refresh", { method: "POST", form: {}, ...options });
 
+// "Usuń z listy" on a product's page, a plain form post. It names the product no one has unless a step says otherwise.
+const removal = (options) =>
+  request("/api/watchlist/remove", { method: "POST", form: { itemId: missingProductId }, ...options });
+
 // No step searches (no `q`), opens a product that exists or refreshes its price, and the list refresh runs on an empty
-// list, so the smoke test never calls a shop. A step's location is where the redirect starts, or, with `exact`, all of
-// it, so a step can check a redirect carries no code.
+// list, so the smoke test never calls a shop; no removal names a product anyone has, so no step deletes anything. A
+// step's location is where the redirect starts, or, with `exact`, all of it, so a step can check a redirect carries no
+// code.
 const steps = [
   ["home renders", () => request("/"), { status: 200 }],
   ["dashboard redirects anonymous user", () => request("/dashboard"), { status: 302, location: "/auth/signin" }],
@@ -67,6 +73,7 @@ const steps = [
     { status: 302, location: "/auth/signin" },
   ],
   ["list price refresh redirects anonymous user", () => listRefresh(), { status: 302, location: "/auth/signin" }],
+  ["removal redirects anonymous user", () => removal(), { status: 302, location: "/auth/signin" }],
   [
     "signup creates account",
     () => request("/api/auth/signup", { method: "POST", form: { email, password } }),
@@ -144,6 +151,23 @@ const steps = [
     "list price refresh posted from another site is refused",
     () => listRefresh({ origin: "https://evil.example" }),
     { status: 403 },
+  ],
+  [
+    // Astro's checkOrigin is the removal route's only defence against a form posted from another site.
+    "removal posted from another site is refused",
+    () => removal({ origin: "https://evil.example" }),
+    { status: 403 },
+  ],
+  [
+    // An id that isn't a UUID only comes from a crafted post: the route removes nothing and adds no code.
+    "removal with an id that isn't a UUID goes to the list with no code",
+    () => removal({ form: { itemId: "not-a-uuid", f: "promo" } }),
+    { status: 302, location: "/watchlist", exact: true },
+  ],
+  [
+    "removal of a product no one has says it wasn't on the list, keeping the filter",
+    () => removal({ form: { itemId: missingProductId, f: "check" } }),
+    { status: 302, location: "/watchlist?f=check&removed=gone", exact: true },
   ],
   ["dashboard renders for signed-in user", () => request("/dashboard"), { status: 200 }],
   ["signout clears session", () => request("/api/auth/signout", { method: "POST" }), { status: 302, location: "/" }],

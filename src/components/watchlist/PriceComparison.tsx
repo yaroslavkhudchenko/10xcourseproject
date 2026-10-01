@@ -15,6 +15,7 @@ import {
 import PriceComparisonView from "@/components/watchlist/PriceComparisonView";
 import type { TitleProduct } from "@/components/watchlist/ProductTitle";
 import { needsRefetch, type PricedShop } from "@/lib/services/price-comparison";
+import type { ListFilter } from "@/lib/services/watchlist-rows";
 
 // Ages move on once a minute, the finest step they show.
 const CLOCK_TICK_MS = 60_000;
@@ -22,6 +23,11 @@ const CLOCK_TICK_MS = 60_000;
 interface Props {
   /** The watched product's id. */
   itemId: string;
+  /**
+   * The filter the list is shown with, which both "Odśwież ceny" forms post without JavaScript, so the page they come
+   * back to keeps it and the list beside the product its chip.
+   */
+  listFilter: ListFilter;
   /** The product, as the title names it. */
   product: TitleProduct;
   /**
@@ -44,17 +50,27 @@ interface Props {
 // checked. Each shop is refetched on its own through /api/watchlist/prices, and its card, the order, the marks, the
 // hero, the track and the check change as it answers; after each change of its rows the island tells the list beside
 // the product (PRICES_EVENT), whose row for it follows. Without JavaScript, either "Odśwież ceny" posts its form to
-// /api/watchlist/refresh, and the page comes back with the refreshed prices. This island keeps the state and the
-// effects; PriceComparisonView renders them.
-export default function PriceComparison({ itemId, product, natura, shops, autoRefresh, now, pricesFailed }: Props) {
+// /api/watchlist/refresh, and the page comes back with the refreshed prices and the list's filter. This island keeps
+// the state and the effects; PriceComparisonView renders them.
+export default function PriceComparison({
+  itemId,
+  listFilter,
+  product,
+  natura,
+  shops,
+  autoRefresh,
+  now,
+  pricesFailed,
+}: Props) {
   const [state, dispatch] = useReducer(priceComparisonReducer, { shops, now, pricesFailed }, initialState);
   // A Natura decision that couldn't be read may hide a lower price, so the list's row says so too.
   const unreadable = naturaUnreadable(natura?.view ?? null);
 
+  // Each refetch names the shop's item the page shows, so the route can tell when it's no longer the shop's match.
   const refresh = useCallback(
-    (shop: PricedShop) => {
+    (shop: PricedShop, shopItemId: string) => {
       dispatch(start(shop));
-      void requestRefresh(itemId, shop).then((result) => {
+      void requestRefresh(itemId, shop, shopItemId).then((result) => {
         dispatch(done(shop, result, Date.now()));
       });
     },
@@ -83,9 +99,9 @@ export default function PriceComparison({ itemId, product, natura, shops, autoRe
     }
     autoStarted.current = true;
     const renderedAt = Date.parse(now);
-    for (const { shop, latest } of shops) {
+    for (const { shop, shopItemId, latest } of shops) {
       if (needsRefetch(latest, renderedAt)) {
-        refresh(shop);
+        refresh(shop, shopItemId);
       }
     }
   }, [autoRefresh, now, refresh, shops]);
@@ -101,12 +117,13 @@ export default function PriceComparison({ itemId, product, natura, shops, autoRe
   return (
     <PriceComparisonView
       itemId={itemId}
+      listFilter={listFilter}
       product={product}
       state={state}
       natura={natura}
       onRefresh={() => {
         for (const row of state.rows) {
-          refresh(row.shop);
+          refresh(row.shop, row.shopItemId);
         }
       }}
     />

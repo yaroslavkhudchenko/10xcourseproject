@@ -1,7 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PricedShop } from "@/lib/services/price-comparison";
-import { listTargets, priceRequestSchema, productTargets, shopItemFor } from "@/lib/services/price-targets";
+import {
+  listTargets,
+  priceRequestSchema,
+  priceTargetFor,
+  productTargets,
+  shopItemFor,
+  type PriceRequest,
+} from "@/lib/services/price-targets";
 import type { PriceKey } from "@/types";
 
 // The user's Nivea Soft, picked in Rossmann and matched to Natura's NV89063, and two more products on the list.
@@ -126,19 +133,83 @@ afterEach(() => {
 });
 
 describe("priceRequestSchema", () => {
-  it("reads which product and which shop, and drops a shop item the body names", () => {
-    expect(priceRequestSchema.parse({ itemId: SOFT_ID, shop: "natura", shopItemId: "999" })).toStrictEqual({
-      itemId: SOFT_ID,
-      shop: "natura",
-    });
+  it("reads which product, which shop and which item the page shows there, and drops any other field", () => {
+    expect(
+      priceRequestSchema.parse({ itemId: SOFT_ID, shop: "natura", shopItemId: "NV89063", price: 0.01 }),
+    ).toStrictEqual({ itemId: SOFT_ID, shop: "natura", shopItemId: "NV89063" });
   });
 
   it.each([
-    { why: "a product id that isn't a UUID", body: { itemId: "26900", shop: "rossmann" } },
-    { why: "a shop whose prices aren't fetched", body: { itemId: SOFT_ID, shop: "hebe" } },
-    { why: "no shop", body: { itemId: SOFT_ID } },
+    { why: "a product id that isn't a UUID", body: { itemId: "26900", shop: "rossmann", shopItemId: "26900" } },
+    { why: "a shop whose prices aren't fetched", body: { itemId: SOFT_ID, shop: "hebe", shopItemId: "218807" } },
+    { why: "no shop", body: { itemId: SOFT_ID, shopItemId: "NV89063" } },
+    { why: "no shop item", body: { itemId: SOFT_ID, shop: "natura" } },
+    {
+      why: "a shop item with a path in it",
+      body: { itemId: SOFT_ID, shop: "natura", shopItemId: "NV89063/../koszyk" },
+    },
+    { why: "a shop item over 40 characters", body: { itemId: SOFT_ID, shop: "natura", shopItemId: "N".repeat(41) } },
   ])("refuses $why", ({ body }) => {
     expect(priceRequestSchema.safeParse(body).success).toBe(false);
+  });
+});
+
+describe("priceTargetFor", () => {
+  /** The island's request for the product in `shop`, naming the item its page shows there. */
+  const request = (shop: PricedShop, shopItemId: string): PriceRequest => ({ itemId: SOFT_ID, shop, shopItemId });
+
+  it.each<{ shop: PricedShop; shopItemId: string }>([
+    { shop: "rossmann", shopItemId: "26900" },
+    { shop: "natura", shopItemId: "NV89063" },
+  ])("gives the user's own item in $shop when the page shows that item", async ({ shop, shopItemId }) => {
+    const { client } = stubClient({ watchlist_items: { data: softRow }, watchlist_matches: { data: [matchedRow] } });
+
+    expect(await priceTargetFor(client, request(shop, shopItemId))).toEqual({ shop, shopItemId });
+  });
+
+  it("gives changed when the Natura match is another item than the page shows, as after a re-pin elsewhere", async () => {
+    // The page was rendered with NV81063; the user's decision now names NV89063, whose price the page mustn't show.
+    const { client } = stubClient({ watchlist_items: { data: softRow }, watchlist_matches: { data: [matchedRow] } });
+
+    expect(await priceTargetFor(client, request("natura", "NV81063"))).toBe("changed");
+  });
+
+  it("gives changed when the page names another Rossmann item than the product's own", async () => {
+    const { client } = stubClient({ watchlist_items: { data: softRow } });
+
+    expect(await priceTargetFor(client, request("rossmann", "11790"))).toBe("changed");
+  });
+
+  it.each<{ why: string; shop: PricedShop; shopItemId: string; answers: Record<string, Answer> }>([
+    {
+      why: "the product isn't on the user's list",
+      shop: "rossmann",
+      shopItemId: "26900",
+      answers: { watchlist_items: { data: null } },
+    },
+    {
+      why: "the product isn't on the user's list",
+      shop: "natura",
+      shopItemId: "NV89063",
+      answers: { watchlist_items: { data: null }, watchlist_matches: { data: [matchedRow] } },
+    },
+    {
+      why: "the product has no match in the shop",
+      shop: "natura",
+      shopItemId: "NV89063",
+      answers: { watchlist_items: { data: softRow }, watchlist_matches: { data: [undecidedRow("unmatched")] } },
+    },
+  ])("gives gone in $shop when $why", async ({ shop, shopItemId, answers }) => {
+    const { client } = stubClient(answers);
+
+    expect(await priceTargetFor(client, request(shop, shopItemId))).toBe("gone");
+  });
+
+  it("gives failed when the rows can't be read", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({ watchlist_items: { data: softRow }, watchlist_matches: readFailure });
+
+    expect(await priceTargetFor(client, request("natura", "NV89063"))).toBe("failed");
   });
 });
 
@@ -260,6 +331,8 @@ describe("listTargets", () => {
     name: "Produkt",
     caption: null,
     size_text: null,
+    size_value: null,
+    size_unit: null,
     image_url: null,
     created_at: "2026-09-27T12:00:00+00:00",
   });
@@ -283,7 +356,18 @@ describe("listTargets", () => {
   const listAnswers = {
     watchlist_items: { data: [listRow(SOFT_ID, "26900"), listRow(FELIX_ID, "131225"), listRow(MEN_ID, "11790")] },
     watchlist_matches: {
-      data: [{ watchlist_item_id: SOFT_ID, shop_id: "natura", state: "matched", shop_item_id: "NV89063" }],
+      data: [
+        {
+          watchlist_item_id: SOFT_ID,
+          shop_id: "natura",
+          state: "matched",
+          shop_item_id: "NV89063",
+          brand: "NIVEA",
+          size_value: 300,
+          size_unit: "ml",
+          decided_by: "auto",
+        },
+      ],
     },
     latest_price_observations: {
       data: [
