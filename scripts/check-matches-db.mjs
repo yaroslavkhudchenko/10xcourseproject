@@ -1,5 +1,6 @@
 // Database contract check: proves that shop matches stay private to their owner, attach only to the owner's own
-// products and can't change once decided, and that both tables refuse values outside their bounds.
+// products, change only through their owner and never to another product, user or shop, and go with their product,
+// and that both tables refuse values outside their bounds.
 // Run: SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=<anon key> node scripts/check-matches-db.mjs
 // Each run signs up two fresh users, so it can run again without resetting the database.
 
@@ -64,6 +65,21 @@ const naturaItem = {
   size_unit: "ml",
   eans: ["4005900009319"],
 };
+
+// Another Natura item, as the name search's recording has it (src/lib/services/shops/fixtures/natura-name-search.json),
+// which a re-pin points the match at.
+const otherNaturaItem = {
+  shop_item_id: "NV81063",
+  name: "Nivea MEN Fresh Kick 3w1 żel pod prysznic 500 ml",
+  brand: "NIVEA MEN",
+  size_text: "500 ml",
+  size_value: 500,
+  size_unit: "ml",
+  eans: ["9005800286563"],
+};
+
+// Hebe's Nivea Soft, as the research note's sample has it (§2.2), which the user picks in place of a decline.
+const hebeItem = { shop_item_id: "000000000000218807", name: "Nivea Soft" };
 
 // Each user adds one product, which their matches then belong to.
 async function addProduct(user, label) {
@@ -131,7 +147,8 @@ const viaOwner = await b.client
   .insert({ watchlist_item_id: aItemId, user_id: a.id, shop_id: "hebe", state: "not_found", decided_by: "auto" });
 check("user B can't add a match in user A's name", viaOwner.error?.code === "42501", show(viaOwner));
 
-// 5. A decided match can't change: neither the automatic match nor the user's decline.
+// 5. A decision changes through its owner only, in any state, and only into a shape the table's checks accept: the
+// owner re-pins their automatic match and turns their decline into a match, and another user changes neither.
 const declined = await a.client
   .from("watchlist_matches")
   .insert({ watchlist_item_id: aItemId, shop_id: "hebe", state: "unmatched", decided_by: "user" })
@@ -147,31 +164,101 @@ check(
   !declined.error && !notFound.error,
   `decline ${show(declined)}, not found ${show(notFound)}`,
 );
-// An update that RLS filters out doesn't fail: it returns no rows, and the row stays as it was.
-const rematched = await a.client
+// Another user's update doesn't fail: RLS filters the row out, so it returns no rows, and the row stays as it was.
+const bRepinned = await b.client
   .from("watchlist_matches")
-  .update({ shop_item_id: "NV00001", name: "Inny produkt" })
+  .update({ state: "matched", decided_by: "user", ...otherNaturaItem })
+  .eq("id", aMatchId)
+  .select("id");
+const afterBRepin = await a.client.from("watchlist_matches").select("shop_item_id").eq("id", aMatchId);
+check(
+  "user B can't change user A's Natura match",
+  !bRepinned.error && bRepinned.data?.length === 0 && afterBRepin.data?.[0]?.shop_item_id === naturaItem.shop_item_id,
+  `update ${show(bRepinned)}, row ${show(afterBRepin)}`,
+);
+const bUndeclined = await b.client
+  .from("watchlist_matches")
+  .update({ state: "matched", decided_by: "user", ...hebeItem })
+  .eq("id", declined.data?.id)
+  .select("id");
+const afterBUndecline = await a.client.from("watchlist_matches").select("state").eq("id", declined.data?.id);
+check(
+  "user B can't change user A's Hebe decline",
+  !bUndeclined.error && bUndeclined.data?.length === 0 && afterBUndecline.data?.[0]?.state === "unmatched",
+  `update ${show(bUndeclined)}, row ${show(afterBUndecline)}`,
+);
+// The owner's changes still keep each state's shape: a decline carries no item, and only a lookup finds nothing. Each
+// update below breaks exactly one of the table's checks, on a row the old not_found-only policy filtered out.
+const keptItem = await a.client
+  .from("watchlist_matches")
+  .update({ state: "unmatched", decided_by: "user" })
+  .eq("id", aMatchId);
+check("a re-pin to a decline can't keep the item", keptItem.error?.code === "23514", show(keptItem));
+const usersNotFound = await a.client
+  .from("watchlist_matches")
+  .update({ state: "not_found", decided_by: "user" })
+  .eq("id", declined.data?.id);
+check("a lookup's 'not found' can't be the user's", usersNotFound.error?.code === "23514", show(usersNotFound));
+// The owner changes a decision in any state, with what a confirm writes (recordDecision, src/lib/services/matches.ts).
+const repinned = await a.client
+  .from("watchlist_matches")
+  .update({ state: "matched", decided_by: "user", ...otherNaturaItem, checked_at: new Date().toISOString() })
   .eq("id", aMatchId)
   .select("id");
 const matchAfter = await a.client.from("watchlist_matches").select("shop_item_id").eq("id", aMatchId);
 check(
-  "user A can't change their Natura match",
-  !rematched.error && rematched.data?.length === 0 && matchAfter.data?.[0]?.shop_item_id === naturaItem.shop_item_id,
-  `update ${show(rematched)}, row ${show(matchAfter)}`,
+  "user A re-pins their Natura match",
+  !repinned.error && repinned.data?.length === 1 && matchAfter.data?.[0]?.shop_item_id === otherNaturaItem.shop_item_id,
+  `update ${show(repinned)}, row ${show(matchAfter)}`,
 );
 const undeclined = await a.client
   .from("watchlist_matches")
-  .update({ state: "matched", decided_by: "user", shop_item_id: "000000000000218807", name: "Nivea Soft" })
+  .update({ state: "matched", decided_by: "user", ...hebeItem, checked_at: new Date().toISOString() })
   .eq("id", declined.data?.id)
   .select("id");
 const declineAfter = await a.client.from("watchlist_matches").select("state").eq("id", declined.data?.id);
 check(
-  "user A can't change their Hebe decline",
-  !undeclined.error && undeclined.data?.length === 0 && declineAfter.data?.[0]?.state === "unmatched",
+  "user A turns their Hebe decline into a match",
+  !undeclined.error && undeclined.data?.length === 1 && declineAfter.data?.[0]?.state === "matched",
   `update ${show(undeclined)}, row ${show(declineAfter)}`,
 );
+// Even its owner can't move a match off their product, out of their name or to another shop: the update grant covers
+// only the decision's columns (S-03). Rossmann is the one shop the product has no decision for, so nothing but the
+// grant refuses that move. A refused update leaves the row as it was.
+const readMatch = () =>
+  a.client.from("watchlist_matches").select("watchlist_item_id, user_id, shop_id, state").eq("id", aMatchId);
+const stillMatch = (row) =>
+  row.data?.length === 1 &&
+  row.data[0].watchlist_item_id === aItemId &&
+  row.data[0].user_id === a.id &&
+  row.data[0].shop_id === "natura" &&
+  row.data[0].state === "matched";
+const matchRepointed = await a.client
+  .from("watchlist_matches")
+  .update({ watchlist_item_id: bItemId })
+  .eq("id", aMatchId);
+const afterMatchRepoint = await readMatch();
+check(
+  "user A can't point their match at user B's product",
+  matchRepointed.error?.code === "42501" && stillMatch(afterMatchRepoint),
+  `update ${show(matchRepointed)}, row ${show(afterMatchRepoint)}`,
+);
+const matchHandedOver = await a.client.from("watchlist_matches").update({ user_id: b.id }).eq("id", aMatchId);
+const afterMatchHandover = await readMatch();
+check(
+  "user A can't hand their match to user B",
+  matchHandedOver.error?.code === "42501" && stillMatch(afterMatchHandover),
+  `update ${show(matchHandedOver)}, row ${show(afterMatchHandover)}`,
+);
+const matchMoved = await a.client.from("watchlist_matches").update({ shop_id: "rossmann" }).eq("id", aMatchId);
+const afterMatchMove = await readMatch();
+check(
+  "user A can't move their match to another shop",
+  matchMoved.error?.code === "42501" && stillMatch(afterMatchMove),
+  `update ${show(matchMoved)}, row ${show(afterMatchMove)}`,
+);
 
-// 6. A lookup that found nothing can change, by its owner only: a retry finds the product, or the user decides.
+// 6. So does a lookup that found nothing, by its owner only: a retry finds the product, or the user decides.
 const bRetry = await b.client
   .from("watchlist_matches")
   .update({ state: "unmatched", decided_by: "user" })
@@ -226,7 +313,8 @@ check(
   show(retried),
 );
 
-// 7. There is no delete path, and without a session nothing is readable or writable.
+// 7. A decision has no delete path of its own: it goes only with its product (10). Without a session nothing is
+// readable or writable.
 const deleted = await a.client.from("watchlist_matches").delete().eq("id", aMatchId);
 check("user A can't delete their match", deleted.error?.code === "42501", show(deleted));
 const anonRead = await anon.from("watchlist_matches").select("id");
@@ -264,6 +352,25 @@ for (const [what, fields] of matchRefusals) {
     .insert({ watchlist_item_id: aItemId, shop_id: "rossmann", ...fields });
   check(`watchlist_matches refuses ${what}`, result.error?.code === "23514", show(result));
 }
+
+// 10. Removing a product removes its owner's decisions with it: the composite key cascades the delete, which needs no
+// delete grant on watchlist_matches. User B's product is the same Rossmann item, and B's decision for it stays.
+const aDecisions = () => a.client.from("watchlist_matches").select("id").eq("watchlist_item_id", aItemId);
+const aBefore = await aDecisions();
+const removed = await a.client.from("watchlist_items").delete().eq("id", aItemId).select("id");
+const aAfter = await aDecisions();
+const bAfter = await b.client.from("watchlist_matches").select("id, state");
+check(
+  "removing a product removes its owner's decisions with it",
+  aBefore.data?.length > 0 &&
+    !removed.error &&
+    removed.data?.length === 1 &&
+    aAfter.data?.length === 0 &&
+    bAfter.data?.length === 1 &&
+    bAfter.data[0].id === bOwn.data?.id &&
+    bAfter.data[0].state === "unmatched",
+  `before ${show(aBefore)}, delete ${show(removed)}, after ${show(aAfter)}, user B reads ${show(bAfter)}`,
+);
 
 console.log(failed ? `\n${failed} check(s) failed` : "\nAll shop matches database checks passed");
 process.exit(failed ? 1 : 0);

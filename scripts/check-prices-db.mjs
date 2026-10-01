@@ -1,7 +1,8 @@
 // Database contract check: proves that price observations are shared by the watchers of a shop item and read by no one
 // else, that no one can change or delete one or set its time, source or recording user, and that the latest-price view
 // keeps to the same rules. It also proves S-03's follow-ups on S-02's tables: stricter EAN checks, and an update grant
-// on shop matches that covers only the decision.
+// on shop matches that covers only the decision. Since S-08 it proves that removing a product deletes no observation,
+// and that a re-pin changes which item a user watches.
 // Run: SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=<anon key> node scripts/check-prices-db.mjs
 // Each run signs up two fresh users and uses shop item ids of its own, so it can run again without resetting the
 // database, and it never adds a price to a real product's shared history.
@@ -297,6 +298,55 @@ check(
   "user A can't point their not-found row at their other product",
   repointed.error?.code === "42501" && unchanged(afterRepoint),
   `update ${show(repointed)}, row ${show(afterRepoint)}`,
+);
+
+// 9. A re-pin changes which item a user watches, and removing a product deletes no observation (FR-005). User B
+// re-pins their Natura match from skuB to skuA, narrowing the update to the match it replaces, and so reads user A's
+// price for skuA. Then user A removes X: B, who still watches X and now skuA, keeps every observation of both, while
+// A, who watched them only through that product and its match, reads and adds none.
+const bRepin = await b.client
+  .from("watchlist_matches")
+  .update({ state: "matched", decided_by: "user", shop_item_id: skuA, checked_at: new Date().toISOString() })
+  .eq("watchlist_item_id", bItemId)
+  .eq("shop_id", "natura")
+  .eq("state", "matched")
+  .eq("shop_item_id", skuB)
+  .select("id");
+const bSkuA = await table(b.client).select("id, observed_at").eq("shop_item_id", skuA);
+const skuAObs = bSkuA.data?.[0];
+check(
+  "user B re-pins their Natura match to skuA and reads its observation",
+  !bRepin.error && bRepin.data?.length === 1 && bSkuA.data?.length === 1,
+  `update ${show(bRepin)}, read ${show(bSkuA)}`,
+);
+const removed = await a.client.from("watchlist_items").delete().eq("id", aItemId).select("id");
+const bTableAfter = await table(b.client).select("id").in("shop_item_id", [itemX, skuA]);
+const bTableIds = (bTableAfter.data ?? []).map((row) => row.id);
+const bViewAfter = await view(b.client)
+  .select("shop_item_id, last_checked_at, priced_at")
+  .in("shop_item_id", [itemX, skuA]);
+const bLatest = (itemId) => bViewAfter.data?.find((row) => row.shop_item_id === itemId);
+check(
+  "removing a product deletes no observation",
+  !removed.error &&
+    removed.data?.length === 1 &&
+    bTableIds.length === 3 &&
+    bTableIds.includes(priceObs?.id) &&
+    bTableIds.includes(missingObs?.id) &&
+    bTableIds.includes(skuAObs?.id) &&
+    bViewAfter.data?.length === 2 &&
+    bLatest(itemX)?.last_checked_at === missingObs?.observed_at &&
+    bLatest(itemX)?.priced_at === priceObs?.observed_at &&
+    bLatest(skuA)?.priced_at === skuAObs?.observed_at,
+  `delete ${show(removed)}, table ${show(bTableAfter)}, view ${show(bViewAfter)}`,
+);
+const aTableAfter = await table(a.client).select("id").in("shop_item_id", [itemX, skuA]);
+const aViewAfter = await view(a.client).select("shop_item_id").in("shop_item_id", [itemX, skuA]);
+const aWriteAfter = await table(a.client).insert(priceRow("rossmann", itemX));
+check(
+  "a user who removed their product no longer reads or adds its prices",
+  aTableAfter.data?.length === 0 && aViewAfter.data?.length === 0 && aWriteAfter.error?.code === "42501",
+  `table ${show(aTableAfter)}, view ${show(aViewAfter)}, insert ${show(aWriteAfter)}`,
 );
 
 console.log(failed ? `\n${failed} check(s) failed` : "\nAll price observations database checks passed");
