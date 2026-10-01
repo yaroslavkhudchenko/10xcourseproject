@@ -104,6 +104,12 @@ export type ShopMatch = {
 } & ({ state: "matched"; item: MatchedItem } | { state: "unmatched" | "not_found"; item: null });
 
 /**
+ * A stored decision the user can change from its card, with "Zmień" or "Dopasuj ponownie": a match, or their decline.
+ * A lookup that found nothing has no such choice: "Szukaj ponownie" looks the product up again.
+ */
+export type RepinnableMatch = ShopMatch & { state: "matched" | "unmatched" };
+
+/**
  * Where a watched product stands in one shop, as the list reads it: the decision, and for a match the shop's own id for
  * the matched item, such as Natura's SKU, which the product's prices there are observed by.
  */
@@ -177,6 +183,17 @@ export type ShopSearch = { kind: "results"; candidates: ShopCandidate[] } | Shop
 export type ShopLookup =
   | { kind: "accepted"; candidate: ShopCandidate }
   | { kind: "choose"; options: CandidateOption[]; via: "ean" | "name" }
+  | { kind: "not-found" }
+  | ShopUnavailable;
+
+/**
+ * What looking a watched product up in Natura again came to, for the user to change its stored decision: the
+ * candidates both searches found, never accepted on their own, with the searches that found them (`via`) and a name
+ * search that got no answer after an EAN search that found some (`incomplete`); nothing found, only when every search
+ * that ran answered with nothing; or why Natura gave no answer.
+ */
+export type NaturaChoices =
+  | { kind: "choices"; options: CandidateOption[]; via: "ean" | "name" | "both"; incomplete: ShopUnavailable | null }
   | { kind: "not-found" }
   | ShopUnavailable;
 

@@ -834,6 +834,71 @@ Shop requests per page view and action (lesson "Bound what each page view and ac
   - At 390 and 1024 px, Natura's footer names its item, and the YOPE match shows both warnings, with no overflow and no refetch.
   - `shop_requests` max id was 107 before and after, so no shop was asked.
 
+### Phase 3
+
+- **The lookup:**
+  - `LookupProduct` drops its redundant `brand`, which it inherits from `MatchProduct`.
+  - `lookupEan` and `nameQuery` are private to `shop-matching.ts`, and the cap of six is `CHOICES = 6`.
+  - The choice logs nothing found through the same `logNothingFound`.
+  - `via` is "both" whenever each search found a candidate, even when the name search found only the EAN search's items again.
+- **The step:** a new `RepinnableMatch` type (`src/types.ts`, a match or a decline) is what the step's `repin` carries, narrowed by a private `isRepinnable` guard.
+- **`replaces`:**
+  - `ExpectedDecision` lives in `matches.ts`, with its form encoder `replacesFieldOf(current)` next to the zod decoder; `natura-view.ts` imports the encoder.
+  - The confirm's SKU rule is now a shared `shopItemIdSchema`, which `replaces` reuses.
+- **`decisionBackTo`:**
+  - `decisionBackTo(null, …, filter)` goes to the list with its filter (`/watchlist?f=check`) and no code.
+  - `DecisionOutcome` is `DecisionCode | { error: MatchError }`.
+  - `recordLookup` passes `null` to `record()` explicitly.
+- **`parseListFilter`:** it accepts `FormDataEntryValue | null`, so a file reads as "all". The decision route reads `f` with it, and `listRefreshBackOf` now uses it too.
+- **View signatures:**
+  - `matchedView(item, decidedBy, own, { filter, repinning?, unsaved? })` and `storedView(match, own, { filter, repinning? })`, which share `StoredViewOptions`;
+  - `notFoundView(checkedAt, own, filter)` and `promptView(own, retrying, filter)`;
+  - a new `decidedView(own, filter)`, so the page no longer writes `{ kind: "decided" }` inline;
+  - `chooseView` is unchanged: the section's forms post `f` instead.
+- **View and card shapes:**
+  - Matched and declined views carry `action: NaturaAction | null` (`{ kind: "repin" | "cancel"; href }`). The card model turns it into `action: { link, hint }`, with the labels and hints kept in `natura-card.ts`.
+  - The decided card has a `link`, like prompt and not-found.
+  - The section's own type, `NaturaRepin`, has `intro: string | null` (null without candidates) and `message: { text, warning } | null`. `RepinOption`, `NaturaMessage` and `NaturaAction` are exported too.
+- **`itemId` removed:** `NaturaCard` and `ShopGrid` lose their `itemId` prop, since the decided link's href comes from the view. That reaches `PriceComparisonView.tsx`, which wasn't in the plan's list, and the kitchen sink's `ShopGrid` call.
+- **The card's layout:**
+  - "Zmień" (or "Anuluj") ends the match footer's note row.
+  - A decline gets a dashed footer with "Dopasuj ponownie" at its end.
+  - While re-pinning, the hint follows the warnings on a match, and sits beside "Anuluj" on a decline.
+  - The action is `buttonVariants({ variant: "outline", size: "compact" })` with `ml-auto h-9 shrink-0 border-foreground bg-transparent lg:h-8.5`: 36 px on a phone, 34 px from lg. `compact` already carries `hit-area`.
+- **The section:**
+  - "Obecne dopasowanie" is a `secondary` Badge, and the closing "Anuluj" is a full-width ghost touch link.
+  - An empty candidate list isn't drawn, and the message comes after the intro.
+  - Hidden `f` is always posted ("all" included), and hidden `replaces` only from a re-pin.
+- **Copy:** an incomplete choice says "Wyszukiwanie po nazwie się nie udało, więc lista może być niepełna." followed by Natura's unavailable text. While re-pinning, the card's hint is the same even when the choice found nothing or Natura gave no answer; the section's message explains those.
+- **The address bar:** it keeps `repin=1`, so a reload repeats the two searches, as the plan accepts. Chip links, the list's refresh and the decision redirects drop it. `?repin=1` on a stored `not_found` shows the stored card.
+- **The kitchen sink:**
+  - `NaturaFixture` gains `repin?`, with five new entries: matched + repin, repin + incomplete, repin + not found, repin + unavailable, unmatched + repin.
+  - Each choice is built by hand with the real `judge`.
+  - `DECLINED` is retyped `RepinnableMatch`, with a new `AUTO_MATCHED`.
+  - Every `NaturaSection` gets `filter="all"`.
+- **Test plumbing:**
+  - `shop-matching.test.ts` gets `setup(entries, reserve?)`, used for the busy case.
+  - `matches.test.ts` builds `updateNotFound` on a new `updateOver(fields, expected)`, and the existing `parseMatchForm` expectations gain `replaces: null`.
+  - The natura-card "no link, no action" case now covers only unavailable, read-failed and choose.
+- **Manual 3.6–3.12, verified by the agent at the owner's request (2026-10-01):**
+  - **Setup:** a throwaway local user, `s08-p3-…@example.com`, with six seeded products and made-up Rossmann ids 990008101–106, all priced fresh so nothing asked Rossmann. Product R was matched to the real NV89063, with the real EAN 4005900009319.
+  - **Live Natura requests:** 8, the owner's budget. `shop_requests` went from 107 to 115:
+    - 2 to open the choice in 3.6;
+    - 1 for the re-pinned item's price;
+    - 2 + 2 for "Zmień" and "Dopasuj ponownie" in 3.8;
+    - 1 for the retry's name search, which found nothing.
+  - **3.6:** the choice listed NV89063 marked "Obecne dopasowanie" with no confirm button, then JM00370 (Yope) and 5N97985 (Bambino), each flagged "Inna marka". The row was unchanged afterwards.
+  - **3.7:** confirming JM00370 stored `matched`/`user`. The card named "Yope Naturalny szampon do włosów Super Soft…" with its live 16,99 zł (instead of 19,99 zł) and "Inna marka: YOPE zamiast NIVEA".
+  - **3.8:** "Żaden z nich" stored the decline. "Dopasuj ponownie" offered three "To ten produkt" and "Anuluj", with no "Żaden z nich", and "Anuluj" returned to the plain page.
+  - **3.9:** with Natura disabled locally, the choice said "Wyszukiwanie w sklepie Natura jest wyłączone…", and "Żaden z nich" declined.
+  - **3.10:** another tab re-pinned T to S08P3T02 through the user's own REST call. The stale "Żaden z nich" then said "Ten produkt ma już zapisaną decyzję.", and the row kept S08P3T02.
+  - **3.11:** `f=check` survived every link (Zmień, Anuluj, Dopasuj ponownie, Szukaj ponownie), every form, the decision redirects and the retry redirect, and the list beside the product kept "Do sprawdzenia" active. "Pokaż zapisaną decyzję", which appears only during a lookup race, is covered by the views' tests.
+  - **3.12:** a cross-site `?repin=1` (`node:http` with `Sec-Fetch-Site: cross-site`, Natura enabled) got the stored card with "Zmień", no choice, and 0 requests.
+- **Manual 3.13, verified by the agent at the owner's request:** `/dev/product-page` shows every re-pin state with the same counts in light and dark: the current badge, the cards' hints, the incomplete and nothing-found messages, "Zmień", "Dopasuj ponownie", "Anuluj" and "Żaden z nich". There's no overflow.
+- **Observed, as designed:**
+  - On the re-pin page, the card keeps the stored price, since the island doesn't refetch while re-pinning, while the choice shows each candidate's live price.
+  - The chips' counts are computed at render, so a just re-pinned item without a price counts in "Do sprawdzenia" until the next render.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -854,37 +919,37 @@ Shop requests per page view and action (lesson "Bound what each page view and ac
 
 #### Automated
 
-- [x] 2.1 `npm run test` passes, with the brand rule's cases and an automatic match stopped by another brand
-- [x] 2.2 `npm run lint` passes
-- [x] 2.3 `npx astro check` passes
-- [x] 2.4 `npm run build` passes
-- [x] 2.5 Break-checks go red: `qualifies` without the brand condition, and a saved match's view without its item
+- [x] 2.1 `npm run test` passes, with the brand rule's cases and an automatic match stopped by another brand — 97634c6
+- [x] 2.2 `npm run lint` passes — 97634c6
+- [x] 2.3 `npx astro check` passes — 97634c6
+- [x] 2.4 `npm run build` passes — 97634c6
+- [x] 2.5 Break-checks go red: `qualifies` without the brand condition, and a saved match's view without its item — 97634c6
 
 #### Manual
 
-- [x] 2.6 `/dev/product-page` shows the "Inna marka" flag and a saved match's brand, size, name and warnings, in both themes
-- [x] 2.7 On dev, a saved Natura match names its item in the card, which holds its layout at 390 px and 1024 px
+- [x] 2.6 `/dev/product-page` shows the "Inna marka" flag and a saved match's brand, size, name and warnings, in both themes — 97634c6
+- [x] 2.7 On dev, a saved Natura match names its item in the card, which holds its layout at 390 px and 1024 px — 97634c6
 
 ### Phase 3: Re-pinning a Natura match
 
 #### Automated
 
-- [ ] 3.1 `npm run test` passes, with the re-pin step, the choice lookup's served URLs, the narrowed decision write and the filtered links
-- [ ] 3.2 `npm run lint` passes
-- [ ] 3.3 `npx astro check` passes
-- [ ] 3.4 `npm run build` passes
-- [ ] 3.5 Break-checks go red: the choice without the name search, a re-pin step for a link from another site, and a decision write not narrowed by `replaces`
+- [x] 3.1 `npm run test` passes, with the re-pin step, the choice lookup's served URLs, the narrowed decision write and the filtered links
+- [x] 3.2 `npm run lint` passes
+- [x] 3.3 `npx astro check` passes
+- [x] 3.4 `npm run build` passes
+- [x] 3.5 Break-checks go red: the choice without the name search, a re-pin step for a link from another site, and a decision write not narrowed by `replaces`
 
 #### Manual
 
-- [ ] 3.6 "Zmień" opens a choice from both searches with the current item marked, costing 2 Natura requests and storing nothing until a button is pressed
-- [ ] 3.7 Confirming another candidate re-pins the match, and the card names the new item with its price
-- [ ] 3.8 "Żaden z nich" declines the match, and "Dopasuj ponownie" reopens the choice with "Anuluj" only
-- [ ] 3.9 With Natura stopped locally, the choice says so and "Żaden z nich" still declines
-- [ ] 3.10 A re-pin sent from a stale tab says the decision was already stored and changes nothing
-- [ ] 3.11 `?f=` survives Natura's links, decisions and redirects, and the list beside the product keeps its chip
-- [ ] 3.12 A `?repin=1` request that isn't the user's own navigation sends no Natura request
-- [ ] 3.13 `/dev/product-page` shows every re-pin state in both themes
+- [x] 3.6 "Zmień" opens a choice from both searches with the current item marked, costing 2 Natura requests and storing nothing until a button is pressed
+- [x] 3.7 Confirming another candidate re-pins the match, and the card names the new item with its price
+- [x] 3.8 "Żaden z nich" declines the match, and "Dopasuj ponownie" reopens the choice with "Anuluj" only
+- [x] 3.9 With Natura stopped locally, the choice says so and "Żaden z nich" still declines
+- [x] 3.10 A re-pin sent from a stale tab says the decision was already stored and changes nothing
+- [x] 3.11 `?f=` survives Natura's links, decisions and redirects, and the list beside the product keeps its chip
+- [x] 3.12 A `?repin=1` request that isn't the user's own navigation sends no Natura request
+- [x] 3.13 `/dev/product-page` shows every re-pin state in both themes
 
 ### Phase 4: Removing a product
 

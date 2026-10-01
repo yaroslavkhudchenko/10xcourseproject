@@ -9,6 +9,10 @@ import { DECISION_NOTICES } from "@/lib/notices";
 import type { NaturaItemSummary, NaturaView } from "@/lib/services/natura-view";
 
 const ITEM_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
+// The product's page, as the views link it for a product opened from the list's "Do sprawdzenia" chip, and its
+// address that opens the choice that changes a stored decision.
+const PAGE = `/watchlist/${ITEM_ID}?f=check`;
+const REPIN_PAGE = `/watchlist/${ITEM_ID}?f=check&repin=1`;
 
 // Natura's Nivea Soft 300 ml, as a match's card names it.
 const item: NaturaItemSummary = {
@@ -27,17 +31,18 @@ const VIEWS = {
     warnings: [],
     item,
     unsaved: false,
+    action: { kind: "repin", href: REPIN_PAGE },
   },
-  unmatched: { kind: "unmatched" },
+  unmatched: { kind: "unmatched", action: { kind: "repin", href: REPIN_PAGE } },
   "not-found": {
     kind: "not-found",
     text: "Nie znaleziono w Naturze (sprawdzono 28.09, 14:00).",
-    href: `/watchlist/${ITEM_ID}?retry=1`,
+    href: `/watchlist/${ITEM_ID}?f=check&retry=1`,
   },
   choose: { kind: "choose", intro: "Znalezione w Naturze po nazwie.", options: [] },
   unavailable: { kind: "unavailable", message: "Sklep Natura poprosił o przerwę. Spróbuj później." },
-  prompt: { kind: "prompt", href: `/watchlist/${ITEM_ID}` },
-  decided: { kind: "decided" },
+  prompt: { kind: "prompt", href: PAGE },
+  decided: { kind: "decided", href: PAGE },
   "read-failed": { kind: "read-failed" },
 } satisfies Record<NaturaView["kind"], NaturaView>;
 
@@ -75,20 +80,21 @@ describe("naturaUnreadable", () => {
 });
 
 describe("naturaCardOf", () => {
-  it("gives a saved match's footer: its item, how it was decided, and no warning when nothing differs", () => {
+  it("gives a saved match's footer: its item, how it was decided, Zmień, and no warning when nothing differs", () => {
     expect(naturaCardOf({ view: VIEWS.matched, ...quiet })).toEqual({
       kind: "matched",
       note: "Dopasowano automatycznie: ten sam EAN i rozmiar.",
       warnings: [],
       item,
       unsaved: false,
+      action: { link: { label: "Zmień", href: REPIN_PAGE }, hint: null },
       alerts: [],
     });
   });
 
   it("gives a saved suspicious match its item and each of its warnings, in the view's order", () => {
     const warnings = ["Inny rozmiar: 200 ml zamiast 300 ml", "Inna marka: YOPE zamiast NIVEA"];
-    const view: NaturaView = { kind: "matched", note: "Potwierdzone przez Ciebie.", warnings, item, unsaved: false };
+    const view: NaturaView = { ...VIEWS.matched, note: "Potwierdzone przez Ciebie.", warnings };
 
     expect(naturaCardOf({ view, ...quiet })).toEqual({
       kind: "matched",
@@ -96,21 +102,58 @@ describe("naturaCardOf", () => {
       warnings,
       item,
       unsaved: false,
+      action: { link: { label: "Zmień", href: REPIN_PAGE }, hint: null },
       alerts: [],
     });
   });
 
-  it("says a match the page couldn't save is unsaved, so the card shows its item's photo and page", () => {
-    const view: NaturaView = { ...VIEWS.matched, unsaved: true };
+  it("says a match the page couldn't save is unsaved, so the card shows its item's photo and page, and no action", () => {
+    const view: NaturaView = { ...VIEWS.matched, unsaved: true, action: null };
 
-    expect(naturaCardOf({ view, ...quiet, unsaved: true })).toMatchObject({ kind: "matched", item, unsaved: true });
+    expect(naturaCardOf({ view, ...quiet, unsaved: true })).toMatchObject({
+      kind: "matched",
+      item,
+      unsaved: true,
+      action: null,
+    });
+  });
+
+  it("offers Dopasuj ponownie on the user's decline, a ghost card", () => {
+    expect(naturaCardOf({ view: VIEWS.unmatched, ...quiet })).toEqual({
+      kind: "unmatched",
+      text: "Brak w Naturze — Twój wybór.",
+      action: { link: { label: "Dopasuj ponownie", href: REPIN_PAGE }, hint: null },
+      alerts: [],
+    });
+  });
+
+  it.each<{ view: NaturaView; hint: string }>([
+    {
+      view: { ...VIEWS.matched, action: { kind: "cancel", href: PAGE } },
+      hint: "Wybierz poniżej inny produkt albo „Żaden z nich”.",
+    },
+    {
+      view: { kind: "unmatched", action: { kind: "cancel", href: PAGE } },
+      hint: "Wybierz poniżej produkt z Natury albo „Anuluj”.",
+    },
+  ])("points a $view.kind's card to its open choice below, with Anuluj", ({ view, hint }) => {
+    expect(naturaCardOf({ view, ...quiet })).toMatchObject({ action: { link: { label: "Anuluj", href: PAGE }, hint } });
+  });
+
+  it("says another tab stored a decision meanwhile, with the link that shows it", () => {
+    expect(naturaCardOf({ view: VIEWS.decided, ...quiet })).toEqual({
+      kind: "decided",
+      text: DECISION_NOTICES.decided,
+      link: { label: "Pokaż zapisaną decyzję", href: PAGE },
+      alerts: [],
+    });
   });
 
   it("asks to match a product not matched yet, with the link that looks it up", () => {
     expect(naturaCardOf({ view: VIEWS.prompt, ...quiet })).toEqual({
       kind: "prompt",
       text: "Produkt nie jest jeszcze dopasowany w Naturze.",
-      link: { label: "Dopasuj w Naturze", href: `/watchlist/${ITEM_ID}` },
+      link: { label: "Dopasuj w Naturze", href: PAGE },
       alerts: [],
     });
   });
@@ -119,23 +162,21 @@ describe("naturaCardOf", () => {
     expect(naturaCardOf({ view: VIEWS["not-found"], ...quiet })).toEqual({
       kind: "not-found",
       text: "Nie znaleziono w Naturze (sprawdzono 28.09, 14:00).",
-      link: { label: "Szukaj ponownie", href: `/watchlist/${ITEM_ID}?retry=1` },
+      link: { label: "Szukaj ponownie", href: `/watchlist/${ITEM_ID}?f=check&retry=1` },
       alerts: [],
     });
   });
 
-  it.each<{ kind: "unmatched" | "unavailable" | "decided" | "read-failed" | "choose"; text: string }>([
-    { kind: "unmatched", text: "Brak w Naturze — Twój wybór." },
+  it.each<{ kind: "unavailable" | "read-failed" | "choose"; text: string }>([
     { kind: "unavailable", text: "Sklep Natura poprosił o przerwę. Spróbuj później." },
-    { kind: "decided", text: DECISION_NOTICES.decided },
     { kind: "read-failed", text: "Nie udało się wczytać dopasowania Natury." },
     { kind: "choose", text: "Wybierz pasujący produkt poniżej." },
-  ])("says what $kind means, with no link and no button to change it", ({ kind, text }) => {
+  ])("says what $kind means, with no link and no action", ({ kind, text }) => {
     const card = naturaCardOf({ view: VIEWS[kind], ...quiet });
 
     expect(card).toEqual({ kind, text, alerts: [] });
-    // Re-pinning waits for S-08.
     expect(card).not.toHaveProperty("link");
+    expect(card).not.toHaveProperty("action");
   });
 
   it("brings a saved decision's notice and a decision's error along as alerts", () => {

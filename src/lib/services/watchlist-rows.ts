@@ -26,8 +26,11 @@ export const LIST_FILTERS = ["all", "promo", "check"] as const;
 /** One of the list's filters. */
 export type ListFilter = (typeof LIST_FILTERS)[number];
 
-/** The filter a `?f=` value names, or every product for anything a chip doesn't link to. */
-export function parseListFilter(raw: string | null): ListFilter {
+/**
+ * The filter a `?f=` value or a form's `f` field names, or every product for anything a chip doesn't link to, a field
+ * that isn't text included.
+ */
+export function parseListFilter(raw: FormDataEntryValue | null): ListFilter {
   return LIST_FILTERS.find((filter) => filter === raw) ?? "all";
 }
 
@@ -256,12 +259,20 @@ export function listChipsOf(
 }
 
 /**
- * A chip's link on the page at `path`: the same page with only the filter, so it drops the search, the notices and
- * anything else the address held. Every product's chip is the bare page.
+ * A link on the page at `path` that keeps the list's filter: the same page with the filter first, unless it's every
+ * product's, then `params` in their order, so it drops the search, the notices and anything else the address held. A
+ * chip's link is the page with its filter alone, and every product's chip is the bare page. The product page's own
+ * links, forms' redirects and the list's refresh add what they carry after the filter, such as `retry=1`, `repin=1` or
+ * a notice's code.
  */
-export function filterHref(path: string, filter: ListFilter): string {
+export function filterHref(path: string, filter: ListFilter, params: Record<string, string> = {}): string {
   const page = path.split(/[?#]/, 1)[0];
-  return filter === "all" ? page : `${page}?${new URLSearchParams({ f: filter }).toString()}`;
+  const query = new URLSearchParams(filter === "all" ? [] : [["f", filter]]);
+  for (const [name, value] of Object.entries(params)) {
+    query.append(name, value);
+  }
+  const text = query.toString();
+  return text === "" ? page : `${page}?${text}`;
 }
 
 /**

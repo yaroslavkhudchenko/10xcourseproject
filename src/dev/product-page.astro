@@ -151,9 +151,12 @@ const LINK_BUTTONS = [
             <dd class="text-sm text-muted-foreground">
               Każdy stan poniżej: tylko tokeny i komponenty z <code>src/components/ui</code>. Warianty samych
               komponentów: sekcje od Price do Button w każdej kolumnie. Zapisane dopasowanie Natury nazywa w stopce
-              karty swoją pozycję, markę i rozmiar nad nazwą: Natura › <code>matched</code>. Jego ostrzeżenia, po jednym
-              na inny rozmiar i inną markę: Natura › <code>matched + notice</code> i <code>matched + brand</code>. Flaga
-              „Inna marka” przy kandydacie: Natura › <code>choose + error</code>.
+              karty swoją pozycję, markę i rozmiar nad nazwą, z „Zmień”: Natura › <code>matched</code>. Jego
+              ostrzeżenia, po jednym na inny rozmiar i inną markę: Natura › <code>matched + notice</code> i{" "}
+              <code>matched + brand</code>. Flaga „Inna marka” przy kandydacie: Natura › <code>choose + error</code>.
+              Odrzucona Natura z „Dopasuj ponownie”: Natura › <code>unmatched</code>. Wybór, który zmienia zapisaną
+              decyzję, z obecnym dopasowaniem oznaczonym i kartą z „Anuluj”: Natura › <code>matched + repin</code>, a
+              dla odrzuconej Natury, bez „Żaden z nich”: Natura › <code>unmatched + repin</code>.
             </dd>
           </div>
           <div class="flex flex-col gap-1">
@@ -164,7 +167,8 @@ const LINK_BUTTONS = [
               N/A w statycznym widoku: <code>:hover</code> trzeba wymusić w DevTools, raz dla każdego typu kontrolki. To
               przyciski <code>default</code> („Odśwież ceny” w wierszu tytułu i na dolnym pasku, „To ten produkt”) i{" "}
               <code>outline</code> („Żaden z nich”), linki w stylu przycisku („Dopasuj w Naturze”, „Szukaj ponownie”,
-              „Zobacz w sklepie”, „Pokaż zapisaną decyzję”), link w alercie („Zaloguj się ponownie”, Obszar produktu ›{" "}
+              „Zobacz w sklepie”, „Pokaż zapisaną decyzję”, „Zmień”, „Dopasuj ponownie” i oba „Anuluj”, Natura ›{" "}
+              <code>matched + repin</code>), link w alercie („Zaloguj się ponownie”, Obszar produktu ›{" "}
               <code>session-ended</code>) i przełącznik motywu.
             </dd>
           </div>
@@ -198,7 +202,9 @@ const LINK_BUTTONS = [
               <code>read-failed-one-answered</code> i <code>read-failed-one-shop</code>, a przy nieodczytanej decyzji
               Natury Obszar produktu › <code>natura-read-failed</code>. Komunikaty kart: Obszar produktu ›{" "}
               <code>notice-busy-paused</code> i <code>notice-stopped-failed</code>. Do tego Natura ›{" "}
-              <code>read-failed</code> i Gałęzie strony › <code>not-found + error</code>.
+              <code>read-failed</code> i Gałęzie strony › <code>not-found + error</code>. Wybór, który zmienia decyzję,
+              przy zablokowanej Naturze i bez wyszukiwania po nazwie: Natura › <code>repin + unavailable</code> i{" "}
+              <code>repin + incomplete</code>.
             </dd>
           </div>
           <div class="flex flex-col gap-1">
@@ -207,7 +213,8 @@ const LINK_BUTTONS = [
             </dt>
             <dd class="text-sm text-muted-foreground">
               „Jeszcze bez ceny”: Obszar produktu › <code>never-checked</code>. Odrzucona decyzja: Natura ›{" "}
-              <code>unmatched</code>. Nieznaleziony produkt: Gałęzie strony › <code>not-found</code>.
+              <code>unmatched</code>. Nieznaleziony produkt: Gałęzie strony › <code>not-found</code>. Wybór, w którym
+              nic nie znaleziono: Natura › <code>repin + not found</code>.
             </dd>
           </div>
           <div class="flex flex-col gap-1">
@@ -264,7 +271,12 @@ const LINK_BUTTONS = [
                         <div class="flex flex-col gap-6 lg:gap-6.5">
                           <PriceComparisonView itemId={PRODUCT_ID} product={product} state={state} natura={natura} />
                           {choice && (
-                            <NaturaSection view={choice} productId={PRODUCT_ID} idPrefix={`${theme}-area-${code}`} />
+                            <NaturaSection
+                              view={choice}
+                              productId={PRODUCT_ID}
+                              filter="all"
+                              idPrefix={`${theme}-area-${code}`}
+                            />
                           )}
                         </div>
                       </div>
@@ -284,11 +296,12 @@ const LINK_BUTTONS = [
         <p class="text-sm text-muted-foreground" style={COLUMN_STYLE}>
           Karta Natury wśród kart sklepów (<code>ShopGrid</code>, <code>naturaCardOf</code>) w każdym rodzaju widoku, z
           komunikatem o zapisie, błędem zapisu i niezapisanym wynikiem wyszukiwania, obok ceny Rossmanna. Przy wyborze
-          kandydatów pod kartami stoi sekcja wyboru (<code>NaturaSection</code>). Każdy stan jest dwa razy: w jasnym
-          motywie i w ciemnym.
+          kandydatów pod kartami stoi sekcja wyboru (<code>NaturaSection</code>), także przy wyborze, który zmienia
+          zapisaną decyzję („Zmień”, „Dopasuj ponownie”), w każdym wyniku jego wyszukiwań. Każdy stan jest dwa razy: w
+          jasnym motywie i w ciemnym.
         </p>
         <div class="flex flex-col gap-6">
-          {NATURA_FIXTURES.map(({ code, text, idPrefix, natura, state }) => (
+          {NATURA_FIXTURES.map(({ code, text, idPrefix, natura, state, repin }) => (
             <div class="flex flex-col gap-1">
               <p class="text-xs text-muted-foreground">
                 <code>{code}</code> · {text}
@@ -297,15 +310,24 @@ const LINK_BUTTONS = [
                 {COPIES.map(({ theme, wrapper }) => (
                   <div class:list={[CARDS_FRAME, wrapper]} style={FRAME_STYLE}>
                     <div class="flex flex-col gap-6 lg:gap-6.5">
-                      <ShopGrid
-                        itemId={PRODUCT_ID}
-                        rows={comparisonOf(state).rows}
-                        now={state.now}
-                        natura={naturaCardOf(natura)}
-                      />
+                      <ShopGrid rows={comparisonOf(state).rows} now={state.now} natura={naturaCardOf(natura)} />
+                      {/* The choice that changes a stored decision, below the cards, as the page stands it. */}
+                      {repin && (
+                        <NaturaSection
+                          view={repin}
+                          productId={PRODUCT_ID}
+                          filter="all"
+                          idPrefix={`${theme}-${idPrefix}`}
+                        />
+                      )}
                       {natura.view.kind === "choose" && (
                         <>
-                          <NaturaSection view={natura.view} productId={PRODUCT_ID} idPrefix={`${theme}-${idPrefix}`} />
+                          <NaturaSection
+                            view={natura.view}
+                            productId={PRODUCT_ID}
+                            filter="all"
+                            idPrefix={`${theme}-${idPrefix}`}
+                          />
                           {/* A decision's buttons once one is sent: SubmitOnce disables every one of them. */}
                           <div class="flex flex-col gap-1">
                             <p class="text-xs text-muted-foreground">

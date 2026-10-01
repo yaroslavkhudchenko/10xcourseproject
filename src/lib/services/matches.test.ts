@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import {
+  decisionBackTo,
   listMatches,
   listMatchStates,
   MATCH_ERRORS,
@@ -8,6 +9,8 @@ import {
   parseMatchForm,
   recordDecision,
   recordLookup,
+  replacesFieldOf,
+  type DecisionOutcome,
 } from "@/lib/services/matches";
 import { createShopGate } from "@/lib/services/shop-gate";
 import eanHit from "@/lib/services/shops/fixtures/natura-ean-hit.json";
@@ -16,7 +19,8 @@ import nameSearch from "@/lib/services/shops/fixtures/natura-name-search.json";
 import unknownTracker from "@/lib/services/shops/fixtures/natura-unknown-tracker.json";
 import { searchNatura } from "@/lib/services/shops/natura";
 import { createReplayFetch } from "@/lib/services/testing/replay-fetch";
-import type { MatchedItem, ShopCandidate } from "@/types";
+import type { ListFilter } from "@/lib/services/watchlist-rows";
+import type { MatchedItem, RepinnableMatch, ShopCandidate } from "@/types";
 
 const ITEM_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
 const OTHER_ITEM_ID = "4f1c2a8e-5b7d-4c3e-9a1f-0d2b3c4e5f60";
@@ -163,16 +167,20 @@ const insertInto = (row: Record<string, unknown>): Call[] => [
   ["abortSignal", true],
 ];
 
-// The update that only a lookup that found nothing lets through, asking for the changed rows back.
-const updateNotFound = (fields: Record<string, unknown>): Call[] => [
+// The update of the product's decision for Natura, narrowed by `expected` to the decision the write expects to
+// replace, asking for the changed rows back.
+const updateOver = (fields: Record<string, unknown>, expected: Call[]): Call[] => [
   ["from", "watchlist_matches"],
   ["update", { ...fields, checked_at: NOW }],
   ["eq", "watchlist_item_id", ITEM_ID],
   ["eq", "shop_id", "natura"],
-  ["eq", "state", "not_found"],
+  ...expected,
   ["select", "id"],
   ["abortSignal", true],
 ];
+
+// The update that changes only a lookup that found nothing, as a lookup's and a first choice's do.
+const updateNotFound = (fields: Record<string, unknown>): Call[] => updateOver(fields, [["eq", "state", "not_found"]]);
 
 const duplicate = { error: { code: "23505", message: "duplicate key value violates unique constraint" } };
 
@@ -193,6 +201,7 @@ describe("parseMatchForm", () => {
       itemId: ITEM_ID,
       shop: "natura",
       decision: { action: "confirm", item: itemOf(soft) },
+      replaces: null,
     });
   });
 
@@ -201,6 +210,53 @@ describe("parseMatchForm", () => {
       itemId: ITEM_ID,
       shop: "natura",
       decision: { action: "decline" },
+      replaces: null,
+    });
+  });
+
+  it.each<{ form: string; fields: Record<string, string | string[]> }>([
+    { form: "a confirm", fields: confirmFields(soft) },
+    { form: "a decline", fields: declineFields },
+  ])("reads what $form from a re-pin's choice replaces: a match to one item, or the user's decline", ({ fields }) => {
+    // The list's filter is the route's, which reads it on its own: the decision ignores it.
+    const repinned = (replaces: string) => parseMatchForm(formOf({ ...fields, replaces, f: "check" }));
+
+    expect(repinned("matched:NV81063")).toMatchObject({ replaces: { state: "matched", shopItemId: "NV81063" } });
+    expect(repinned("unmatched")).toMatchObject({ replaces: { state: "unmatched" } });
+  });
+
+  it.each([
+    "",
+    "matched",
+    "matched:",
+    "matched:NV81063/../koszyk",
+    `matched:${"N".repeat(41)}`,
+    "MATCHED:NV81063",
+    " unmatched",
+    "declined",
+    "not_found",
+  ])("rejects a re-pin's form whose replaces is %j, which names no decision a choice replaces", (replaces) => {
+    expect(parseMatchForm(formOf({ ...confirmFields(soft), replaces }))).toBeNull();
+    expect(parseMatchForm(formOf({ ...declineFields, replaces }))).toBeNull();
+  });
+
+  it("reads back the replaces the page posts for each decision it can change", () => {
+    const decision = { watchlistItemId: ITEM_ID, shop: "natura", decidedBy: "user", checkedAt: NOW } as const;
+    const matched: RepinnableMatch = {
+      ...decision,
+      state: "matched",
+      item: { ...itemOf(soft), shopItemId: "NV81063" },
+    };
+    const declined: RepinnableMatch = { ...decision, state: "unmatched", item: null };
+
+    expect(replacesFieldOf(matched)).toBe("matched:NV81063");
+    expect(replacesFieldOf(declined)).toBe("unmatched");
+    expect(parseMatchForm(formOf({ ...declineFields, replaces: replacesFieldOf(matched) }))?.replaces).toEqual({
+      state: "matched",
+      shopItemId: "NV81063",
+    });
+    expect(parseMatchForm(formOf({ ...confirmFields(soft), replaces: replacesFieldOf(declined) }))?.replaces).toEqual({
+      state: "unmatched",
     });
   });
 
@@ -301,6 +357,7 @@ describe("parseMatchForm", () => {
         itemId: ITEM_ID,
         shop: "natura",
         decision: { action: "confirm", item: itemOf(candidate) },
+        replaces: null,
       });
     }
   });
@@ -366,7 +423,7 @@ describe("recordDecision", () => {
   });
 
   it("reports a product that was already decided, as after a double submit, and changes nothing", async () => {
-    // RLS filters a decided row out of the update without an error: no row comes back.
+    // A first choice's update changes only a lookup that found nothing, so a decided row isn't changed: none comes back.
     const { client, queries } = stubClient(duplicate, { data: [] });
 
     const result = await recordDecision(client, ITEM_ID, "natura", { action: "confirm", item: itemOf(soft) });
@@ -409,6 +466,118 @@ describe("recordDecision", () => {
 
     expect(await recordDecision(client, ITEM_ID, "natura", { action: "decline" })).toBe("failed");
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("recordDecision: a re-pin replaces only the decision its form was shown with", () => {
+  const changed = { data: [{ id: "c0ffee00-0000-4000-8000-000000000001" }] };
+  const confirmed = { state: "matched", decided_by: "user", ...SOFT_COLUMNS };
+  const declined = { state: "unmatched", decided_by: "user", ...NO_ITEM_COLUMNS };
+  // The narrowing of the update to the match the form was shown with: its state and its item.
+  const overMatch: Call[] = [
+    ["eq", "state", "matched"],
+    ["eq", "shop_item_id", "NV81063"],
+  ];
+
+  it("re-pins a match to another item only while the match is still the one shown", async () => {
+    const { client, queries } = stubClient(duplicate, changed);
+
+    const result = await recordDecision(
+      client,
+      ITEM_ID,
+      "natura",
+      { action: "confirm", item: itemOf(soft) },
+      { state: "matched", shopItemId: "NV81063" },
+    );
+
+    expect(result).toBe("saved");
+    expect(queries).toEqual([
+      insertInto({ watchlist_item_id: ITEM_ID, shop_id: "natura", ...confirmed }),
+      updateOver(confirmed, overMatch),
+    ]);
+  });
+
+  it("declines a match only while the match is still the one shown", async () => {
+    const { client, queries } = stubClient(duplicate, changed);
+
+    const result = await recordDecision(
+      client,
+      ITEM_ID,
+      "natura",
+      { action: "decline" },
+      { state: "matched", shopItemId: "NV81063" },
+    );
+
+    expect(result).toBe("saved");
+    expect(queries).toEqual([
+      insertInto({ watchlist_item_id: ITEM_ID, shop_id: "natura", ...declined }),
+      updateOver(declined, overMatch),
+    ]);
+  });
+
+  it("turns the user's decline into a match only while the decline still stands", async () => {
+    const { client, queries } = stubClient(duplicate, changed);
+
+    const result = await recordDecision(
+      client,
+      ITEM_ID,
+      "natura",
+      { action: "confirm", item: itemOf(soft) },
+      { state: "unmatched" },
+    );
+
+    expect(result).toBe("saved");
+    expect(queries).toEqual([
+      insertInto({ watchlist_item_id: ITEM_ID, shop_id: "natura", ...confirmed }),
+      updateOver(confirmed, [["eq", "state", "unmatched"]]),
+    ]);
+  });
+
+  it("reports a decision changed meanwhile, as from a stale tab, as decided, and changes nothing", async () => {
+    // Another tab re-pinned the match: the update narrowed to the one this form was shown with changes no row.
+    const { client, queries } = stubClient(duplicate, { data: [] });
+
+    const result = await recordDecision(
+      client,
+      ITEM_ID,
+      "natura",
+      { action: "confirm", item: itemOf(soft) },
+      { state: "matched", shopItemId: "NV81063" },
+    );
+
+    expect(result).toBe("decided");
+    expect(queries).toEqual([
+      insertInto({ watchlist_item_id: ITEM_ID, shop_id: "natura", ...confirmed }),
+      updateOver(confirmed, overMatch),
+    ]);
+  });
+
+  it("reports a product removed meanwhile as gone, without an update", async () => {
+    const { client, queries } = stubClient({
+      error: { code: "23503", message: 'violates foreign key constraint "watchlist_matches_own_product"' },
+    });
+
+    expect(await recordDecision(client, ITEM_ID, "natura", { action: "decline" }, { state: "unmatched" })).toBe("gone");
+    expect(queries).toEqual([insertInto({ watchlist_item_id: ITEM_ID, shop_id: "natura", ...declined })]);
+  });
+});
+
+describe("decisionBackTo", () => {
+  it.each<{ outcome: DecisionOutcome; filter: ListFilter; to: string }>([
+    { outcome: "matched", filter: "check", to: `/watchlist/${ITEM_ID}?f=check&matched=1` },
+    { outcome: "declined", filter: "check", to: `/watchlist/${ITEM_ID}?f=check&declined=1` },
+    { outcome: "decided", filter: "check", to: `/watchlist/${ITEM_ID}?f=check&decided=1` },
+    { outcome: { error: "failed" }, filter: "check", to: `/watchlist/${ITEM_ID}?f=check&error=failed` },
+    { outcome: { error: "gone" }, filter: "promo", to: `/watchlist/${ITEM_ID}?f=promo&error=gone` },
+    { outcome: "matched", filter: "all", to: `/watchlist/${ITEM_ID}?matched=1` },
+    { outcome: { error: "invalid" }, filter: "all", to: `/watchlist/${ITEM_ID}?error=invalid` },
+  ])("goes back to the product's page with $to", ({ outcome, filter, to }) => {
+    expect(decisionBackTo(ITEM_ID, outcome, filter)).toBe(to);
+  });
+
+  it("goes back to the list, keeping its filter, with no code for a post without a product's id", () => {
+    expect(decisionBackTo(null, { error: "invalid" }, "check")).toBe("/watchlist?f=check");
+    expect(decisionBackTo(null, "matched", "all")).toBe("/watchlist");
   });
 });
 

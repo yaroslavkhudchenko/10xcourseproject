@@ -83,7 +83,7 @@ export default function PriceComparisonView({ itemId, product, state, natura, on
       <ProductTitle product={product} itemId={itemId} caption={caption} refreshing={refreshing} onRefresh={onRefresh} />
       <VerdictHero hero={heroOf(verdict, context)} />
       <PriceTrack track={track} hint={hint} />
-      <ShopGrid itemId={itemId} rows={rows} now={state.now} natura={natura === null ? null : naturaCardOf(natura)} />
+      <ShopGrid rows={rows} now={state.now} natura={natura === null ? null : naturaCardOf(natura)} />
       {/* Screen readers hear each shop's answer here, outside the cards, so nothing live moves when they re-sort. */}
       <p role="status" aria-live="polite" className="sr-only">
         {state.announcements.join(" ")}
@@ -100,13 +100,11 @@ export default function PriceComparisonView({ itemId, product, state, natura, on
 }
 
 interface GridProps {
-  /** The watched product's id, which Natura's card links lead to. */
-  itemId: string;
   /** The shops' rows in the comparison's order, with their marks (comparisonOf). */
   rows: readonly ComparedRow[];
   /** The time the prices' ages are read at, in milliseconds. */
   now: number;
-  /** What Natura's card says (naturaCardOf), or null for no card of its own. */
+  /** What Natura's card says (naturaCardOf), its links included, or null for no card of its own. */
   natura: NaturaCardModel | null;
 }
 
@@ -116,7 +114,7 @@ interface GridProps {
  * its match's footer, and, while Natura has no price row, its card without a price after them. The kitchen sink draws
  * it on its own, with every state of Natura.
  */
-export function ShopGrid({ itemId, rows, now, natura }: GridProps) {
+export function ShopGrid({ rows, now, natura }: GridProps) {
   const headingId = useId();
   const naturaPriced = rows.some((row) => row.shop === "natura");
   if (rows.length === 0 && natura === null) {
@@ -131,7 +129,7 @@ export function ShopGrid({ itemId, rows, now, natura }: GridProps) {
         {rows.map((row) => (
           <li key={row.shop}>
             {row.shop === "natura" && natura !== null ? (
-              <NaturaCard card={natura} itemId={itemId} row={row} now={now} />
+              <NaturaCard card={natura} row={row} now={now} />
             ) : (
               <ShopCard row={row} now={now} />
             )}
@@ -139,7 +137,7 @@ export function ShopGrid({ itemId, rows, now, natura }: GridProps) {
         ))}
         {natura !== null && !naturaPriced && (
           <li key="natura">
-            <NaturaCard card={natura} itemId={itemId} row={null} now={now} />
+            <NaturaCard card={natura} row={null} now={now} />
           </li>
         )}
       </ul>

@@ -1,21 +1,41 @@
 import { describe, expect, it } from "vitest";
 import {
   chooseView,
+  decidedView,
   decisionNotice,
   matchedView,
   notFoundView,
   optionView,
   promptView,
+  repinView,
   sizeLabel,
   storedView,
   type CandidateFlag,
   type NaturaItemSummary,
   type NaturaProduct,
+  type NaturaView,
 } from "@/lib/services/natura-view";
 import { parseSize } from "@/lib/services/size";
-import type { CandidateOption, CandidateVerdict, MatchedItem, ShopCandidate, ShopMatch, Size } from "@/types";
+import type {
+  CandidateOption,
+  CandidateVerdict,
+  MatchedItem,
+  NaturaChoices,
+  RepinnableMatch,
+  ShopCandidate,
+  ShopMatch,
+  ShopUnavailable,
+  Size,
+} from "@/types";
 
 const ITEM_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
+// The product's page, which every link of the views leads to, and the action that opens the choice that changes a
+// stored decision, as the views give them for a product opened from the whole list.
+const PAGE = `/watchlist/${ITEM_ID}`;
+const REPIN = { kind: "repin", href: `${PAGE}?repin=1` } as const;
+// How the page was opened: from the whole list, or from its "Do sprawdzenia" chip.
+const ALL = { filter: "all" } as const;
+const CHECK = { filter: "check" } as const;
 // Rossmann's Nivea Soft 300 ml, as the page hands it to the builders.
 const product: NaturaProduct = { id: ITEM_ID, brand: "NIVEA", sizeText: "300 ml", size: parseSize("300 ml") };
 // 12:00 UTC is 14:00 in Poland (summer time).
@@ -75,55 +95,74 @@ describe("storedView", () => {
     const match: ShopMatch = { ...decision, decidedBy, state: "matched", item: item("300 ml") };
 
     // The match's price and its page are in its price row, so its card names the item without its photo or page.
-    expect(storedView(match, product)).toEqual({
+    expect(storedView(match, product, ALL)).toEqual({
       kind: "matched",
       note,
       warnings: [],
       item: summary("300 ml"),
       unsaved: false,
+      action: REPIN,
     });
   });
 
   it("shows a stored match's warnings, its size's and then its brand's", () => {
     const match: ShopMatch = { ...decision, decidedBy: "user", state: "matched", item: item("200 ml", "YOPE") };
 
-    expect(storedView(match, product)).toMatchObject({
+    expect(storedView(match, product, ALL)).toMatchObject({
       kind: "matched",
       warnings: ["Inny rozmiar: 200 ml zamiast 300 ml", "Inna marka: YOPE zamiast NIVEA"],
       item: summary("200 ml", "YOPE"),
     });
   });
 
-  it("shows a shop the user declined as their choice", () => {
+  it("shows a shop the user declined as their choice, with the action that opens the choice again", () => {
     const match: ShopMatch = { ...decision, decidedBy: "user", state: "unmatched", item: null };
 
-    expect(storedView(match, product)).toEqual({ kind: "unmatched" });
+    expect(storedView(match, product, ALL)).toEqual({ kind: "unmatched", action: REPIN });
   });
 
   it("shows a lookup that found nothing with when it ran, on the Polish clock, and a link to retry it", () => {
     const match: ShopMatch = { ...decision, decidedBy: "auto", state: "not_found", item: null };
 
-    expect(storedView(match, product)).toEqual({
+    expect(storedView(match, product, ALL)).toEqual({
       kind: "not-found",
       text: "Nie znaleziono w Naturze (sprawdzono 27.09, 21:45).",
-      href: `/watchlist/${ITEM_ID}?retry=1`,
+      href: `${PAGE}?retry=1`,
+    });
+  });
+
+  it.each<{ state: string; match: ShopMatch }>([
+    { state: "matched", match: { ...decision, decidedBy: "auto", state: "matched", item: item("300 ml") } },
+    { state: "unmatched", match: { ...decision, decidedBy: "user", state: "unmatched", item: null } },
+  ])("closes a stored $state's open choice with its action, the plain page", ({ match }) => {
+    expect(storedView(match, product, { ...ALL, repinning: true })).toMatchObject({
+      action: { kind: "cancel", href: PAGE },
+    });
+  });
+
+  it("keeps a retry's link for a lookup that found nothing, which has no choice to open", () => {
+    const match: ShopMatch = { ...decision, decidedBy: "auto", state: "not_found", item: null };
+
+    expect(storedView(match, product, { ...ALL, repinning: true })).toMatchObject({
+      kind: "not-found",
+      href: `${PAGE}?retry=1`,
     });
   });
 });
 
 describe("notFoundView", () => {
   it("shows the time it's given, on the Polish clock", () => {
-    expect(notFoundView(FETCHED_AT, product)).toEqual({
+    expect(notFoundView(FETCHED_AT, product, "all")).toEqual({
       kind: "not-found",
       text: "Nie znaleziono w Naturze (sprawdzono 28.09, 14:00).",
-      href: `/watchlist/${ITEM_ID}?retry=1`,
+      href: `${PAGE}?retry=1`,
     });
   });
 });
 
 describe("matchedView: the warnings", () => {
   it("names both sizes when they differ", () => {
-    expect(matchedView(item("200 ml"), "user", product)).toMatchObject({
+    expect(matchedView(item("200 ml"), "user", product, ALL)).toMatchObject({
       kind: "matched",
       note: "Potwierdzone przez Ciebie.",
       warnings: ["Inny rozmiar: 200 ml zamiast 300 ml"],
@@ -131,14 +170,14 @@ describe("matchedView: the warnings", () => {
   });
 
   it("names both brands when they differ", () => {
-    expect(matchedView(item("300 ml", "YOPE"), "auto", product)).toMatchObject({
+    expect(matchedView(item("300 ml", "YOPE"), "auto", product, ALL)).toMatchObject({
       kind: "matched",
       warnings: ["Inna marka: YOPE zamiast NIVEA"],
     });
   });
 
   it("gives the size's warning, then the brand's, when both differ", () => {
-    expect(matchedView(item("200 ml", "YOPE"), "user", product)).toMatchObject({
+    expect(matchedView(item("200 ml", "YOPE"), "user", product, ALL)).toMatchObject({
       warnings: ["Inny rozmiar: 200 ml zamiast 300 ml", "Inna marka: YOPE zamiast NIVEA"],
     });
   });
@@ -152,34 +191,96 @@ describe("matchedView: the warnings", () => {
     { why: "the item's brand is unknown", own: product, itemSize: "300 ml", itemBrand: null },
     { why: "the product's brand is unknown", own: { ...product, brand: null }, itemSize: "300 ml", itemBrand: "YOPE" },
   ])("warns of nothing when $why", ({ own, itemSize, itemBrand = "NIVEA" }) => {
-    expect(matchedView(item(itemSize, itemBrand), "auto", own)).toMatchObject({ kind: "matched", warnings: [] });
+    expect(matchedView(item(itemSize, itemBrand), "auto", own, ALL)).toMatchObject({ kind: "matched", warnings: [] });
   });
 });
 
 describe("matchedView: the item", () => {
   it("carries a saved match's item and its warnings, for its card to name, and nothing else of the candidate", () => {
     // The candidate, as the page hands over one it has just saved, with its offer and its EANs.
-    expect(matchedView({ ...candidate("200 ml"), brand: "YOPE" }, "user", product)).toEqual({
+    expect(matchedView({ ...candidate("200 ml"), brand: "YOPE" }, "user", product, ALL)).toEqual({
       kind: "matched",
       note: "Potwierdzone przez Ciebie.",
       warnings: ["Inny rozmiar: 200 ml zamiast 300 ml", "Inna marka: YOPE zamiast NIVEA"],
       item: summary("200 ml", "YOPE"),
       unsaved: false,
+      action: REPIN,
     });
-    expect(matchedView(candidate("300 ml"), "auto", product, { unsaved: false })).toMatchObject({
+    expect(matchedView(candidate("300 ml"), "auto", product, { ...ALL, unsaved: false })).toMatchObject({
       item: summary("300 ml"),
       unsaved: false,
     });
   });
 
-  it("marks a match the page couldn't save as unsaved, so its card shows the item's photo and page", () => {
-    expect(matchedView(candidate("300 ml"), "auto", product, { unsaved: true })).toEqual({
+  it("marks a match the page couldn't save as unsaved, so its card shows the item's photo and page, and no action", () => {
+    expect(matchedView(candidate("300 ml"), "auto", product, { ...ALL, unsaved: true })).toEqual({
       kind: "matched",
       note: "Dopasowano automatycznie: ten sam EAN i rozmiar.",
       warnings: [],
       item: summary("300 ml"),
       unsaved: true,
+      action: null,
     });
+  });
+});
+
+describe("the views' links keep the list's filter", () => {
+  const matchedDecision: ShopMatch = { ...decision, decidedBy: "auto", state: "matched", item: item("300 ml") };
+  const declinedDecision: RepinnableMatch = { ...decision, decidedBy: "user", state: "unmatched", item: null };
+  const notFoundDecision: ShopMatch = { ...decision, decidedBy: "auto", state: "not_found", item: null };
+
+  it.each<{ view: string; built: NaturaView; href: string }>([
+    {
+      view: "Zmień on a match just saved",
+      built: matchedView(candidate("300 ml"), "auto", product, CHECK),
+      href: `${PAGE}?f=check&repin=1`,
+    },
+    {
+      view: "Zmień on a stored match",
+      built: storedView(matchedDecision, product, CHECK),
+      href: `${PAGE}?f=check&repin=1`,
+    },
+    {
+      view: "Anuluj on a stored match",
+      built: storedView(matchedDecision, product, { ...CHECK, repinning: true }),
+      href: `${PAGE}?f=check`,
+    },
+    {
+      view: "Dopasuj ponownie on a decline",
+      built: storedView(declinedDecision, product, CHECK),
+      href: `${PAGE}?f=check&repin=1`,
+    },
+    {
+      view: "Anuluj on a decline",
+      built: storedView(declinedDecision, product, { ...CHECK, repinning: true }),
+      href: `${PAGE}?f=check`,
+    },
+  ])("keeps it in $view", ({ built, href }) => {
+    expect(built).toMatchObject({ action: { href } });
+  });
+
+  it.each<{ view: string; built: NaturaView; href: string }>([
+    {
+      view: "the retry of a stored lookup",
+      built: storedView(notFoundDecision, product, CHECK),
+      href: `${PAGE}?f=check&retry=1`,
+    },
+    {
+      view: "the retry of a fresh lookup",
+      built: notFoundView(FETCHED_AT, product, "check"),
+      href: `${PAGE}?f=check&retry=1`,
+    },
+    { view: "the lookup's button", built: promptView(product, false, "check"), href: `${PAGE}?f=check` },
+    { view: "a retry's lookup button", built: promptView(product, true, "check"), href: `${PAGE}?f=check&retry=1` },
+    { view: "the link to a decision stored meanwhile", built: decidedView(product, "check"), href: `${PAGE}?f=check` },
+  ])("keeps it in $view", ({ built, href }) => {
+    expect(built).toMatchObject({ href });
+  });
+
+  it("keeps it in the choice's Anuluj", () => {
+    expect(repinView({ kind: "not-found" }, declinedDecision, FETCHED_AT, product, "check").cancelHref).toBe(
+      `${PAGE}?f=check`,
+    );
   });
 });
 
@@ -269,10 +370,113 @@ describe("chooseView", () => {
   });
 });
 
+describe("repinView", () => {
+  // The stored match, NV89063, and the decline; the choice's searches found the match's item and one in another size.
+  const matchedDecision: RepinnableMatch = { ...decision, decidedBy: "auto", state: "matched", item: item("300 ml") };
+  const declinedDecision: RepinnableMatch = { ...decision, decidedBy: "user", state: "unmatched", item: null };
+  const matchedItem = option({ sharesEan: true, size: "equal", brand: "agrees" });
+  const otherSize: CandidateOption = {
+    candidate: { ...candidate("200 ml"), shopItemId: "NV89064" },
+    verdict: { sharesEan: true, size: "differs", brand: "agrees" },
+  };
+  const found = (via: "ean" | "name" | "both", incomplete: ShopUnavailable | null = null): NaturaChoices => ({
+    kind: "choices",
+    options: [matchedItem, otherSize],
+    via,
+    incomplete,
+  });
+
+  it("offers a match's choice with its item marked, Żaden z nich, and the match every form replaces", () => {
+    expect(repinView(found("both"), matchedDecision, FETCHED_AT, product, "all")).toEqual({
+      kind: "repin",
+      intro: "Znalezione w Naturze po kodzie EAN i po nazwie. Wybierz ten sam produkt albo „Żaden z nich”.",
+      options: [
+        { ...optionView(matchedItem, FETCHED_AT, product), current: true },
+        { ...optionView(otherSize, FETCHED_AT, product), current: false },
+      ],
+      message: null,
+      decline: true,
+      replaces: "matched:NV89063",
+      cancelHref: PAGE,
+    });
+  });
+
+  it("offers a decline's choice with nothing marked and no Żaden z nich, only Anuluj", () => {
+    expect(repinView(found("both"), declinedDecision, FETCHED_AT, product, "all")).toEqual({
+      kind: "repin",
+      intro: "Znalezione w Naturze po kodzie EAN i po nazwie. Wybierz ten sam produkt albo „Anuluj”.",
+      options: [
+        { ...optionView(matchedItem, FETCHED_AT, product), current: false },
+        { ...optionView(otherSize, FETCHED_AT, product), current: false },
+      ],
+      message: null,
+      decline: false,
+      replaces: "unmatched",
+      cancelHref: PAGE,
+    });
+  });
+
+  it.each<{ via: "ean" | "name"; intro: string }>([
+    { via: "ean", intro: "Znalezione w Naturze po kodzie EAN. Wybierz ten sam produkt albo „Żaden z nich”." },
+    { via: "name", intro: "Znalezione w Naturze po nazwie. Wybierz ten sam produkt albo „Żaden z nich”." },
+  ])("says the candidates were found by $via alone", ({ via, intro }) => {
+    expect(repinView(found(via), matchedDecision, FETCHED_AT, product, "all").intro).toBe(intro);
+  });
+
+  it("says the choice may be incomplete when the name search got no answer", () => {
+    const busy: ShopUnavailable = { kind: "unavailable", reason: "busy" };
+
+    expect(repinView(found("ean", busy), matchedDecision, FETCHED_AT, product, "all")).toMatchObject({
+      options: [{ current: true }, { current: false }],
+      message: {
+        text:
+          "Wyszukiwanie po nazwie się nie udało, więc lista może być niepełna. Wyszukiwarka sklepu Natura jest teraz " +
+          "zajęta. Spróbuj za minutę.",
+        warning: true,
+      },
+      decline: true,
+    });
+  });
+
+  it.each<{ why: string; choices: NaturaChoices; message: { text: string; warning: boolean } }>([
+    {
+      why: "nothing was found",
+      choices: { kind: "not-found" },
+      message: { text: "Nie znaleziono w Naturze żadnego produktu.", warning: false },
+    },
+    {
+      why: "Natura gave no answer",
+      choices: { kind: "unavailable", reason: "stopped" },
+      message: {
+        text:
+          "Wyszukiwanie w sklepie Natura jest wyłączone, bo sklep zablokował zapytania. Właściciel musi je ponownie " +
+          "włączyć.",
+        warning: true,
+      },
+    },
+  ])("says $why, with no candidate, and still lets a match be declined", ({ choices, message }) => {
+    expect(repinView(choices, matchedDecision, FETCHED_AT, product, "all")).toEqual({
+      kind: "repin",
+      intro: null,
+      options: [],
+      message,
+      decline: true,
+      replaces: "matched:NV89063",
+      cancelHref: PAGE,
+    });
+  });
+});
+
 describe("promptView", () => {
   it("links to the product's page, keeping a retry", () => {
-    expect(promptView(product, false)).toEqual({ kind: "prompt", href: `/watchlist/${ITEM_ID}` });
-    expect(promptView(product, true)).toEqual({ kind: "prompt", href: `/watchlist/${ITEM_ID}?retry=1` });
+    expect(promptView(product, false, "all")).toEqual({ kind: "prompt", href: PAGE });
+    expect(promptView(product, true, "all")).toEqual({ kind: "prompt", href: `${PAGE}?retry=1` });
+  });
+});
+
+describe("decidedView", () => {
+  it("links to the product's page, which shows the decision another tab stored", () => {
+    expect(decidedView(product, "all")).toEqual({ kind: "decided", href: PAGE });
   });
 });
 

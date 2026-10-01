@@ -112,6 +112,10 @@ describe("parseListFilter", () => {
       expect(parseListFilter(raw)).toBe("all");
     },
   );
+
+  it("reads a form's field that isn't text as every product", () => {
+    expect(parseListFilter(new File(["promo"], "f.txt"))).toBe("all");
+  });
 });
 
 describe("listRowOf: the product", () => {
@@ -409,6 +413,18 @@ describe("the chips", () => {
     { path: `/watchlist/${SOFT_ID}?f=promo&matched=1&list-prices=done`, filter: "all", href: `/watchlist/${SOFT_ID}` },
   ])("links $filter on $path to $href, keeping only the page and the filter", ({ path, filter, href }) => {
     expect(filterHref(path, filter)).toBe(href);
+  });
+
+  it.each<{ filter: (typeof LIST_FILTERS)[number]; params: Record<string, string>; href: string }>([
+    { filter: "check", params: { retry: "1" }, href: `/watchlist/${SOFT_ID}?f=check&retry=1` },
+    { filter: "promo", params: { repin: "1" }, href: `/watchlist/${SOFT_ID}?f=promo&repin=1` },
+    { filter: "all", params: { matched: "1" }, href: `/watchlist/${SOFT_ID}?matched=1` },
+    { filter: "check", params: { error: "failed" }, href: `/watchlist/${SOFT_ID}?f=check&error=failed` },
+    { filter: "check", params: {}, href: `/watchlist/${SOFT_ID}?f=check` },
+    { filter: "check", params: { a: "1", b: "x y" }, href: `/watchlist/${SOFT_ID}?f=check&a=1&b=x+y` },
+  ])("adds $params after the filter $filter: $href", ({ filter, params, href }) => {
+    // The address it's built from had its own query, which it drops.
+    expect(filterHref(`/watchlist/${SOFT_ID}?repin=1&prices=done`, filter, params)).toBe(href);
   });
 
   it("shows the chips of a list whose reads worked, with the filter the address names", () => {

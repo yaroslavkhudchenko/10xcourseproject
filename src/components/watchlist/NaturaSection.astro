@@ -1,26 +1,33 @@
 ---
-// A product's choice in Natura, below its shops' cards: the candidates Natura's lookup left to the user, for them to
-// confirm the one that is the same product ("To ten produkt") or decline them all ("Żaden z nich"). Every other state
+// A product's choice in Natura, below its shops' cards: the candidates Natura's lookup left to the user (`choose`), or,
+// once the user opens a stored decision's choice with "Zmień" or "Dopasuj ponownie" (`repin`), the candidates
+// Natura's two searches found again, with the current match marked "Obecne dopasowanie" in place of its button. The
+// user confirms the one that is the same product ("To ten produkt") or declines them all ("Żaden z nich", from a first
+// choice or a match), and a re-pin's choice ends with "Anuluj", which leaves the decision as it was. Every other state
 // of Natura sits in its card among the shops' cards (NaturaCard.tsx), which points here, and so do the notices of a
 // decision just made. Each candidate is drawn as a list row draws a product: its thumbnail, its brand and size above
 // its name, then its flags as pills, the shared EAN in the promotion's success colour and a size or brand warning in
-// the warning's, its price with where and when it was fetched, and its buttons. The page and the dev kitchen sink
-// render it from the same view (src/lib/services/natura-view.ts). The decision forms are one submit-once group, so one
-// tap sends one decision, whichever button it was.
+// the warning's, its price with where and when it was fetched, and its buttons. Every form posts the list's filter, so
+// the page it goes back to keeps it, and a re-pin's forms post the decision they replace, so one from a stale tab
+// changes nothing. The page and the dev kitchen sink render it from the same views (src/lib/services/natura-view.ts).
+// The decision forms are one submit-once group, so one tap sends one decision, whichever button it was.
 import SubmitOnce from "@/components/SubmitOnce.astro";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import ProductThumb from "@/components/watchlist/ProductThumb";
 import ShopLink from "@/components/watchlist/ShopLink";
-import type { NaturaView } from "@/lib/services/natura-view";
+import type { NaturaRepin, NaturaView, RepinOption } from "@/lib/services/natura-view";
 import { productFullName } from "@/lib/services/watchlist";
-import { rowProductOf } from "@/lib/services/watchlist-rows";
+import { rowProductOf, type ListFilter } from "@/lib/services/watchlist-rows";
+import { cn } from "@/lib/utils";
 
 interface Props {
-  /** The candidates to choose from, as the page's view of Natura gives them. */
-  view: Extract<NaturaView, { kind: "choose" }>;
+  /** The candidates to choose from: a first choice, as the page's view of Natura gives it, or a re-pin's (repinView). */
+  view: Extract<NaturaView, { kind: "choose" }> | NaturaRepin;
   /** The watched product's id, which the decision forms post. */
   productId: string;
+  /** The filter the list is shown with, which every decision form posts, so the page it goes back to keeps it. */
+  filter: ListFilter;
   /**
    * What the section's ids start with, "natura" by default. The dev kitchen sink shows several sections on one page,
    * each with a prefix of its own, so their ids stay unique.
@@ -28,13 +35,22 @@ interface Props {
   idPrefix?: string;
 }
 
-const { view, productId, idPrefix = "natura" } = Astro.props;
+const { view, productId, filter, idPrefix = "natura" } = Astro.props;
 
 const headingId = `${idPrefix}-heading`;
 
+// A first choice has no current match, offers "Żaden z nich" and replaces only a lookup that found nothing; a re-pin's
+// says what its forms replace, offers "Żaden z nich" only from a match, and ends with "Anuluj".
+const options: RepinOption[] =
+  view.kind === "repin" ? view.options : view.options.map((option) => ({ ...option, current: false }));
+const message = view.kind === "repin" ? view.message : null;
+const decline = view.kind === "repin" ? view.decline : true;
+const replaces = view.kind === "repin" ? view.replaces : null;
+const cancelHref = view.kind === "repin" ? view.cancelHref : null;
+
 // Every candidate's buttons read the same words, so each is described by its candidate's name, which a hidden element
 // holds under an id of its own.
-const candidates = view.options.map((option, index) => ({
+const candidates = options.map((option, index) => ({
   ...option,
   row: rowProductOf({ ...option.candidate, caption: null }),
   nameId: `${idPrefix}-candidate-${index}`,
@@ -46,67 +62,94 @@ const candidates = view.options.map((option, index) => ({
   <h2 id={headingId} class="text-track-title font-extrabold tracking-tight lg:text-track-title-lg">
     Drogerie Natura
   </h2>
-  <p class="text-sm leading-normal text-muted-foreground lg:text-body">{view.intro}</p>
-  <ul class="flex flex-col gap-2.5 lg:gap-3">
-    {candidates.map(({ candidate, flags, price, row, nameId, fullName }) => (
-      <li class="flex flex-col gap-3 rounded-row bg-card p-3">
-        <div class="flex items-center gap-3">
-          <ProductThumb brand={row.brand} imageUrl={row.imageUrl} size="row" />
-          <span class="flex min-w-0 flex-1 flex-col gap-0.75">
-            {row.eyebrow && (
-              <span class="font-mono text-meta tracking-eyebrow wrap-break-word text-muted-foreground uppercase">
-                {row.eyebrow}
-              </span>
-            )}
-            <span class="text-body leading-tight font-semibold wrap-break-word">{row.name}</span>
+  {view.intro && <p class="text-sm leading-normal text-muted-foreground lg:text-body">{view.intro}</p>}
+  {message && (
+    <p
+      class:list={[
+        "text-sm leading-normal lg:text-body",
+        message.warning ? "text-warning-foreground" : "text-muted-foreground",
+      ]}
+    >
+      {message.text}
+    </p>
+  )}
+  {candidates.length > 0 && (
+    <ul class="flex flex-col gap-2.5 lg:gap-3">
+      {candidates.map(({ candidate, flags, price, current, row, nameId, fullName }) => (
+        <li class="flex flex-col gap-3 rounded-row bg-card p-3">
+          <div class="flex items-center gap-3">
+            <ProductThumb brand={row.brand} imageUrl={row.imageUrl} size="row" />
+            <span class="flex min-w-0 flex-1 flex-col gap-0.75">
+              {row.eyebrow && (
+                <span class="font-mono text-meta tracking-eyebrow wrap-break-word text-muted-foreground uppercase">
+                  {row.eyebrow}
+                </span>
+              )}
+              <span class="text-body leading-tight font-semibold wrap-break-word">{row.name}</span>
+            </span>
+          </div>
+          <span id={nameId} hidden>
+            {fullName}
           </span>
-        </div>
-        <span id={nameId} hidden>
-          {fullName}
-        </span>
-        {flags.length > 0 && (
-          <ul class="flex flex-wrap gap-2" aria-label="Porównanie z Twoim produktem">
-            {flags.map((flag) => (
-              <li class="flex">
-                <Badge variant={flag.warning ? "warning" : "promo"} className="whitespace-normal">
-                  {flag.text}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        )}
-        <p class="text-sm text-muted-foreground">{price}</p>
-        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <form method="POST" action="/api/watchlist/matches" data-submit-once="natura-decision">
-            <input type="hidden" name="itemId" value={productId} />
-            <input type="hidden" name="shop" value="natura" />
-            <input type="hidden" name="action" value="confirm" />
-            <input type="hidden" name="shopItemId" value={candidate.shopItemId} />
-            <input type="hidden" name="name" value={candidate.name} />
-            <input type="hidden" name="brand" value={candidate.brand ?? ""} />
-            <input type="hidden" name="sizeText" value={candidate.sizeText ?? ""} />
-            {candidate.eans.map((ean) => (
-              <input type="hidden" name="eans" value={ean} />
-            ))}
-            <input type="hidden" name="productUrl" value={candidate.productUrl ?? ""} />
-            <input type="hidden" name="imageUrl" value={candidate.imageUrl ?? ""} />
-            <Button type="submit" size="touch" aria-describedby={nameId}>
-              To ten produkt
-            </Button>
-          </form>
-          {candidate.productUrl && <ShopLink href={candidate.productUrl} describedBy={nameId} />}
-        </div>
-      </li>
-    ))}
-  </ul>
-  <form method="POST" action="/api/watchlist/matches" data-submit-once="natura-decision">
-    <input type="hidden" name="itemId" value={productId} />
-    <input type="hidden" name="shop" value="natura" />
-    <input type="hidden" name="action" value="decline" />
-    <Button type="submit" variant="outline" size="touch" className="w-full">
-      Żaden z nich
-    </Button>
-  </form>
+          {flags.length > 0 && (
+            <ul class="flex flex-wrap gap-2" aria-label="Porównanie z Twoim produktem">
+              {flags.map((flag) => (
+                <li class="flex">
+                  <Badge variant={flag.warning ? "warning" : "promo"} className="whitespace-normal">
+                    {flag.text}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p class="text-sm text-muted-foreground">{price}</p>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+            {current ? (
+              <Badge variant="secondary">Obecne dopasowanie</Badge>
+            ) : (
+              <form method="POST" action="/api/watchlist/matches" data-submit-once="natura-decision">
+                <input type="hidden" name="itemId" value={productId} />
+                <input type="hidden" name="shop" value="natura" />
+                <input type="hidden" name="f" value={filter} />
+                {replaces !== null && <input type="hidden" name="replaces" value={replaces} />}
+                <input type="hidden" name="action" value="confirm" />
+                <input type="hidden" name="shopItemId" value={candidate.shopItemId} />
+                <input type="hidden" name="name" value={candidate.name} />
+                <input type="hidden" name="brand" value={candidate.brand ?? ""} />
+                <input type="hidden" name="sizeText" value={candidate.sizeText ?? ""} />
+                {candidate.eans.map((ean) => (
+                  <input type="hidden" name="eans" value={ean} />
+                ))}
+                <input type="hidden" name="productUrl" value={candidate.productUrl ?? ""} />
+                <input type="hidden" name="imageUrl" value={candidate.imageUrl ?? ""} />
+                <Button type="submit" size="touch" aria-describedby={nameId}>
+                  To ten produkt
+                </Button>
+              </form>
+            )}
+            {candidate.productUrl && <ShopLink href={candidate.productUrl} describedBy={nameId} />}
+          </div>
+        </li>
+      ))}
+    </ul>
+  )}
+  {decline && (
+    <form method="POST" action="/api/watchlist/matches" data-submit-once="natura-decision">
+      <input type="hidden" name="itemId" value={productId} />
+      <input type="hidden" name="shop" value="natura" />
+      <input type="hidden" name="f" value={filter} />
+      {replaces !== null && <input type="hidden" name="replaces" value={replaces} />}
+      <input type="hidden" name="action" value="decline" />
+      <Button type="submit" variant="outline" size="touch" className="w-full">
+        Żaden z nich
+      </Button>
+    </form>
+  )}
+  {cancelHref !== null && (
+    <a href={cancelHref} class:list={cn(buttonVariants({ variant: "ghost", size: "touch" }), "w-full")}>
+      Anuluj
+    </a>
+  )}
 
   <SubmitOnce />
 </section>

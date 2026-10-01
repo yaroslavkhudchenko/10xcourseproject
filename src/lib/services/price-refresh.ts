@@ -7,7 +7,7 @@ import { fetchNaturaPrices } from "@/lib/services/shops/natura";
 import { fetchRossmannPrice } from "@/lib/services/shops/rossmann";
 import { isRefusal } from "@/lib/services/shops/shop-outcome";
 import { parseWatchlistItemId } from "@/lib/services/watchlist";
-import { parseListFilter, type ListFilter } from "@/lib/services/watchlist-rows";
+import { filterHref, parseListFilter, type ListFilter } from "@/lib/services/watchlist-rows";
 import type { PriceCheck, PriceKey, ShopId, ShopUnavailable } from "@/types";
 
 // Refreshing pinned items' prices, for a product's page and for the list: every request goes through the gate, and
@@ -167,18 +167,13 @@ export function listRefreshBackOf(
   if (back !== null && itemId === null) {
     return null;
   }
-  return { back: itemId, f: parseListFilter(typeof f === "string" ? f : null) };
+  return { back: itemId, f: parseListFilter(f) };
 }
 
 /**
  * Where the list's "Odśwież ceny" goes back to with its code (listRefreshBackOf): the product page it was posted from,
- * or the list, keeping the list's filter unless it's every product's.
+ * or the list, keeping the list's filter unless it's every product's (filterHref).
  */
 export function listRefreshBackTo({ back, f }: ListRefreshBack, code: PriceRefreshCode): string {
-  const params = new URLSearchParams();
-  if (f !== "all") {
-    params.set("f", f);
-  }
-  params.set(LIST_PRICES_PARAM, code);
-  return `${back === null ? "/watchlist" : `/watchlist/${back}`}?${params.toString()}`;
+  return filterHref(back === null ? "/watchlist" : `/watchlist/${back}`, f, { [LIST_PRICES_PARAM]: code });
 }
