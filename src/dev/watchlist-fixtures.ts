@@ -4,6 +4,7 @@
 // page gets them, so the kitchen sink shows only rows the page can reach. Nothing here is real user data, and nothing
 // here asks Supabase or a shop.
 import type { LatestCheck, PricedShop } from "@/lib/services/price-comparison";
+import { parseSize } from "@/lib/services/size";
 import {
   filterCounts,
   listRowOf,
@@ -29,7 +30,7 @@ const before = (ago: number) => new Date(NOW_MS - ago).toISOString();
 
 /**
  * A product on no one's list, numbered `n`: its row links to a product page that answers 404 before any lookup, and
- * its made-up Rossmann id is no shop's.
+ * its made-up Rossmann id is no shop's. Its size is parsed from its text, as "Dodaj" stores it.
  */
 function product(n: number, fields: Pick<WatchlistItem, "brand" | "name"> & Partial<WatchlistItem>): WatchlistItem {
   return {
@@ -38,6 +39,7 @@ function product(n: number, fields: Pick<WatchlistItem, "brand" | "name"> & Part
     sourceItemId: String(900000 + n),
     caption: null,
     sizeText: null,
+    size: parseSize(fields.sizeText ?? null),
     imageUrl: null,
     addedAt: "2026-09-20T08:00:00.000Z",
     ...fields,
@@ -96,6 +98,35 @@ const NIVEA_SHOPS = [
 /** The row of `item` with these shops and this Natura state, at the page's time. */
 const rowOf = (item: WatchlistItem, shops: RowShop[], natura: NaturaListState): ListRow =>
   listRowOf(item, shops, natura, NOW_MS);
+
+// A shampoo matched in Natura to an item of another brand in its size, which a lookup accepted on its own before the
+// brand rule. Nobody has seen it differ, so the list counts the product in "Do sprawdzenia", and the row's line for
+// screen readers says why, while the row looks like any other. The row comes from the list's own reads as the page
+// gets them, so the list's rule decides all that.
+const JOANNA = product(15, { brand: "Joanna", name: "Naturia", caption: "szampon z pokrzywą", sizeText: "500 ml" });
+const JOANNA_SKU = "NV90015";
+const OTHER_BRAND_MATCH: ShopMatchState = {
+  watchlistItemId: JOANNA.id,
+  shop: "natura",
+  state: "matched",
+  shopItemId: JOANNA_SKU,
+  brand: "WZÓR",
+  size: { value: 500, unit: "ml" },
+  decidedBy: "auto",
+};
+const [OTHER_BRAND_ROW] = listRowsOf(
+  [JOANNA],
+  { states: [OTHER_BRAND_MATCH], unread: [], unattributed: 0 },
+  {
+    prices: [
+      { shop: "rossmann", shopItemId: JOANNA.sourceItemId, ...checked(15 * MINUTE, 8.99) },
+      { shop: "natura", shopItemId: JOANNA_SKU, ...checked(15 * MINUTE, 9.49) },
+    ],
+    unread: [],
+    unattributed: 0,
+  },
+  NOW_MS,
+);
 
 /** One row of the list, with the kitchen sink's label for it. */
 export interface RowFixture {
@@ -165,6 +196,13 @@ export const ROW_FIXTURES: RowFixture[] = [
     text: "ze zdjęciem produktu",
     row: rowOf(PHOTO, [shop("rossmann", checked(MINUTE, 9.99)), shop("natura", checked(MINUTE, 11.99))], "matched"),
   },
+  {
+    code: "suspicious",
+    text:
+      "dopasowane automatycznie do innej marki, zanim porównywano marki: wygląda jak inne, ale liczy się " +
+      `w „Do sprawdzenia”, a czytnik ekranu słyszy: „${OTHER_BRAND_ROW.summary}”`,
+    row: OTHER_BRAND_ROW,
+  },
 ];
 
 /** Every row of the gallery once, as a list of them. */
@@ -181,7 +219,7 @@ export const BESIDE_ID = NIVEA.id;
 /** The chips' counts for a list with nothing on promotion and nothing to check: the product with its photo alone. */
 export const QUIET_COUNTS = filterCounts([rowOf(PHOTO, [shop("rossmann", checked(MINUTE, 9.99))], "matched")]);
 
-// Five more products, so the long list below holds fourteen.
+// Five more products, so the long list below holds fifteen.
 const MORE: ListRow[] = [
   rowOf(
     product(10, { brand: "Ziaja", name: "Krem do rąk", caption: "masło kakaowe", sizeText: "50 ml" }),
@@ -230,11 +268,19 @@ export const LONG_ROWS: ListRow[] = [...GALLERY_ROWS.filter((row) => row.itemId 
 /** How many of the long list's rows each chip holds. */
 export const LONG_COUNTS = filterCounts(LONG_ROWS);
 
-// The whole list's three reads as the page gets them, from which the read failures are built: Nivea matched in Natura,
-// Ziaja still to match, Colgate declined there.
+// The whole list's three reads as the page gets them, from which the read failures are built: Nivea matched in Natura
+// on its own, to an item of its brand and size, Ziaja still to match, Colgate declined there.
 const LIST: WatchlistItem[] = [NIVEA, ZIAJA, COLGATE];
 const LIST_STATES: ShopMatchState[] = [
-  { watchlistItemId: NIVEA.id, shop: "natura", state: "matched", shopItemId: "NV90001" },
+  {
+    watchlistItemId: NIVEA.id,
+    shop: "natura",
+    state: "matched",
+    shopItemId: "NV90001",
+    brand: "NIVEA",
+    size: { value: 300, unit: "ml" },
+    decidedBy: "auto",
+  },
   { watchlistItemId: COLGATE.id, shop: "natura", state: "unmatched", shopItemId: null },
 ];
 const LIST_PRICES: LatestPrice[] = [

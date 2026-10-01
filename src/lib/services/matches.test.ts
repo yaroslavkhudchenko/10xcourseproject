@@ -723,17 +723,71 @@ describe("listMatches", () => {
 });
 
 describe("listMatchStates", () => {
-  it("reads only the list's columns for every decision, with a match's SKU, in one query within a time limit", async () => {
+  /**
+   * A decision's row as the list reads it: its product, its shop, its state, and a match's item id, brand and size,
+   * with who decided it. By default the lookup's own match to Natura's Nivea Soft.
+   */
+  const stateRow = (fields: Record<string, unknown> = {}) => ({
+    watchlist_item_id: ITEM_ID,
+    shop_id: "natura",
+    state: "matched",
+    shop_item_id: "NV89063",
+    brand: "NIVEA",
+    size_value: 300,
+    size_unit: "ml",
+    decided_by: "auto",
+    ...fields,
+  });
+  /** The row of a decision without an item: by default, the user's decline of another product. */
+  const noItemRow = (fields: Record<string, unknown> = {}) =>
+    stateRow({
+      watchlist_item_id: OTHER_ITEM_ID,
+      state: "unmatched",
+      shop_item_id: null,
+      brand: null,
+      size_value: null,
+      size_unit: null,
+      decided_by: "user",
+      ...fields,
+    });
+  const declined = { watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "unmatched", shopItemId: null };
+
+  it("reads only the list's columns, with a match's SKU, brand, size and decider, in one query within a time limit", async () => {
     const { client, queries } = stubClient({
       data: [
-        { watchlist_item_id: ITEM_ID, shop_id: "natura", state: "matched", shop_item_id: "NV89063" },
-        { watchlist_item_id: OTHER_ITEM_ID, shop_id: "natura", state: "not_found", shop_item_id: null },
+        stateRow(),
+        // A match the user confirmed, to an item without a brand or a size.
+        stateRow({
+          watchlist_item_id: THIRD_ITEM_ID,
+          brand: null,
+          size_value: null,
+          size_unit: null,
+          decided_by: "user",
+        }),
+        noItemRow({ state: "not_found", decided_by: "auto" }),
       ],
     });
 
     expect(await listMatchStates(client)).toEqual({
       states: [
-        { watchlistItemId: ITEM_ID, shop: "natura", state: "matched", shopItemId: "NV89063" },
+        {
+          watchlistItemId: ITEM_ID,
+          shop: "natura",
+          state: "matched",
+          shopItemId: "NV89063",
+          brand: "NIVEA",
+          size: { value: 300, unit: "ml" },
+          decidedBy: "auto",
+        },
+        {
+          watchlistItemId: THIRD_ITEM_ID,
+          shop: "natura",
+          state: "matched",
+          shopItemId: "NV89063",
+          brand: null,
+          size: null,
+          decidedBy: "user",
+        },
         { watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "not_found", shopItemId: null },
       ],
       unread: [],
@@ -742,7 +796,7 @@ describe("listMatchStates", () => {
     expect(queries).toEqual([
       [
         ["from", "watchlist_matches"],
-        ["select", "watchlist_item_id, shop_id, state, shop_item_id"],
+        ["select", "watchlist_item_id, shop_id, state, shop_item_id, brand, size_value, size_unit, decided_by"],
         ["abortSignal", true],
       ],
     ]);
@@ -753,16 +807,16 @@ describe("listMatchStates", () => {
     const { client } = stubClient({
       data: [
         // A state a later migration might add before the code knows it.
-        { watchlist_item_id: ITEM_ID, shop_id: "natura", state: "repinned", shop_item_id: null },
+        noItemRow({ watchlist_item_id: ITEM_ID, state: "repinned" }),
         // A match without its item: the list couldn't find its prices.
-        { watchlist_item_id: THIRD_ITEM_ID, shop_id: "natura", state: "matched", shop_item_id: null },
-        { watchlist_item_id: OTHER_ITEM_ID, shop_id: "natura", state: "unmatched", shop_item_id: null },
+        stateRow({ watchlist_item_id: THIRD_ITEM_ID, shop_item_id: null }),
+        noItemRow(),
       ],
     });
 
     // The list then says those products' matches couldn't be read, never that they're still to be matched.
     expect(await listMatchStates(client)).toEqual({
-      states: [{ watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "unmatched", shopItemId: null }],
+      states: [declined],
       unread: [ITEM_ID, THIRD_ITEM_ID],
       unattributed: 0,
     });
@@ -771,12 +825,29 @@ describe("listMatchStates", () => {
     expect(line).toMatchObject({ reason: "unexpected rows dropped", detail: "2" });
   });
 
+  it.each<{ why: string; fields: Record<string, unknown> }>([
+    { why: "a unit the app doesn't know", fields: { size_unit: "l" } },
+    { why: "a size that isn't a number", fields: { size_value: "300" } },
+    { why: "a size of nothing", fields: { size_value: 0 } },
+    { why: "a brand that isn't text", fields: { brand: 7 } },
+    { why: "no brand column", fields: { brand: undefined } },
+    { why: "a decider the app doesn't know", fields: { decided_by: "robot" } },
+    { why: "no decider", fields: { decided_by: null } },
+  ])("reports a match with $why as unread, never as one that agrees with its product", async ({ fields }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({ data: [stateRow(fields), noItemRow()] });
+
+    // The list then says the product's match couldn't be read, and counts it in "Do sprawdzenia".
+    expect(await listMatchStates(client)).toEqual({ states: [declined], unread: [ITEM_ID], unattributed: 0 });
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
   it("names a product once, however many of its rows couldn't be read", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { client } = stubClient({
       data: [
-        { watchlist_item_id: ITEM_ID, shop_id: "natura", state: "repinned", shop_item_id: null },
-        { watchlist_item_id: ITEM_ID, shop_id: "hebe", state: "repinned", shop_item_id: null },
+        noItemRow({ watchlist_item_id: ITEM_ID, state: "repinned" }),
+        noItemRow({ watchlist_item_id: ITEM_ID, shop_id: "hebe", state: "repinned" }),
       ],
     });
 
@@ -785,29 +856,21 @@ describe("listMatchStates", () => {
 
   it("names the product of an odd row whose shop can't be read, since it may be the product's Natura decision", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const { client } = stubClient({
-      data: [{ watchlist_item_id: ITEM_ID, shop_id: null, state: "matched", shop_item_id: "NV89063" }],
-    });
+    const { client } = stubClient({ data: [stateRow({ shop_id: null })] });
 
     expect(await listMatchStates(client)).toEqual({ states: [], unread: [ITEM_ID], unattributed: 0 });
   });
 
   it.each<{ why: string; row: unknown }>([
-    { why: "names no product", row: { watchlist_item_id: null, shop_id: "natura", state: "matched" } },
-    { why: "has a product id that isn't text", row: { watchlist_item_id: 42, shop_id: "natura", state: "unmatched" } },
+    { why: "names no product", row: stateRow({ watchlist_item_id: null }) },
+    { why: "has a product id that isn't text", row: noItemRow({ watchlist_item_id: 42 }) },
     { why: "isn't a row at all", row: "natura" },
   ])("counts an odd row that $why, which could be any product's, and keeps the rest", async ({ row }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const { client } = stubClient({
-      data: [row, { watchlist_item_id: OTHER_ITEM_ID, shop_id: "natura", state: "unmatched", shop_item_id: null }],
-    });
+    const { client } = stubClient({ data: [row, noItemRow()] });
 
     // One such row never empties the list: the list marks only the products it has no readable Natura row for.
-    expect(await listMatchStates(client)).toEqual({
-      states: [{ watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "unmatched", shopItemId: null }],
-      unread: [],
-      unattributed: 1,
-    });
+    expect(await listMatchStates(client)).toEqual({ states: [declined], unread: [], unattributed: 1 });
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
@@ -815,17 +878,13 @@ describe("listMatchStates", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { client } = stubClient({
       data: [
-        { watchlist_item_id: ITEM_ID, shop_id: "dm", state: "matched", shop_item_id: null },
-        { watchlist_item_id: null, shop_id: "dm", state: "matched", shop_item_id: "NV89063" },
-        { watchlist_item_id: OTHER_ITEM_ID, shop_id: "natura", state: "unmatched", shop_item_id: null },
+        stateRow({ shop_id: "dm", shop_item_id: null }),
+        stateRow({ watchlist_item_id: null, shop_id: "dm" }),
+        noItemRow(),
       ],
     });
 
-    expect(await listMatchStates(client)).toEqual({
-      states: [{ watchlistItemId: OTHER_ITEM_ID, shop: "natura", state: "unmatched", shopItemId: null }],
-      unread: [],
-      unattributed: 0,
-    });
+    expect(await listMatchStates(client)).toEqual({ states: [declined], unread: [], unattributed: 0 });
     expect(warn).toHaveBeenCalledTimes(1);
     const line: unknown = JSON.parse(String(warn.mock.calls[0][0]));
     expect(line).toMatchObject({ reason: "unexpected rows dropped", detail: "2" });

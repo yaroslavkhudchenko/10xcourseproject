@@ -631,10 +631,26 @@ describe("listPricedItems", () => {
     // Another shop's item with Felix's id: it isn't Felix's price.
     const lookalike: LatestPrice = { shop: "natura", shopItemId: "131225", ...check({ price: 1.99 }) };
     const matches: ShopMatchState[] = [
-      { watchlistItemId: "soft", shop: "natura", state: "matched", shopItemId: "NV89063" },
+      {
+        watchlistItemId: "soft",
+        shop: "natura",
+        state: "matched",
+        shopItemId: "NV89063",
+        brand: "NIVEA",
+        size: { value: 300, unit: "ml" },
+        decidedBy: "auto",
+      },
       { watchlistItemId: "felix", shop: "natura", state: "not_found", shopItemId: null },
       // A match in a shop whose prices aren't fetched yet adds nothing.
-      { watchlistItemId: "felix", shop: "hebe", state: "matched", shopItemId: "000000000000218807" },
+      {
+        watchlistItemId: "felix",
+        shop: "hebe",
+        state: "matched",
+        shopItemId: "000000000000218807",
+        brand: "Felix",
+        size: null,
+        decidedBy: "user",
+      },
     ];
 
     const items = listPricedItems([soft, felix], matches, [softInRossmann, softInNatura, lookalike]);

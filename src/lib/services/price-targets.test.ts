@@ -260,6 +260,8 @@ describe("listTargets", () => {
     name: "Produkt",
     caption: null,
     size_text: null,
+    size_value: null,
+    size_unit: null,
     image_url: null,
     created_at: "2026-09-27T12:00:00+00:00",
   });
@@ -283,7 +285,18 @@ describe("listTargets", () => {
   const listAnswers = {
     watchlist_items: { data: [listRow(SOFT_ID, "26900"), listRow(FELIX_ID, "131225"), listRow(MEN_ID, "11790")] },
     watchlist_matches: {
-      data: [{ watchlist_item_id: SOFT_ID, shop_id: "natura", state: "matched", shop_item_id: "NV89063" }],
+      data: [
+        {
+          watchlist_item_id: SOFT_ID,
+          shop_id: "natura",
+          state: "matched",
+          shop_item_id: "NV89063",
+          brand: "NIVEA",
+          size_value: 300,
+          size_unit: "ml",
+          decided_by: "auto",
+        },
+      ],
     },
     latest_price_observations: {
       data: [

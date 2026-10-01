@@ -140,6 +140,8 @@ export async function addToWatchlist(supabase: SupabaseClient, candidate: Produc
   return { kind: "added", id: inserted.data.id };
 }
 
+// A product as the list reads it. Its brand and size are what its matches are compared with (FR-007), so a row whose
+// size can't be read is odd, never one without a size.
 const rowSchema = z.object({
   id: z.string(),
   source: z.enum(SHOP_IDS),
@@ -148,6 +150,8 @@ const rowSchema = z.object({
   name: z.string(),
   caption: z.string().nullable(),
   size_text: z.string().nullable(),
+  size_value: z.number().positive().nullable(),
+  size_unit: z.enum(["ml", "g", "pcs"]).nullable(),
   image_url: z.string().nullable(),
   created_at: z.string(),
 });
@@ -156,7 +160,7 @@ const rowSchema = z.object({
 export async function listWatchlist(supabase: SupabaseClient): Promise<WatchlistItem[] | null> {
   const { data, error } = await supabase
     .from("watchlist_items")
-    .select("id, source, source_item_id, brand, name, caption, size_text, image_url, created_at")
+    .select("id, source, source_item_id, brand, name, caption, size_text, size_value, size_unit, image_url, created_at")
     .order("created_at", { ascending: false })
     .abortSignal(AbortSignal.timeout(DATABASE_TIMEOUT_MS));
   if (error) {
@@ -186,6 +190,7 @@ export async function listWatchlist(supabase: SupabaseClient): Promise<Watchlist
 }
 
 function toItem(row: z.infer<typeof rowSchema>): WatchlistItem {
+  const { size_value: value, size_unit: unit } = row;
   return {
     id: row.id,
     source: row.source,
@@ -194,15 +199,14 @@ function toItem(row: z.infer<typeof rowSchema>): WatchlistItem {
     name: row.name,
     caption: row.caption,
     sizeText: row.size_text,
+    size: value !== null && unit !== null ? { value, unit } : null,
     imageUrl: row.image_url,
     addedAt: row.created_at,
   };
 }
 
-// A product's page also needs the size and EANs its shop lookups compare with, and the product's page in its shop.
+// A product's page also needs the EANs its shop lookups look for, and the product's page in its shop.
 const productRowSchema = rowSchema.extend({
-  size_value: z.number().positive().nullable(),
-  size_unit: z.enum(["ml", "g", "pcs"]).nullable(),
   eans: z.array(z.string()),
   product_url: z.string().nullable(),
 });
@@ -240,8 +244,8 @@ export async function getWatchlistProduct(
     );
     return "failed";
   }
-  const { size_value: value, size_unit: unit, eans, product_url: productUrl } = parsed.data;
-  return { ...toItem(parsed.data), size: value !== null && unit !== null ? { value, unit } : null, eans, productUrl };
+  const { eans, product_url: productUrl } = parsed.data;
+  return { ...toItem(parsed.data), eans, productUrl };
 }
 
 /**

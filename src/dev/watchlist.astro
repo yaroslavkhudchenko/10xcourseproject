@@ -188,7 +188,9 @@ const HEADS: {
               <p class="text-sm text-muted-foreground">
                 <code>WatchlistRow</code> w każdym stanie etykiety ceny (<code>priceTagOf</code>), ze sklepem i wiekiem
                 ceny pod etykietą, wybrany i z długą nazwą. Czytnik ekranu słyszy zamiast etykiety i tej linii cały
-                wiersz (<code>summary</code>).
+                wiersz (<code>summary</code>). Automatyczne dopasowanie w Naturze, które różni się od produktu rozmiarem
+                lub marką, wygląda jak inne, ale liczy się w „Do sprawdzenia”, a linia czytnika mówi dlaczego: wiersz
+                <code>suspicious</code>.
               </p>
               <div class="flex flex-col gap-6">
                 {ROW_FIXTURES.map(({ code, text, row, selected }) => (

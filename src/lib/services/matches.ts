@@ -15,6 +15,7 @@ import {
   type ShopLookup,
   type ShopMatch,
   type ShopMatchState,
+  type Size,
 } from "@/types";
 
 // Each watched product's decision per shop (public.watchlist_matches), private to its user. Every read and write goes
@@ -311,6 +312,17 @@ const decisionColumns = {
   // A time the page can show: an unreadable one would make its clock throw.
   checked_at: z.string().refine((value) => !Number.isNaN(Date.parse(value))),
 };
+// A matched item's size, in the two columns the table keeps together: both or neither.
+const sizeColumns = {
+  size_value: z.number().positive().nullable(),
+  size_unit: z.enum(["ml", "g", "pcs"]).nullable(),
+};
+
+/** A matched item's size from its two columns, or null when it has none. */
+function sizeOf(value: number | null, unit: Size["unit"] | null): Size | null {
+  return value !== null && unit !== null ? { value, unit } : null;
+}
+
 const rowSchema = z.discriminatedUnion("state", [
   z.object({
     ...decisionColumns,
@@ -319,8 +331,7 @@ const rowSchema = z.discriminatedUnion("state", [
     name: z.string(),
     brand: z.string().nullable(),
     size_text: z.string().nullable(),
-    size_value: z.number().positive().nullable(),
-    size_unit: z.enum(["ml", "g", "pcs"]).nullable(),
+    ...sizeColumns,
     eans: z.array(z.string()),
     product_url: z.string().nullable(),
     image_url: z.string().nullable(),
@@ -350,10 +361,18 @@ export async function listMatches(supabase: SupabaseClient, itemId?: string): Pr
 }
 
 // Only the columns the list needs: which product, which shop, where the product stands there, and a match's item, whose
-// prices the list shows.
+// prices the list shows, with the item's brand and size and who decided on it, which tell an automatic match that
+// differs from the product (FR-007). A match whose brand, size or decider can't be read is odd, never one that agrees.
 const stateColumns = { watchlist_item_id: z.string(), shop_id: z.enum(SHOP_IDS) };
 const stateRowSchema = z.discriminatedUnion("state", [
-  z.object({ ...stateColumns, state: z.literal("matched"), shop_item_id: z.string() }),
+  z.object({
+    ...stateColumns,
+    state: z.literal("matched"),
+    shop_item_id: z.string(),
+    brand: z.string().nullable(),
+    ...sizeColumns,
+    decided_by: decisionColumns.decided_by,
+  }),
   z.object({ ...stateColumns, state: z.enum(["unmatched", "not_found"]) }),
 ]);
 // An odd row, read for its shop and its product alone, so it can still say whose decision couldn't be read. A shop the
@@ -364,7 +383,8 @@ const stateProductSchema = z.object({ watchlist_item_id: stateColumns.watchlist_
 
 /**
  * Where the products on the list stand in each shop, the products some of whose decisions came back odd, so the list
- * never shows such a product as one still to be matched, and how many odd rows couldn't say which product they're about.
+ * never shows such a product as one still to be matched, nor its match as one that agrees with it, and how many odd
+ * rows couldn't say which product they're about.
  */
 export interface MatchStatesRead {
   states: ShopMatchState[];
@@ -378,15 +398,16 @@ export interface MatchStatesRead {
 }
 
 /**
- * Where each product on the user's list stands in each shop, with a match's item id, read with one query for the whole
- * list and only the columns the list needs. Odd rows, such as a match without its item, are logged, their products
- * reported and those without one counted, which never empties the list; an odd row of a shop the app doesn't know is
- * left out. Null only when the decisions couldn't be read at all.
+ * Where each product on the user's list stands in each shop, with a match's item id, brand and size and who decided on
+ * it, read with one query for the whole list and only the columns the list needs. Odd rows, such as a match without its
+ * item or with a size it can't read, are logged, their products reported and those without one counted, which never
+ * empties the list; an odd row of a shop the app doesn't know is left out. Null only when the decisions couldn't be
+ * read at all.
  */
 export async function listMatchStates(supabase: SupabaseClient): Promise<MatchStatesRead | null> {
   const { data, error } = await supabase
     .from(TABLE)
-    .select("watchlist_item_id, shop_id, state, shop_item_id")
+    .select("watchlist_item_id, shop_id, state, shop_item_id, brand, size_value, size_unit, decided_by")
     .abortSignal(AbortSignal.timeout(DATABASE_TIMEOUT_MS));
   if (error) {
     logFailure("list failed", error.message);
@@ -415,9 +436,17 @@ export async function listMatchStates(supabase: SupabaseClient): Promise<MatchSt
 
 function toMatchState(row: z.infer<typeof stateRowSchema>): ShopMatchState {
   const decision = { watchlistItemId: row.watchlist_item_id, shop: row.shop_id };
-  return row.state === "matched"
-    ? { ...decision, state: "matched", shopItemId: row.shop_item_id }
-    : { ...decision, state: row.state, shopItemId: null };
+  if (row.state !== "matched") {
+    return { ...decision, state: row.state, shopItemId: null };
+  }
+  return {
+    ...decision,
+    state: "matched",
+    shopItemId: row.shop_item_id,
+    brand: row.brand,
+    size: sizeOf(row.size_value, row.size_unit),
+    decidedBy: row.decided_by,
+  };
 }
 
 /**
@@ -455,7 +484,6 @@ function toMatch(row: z.infer<typeof rowSchema>): ShopMatch {
   if (row.state !== "matched") {
     return { ...decision, state: row.state, item: null };
   }
-  const { size_value: value, size_unit: unit } = row;
   return {
     ...decision,
     state: "matched",
@@ -464,7 +492,7 @@ function toMatch(row: z.infer<typeof rowSchema>): ShopMatch {
       brand: row.brand,
       name: row.name,
       sizeText: row.size_text,
-      size: value !== null && unit !== null ? { value, unit } : null,
+      size: sizeOf(row.size_value, row.size_unit),
       eans: row.eans,
       productUrl: row.product_url,
       imageUrl: row.image_url,

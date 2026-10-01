@@ -339,7 +339,7 @@ describe("listWatchlist", () => {
     const order = vi.fn((_column: string, _options: { ascending: boolean }) => ({ abortSignal }));
     const select = vi.fn((_columns: string) => ({ order }));
     const from = vi.fn((_table: string) => ({ select }));
-    return { client: { from } as unknown as SupabaseClient, order, abortSignal };
+    return { client: { from } as unknown as SupabaseClient, select, order, abortSignal };
   }
 
   const row = {
@@ -350,6 +350,8 @@ describe("listWatchlist", () => {
     name: "Soft",
     caption: "krem uniwersalny, nawilżający",
     size_text: "300 ml",
+    size_value: 300,
+    size_unit: "ml",
     image_url: null,
     created_at: "2026-09-27T12:00:00+00:00",
   };
@@ -361,21 +363,37 @@ describe("listWatchlist", () => {
     name: "Soft",
     caption: "krem uniwersalny, nawilżający",
     sizeText: "300 ml",
+    size: { value: 300, unit: "ml" },
     imageUrl: null,
     addedAt: row.created_at,
   };
 
-  it("maps the user's rows to items, newest first, within a time limit", async () => {
-    const { client, order, abortSignal } = selectStub({ data: [row], error: null });
+  it("maps the user's rows to items, their sizes included, newest first, within a time limit", async () => {
+    const { client, select, order, abortSignal } = selectStub({ data: [row], error: null });
 
     expect(await listWatchlist(client)).toEqual([item]);
+    expect(select).toHaveBeenCalledWith(
+      "id, source, source_item_id, brand, name, caption, size_text, size_value, size_unit, image_url, created_at",
+    );
     expect(order).toHaveBeenCalledWith("created_at", { ascending: false });
     expect(abortSignal.mock.calls[0][0]).toBeInstanceOf(AbortSignal);
   });
 
-  it("drops an odd row and keeps the rest of the list", async () => {
+  it("gives a product without a size a size of null", async () => {
+    const { client } = selectStub({
+      data: [{ ...row, size_text: null, size_value: null, size_unit: null }],
+      error: null,
+    });
+
+    expect(await listWatchlist(client)).toEqual([{ ...item, sizeText: null, size: null }]);
+  });
+
+  it("drops an odd row, a size it can't read included, and keeps the rest of the list", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const { client } = selectStub({ data: [{ ...row, id: "odd", source: "dm" }, row], error: null });
+    const { client } = selectStub({
+      data: [{ ...row, id: "odd", source: "dm" }, { ...row, id: "odd-size", size_unit: "l" }, row],
+      error: null,
+    });
 
     expect(await listWatchlist(client)).toEqual([item]);
     expect(warn).toHaveBeenCalledTimes(1);

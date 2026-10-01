@@ -941,6 +941,28 @@ Shop requests per page view and action (lesson "Bound what each page view and ac
   - **4.14:** at 390 px, keyboard focus showed the 2 px ring at a 2 px offset on the summary and on the red button. Scrolled to the bottom, the button ends at 860 px, above the phone's bottom bar at 883 px.
   - **4.15:** the sinks show the confirm closed, open and failed, and the list's two notices, each in light and dark, with no overflow.
 
+### Phase 5
+
+- **The reads:**
+  - `matches.ts` shares its two size columns (`sizeColumns`) and a private `sizeOf` between the product page's read and the list's. The match's `decided_by` reuses `decisionColumns.decided_by`.
+  - `watchlist.ts` moves `size_value`/`size_unit` from `productRowSchema` up to `rowSchema`, so `getWatchlistProduct` takes the size from `toItem`. Its zod columns and the both-or-neither size expression still repeat those in `matches.ts`, as they did before.
+  - A matched row whose brand, size or decider doesn't parse is odd, so its product reads unreadable, never one that agrees. One `it.each` in `matches.test.ts` pins that for each column.
+- **The row rule:**
+  - `naturaMismatchOf(item, matchRead)` is exported beside `naturaStateOf`, and both find the decision through a private `naturaDecisionOf`.
+  - `listRowOf` takes the mismatch as an optional fifth argument, `NO_MISMATCH` by default, so its existing callers and the sink's `rowOf` are unchanged.
+  - `NaturaMismatch` is `ReturnType<typeof matchDifferences>`, so the row rule can't drift from the matching rule.
+  - A decline passed with a mismatch is left out, and the tag never changes. Each is pinned by a test.
+- **The island guard:** `matching.ts` imports only types from `@/types`, so admitting it needed no other change.
+- **The kitchen sink:** the suspicious row is `ROW_FIXTURES`' last entry, a Joanna 500 ml shampoo automatically matched to the brand "WZÓR". It's built through `listRowsOf` from the list's own reads, so the row rule decides its count and its line. The gallery, its chips and the long list (now fifteen) count it in "Do sprawdzenia". `LIST_STATES`' Nivea match is an agreeing automatic one, so the read failures built from it don't change. The `product()` helper parses each fixture's size from its text.
+- **Manual 5.6, verified by the agent at the owner's request (2026-10-01):**
+  - **Setup:** a throwaway local user, `s08-p5-…@example.com`, seeded through the user's own REST calls, not as the superuser the plan suggested, since the user's insert grant already allows an `auto` match. It has three products with made-up Rossmann ids 990008301–303 and Natura SKUs S08P5Q01–03, priced fresh:
+    - Q1, NIVEA 300 ml, automatically matched to DOVE 300 ml;
+    - Q2, NIVEA 300 ml, a user-confirmed NIVEA MEN 500 ml match;
+    - Q3, ZIAJA 75 ml, an agreeing automatic match.
+  - Rossmann and Natura were disabled locally during the visit and restored after. `shop_requests` max id was 126 before and after, so no shop was asked.
+  - At 1280 and 390 px, the chips read "Wszystkie 3", "Promocje 0" and "Do sprawdzenia 1", and `?f=check` holds Q1 alone. Its line for screen readers ends "Natura: sprawdź dopasowanie, inna marka.", and Q2's and Q3's say nothing about their matches. The list beside Q1's product page holds the same, and no page overflows.
+- **Manual 5.7, verified by the agent at the owner's request:** `/dev/watchlist` draws the suspicious row in light and in the `.dark` wrapper, looking like any other row, with the same line for screen readers in both themes. The aside's chips read "Wszystkie 10", "Promocje 1" and "Do sprawdzenia 5". There's no overflow.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -997,39 +1019,39 @@ Shop requests per page view and action (lesson "Bound what each page view and ac
 
 #### Automated
 
-- [x] 4.1 `npm run test` passes, with the removal's outcomes and every return address keeping the filter
-- [x] 4.2 `npm run lint` passes
-- [x] 4.3 `npx astro check` passes
-- [x] 4.4 `npm run build` passes
-- [x] 4.5 `node scripts/check-token-contrast.mjs` passes
-- [x] 4.6 `npm run smoke` passes against the dev server
-- [x] 4.7 Break-checks go red: a removal that reads no row as removed, and the list's address bar keeping `removed`
-- [ ] 4.8 CI is green on the phase's commit (ci and smoke)
+- [x] 4.1 `npm run test` passes, with the removal's outcomes and every return address keeping the filter — 9189c8c
+- [x] 4.2 `npm run lint` passes — 9189c8c
+- [x] 4.3 `npx astro check` passes — 9189c8c
+- [x] 4.4 `npm run build` passes — 9189c8c
+- [x] 4.5 `node scripts/check-token-contrast.mjs` passes — 9189c8c
+- [x] 4.6 `npm run smoke` passes against the dev server — 9189c8c
+- [x] 4.7 Break-checks go red: a removal that reads no row as removed, and the list's address bar keeping `removed` — 9189c8c
+- [x] 4.8 CI is green on the phase's commit (ci and smoke) — 9189c8c
 
 #### Manual
 
-- [x] 4.9 Without JavaScript, "Usuń z listy" opens its confirm in place and removes the product, and the list says so once
-- [x] 4.10 Another user watching the same Rossmann item still sees its prices after the removal
-- [x] 4.11 Adding the removed product again gives it a new page and a fresh Natura lookup
-- [x] 4.12 Sending the removal a second time says the product was no longer on the list
-- [x] 4.13 `?f=` survives the removal and the product's no-JavaScript "Odśwież ceny"
-- [x] 4.14 The summary and the red button show the focus ring, and the opened confirm sits above a phone's bottom bar
-- [x] 4.15 The kitchen sinks show the confirm closed, open and failed, and the list's notices, in both themes
+- [x] 4.9 Without JavaScript, "Usuń z listy" opens its confirm in place and removes the product, and the list says so once — 9189c8c
+- [x] 4.10 Another user watching the same Rossmann item still sees its prices after the removal — 9189c8c
+- [x] 4.11 Adding the removed product again gives it a new page and a fresh Natura lookup — 9189c8c
+- [x] 4.12 Sending the removal a second time says the product was no longer on the list — 9189c8c
+- [x] 4.13 `?f=` survives the removal and the product's no-JavaScript "Odśwież ceny" — 9189c8c
+- [x] 4.14 The summary and the red button show the focus ring, and the opened confirm sits above a phone's bottom bar — 9189c8c
+- [x] 4.15 The kitchen sinks show the confirm closed, open and failed, and the list's notices, in both themes — 9189c8c
 
 ### Phase 5: Suspicious matches on the list
 
 #### Automated
 
-- [ ] 5.1 `npm run test` passes, with automatic, user-confirmed and agreeing matches on the list
-- [ ] 5.2 `npm run lint` passes, with `matching.ts` admitted by the island guard
-- [ ] 5.3 `npx astro check` passes
-- [ ] 5.4 `npm run build` passes
-- [ ] 5.5 Break-checks go red: a server-only import in `matching.ts`, the check rule without the suspicious condition, and the rule counting a user-confirmed match
+- [x] 5.1 `npm run test` passes, with automatic, user-confirmed and agreeing matches on the list
+- [x] 5.2 `npm run lint` passes, with `matching.ts` admitted by the island guard
+- [x] 5.3 `npx astro check` passes
+- [x] 5.4 `npm run build` passes
+- [x] 5.5 Break-checks go red: a server-only import in `matching.ts`, the check rule without the suspicious condition, and the rule counting a user-confirmed match
 
 #### Manual
 
-- [ ] 5.6 On dev, a product whose automatic match has another brand is under "Do sprawdzenia" with its reason on the row's screen-reader line, and a user-confirmed mismatch isn't
-- [ ] 5.7 `/dev/watchlist` shows the suspicious row in both themes
+- [x] 5.6 On dev, a product whose automatic match has another brand is under "Do sprawdzenia" with its reason on the row's screen-reader line, and a user-confirmed mismatch isn't
+- [x] 5.7 `/dev/watchlist` shows the suspicious row in both themes
 
 ### Phase 6: Docs and rollout
 
