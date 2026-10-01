@@ -982,6 +982,8 @@ Shop requests per page view and action (lesson "Bound what each page view and ac
   - `npm run lint` reports 1,513 problems, all in one file of the untracked handoff copy in the repository root (`Drogeria Radar redesign/`), which CI never checks out. Judged as the Testing Strategy says, `npx eslint . --ignore-pattern "Drogeria Radar redesign/**"` passes.
   - Prettier reports `prd.md`, `roadmap.md` and this plan clean. `CLAUDE.md` is in `.prettierignore`.
 - **6.2:** the course block, from its BEGIN marker to its END marker (47 lines), has the same sha256 as `main`'s. CLAUDE.md's hunks are at lines 18, 38–40, 47 and 50–52 only.
+- **6.3:** CI is green on `93dd2fd` (ci in 1m8s, smoke in 2m27s), as it was on every earlier phase's push.
+- **6.4:** the owner pushed the migration on 2026-10-01. `npx supabase migration list --linked` shows `20261001182905` with its remote version, beside the five earlier migrations.
 - **6.5, recorded by the agent (2026-10-01):** production runs PostgreSQL 17.6 (image 17.6.1.166).
   - The source is `supabase/.temp/postgres-version`, which `supabase link` wrote from the linked project on 2026-09-27; the file is git-ignored.
   - The local stack runs the same image (`supabase/postgres:17.6.1.166`, reporting "PostgreSQL 17.6"), so the research's probes P1–P3 ran on production's version. That closes research open question 7.
@@ -1081,12 +1083,12 @@ Shop requests per page view and action (lesson "Bound what each page view and ac
 
 #### Automated
 
-- [x] 6.1 `npm run lint` passes, and Prettier reports the changed docs clean
-- [x] 6.2 The CLAUDE.md course block is identical to `main`'s
-- [ ] 6.3 CI is green on the PR (ci and smoke)
+- [x] 6.1 `npm run lint` passes, and Prettier reports the changed docs clean — 93dd2fd
+- [x] 6.2 The CLAUDE.md course block is identical to `main`'s — 93dd2fd
+- [x] 6.3 CI is green on the PR (ci and smoke) — 93dd2fd
 
 #### Manual
 
-- [ ] 6.4 The owner pushes the migration, and `npx supabase migration list --linked` shows its remote version
-- [x] 6.5 The production PostgreSQL version is recorded
+- [x] 6.4 The owner pushes the migration, and `npx supabase migration list --linked` shows its remote version — 93dd2fd
+- [x] 6.5 The production PostgreSQL version is recorded — 93dd2fd
 - [ ] 6.6 After the merge, the owner's phone check on production passes: remove a product, re-pin a match
