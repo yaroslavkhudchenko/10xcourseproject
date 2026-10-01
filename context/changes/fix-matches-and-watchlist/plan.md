@@ -899,6 +899,48 @@ Shop requests per page view and action (lesson "Bound what each page view and ac
   - On the re-pin page, the card keeps the stored price, since the island doesn't refetch while re-pinning, while the choice shows each candidate's live price.
   - The chips' counts are computed at render, so a just re-pinned item without a price counts in "Do sprawdzenia" until the next render.
 
+### Phase 4
+
+- **`notices.ts`:**
+  - The codes and texts are typed records, after the `DECISION_CODES`/`DECISION_NOTICES` pattern: `REMOVED_CODES`/`RemovedCode`/`REMOVED_NOTICES` (done, gone), `REMOVAL_CODES`/`RemovalCode`/`REMOVAL_NOTICES` (failed), and `EXISTS_NOTICE`.
+  - `watchlist.ts` gains two readers the plan didn't name, `removedNotice(value)` for the list and `removalErrorMessage(value)` for the product page. Like `watchlistErrorMessage` and `decisionNotice`, a crafted code shows nothing.
+- **`removalBackTo` and `removeFromWatchlist`:**
+  - `removalBackTo(itemId: string, outcome: RemovalOutcome, filter)`, where `RemovalOutcome = RemoveResult | "config"`. The id can't be null: the route returns before it for a crafted id.
+  - In `removeFromWatchlist`, an odd answer is anything that isn't a list, more than one row, or a row without a string id. The returned id isn't compared with the one asked for: Postgres matches a crafted upper-case UUID but returns it in lower case.
+- **The routes:**
+  - The add route and the list page also read `error` through `ERROR_PARAM`, and `backToWatchlist` takes `"exists" | WatchlistError`.
+  - In the remove route, a body that isn't a form and an id that isn't a UUID both go to bare `/watchlist`, as the refresh route does. The id is checked before the null client, so `config` keeps the filter.
+- **`RemoveProduct`:**
+  - Its props are `productId`, `filter`, `error?`, `open?` and `idPrefix?`.
+  - It includes `<SubmitOnce />`, and its form is its own submit-once group.
+  - When open, the failure Alert comes first. The summary and the button are as wide as their words.
+  - It always posts a hidden `f`. `RefreshForm` leaves `f` out for "all", as planned.
+- **The island's prop:** it is `listFilter` all the way down (`PriceComparisonView`, `ProductTitle`, `RefreshBar`, `RefreshForm`), and required; the sink passes "all".
+- **The product sink:** a "Usuń z listy" section built from `REMOVE_FIXTURES`, drawn light and dark in `CARDS_FRAME`.
+  - It shows closed, open and failed. "Failed" is drawn with `open: false`, showing that the error alone opens it.
+  - An "open, po wysłaniu" row shows the disabled destructive Button.
+  - The legend is updated.
+- **The list sink:** `HEADS` entries gain `notice`, with "check + removed" and "removed + gone".
+- **Tests beyond the plan:**
+  - `notices.test.ts` pins `LIST_NOTICE_PARAMS` (the break-check), and that `NOTICE_PARAMS` holds `REMOVAL_PARAM` and not `f`.
+  - The readers refuse crafted codes, and `removalBackTo`'s codes turn back into each page's text.
+  - `productRefreshBackTo` is tested for every refresh code.
+- **Mine, in the main session:**
+  - `withoutNotices(href, params)` in `notices.ts` is browser-safe and tested. Both address-bar scripts forget their notices through it, instead of each repeating the loop (lesson "Define shared constants and helpers once").
+  - A failed removal's address points to the confirm. `REMOVAL_ANCHOR` ("remove") is the confirm's default id, and `removalBackTo`'s failure address ends in `#remove`, so the page opens at its error rather than its top. The subagent had flagged that the error stood below the fold.
+- **Known and left for the review:**
+  - A delete that committed but whose answer timed out reads as `failed`, and its page then answers 404 without the removal's error.
+  - `scripts/smoke.mjs` has no step for the remove route. Astro's `checkOrigin` refuses a cross-site post to it, as smoke already pins for the decision and refresh routes.
+- **Manual 4.9–4.15, verified by the agent at the owner's request (2026-10-01):**
+  - **Setup:** throwaway local users `s08-p4a-…` and `s08-p4b-…`, both watching the made-up Rossmann 990008201. Rossmann and Natura were disabled locally during the browser checks, and `shop_requests` stayed at 126 throughout.
+  - **4.9:** with JavaScript off, a native click opened the `<details>` (it gained `open`), and the red "Usuń z listy" posted to `/watchlist?f=check&removed=done`, which said "Usunięto produkt z listy.". With JavaScript on, that address became `/watchlist?f=check`.
+  - **4.10:** after A's removal, B's product page showed Rossmann's 15,99 zł, and B's own REST read returned both observations of 990008201.
+  - **4.11:** re-adding through "Dodaj" gave a new id (601b9f06…), no Natura decision, and the "Dopasuj w Naturze" prompt.
+  - **4.12:** the removal posted a second time went to `/watchlist?f=check&removed=gone`, which said "Tego produktu nie było już na Twojej liście.".
+  - **4.13:** `f=check` survived the removal and the product's own no-JavaScript "Odśwież ceny" (`/watchlist/<id>?f=check&prices=failed`; failed only because the shops were disabled locally).
+  - **4.14:** at 390 px, keyboard focus showed the 2 px ring at a 2 px offset on the summary and on the red button. Scrolled to the bottom, the button ends at 860 px, above the phone's bottom bar at 883 px.
+  - **4.15:** the sinks show the confirm closed, open and failed, and the list's two notices, each in light and dark, with no overflow.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -934,45 +976,45 @@ Shop requests per page view and action (lesson "Bound what each page view and ac
 
 #### Automated
 
-- [x] 3.1 `npm run test` passes, with the re-pin step, the choice lookup's served URLs, the narrowed decision write and the filtered links
-- [x] 3.2 `npm run lint` passes
-- [x] 3.3 `npx astro check` passes
-- [x] 3.4 `npm run build` passes
-- [x] 3.5 Break-checks go red: the choice without the name search, a re-pin step for a link from another site, and a decision write not narrowed by `replaces`
+- [x] 3.1 `npm run test` passes, with the re-pin step, the choice lookup's served URLs, the narrowed decision write and the filtered links — bf3c4d2
+- [x] 3.2 `npm run lint` passes — bf3c4d2
+- [x] 3.3 `npx astro check` passes — bf3c4d2
+- [x] 3.4 `npm run build` passes — bf3c4d2
+- [x] 3.5 Break-checks go red: the choice without the name search, a re-pin step for a link from another site, and a decision write not narrowed by `replaces` — bf3c4d2
 
 #### Manual
 
-- [x] 3.6 "Zmień" opens a choice from both searches with the current item marked, costing 2 Natura requests and storing nothing until a button is pressed
-- [x] 3.7 Confirming another candidate re-pins the match, and the card names the new item with its price
-- [x] 3.8 "Żaden z nich" declines the match, and "Dopasuj ponownie" reopens the choice with "Anuluj" only
-- [x] 3.9 With Natura stopped locally, the choice says so and "Żaden z nich" still declines
-- [x] 3.10 A re-pin sent from a stale tab says the decision was already stored and changes nothing
-- [x] 3.11 `?f=` survives Natura's links, decisions and redirects, and the list beside the product keeps its chip
-- [x] 3.12 A `?repin=1` request that isn't the user's own navigation sends no Natura request
-- [x] 3.13 `/dev/product-page` shows every re-pin state in both themes
+- [x] 3.6 "Zmień" opens a choice from both searches with the current item marked, costing 2 Natura requests and storing nothing until a button is pressed — bf3c4d2
+- [x] 3.7 Confirming another candidate re-pins the match, and the card names the new item with its price — bf3c4d2
+- [x] 3.8 "Żaden z nich" declines the match, and "Dopasuj ponownie" reopens the choice with "Anuluj" only — bf3c4d2
+- [x] 3.9 With Natura stopped locally, the choice says so and "Żaden z nich" still declines — bf3c4d2
+- [x] 3.10 A re-pin sent from a stale tab says the decision was already stored and changes nothing — bf3c4d2
+- [x] 3.11 `?f=` survives Natura's links, decisions and redirects, and the list beside the product keeps its chip — bf3c4d2
+- [x] 3.12 A `?repin=1` request that isn't the user's own navigation sends no Natura request — bf3c4d2
+- [x] 3.13 `/dev/product-page` shows every re-pin state in both themes — bf3c4d2
 
 ### Phase 4: Removing a product
 
 #### Automated
 
-- [ ] 4.1 `npm run test` passes, with the removal's outcomes and every return address keeping the filter
-- [ ] 4.2 `npm run lint` passes
-- [ ] 4.3 `npx astro check` passes
-- [ ] 4.4 `npm run build` passes
-- [ ] 4.5 `node scripts/check-token-contrast.mjs` passes
-- [ ] 4.6 `npm run smoke` passes against the dev server
-- [ ] 4.7 Break-checks go red: a removal that reads no row as removed, and the list's address bar keeping `removed`
+- [x] 4.1 `npm run test` passes, with the removal's outcomes and every return address keeping the filter
+- [x] 4.2 `npm run lint` passes
+- [x] 4.3 `npx astro check` passes
+- [x] 4.4 `npm run build` passes
+- [x] 4.5 `node scripts/check-token-contrast.mjs` passes
+- [x] 4.6 `npm run smoke` passes against the dev server
+- [x] 4.7 Break-checks go red: a removal that reads no row as removed, and the list's address bar keeping `removed`
 - [ ] 4.8 CI is green on the phase's commit (ci and smoke)
 
 #### Manual
 
-- [ ] 4.9 Without JavaScript, "Usuń z listy" opens its confirm in place and removes the product, and the list says so once
-- [ ] 4.10 Another user watching the same Rossmann item still sees its prices after the removal
-- [ ] 4.11 Adding the removed product again gives it a new page and a fresh Natura lookup
-- [ ] 4.12 Sending the removal a second time says the product was no longer on the list
-- [ ] 4.13 `?f=` survives the removal and the product's no-JavaScript "Odśwież ceny"
-- [ ] 4.14 The summary and the red button show the focus ring, and the opened confirm sits above a phone's bottom bar
-- [ ] 4.15 The kitchen sinks show the confirm closed, open and failed, and the list's notices, in both themes
+- [x] 4.9 Without JavaScript, "Usuń z listy" opens its confirm in place and removes the product, and the list says so once
+- [x] 4.10 Another user watching the same Rossmann item still sees its prices after the removal
+- [x] 4.11 Adding the removed product again gives it a new page and a fresh Natura lookup
+- [x] 4.12 Sending the removal a second time says the product was no longer on the list
+- [x] 4.13 `?f=` survives the removal and the product's no-JavaScript "Odśwież ceny"
+- [x] 4.14 The summary and the red button show the focus ring, and the opened confirm sits above a phone's bottom bar
+- [x] 4.15 The kitchen sinks show the confirm closed, open and failed, and the list's notices, in both themes
 
 ### Phase 5: Suspicious matches on the list
 

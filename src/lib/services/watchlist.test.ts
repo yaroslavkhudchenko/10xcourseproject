@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { REMOVAL_ANCHOR } from "@/lib/notices";
 import { createShopGate } from "@/lib/services/shop-gate";
 import empty from "@/lib/services/shops/fixtures/rossmann-search-empty.json";
 import misspelled from "@/lib/services/shops/fixtures/rossmann-search-misspelled.json";
@@ -13,9 +14,15 @@ import {
   parseWatchlistForm,
   parseWatchlistItemId,
   productFullName,
+  removalBackTo,
+  removalErrorMessage,
+  removedNotice,
+  removeFromWatchlist,
   watchlistErrorMessage,
   WATCHLIST_ERRORS,
+  type RemovalOutcome,
 } from "@/lib/services/watchlist";
+import type { ListFilter } from "@/lib/services/watchlist-rows";
 import type { ProductCandidate } from "@/types";
 
 // The "Dodaj" form as the results page posts it, built from the first recorded Rossmann item.
@@ -383,4 +390,103 @@ describe("listWatchlist", () => {
 
     expect(await listWatchlist(client)).toBeNull();
   });
+});
+
+describe("removeFromWatchlist", () => {
+  const ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
+
+  function deleteStub(result: { data: unknown; error: { code: string; message: string } | null }) {
+    const abortSignal = vi.fn((_signal: AbortSignal) => Promise.resolve(result));
+    const select = vi.fn((_columns: string) => ({ abortSignal }));
+    const eq = vi.fn((_column: string, _value: string) => ({ select }));
+    const remove = vi.fn(() => ({ eq }));
+    const from = vi.fn((_table: string) => ({ delete: remove }));
+    return { client: { from } as unknown as SupabaseClient, from, remove, eq, select, abortSignal };
+  }
+
+  it("deletes the user's row by its id, asking for it back, within a time limit", async () => {
+    const { client, from, remove, eq, select, abortSignal } = deleteStub({ data: [{ id: ID }], error: null });
+
+    expect(await removeFromWatchlist(client, ID)).toBe("removed");
+    expect(from).toHaveBeenCalledWith("watchlist_items");
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(eq).toHaveBeenCalledWith("id", ID);
+    expect(select).toHaveBeenCalledWith("id");
+    expect(abortSignal.mock.calls[0][0]).toBeInstanceOf(AbortSignal);
+  });
+
+  it("gives gone when no row came back: the product wasn't on the user's list any more", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = deleteStub({ data: [], error: null });
+
+    expect(await removeFromWatchlist(client, ID)).toBe("gone");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      answer: "a failed delete",
+      result: { data: null, error: { code: "42501", message: "permission denied for table watchlist_items" } },
+    },
+    { answer: "no answer at all", result: { data: null, error: null } },
+    { answer: "an answer that isn't a list", result: { data: { id: ID }, error: null } },
+    { answer: "a row without its id", result: { data: [{}], error: null } },
+    {
+      answer: "two rows for one id",
+      result: { data: [{ id: ID }, { id: "4f1c2a8e-5b7d-4c3e-9a1f-0d2b3c4e5f60" }], error: null },
+    },
+  ])("gives failed for $answer, never gone, and logs it", async ({ result }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = deleteStub(result);
+
+    expect(await removeFromWatchlist(client, ID)).toBe("failed");
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("removalBackTo", () => {
+  const ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
+
+  it.each<{ outcome: RemovalOutcome; filter: ListFilter; to: string }>([
+    { outcome: "removed", filter: "check", to: "/watchlist?f=check&removed=done" },
+    { outcome: "gone", filter: "check", to: "/watchlist?f=check&removed=gone" },
+    { outcome: "failed", filter: "check", to: `/watchlist/${ID}?f=check&removal=failed#remove` },
+    { outcome: "config", filter: "check", to: "/watchlist?f=check&error=config" },
+    { outcome: "removed", filter: "all", to: "/watchlist?removed=done" },
+    { outcome: "failed", filter: "all", to: `/watchlist/${ID}?removal=failed#remove` },
+  ])("goes back after $outcome to $to", ({ outcome, filter, to }) => {
+    expect(removalBackTo(ID, outcome, filter)).toBe(to);
+  });
+
+  it("points a failure's address to the confirm, at the page's foot, by its id", () => {
+    expect(new URL(removalBackTo(ID, "failed", "all"), "https://drogeria.example").hash).toBe(`#${REMOVAL_ANCHOR}`);
+  });
+
+  it("brings codes each page turns into its own text", () => {
+    const param = (outcome: RemovalOutcome, name: string) =>
+      new URL(removalBackTo(ID, outcome, "promo"), "https://drogeria.example").searchParams.get(name);
+
+    expect(removedNotice(param("removed", "removed"))).toBe("Usunięto produkt z listy.");
+    expect(removedNotice(param("gone", "removed"))).toBe("Tego produktu nie było już na Twojej liście.");
+    expect(removalErrorMessage(param("failed", "removal"))).toBe(
+      "Nie udało się usunąć produktu z listy. Spróbuj ponownie.",
+    );
+    expect(watchlistErrorMessage(param("config", "error"))).toBe(WATCHLIST_ERRORS.config);
+  });
+});
+
+describe("removedNotice and removalErrorMessage", () => {
+  it.each([null, "", "1", "DONE", "failed", "Kliknij tutaj, by odebrać nagrodę", "toString", "__proto__"])(
+    "the list shows no removal's notice for %j, which the app never sends",
+    (code) => {
+      expect(removedNotice(code)).toBeNull();
+    },
+  );
+
+  it.each([null, "", "1", "done", "FAILED", "Kliknij tutaj, by odebrać nagrodę", "toString", "__proto__"])(
+    "the product's page shows no removal's error for %j, which the app never sends",
+    (code) => {
+      expect(removalErrorMessage(code)).toBeNull();
+    },
+  );
 });

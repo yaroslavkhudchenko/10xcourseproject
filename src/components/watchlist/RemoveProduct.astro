@@ -1,0 +1,70 @@
+---
+// "Usuń z listy" at the foot of a product's page, after its shops' cards and Natura's choice, at every width. It's a
+// <details>, so its summary, drawn as an outline button, opens the confirm in place without JavaScript. Opened, it says
+// what removing the product does, and its destructive "Usuń z listy", which that line describes, posts the product's
+// id and the list's filter to /api/watchlist/remove: the user's own entry goes, with their Natura decision for it, and
+// the prices everyone shares stay. The form is sent once (SubmitOnce). A removal that failed comes back to the page
+// with the confirm open and its error, and with the address pointing to it (`?removal=failed#remove`), so the page
+// opens at the confirm rather than at its top. It stands in the page's column, which ends above a phone's
+// bottom bar, and the summary and the button keep the base layer's focus outline. The dev kitchen sink draws it
+// closed, open and failed.
+import SubmitOnce from "@/components/SubmitOnce.astro";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { REMOVAL_ANCHOR } from "@/lib/notices";
+import type { ListFilter } from "@/lib/services/watchlist-rows";
+import { cn } from "@/lib/utils";
+
+interface Props {
+  /** The watched product's id, which the form posts. */
+  productId: string;
+  /** The filter the list is shown with, which the form posts, so the page the removal goes back to keeps it. */
+  filter: ListFilter;
+  /** Why the last removal failed, as text (`?removal=failed`), which opens the confirm with it; null for none. */
+  error?: string | null;
+  /** Whether the confirm is drawn open, as the kitchen sink shows it; an error opens it too. */
+  open?: boolean;
+  /**
+   * The confirm's own id and what its other ids start with, REMOVAL_ANCHOR ("remove") by default, which a failed
+   * removal's address points to. The dev kitchen sink shows several on one page, each with a prefix of its own, so
+   * their ids stay unique.
+   */
+  idPrefix?: string;
+}
+
+const { productId, filter, error = null, open = false, idPrefix = REMOVAL_ANCHOR } = Astro.props;
+
+// The line that says what removing the product does, which describes the button that removes it.
+const lineId = `${idPrefix}-line`;
+---
+
+<details id={idPrefix} open={open || error !== null}>
+  <summary
+    class:list={cn(
+      buttonVariants({ variant: "outline", size: "touch" }),
+      "cursor-pointer list-none [&::-webkit-details-marker]:hidden",
+    )}
+  >
+    Usuń z listy
+  </summary>
+  <div class="flex flex-col gap-3 pt-3 lg:gap-4 lg:pt-4">
+    {error && (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    )}
+    <p id={lineId} class="text-sm leading-normal text-muted-foreground lg:text-body">
+      Produkt zniknie z Twojej listy razem z Twoim wyborem w Naturze. Zapisane ceny zostają, a ponowne dodanie zacznie
+      dopasowanie od nowa.
+    </p>
+    <form method="POST" action="/api/watchlist/remove" data-submit-once>
+      <input type="hidden" name="itemId" value={productId} />
+      <input type="hidden" name="f" value={filter} />
+      <Button type="submit" variant="destructive" size="touch" aria-describedby={lineId}>
+        Usuń z listy
+      </Button>
+    </form>
+  </div>
+</details>
+
+<SubmitOnce />

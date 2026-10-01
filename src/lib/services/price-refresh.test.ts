@@ -6,6 +6,7 @@ import {
   listRefreshBackTo,
   parsePriceRefreshCode,
   PRICE_REFRESH_CODES,
+  productRefreshBackTo,
   refreshCodeOf,
   refreshPrices,
   type ListRefreshBack,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/services/price-refresh";
 import { createShopGate } from "@/lib/services/shop-gate";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
+import type { ListFilter } from "@/lib/services/watchlist-rows";
 import type { PriceCheck, PriceKey, ShopId, ShopOffer } from "@/types";
 import skuUnknown from "@/lib/services/shops/fixtures/natura-sku-unknown.json";
 import oneSku from "@/lib/services/shops/fixtures/natura-sku.json";
@@ -642,6 +644,26 @@ describe("listRefreshBackTo", () => {
   it("carries each code the refresh can come to", () => {
     for (const code of PRICE_REFRESH_CODES) {
       expect(listRefreshBackTo({ back: null, f: "all" }, code)).toBe(`/watchlist?${LIST_PRICES_PARAM}=${code}`);
+    }
+  });
+});
+
+describe("productRefreshBackTo", () => {
+  const PRODUCT_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
+
+  it.each<{ why: string; filter: ListFilter; to: string }>([
+    { why: "keeping the list's filter", filter: "check", to: `/watchlist/${PRODUCT_ID}?f=check&prices=done` },
+    { why: "without the filter of every product", filter: "all", to: `/watchlist/${PRODUCT_ID}?prices=done` },
+  ])("goes back to the product's page $why", ({ filter, to }) => {
+    expect(productRefreshBackTo(PRODUCT_ID, filter, "done")).toBe(to);
+  });
+
+  it("carries each code the refresh can come to, in the product's own parameter, which its address bar forgets", () => {
+    expect(NOTICE_PARAMS).toContain(PRICES_PARAM);
+    for (const code of PRICE_REFRESH_CODES) {
+      expect(productRefreshBackTo(PRODUCT_ID, "promo", code)).toBe(
+        `/watchlist/${PRODUCT_ID}?f=promo&${PRICES_PARAM}=${code}`,
+      );
     }
   });
 });

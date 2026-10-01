@@ -15,8 +15,9 @@ import {
   type PriceComparisonShop,
 } from "@/components/watchlist/price-comparison-state";
 import ProductUnavailable from "@/components/watchlist/ProductUnavailable.astro";
+import RemoveProduct from "@/components/watchlist/RemoveProduct.astro";
 import WatchlistShell from "@/layouts/WatchlistShell.astro";
-import { ERROR_PARAM, LIST_PRICES_PARAM, PRICES_NOTICES, PRICES_PARAM } from "@/lib/notices";
+import { ERROR_PARAM, LIST_PRICES_PARAM, PRICES_NOTICES, PRICES_PARAM, REMOVAL_PARAM } from "@/lib/notices";
 import { decideMatchStep } from "@/lib/services/match-step";
 import {
   listMatches,
@@ -43,7 +44,13 @@ import { listLatestPrices, readLatestPrices, recordPriceChecks, type ListPricesR
 import { isOwnNavigation } from "@/lib/services/search-query";
 import { shopGateFor } from "@/lib/services/shop-gate";
 import { lookupChoicesInNatura, lookupInNatura } from "@/lib/services/shop-matching";
-import { getWatchlistProduct, listWatchlist, parseWatchlistItemId, productFullName } from "@/lib/services/watchlist";
+import {
+  getWatchlistProduct,
+  listWatchlist,
+  parseWatchlistItemId,
+  productFullName,
+  removalErrorMessage,
+} from "@/lib/services/watchlist";
 import {
   filterHref,
   listChipsOf,
@@ -210,6 +217,9 @@ const choice = repin ?? (natura?.kind === "choose" ? natura : null);
 // code the app didn't send shows nothing.
 const pricesCode = parsePriceRefreshCode(params.get(PRICES_PARAM));
 const pricesNotice = pricesCode === null ? null : PRICES_NOTICES[pricesCode];
+// A removal that failed comes back here with its code, which opens the confirm again with its error (notices.ts): a
+// code the app didn't send shows nothing.
+const removalError = removalErrorMessage(params.get(REMOVAL_PARAM));
 
 // The phone's way back to the list, with the filter the list was shown with (a row's link carries it).
 const backHref = filterHref("/watchlist", listFilter);
@@ -301,6 +311,7 @@ const LIST_HEADING_ID = "list-heading";
       <PriceComparison
         client:load
         itemId={product.id}
+        listFilter={listFilter}
         product={{
           brand: product.brand,
           name: product.name,
@@ -318,23 +329,23 @@ const LIST_HEADING_ID = "list-heading";
 
       {/* Natura's card, among the island's cards, points here when the user has candidates to choose from. */}
       {choice && <NaturaSection view={choice} productId={product.id} filter={listFilter} />}
+      {/* The product's own removal, last at every width, which confirms in place and asks no shop. */}
+      <RemoveProduct productId={product.id} filter={listFilter} error={removalError} />
     </div>
   )}
   <SubmitOnce />
   <script>
     // The codes are the ones the frontmatter reads its notices by, from a module that imports nothing, so this script
     // ships no server code.
-    import { NOTICE_PARAMS } from "@/lib/notices";
+    import { NOTICE_PARAMS, withoutNotices } from "@/lib/notices";
 
     // A notice shows once: the address bar forgets the code that brought it, a decision's (matched, declined, decided,
-    // error), the product's no-JavaScript refresh's (prices) or the list's refresh's (list-prices), so a reload or a
-    // copied link doesn't show it again. Every other parameter, the list's filter among them, and the hash stay.
-    const url = new URL(window.location.href);
-    if (NOTICE_PARAMS.some((code) => url.searchParams.has(code))) {
-      for (const code of NOTICE_PARAMS) {
-        url.searchParams.delete(code);
-      }
-      history.replaceState(history.state, "", url);
+    // error), the product's no-JavaScript refresh's (prices), the list's refresh's (list-prices) or a failed removal's
+    // (removal), so a reload or a copied link doesn't show it again. Every other parameter, the list's filter among
+    // them, and the hash stay (withoutNotices).
+    const forgotten = withoutNotices(window.location.href, NOTICE_PARAMS);
+    if (forgotten !== null) {
+      history.replaceState(history.state, "", forgotten);
     }
   </script>
 </WatchlistShell>

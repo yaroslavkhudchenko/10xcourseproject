@@ -1,9 +1,9 @@
 import type { PriceRefreshCode } from "@/lib/services/price-refresh";
 
-// The parameters a page's address bar brings a notice with, and the notices' texts, defined once for the pages'
-// frontmatter, the list's head, the product page's Natura section and its address-bar script: a saved Natura
-// decision's, and what each "Odśwież ceny" came to. The script runs in the browser, so this module imports nothing but
-// a type, which the bundle drops.
+// The parameters a page's address bar brings a notice with, and the notices' texts, defined once for the routes that
+// send them, the pages' frontmatter, the list's head, the product page's Natura section and both pages' address-bar
+// scripts: a saved Natura decision's, what each "Odśwież ceny" came to, "Dodaj"'s and a removal's. The scripts run in
+// the browser, so this module imports nothing but a type, which the bundle drops.
 
 /** The parameters a saved Natura decision comes back with (/api/watchlist/matches), in the order the page reads them. */
 export const DECISION_CODES = ["matched", "declined", "decided"] as const;
@@ -18,8 +18,59 @@ export const DECISION_NOTICES: Record<DecisionCode, string> = {
   decided: "Ten produkt ma już zapisaną decyzję.",
 };
 
-/** The parameter a decision that wasn't saved comes back with, holding its error's code (`?error=failed`). */
+/**
+ * The parameter an error's code comes back with, which each page turns into its own text: on the product's page a
+ * decision that wasn't saved (`?error=failed`), and on the list a product "Dodaj" couldn't add, or a removal without
+ * Supabase (`?error=config`).
+ */
 export const ERROR_PARAM = "error";
+
+/** The parameter the list comes back with when "Dodaj" found the product already on it (`?exists=1`). */
+export const EXISTS_PARAM = "exists";
+
+/** What the list says then, as a status. */
+export const EXISTS_NOTICE = "Ten produkt jest już na Twojej liście.";
+
+/**
+ * The parameter the list comes back with after "Usuń z listy" on a product's page, holding what the removal came to
+ * (`?removed=done`).
+ */
+export const REMOVED_PARAM = "removed";
+
+/** What a removal came to on the list: the product removed, or not on the list any more, as after a second post. */
+export const REMOVED_CODES = ["done", "gone"] as const;
+
+/** One code of REMOVED_PARAM. */
+export type RemovedCode = (typeof REMOVED_CODES)[number];
+
+/** What the list says for each, both as a status. */
+export const REMOVED_NOTICES: Record<RemovedCode, string> = {
+  done: "Usunięto produkt z listy.",
+  gone: "Tego produktu nie było już na Twojej liście.",
+};
+
+/**
+ * The parameter a removal that didn't go through comes back to its product's page with (`?removal=failed`), which
+ * opens the page's confirm again with its error.
+ */
+export const REMOVAL_PARAM = "removal";
+
+/** What REMOVAL_PARAM can hold: the removal failed. */
+export const REMOVAL_CODES = ["failed"] as const;
+
+/** One code of REMOVAL_PARAM. */
+export type RemovalCode = (typeof REMOVAL_CODES)[number];
+
+/** What the product's page says for each, in its confirm, as an error. */
+export const REMOVAL_NOTICES: Record<RemovalCode, string> = {
+  failed: "Nie udało się usunąć produktu z listy. Spróbuj ponownie.",
+};
+
+/**
+ * The id of a product page's removal confirm, which the address of a removal that didn't go through points to
+ * (`#remove`): the confirm stands at the page's foot, so the page opens there, at its error, not at its top.
+ */
+export const REMOVAL_ANCHOR = "remove";
 
 /** The parameter a product's own "Odśwież ceny" comes back with when posted without JavaScript (`?prices=done`). */
 export const PRICES_PARAM = "prices";
@@ -32,9 +83,31 @@ export const LIST_PRICES_PARAM = "list-prices";
 
 /**
  * Every parameter a notice comes with, which the product page's address bar forgets once the notice has shown: a
- * decision's, a decision's error, the product's no-JavaScript refresh's and the list's refresh's.
+ * decision's, a decision's error, the product's no-JavaScript refresh's, the list's refresh's and a failed removal's.
  */
-export const NOTICE_PARAMS = [...DECISION_CODES, ERROR_PARAM, PRICES_PARAM, LIST_PRICES_PARAM] as const;
+export const NOTICE_PARAMS = [...DECISION_CODES, ERROR_PARAM, PRICES_PARAM, LIST_PRICES_PARAM, REMOVAL_PARAM] as const;
+
+/**
+ * Every parameter the list shows a notice by, which the list's address bar forgets once the notice has shown:
+ * "Dodaj"'s, an error's, the list's refresh's and a removal's. The list's filter and its search stay.
+ */
+export const LIST_NOTICE_PARAMS = [EXISTS_PARAM, ERROR_PARAM, LIST_PRICES_PARAM, REMOVED_PARAM] as const;
+
+/**
+ * The page's address without the notice parameters `params` names, keeping every other parameter, the list's filter
+ * and its search among them, and the hash; null when the address holds none of them, so there's nothing to replace.
+ * Both pages' address-bar scripts forget their notices through it, so a notice shows once.
+ */
+export function withoutNotices(href: string, params: readonly string[]): string | null {
+  const url = new URL(href);
+  if (!params.some((param) => url.searchParams.has(param))) {
+    return null;
+  }
+  for (const param of params) {
+    url.searchParams.delete(param);
+  }
+  return url.toString();
+}
 
 /** What a page says a refresh came to: its text, and whether it warns (an alert) or only reports (a status). */
 export interface PriceRefreshNotice {

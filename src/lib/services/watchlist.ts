@@ -1,9 +1,22 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "astro/zod";
+import {
+  ERROR_PARAM,
+  REMOVAL_ANCHOR,
+  REMOVAL_CODES,
+  REMOVAL_NOTICES,
+  REMOVAL_PARAM,
+  REMOVED_CODES,
+  REMOVED_NOTICES,
+  REMOVED_PARAM,
+  type RemovalCode,
+  type RemovedCode,
+} from "@/lib/notices";
 import { optionalText, optionalUrl } from "@/lib/services/form-fields";
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import { isRossmannImage, isRossmannProductUrl } from "@/lib/services/shops/rossmann";
 import { parseSize } from "@/lib/services/size";
+import { filterHref, type ListFilter } from "@/lib/services/watchlist-rows";
 import { SHOP_IDS, type ProductCandidate, type WatchlistItem, type WatchlistProduct } from "@/types";
 
 // All reads and writes go through the user's own client, so RLS keeps every row private to its owner. Each database
@@ -229,6 +242,81 @@ export async function getWatchlistProduct(
   }
   const { size_value: value, size_unit: unit, eans, product_url: productUrl } = parsed.data;
   return { ...toItem(parsed.data), size: value !== null && unit !== null ? { value, unit } : null, eans, productUrl };
+}
+
+/**
+ * What removing a product came to: `removed`, or `gone` when the user had no product by that id any more, as after a
+ * second post or a removal in another tab; RLS answers another user's product the same way.
+ */
+export type RemoveResult = "removed" | "gone" | "failed";
+
+// The rows a removal's delete gives back: none, or the one row its id names, by its id.
+const deletedSchema = z.array(z.object({ id: z.string() })).max(1);
+
+/**
+ * Removes a product from the user's watchlist: their own row and, through the foreign key's cascade, their own
+ * decisions for it, never a price observation, which references no product (FR-005). The delete asks for its rows
+ * back, so `removed` is read only from the row it removed, and no row back is `gone`. An error, or an answer that
+ * can't be read, is `failed`, logged, never `gone`. The id must already be a UUID.
+ */
+export async function removeFromWatchlist(supabase: SupabaseClient, id: string): Promise<RemoveResult> {
+  const { data, error } = await supabase
+    .from("watchlist_items")
+    .delete()
+    .eq("id", id)
+    .select("id")
+    .abortSignal(AbortSignal.timeout(DATABASE_TIMEOUT_MS));
+  if (error) {
+    logFailure("delete failed", error.message);
+    return "failed";
+  }
+  const rows: unknown = data;
+  const deleted = deletedSchema.safeParse(rows);
+  if (!deleted.success) {
+    logFailure("unexpected delete result", Array.isArray(rows) ? `${rows.length} rows` : typeof rows);
+    return "failed";
+  }
+  return deleted.data.length === 1 ? "removed" : "gone";
+}
+
+/** What a removal's post came to, as the page it goes back to says it: the removal's result, or no Supabase. */
+export type RemovalOutcome = RemoveResult | "config";
+
+/**
+ * Where a removal's post goes back to, keeping the list's filter unless it's every product's (filterHref): the list,
+ * saying the product was removed (`?removed=done`), wasn't on it any more (`?removed=gone`) or that Supabase isn't
+ * configured (`?error=config`); or, after a failure, the product's page, whose confirm opens again with its error,
+ * pointed to by the address (`?removal=failed#remove`). Each page turns the code into its own text.
+ */
+export function removalBackTo(itemId: string, outcome: RemovalOutcome, filter: ListFilter): string {
+  switch (outcome) {
+    case "removed":
+      return filterHref("/watchlist", filter, { [REMOVED_PARAM]: "done" satisfies RemovedCode });
+    case "gone":
+      return filterHref("/watchlist", filter, { [REMOVED_PARAM]: "gone" satisfies RemovedCode });
+    case "config":
+      return filterHref("/watchlist", filter, { [ERROR_PARAM]: "config" satisfies WatchlistError });
+    case "failed": {
+      // The confirm stands at the page's foot, so the address points to it: the page opens there, at its error.
+      const page = filterHref(`/watchlist/${itemId}`, filter, { [REMOVAL_PARAM]: "failed" satisfies RemovalCode });
+      return `${page}#${REMOVAL_ANCHOR}`;
+    }
+  }
+}
+
+/** The list's text for a removal's `?removed=` code, or null for anything the app didn't send itself. */
+export function removedNotice(value: string | null): string | null {
+  const code = REMOVED_CODES.find((each) => each === value);
+  return code === undefined ? null : REMOVED_NOTICES[code];
+}
+
+/**
+ * The product page's text for a failed removal's `?removal=` code, which opens its confirm again, or null for anything
+ * the app didn't send itself.
+ */
+export function removalErrorMessage(value: string | null): string | null {
+  const code = REMOVAL_CODES.find((each) => each === value);
+  return code === undefined ? null : REMOVAL_NOTICES[code];
 }
 
 function logFailure(reason: string, detail: string): void {

@@ -14,6 +14,7 @@
 import AccountMenu from "@/components/shell/AccountMenu.astro";
 import AppHeader from "@/components/shell/AppHeader.astro";
 import SearchForm from "@/components/shell/SearchForm.astro";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import FilterChips from "@/components/watchlist/FilterChips.astro";
 import ListFooter from "@/components/watchlist/ListFooter.astro";
 import ListHead from "@/components/watchlist/ListHead.astro";
@@ -36,6 +37,7 @@ import {
 } from "@/dev/watchlist-fixtures";
 import Layout from "@/layouts/Layout.astro";
 import type { PriceRefreshCode } from "@/lib/services/price-refresh";
+import { removedNotice } from "@/lib/services/watchlist";
 import { LIST_FILTERS, type ListFilter } from "@/lib/services/watchlist-rows";
 import { DARK_THEME, LIGHT_THEME } from "@/lib/theme";
 
@@ -50,7 +52,10 @@ const COLUMN_STYLE = "max-width: 32rem";
 // The list's column beside a product, 420 px wide, as WatchlistShell draws it.
 const ASIDE_STYLE = "max-width: 420px";
 
-/** The list's head in its states: each chip on, each refresh notice, the empty list and a failed read. */
+/**
+ * The list's head in its states: each chip on, each refresh notice, the empty list, a failed read, and what a removal
+ * from a product's page came to, which the page shows in the head's default slot.
+ */
 const HEADS: {
   code: string;
   text: string;
@@ -58,6 +63,7 @@ const HEADS: {
   filter: ListFilter;
   counts: Record<ListFilter, number> | null;
   refreshCode: PriceRefreshCode | null;
+  notice: string | null;
 }[] = [
   {
     code: "all",
@@ -66,6 +72,7 @@ const HEADS: {
     filter: "all",
     counts: GALLERY_COUNTS,
     refreshCode: null,
+    notice: null,
   },
   {
     code: "promo + partial",
@@ -74,6 +81,7 @@ const HEADS: {
     filter: "promo",
     counts: GALLERY_COUNTS,
     refreshCode: "partial",
+    notice: null,
   },
   {
     code: "check + done",
@@ -82,6 +90,7 @@ const HEADS: {
     filter: "check",
     counts: GALLERY_COUNTS,
     refreshCode: "done",
+    notice: null,
   },
   {
     code: "empty + none",
@@ -90,6 +99,7 @@ const HEADS: {
     filter: "all",
     counts: null,
     refreshCode: "none",
+    notice: null,
   },
   {
     code: "read-failed + failed",
@@ -98,6 +108,25 @@ const HEADS: {
     filter: "all",
     counts: null,
     refreshCode: "failed",
+    notice: null,
+  },
+  {
+    code: "check + removed",
+    text: "po usunięciu produktu z jego strony (?removed=done), z filtrem, który usunięcie zachowuje",
+    count: GALLERY_ROWS.length,
+    filter: "check",
+    counts: GALLERY_COUNTS,
+    refreshCode: null,
+    notice: removedNotice("done"),
+  },
+  {
+    code: "removed + gone",
+    text: "usunięcie produktu, którego już nie było na liście, na przykład wysłane drugi raz (?removed=gone)",
+    count: GALLERY_ROWS.length,
+    filter: "all",
+    counts: GALLERY_COUNTS,
+    refreshCode: null,
+    notice: removedNotice("gone"),
   },
 ];
 ---
@@ -204,17 +233,23 @@ const HEADS: {
                 Góra listy
               </h2>
               <p class="text-sm text-muted-foreground">
-                <code>ListHead</code>: tytuł z licznikiem, „Odśwież ceny”, komunikat odświeżenia, wyszukiwarka telefonu
-                (poniżej 1024 px) i filtry.
+                <code>ListHead</code>: tytuł z licznikiem, „Odśwież ceny”, komunikat odświeżenia, komunikat po usunięciu
+                produktu, wyszukiwarka telefonu (poniżej 1024 px) i filtry.
               </p>
               <div class="flex flex-col gap-6">
-                {HEADS.map(({ code, text, count, filter, counts, refreshCode }, index) => (
+                {HEADS.map(({ code, text, count, filter, counts, refreshCode, notice }, index) => (
                   <div class="flex flex-col gap-1">
                     <p class="text-xs text-muted-foreground">
                       <code>{code}</code> · {text}
                     </p>
                     <div inert>
                       <ListHead count={count} path={HERE} filter={filter} counts={counts} refreshCode={refreshCode}>
+                        {/* As the list shows a notice: a status Alert in the head's default slot. */}
+                        {notice && (
+                          <Alert variant="success" role="status">
+                            <AlertDescription>{notice}</AlertDescription>
+                          </Alert>
+                        )}
                         {index === 0 && (
                           <SearchForm
                             slot="search"

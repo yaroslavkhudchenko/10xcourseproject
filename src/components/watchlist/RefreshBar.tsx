@@ -1,8 +1,11 @@
 import RefreshForm from "@/components/watchlist/RefreshForm";
+import type { ListFilter } from "@/lib/services/watchlist-rows";
 
 interface Props {
   /** The watched product's id, which the bar's "Odśwież ceny" posts. */
   itemId: string;
+  /** The filter the list is shown with, which the bar's "Odśwież ceny" posts too. */
+  listFilter: ListFilter;
   /**
    * What the bar writes under "Sprawdzono" (checkedAge): how old the prices' oldest check is, or that the checks
    * couldn't be read; null when no shop was checked.
@@ -20,7 +23,7 @@ interface Props {
 // corners and home bar (the safe-area insets), and the page leaves room below its content for it; a control the
 // keyboard reaches stops above it too (data-refresh-bar, global.css). From lg the title row holds the refresh, and the
 // bar is gone.
-export default function RefreshBar({ itemId, age, caption, refreshing, onRefresh }: Props) {
+export default function RefreshBar({ itemId, listFilter, age, caption, refreshing, onRefresh }: Props) {
   return (
     <div
       data-refresh-bar
@@ -37,7 +40,14 @@ export default function RefreshBar({ itemId, age, caption, refreshing, onRefresh
           </>
         )}
       </p>
-      <RefreshForm itemId={itemId} pending={refreshing} onRefresh={onRefresh} size="bar" className="shrink-0" />
+      <RefreshForm
+        itemId={itemId}
+        listFilter={listFilter}
+        pending={refreshing}
+        onRefresh={onRefresh}
+        size="bar"
+        className="shrink-0"
+      />
     </div>
   );
 }

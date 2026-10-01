@@ -4,8 +4,9 @@
 // reducer, the Natura view builders and the matching rule, so the kitchen sink shows only states the page can reach.
 // The product area's states pair every price state with Natura in every kind: the states with Natura's price need a
 // saved match, and the rest stand with Rossmann's price alone, each beside another of Natura's kinds. Natura's own
-// states include the choice that changes a stored decision, in each of the outcomes its searches can have. Nothing here
-// is real user data, and nothing here asks Supabase or a shop.
+// states include the choice that changes a stored decision, in each of the outcomes its searches can have, and the
+// product's removal at the page's foot is drawn closed, open and after a failure. Nothing here is real user data, and
+// nothing here asks Supabase or a shop.
 import type { NaturaCardInput } from "@/components/watchlist/natura-card";
 import type { PriceSize } from "@/components/watchlist/Price";
 import type { TitleProduct } from "@/components/watchlist/ProductTitle";
@@ -36,6 +37,7 @@ import {
 } from "@/lib/services/natura-view";
 import { SHOP_LABELS, STALE_AFTER_MS, type PricedShop } from "@/lib/services/price-comparison";
 import { parseSize } from "@/lib/services/size";
+import { removalErrorMessage } from "@/lib/services/watchlist";
 import { shopUnavailableText } from "@/lib/shop-messages";
 import type {
   CandidateOption,
@@ -699,6 +701,33 @@ export const ALONE_FIXTURES: PriceFixture[] = ALONE_STATES.map((fixture) => ({ .
 
 /** The page's text for `?error=gone`, which its not-found branch shows: a decision posted for a product not listed. */
 export const GONE_ERROR = matchErrorMessage("gone");
+
+/**
+ * One state of "Usuń z listy" at the foot of the product's page, with the kitchen sink's label for it: whether its
+ * confirm is drawn open, as a tap on its summary opens it, and the page's text for a failed removal, which opens it too.
+ */
+export interface RemoveFixture {
+  code: string;
+  text: string;
+  open: boolean;
+  error: string | null;
+}
+
+export const REMOVE_FIXTURES: RemoveFixture[] = [
+  { code: "closed", text: "zamknięte, jak strona je pokazuje: sam przycisk", open: false, error: null },
+  {
+    code: "open",
+    text: "otwarte: co zrobi usunięcie i czerwone „Usuń z listy”, opisane tą linią",
+    open: true,
+    error: null,
+  },
+  {
+    code: "failed",
+    text: "po nieudanym usunięciu (?removal=failed): błąd otwiera potwierdzenie",
+    open: false,
+    error: removalErrorMessage("failed"),
+  },
+];
 
 /**
  * The prices each size of Price is shown with: the handoff's 22,99 zł in every size, and between them a whole price, a

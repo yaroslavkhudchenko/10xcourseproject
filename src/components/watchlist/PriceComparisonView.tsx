@@ -24,10 +24,13 @@ import ProductTitle, { type TitleProduct } from "@/components/watchlist/ProductT
 import RefreshBar from "@/components/watchlist/RefreshBar";
 import ShopCard from "@/components/watchlist/ShopCard";
 import VerdictHero from "@/components/watchlist/VerdictHero";
+import type { ListFilter } from "@/lib/services/watchlist-rows";
 
 interface Props {
   /** The watched product's id, which both refresh forms post. */
   itemId: string;
+  /** The filter the list is shown with, which both refresh forms post, so the page they come back to keeps it. */
+  listFilter: ListFilter;
   /** The product the title names. */
   product: TitleProduct;
   /** The island's state: its rows, whether each refetch runs, and what the last answers said. */
@@ -52,7 +55,7 @@ interface Props {
 // tested rules (price-comparison-state.ts, natura-card.ts); this only maps it. It keeps no state and runs no effect,
 // so every state the reducer can reach renders the same in the island and in the kitchen sink, and a view rendered
 // without the island fetches nothing.
-export default function PriceComparisonView({ itemId, product, state, natura, onRefresh }: Props) {
+export default function PriceComparisonView({ itemId, listFilter, product, state, natura, onRefresh }: Props) {
   const view = natura?.view ?? null;
   // The rows' order and marks, withheld while a stored price is unread, and the verdict judged on the same rows.
   const { rows } = comparisonOf(state);
@@ -80,7 +83,14 @@ export default function PriceComparisonView({ itemId, product, state, natura, on
           </AlertDescription>
         </Alert>
       )}
-      <ProductTitle product={product} itemId={itemId} caption={caption} refreshing={refreshing} onRefresh={onRefresh} />
+      <ProductTitle
+        product={product}
+        itemId={itemId}
+        listFilter={listFilter}
+        caption={caption}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+      />
       <VerdictHero hero={heroOf(verdict, context)} />
       <PriceTrack track={track} hint={hint} />
       <ShopGrid rows={rows} now={state.now} natura={natura === null ? null : naturaCardOf(natura)} />
@@ -90,6 +100,7 @@ export default function PriceComparisonView({ itemId, product, state, natura, on
       </p>
       <RefreshBar
         itemId={itemId}
+        listFilter={listFilter}
         age={checkedAge(state.rows, state.now)}
         caption={caption}
         refreshing={refreshing}
