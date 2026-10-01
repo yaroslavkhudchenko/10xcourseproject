@@ -49,13 +49,14 @@ export interface NaturaCardAlert {
 }
 
 /**
- * What Natura's card shows, by the view's kind: a match's footer below its price, with how it was decided, a size
- * that differs and, only while the match isn't saved, its item; the line and the link of a product not matched yet,
- * or of a lookup that found nothing; or the line of every other kind. A declined Natura is a ghost card, and a choice
- * of candidates points to the section below the cards, which holds its forms.
+ * What Natura's card shows, by the view's kind: a match's footer below its price, naming its item, with how it was
+ * decided and a warning for each thing that differs from the product, its size or its brand, and, while the match
+ * isn't saved (`unsaved`), the item's photo and page in the price's place; the line and the link of a product not
+ * matched yet, or of a lookup that found nothing; or the line of every other kind. A declined Natura is a ghost card,
+ * and a choice of candidates points to the section below the cards, which holds its forms.
  */
 export type NaturaCard = { alerts: NaturaCardAlert[] } & (
-  | { kind: "matched"; note: string; sizeWarning: string | null; item: NaturaItemSummary | null }
+  | { kind: "matched"; note: string; warnings: string[]; item: NaturaItemSummary; unsaved: boolean }
   | { kind: "prompt" | "not-found"; text: string; link: NaturaCardLink }
   | { kind: "unmatched" | "unavailable" | "decided" | "read-failed" | "choose"; text: string }
 );
@@ -84,8 +85,9 @@ export function naturaCardOf({ view, notice, error, unsaved }: NaturaCardInput):
       return {
         kind: "matched",
         note: view.note,
-        sizeWarning: view.sizeWarning,
-        item: unsaved ? (view.item ?? null) : null,
+        warnings: view.warnings,
+        item: view.item,
+        unsaved: view.unsaved,
         alerts,
       };
     case "prompt":

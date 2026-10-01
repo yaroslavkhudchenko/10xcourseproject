@@ -71,8 +71,26 @@ describe("lookupInNatura: by EAN", () => {
     expect(lookup).toMatchObject({
       kind: "choose",
       via: "ean",
-      options: [{ candidate: { shopItemId: "NV89063" }, verdict: { sharesEan: true, size: "differs" } }],
+      options: [
+        { candidate: { shopItemId: "NV89063" }, verdict: { sharesEan: true, size: "differs", brand: "agrees" } },
+      ],
     });
+  });
+
+  it("asks the user, after the same one request, when the EAN finds an item of another brand", async () => {
+    const { gate, fetchMock } = setup([answers.eanHit, answers.name]);
+
+    // Natura's NV89063 shares the EAN and the size, but it's NIVEA's: another brand is never matched on its own.
+    const lookup = await lookupInNatura(gate, { ...soft, brand: "Ziaja" });
+
+    expect(requestedUrls(fetchMock)).toEqual([EAN_SEARCH]);
+    if (lookup.kind !== "choose") {
+      throw new Error(`expected choose, got ${lookup.kind}`);
+    }
+    expect(lookup.via).toBe("ean");
+    expect(lookup.options.map(({ candidate, verdict }) => [candidate.shopItemId, candidate.brand, verdict])).toEqual([
+      ["NV89063", "NIVEA", { sharesEan: true, size: "equal", brand: "differs" }],
+    ]);
   });
 
   it.each([
@@ -120,10 +138,11 @@ describe("lookupInNatura: by name", () => {
       throw new Error(`expected choose, got ${lookup.kind}`);
     }
     expect(lookup.via).toBe("name");
+    // The product is "nivea": Natura's NIVEA agrees, its sub-brand NIVEA MEN too, and YOPE differs.
     expect(lookup.options.map(({ candidate, verdict }) => [candidate.shopItemId, verdict])).toEqual([
-      ["NV89063", { sharesEan: false, size: "equal" }],
-      ["JM00370", { sharesEan: false, size: "equal" }],
-      ["NV81063", { sharesEan: false, size: "differs" }],
+      ["NV89063", { sharesEan: false, size: "equal", brand: "agrees" }],
+      ["JM00370", { sharesEan: false, size: "equal", brand: "differs" }],
+      ["NV81063", { sharesEan: false, size: "differs", brand: "agrees" }],
     ]);
   });
 

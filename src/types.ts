@@ -151,10 +151,14 @@ export interface ShopCandidate {
   offer: ShopOffer | null;
 }
 
-/** How a candidate compares with the watched product: a shared EAN, and whether the sizes agree when both are known. */
+/**
+ * How a candidate compares with the watched product: a shared EAN, whether the sizes agree when both are known, and
+ * whether the brands agree when both are known (brandsAgree in src/lib/services/matching.ts).
+ */
 export interface CandidateVerdict {
   sharesEan: boolean;
   size: "equal" | "differs" | "unknown";
+  brand: "agrees" | "differs" | "unknown";
 }
 
 /** A candidate the user can pick, with how it compares with the product. */

@@ -809,6 +809,31 @@ Shop requests per page view and action (lesson "Bound what each page view and ac
   - Phase 5's count of automatic matches can be changed by a user, but only on their own list.
   - No other user's data is reachable, so this is accepted as the price of the app narrowing its own writes. No check asserts it.
 
+### Phase 2
+
+- **Kitchen sink, `CANDIDATES`:** the other-brand candidate (NV10003, brand "WZÓR", same EAN and size, from a new `OTHER_BRAND_ITEM`) replaces the third candidate rather than being added as a fourth. `pickMatch` offers at most 3, so a fourth would never be drawn. It keeps that candidate's missing price, so the "Brak ceny online" row stays. The sink therefore no longer shows a candidate without flags.
+- **Kitchen sink, `NATURA_FIXTURES`:** the brand warning gets its own entry, "matched + brand": an automatic match stored before the brand rule, showing "Inna marka: WZÓR zamiast Przykład". The labels of "matched" and "matched + notice" say what their footer now shows.
+- **The card's `unsaved`:** it now comes from the view (`matchedView`'s option). `NaturaCardInput.unsaved` only drives the "couldn't save" alert. Both come from the same value in `[id].astro` and the fixtures.
+- **The brand text:** `otherBrand` is exported beside `otherSize`. A private `brandLabel` falls back to "marka nieznana" for a missing brand, because `restrict-template-expressions` refuses `string | null`. The views never reach that fallback, since the rule never flags a missing brand.
+- **`NaturaCard.tsx`:** one `ItemText` piece (eyebrow and name, through `rowProductOf`) serves both the unsaved `MatchedItem` and the saved footer.
+- **The legend:** its pointers to the new looks are in the 7-state matrix's `default` entry.
+- **Tests beyond the plan's list:**
+  - `brandsAgree`: "NIVEA MEN"/"MEN" differs; the accepted false alarm "Dr Irena Eris"/"IRENA ERIS" is pinned as differing; a punctuation-only brand gives null.
+  - `pickMatch`: accepts with a sub-brand, with no candidate brand, and for a product without a brand. When an other-brand candidate also shares the EAN and the size, it accepts the same-brand one.
+  - `shop-matching`: a replay-backed automatic match stopped by another brand, asserting the single EAN request.
+- **`NaturaSection.astro`:** its header comment says "a size or brand warning". The file wasn't in Phase 2's list.
+- **Left for Phase 3:** `LookupProduct` (`shop-matching.ts`) still redeclares `brand`, which it now inherits from `MatchProduct`. It's harmless, and Phase 3 edits that file.
+- **Manual 2.6, verified by the agent at the owner's request (2026-10-01):** headless Chrome at 1280 px on `/dev/product-page`.
+  - Of 46 match footers, the 42 saved ones name their item (brand and size above the name) and the 4 unsaved ones keep the item block above; no footer holds an image or a link.
+  - "Inny rozmiar: 200 ml zamiast 300 ml" and "Inna marka: WZÓR zamiast Przykład" show in both themes.
+  - The other-brand candidate carries "Ten sam EAN" and "Inna marka" beside "To ten produkt".
+  - There's no horizontal overflow.
+- **Manual 2.7, verified by the agent at the owner's request (2026-10-01):**
+  - A throwaway local user, `s08-p2-…@example.com`, has two seeded products: made-up Rossmann ids 990008001/2 and Natura SKUs S08P2A01/B01. One is an agreeing automatic match; one is a user-confirmed YOPE 75 ml match for a NIVEA 100 ml product.
+  - Prices were re-seeded fresh, and the shops were disabled locally for the visit.
+  - At 390 and 1024 px, Natura's footer names its item, and the YOPE match shows both warnings, with no overflow and no refetch.
+  - `shop_requests` max id was 107 before and after, so no shop was asked.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -817,28 +842,28 @@ Shop requests per page view and action (lesson "Bound what each page view and ac
 
 #### Automated
 
-- [x] 1.1 The migration applies to the local stack: `npx supabase migration up --local`
-- [x] 1.2 `node scripts/check-watchlist-db.mjs` passes, with the removal assertions
-- [x] 1.3 `node scripts/check-matches-db.mjs` passes, with the re-pin, refusal and cascade assertions
-- [x] 1.4 `node scripts/check-prices-db.mjs` passes, with observations surviving a removal
-- [x] 1.5 Break-checks go red: without the delete policy, with the old `not_found`-only update policy, and with a delete grant on `watchlist_matches`; the schema matches its snapshot afterwards
-- [x] 1.6 `npm run lint` passes
-- [ ] 1.7 CI is green on the phase's commit (ci and smoke)
+- [x] 1.1 The migration applies to the local stack: `npx supabase migration up --local` — 6efdf20
+- [x] 1.2 `node scripts/check-watchlist-db.mjs` passes, with the removal assertions — 6efdf20
+- [x] 1.3 `node scripts/check-matches-db.mjs` passes, with the re-pin, refusal and cascade assertions — 6efdf20
+- [x] 1.4 `node scripts/check-prices-db.mjs` passes, with observations surviving a removal — 6efdf20
+- [x] 1.5 Break-checks go red: without the delete policy, with the old `not_found`-only update policy, and with a delete grant on `watchlist_matches`; the schema matches its snapshot afterwards — 6efdf20
+- [x] 1.6 `npm run lint` passes — 6efdf20
+- [x] 1.7 CI is green on the phase's commit (ci and smoke) — 6efdf20
 
 ### Phase 2: Brand rule and the saved match's item
 
 #### Automated
 
-- [ ] 2.1 `npm run test` passes, with the brand rule's cases and an automatic match stopped by another brand
-- [ ] 2.2 `npm run lint` passes
-- [ ] 2.3 `npx astro check` passes
-- [ ] 2.4 `npm run build` passes
-- [ ] 2.5 Break-checks go red: `qualifies` without the brand condition, and a saved match's view without its item
+- [x] 2.1 `npm run test` passes, with the brand rule's cases and an automatic match stopped by another brand
+- [x] 2.2 `npm run lint` passes
+- [x] 2.3 `npx astro check` passes
+- [x] 2.4 `npm run build` passes
+- [x] 2.5 Break-checks go red: `qualifies` without the brand condition, and a saved match's view without its item
 
 #### Manual
 
-- [ ] 2.6 `/dev/product-page` shows the "Inna marka" flag and a saved match's brand, size, name and warnings, in both themes
-- [ ] 2.7 On dev, a saved Natura match names its item in the card, which holds its layout at 390 px and 1024 px
+- [x] 2.6 `/dev/product-page` shows the "Inna marka" flag and a saved match's brand, size, name and warnings, in both themes
+- [x] 2.7 On dev, a saved Natura match names its item in the card, which holds its layout at 390 px and 1024 px
 
 ### Phase 3: Re-pinning a Natura match
 

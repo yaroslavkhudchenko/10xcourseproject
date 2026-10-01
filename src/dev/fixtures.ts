@@ -128,7 +128,7 @@ function unread(...actions: PriceComparisonAction[]): PriceComparisonState {
   return actions.reduce(priceComparisonReducer, initialState({ shops, now: NOW, pricesFailed: true }));
 }
 
-/** The product's item in Natura: the same EAN and size. */
+/** The product's item in Natura: the same EAN and size, and its brand in capitals, which the brand rule agrees with. */
 const NATURA_ITEM: MatchedItem = {
   shopItemId: NATURA_SKU,
   brand: "PRZYKŁAD",
@@ -138,6 +138,12 @@ const NATURA_ITEM: MatchedItem = {
   productUrl: HERE,
   imageUrl: null,
 };
+
+/**
+ * An item of another brand in Natura with the product's EAN and size: the matching rule leaves it to the user, while
+ * before the brand rule a lookup accepted it on its own.
+ */
+const OTHER_BRAND_ITEM: MatchedItem = { ...NATURA_ITEM, shopItemId: "NV10003", brand: "WZÓR" };
 
 // A decision stored for the product in Natura, at 21:45 in Poland on 27 September.
 const DECISION = { watchlistItemId: PRODUCT_ID, shop: "natura", checkedAt: "2026-09-27T19:45:00.000Z" } as const;
@@ -149,6 +155,8 @@ const CONFIRMED: ShopMatch = {
   state: "matched",
   item: { ...NATURA_ITEM, shopItemId: "NV10001", ...sized("200 ml") },
 };
+// A lookup accepted the item of another brand on its own before the brand rule, so the match's brand is flagged.
+const AUTO_OTHER_BRAND: ShopMatch = { ...DECISION, decidedBy: "auto", state: "matched", item: OTHER_BRAND_ITEM };
 const DECLINED: ShopMatch = { ...DECISION, decidedBy: "user", state: "unmatched", item: null };
 const NOT_FOUND: ShopMatch = { ...DECISION, decidedBy: "auto", state: "not_found", item: null };
 
@@ -356,8 +364,9 @@ export const HANDOFF_FIXTURES: PriceFixture[] = [
   },
 ];
 
-// What Natura's search by the product's EAN returned. None shares both the EAN and the size, so the matching rule
-// leaves the choice to the user, and between them the candidates carry every flag one can have.
+// What Natura's search by the product's EAN returned. The only one that shares both the EAN and the size is of
+// another brand, so the matching rule leaves the choice to the user, and between them the candidates carry every flag
+// one can have. The rule offers at most three.
 const CANDIDATES: ShopCandidate[] = [
   // The same EAN in another size.
   {
@@ -378,8 +387,8 @@ const CANDIDATES: ShopCandidate[] = [
     eans: ["2000000000018"],
     offer: offer(39.99),
   },
-  // Another EAN in the same size, without a price that can be stored.
-  { ...NATURA_ITEM, shop: "natura", shopItemId: "NV10003", eans: ["2000000000025"], offer: null },
+  // The same EAN and size, of another brand, without a price that can be stored.
+  { ...OTHER_BRAND_ITEM, shop: "natura", offer: null },
 ];
 
 /** The options the matching rule leaves to the user for these candidates, as a lookup hands them to the page. */
@@ -411,7 +420,7 @@ const ROSSMANN_ONLY = island([ROSSMANN_CHECKED]);
 export const NATURA_FIXTURES: NaturaFixture[] = [
   {
     code: "matched",
-    text: "dopasowane automatycznie, zaraz po wyszukaniu",
+    text: "dopasowane automatycznie, zaraz po wyszukaniu: stopka nazywa pozycję z Natury, bez ostrzeżeń",
     idPrefix: "natura-auto",
     natura: MATCHED,
     state: island(CHECKED),
@@ -425,11 +434,18 @@ export const NATURA_FIXTURES: NaturaFixture[] = [
   },
   {
     code: "matched + notice",
-    text: "potwierdzone przez Ciebie w innym rozmiarze, zaraz po zapisie",
+    text: "potwierdzone przez Ciebie w innym rozmiarze, zaraz po zapisie: stopka ostrzega o rozmiarze",
     idPrefix: "natura-confirmed",
     // The page's notice for `?matched`.
     natura: naturaOf(storedView(CONFIRMED, PRODUCT), { notice: DECISION_NOTICES.matched }),
     state: island([ROSSMANN_CHECKED, priced("natura", offer(17.99), 5 * MINUTE)]),
+  },
+  {
+    code: "matched + brand",
+    text: "dopasowane automatycznie, zanim porównywano marki: stopka ostrzega o innej marce",
+    idPrefix: "natura-other-brand",
+    natura: naturaOf(storedView(AUTO_OTHER_BRAND, PRODUCT)),
+    state: island([ROSSMANN_CHECKED, priced("natura", offer(21.99), 5 * MINUTE)]),
   },
   {
     code: "unmatched",

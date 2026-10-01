@@ -10,7 +10,7 @@ import type { NaturaItemSummary, NaturaView } from "@/lib/services/natura-view";
 
 const ITEM_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
 
-// Natura's Nivea Soft 300 ml, as a match the page couldn't save shows it.
+// Natura's Nivea Soft 300 ml, as a match's card names it.
 const item: NaturaItemSummary = {
   brand: "NIVEA",
   name: "NIVEA SOFT krem intensywnie nawilżający 300 ml",
@@ -21,7 +21,13 @@ const item: NaturaItemSummary = {
 
 /** One of each view the product's page builds for Natura (src/lib/services/natura-view.ts). */
 const VIEWS = {
-  matched: { kind: "matched", note: "Dopasowano automatycznie: ten sam EAN i rozmiar.", sizeWarning: null },
+  matched: {
+    kind: "matched",
+    note: "Dopasowano automatycznie: ten sam EAN i rozmiar.",
+    warnings: [],
+    item,
+    unsaved: false,
+  },
   unmatched: { kind: "unmatched" },
   "not-found": {
     kind: "not-found",
@@ -69,31 +75,35 @@ describe("naturaUnreadable", () => {
 });
 
 describe("naturaCardOf", () => {
-  it("gives a match's footer: how it was decided, and no size warning when the sizes agree", () => {
+  it("gives a saved match's footer: its item, how it was decided, and no warning when nothing differs", () => {
     expect(naturaCardOf({ view: VIEWS.matched, ...quiet })).toEqual({
       kind: "matched",
       note: "Dopasowano automatycznie: ten sam EAN i rozmiar.",
-      sizeWarning: null,
-      item: null,
+      warnings: [],
+      item,
+      unsaved: false,
       alerts: [],
     });
   });
 
-  it("gives a suspicious match's size warning, and the item of a match the page couldn't save", () => {
-    const view: NaturaView = {
+  it("gives a saved suspicious match its item and each of its warnings, in the view's order", () => {
+    const warnings = ["Inny rozmiar: 200 ml zamiast 300 ml", "Inna marka: YOPE zamiast NIVEA"];
+    const view: NaturaView = { kind: "matched", note: "Potwierdzone przez Ciebie.", warnings, item, unsaved: false };
+
+    expect(naturaCardOf({ view, ...quiet })).toEqual({
       kind: "matched",
       note: "Potwierdzone przez Ciebie.",
-      sizeWarning: "Inny rozmiar: 200 ml zamiast 300 ml",
+      warnings,
       item,
-    };
-
-    expect(naturaCardOf({ view, ...quiet, unsaved: true })).toMatchObject({
-      kind: "matched",
-      sizeWarning: "Inny rozmiar: 200 ml zamiast 300 ml",
-      item,
+      unsaved: false,
+      alerts: [],
     });
-    // A saved match has its price card, so its footer shows no item.
-    expect(naturaCardOf({ view, ...quiet })).toMatchObject({ item: null });
+  });
+
+  it("says a match the page couldn't save is unsaved, so the card shows its item's photo and page", () => {
+    const view: NaturaView = { ...VIEWS.matched, unsaved: true };
+
+    expect(naturaCardOf({ view, ...quiet, unsaved: true })).toMatchObject({ kind: "matched", item, unsaved: true });
   });
 
   it("asks to match a product not matched yet, with the link that looks it up", () => {

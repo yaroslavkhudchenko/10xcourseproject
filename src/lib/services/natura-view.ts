@@ -1,5 +1,5 @@
 import { DECISION_CODES, DECISION_NOTICES } from "@/lib/notices";
-import { sizesEqual } from "@/lib/services/matching";
+import { matchDifferences } from "@/lib/services/matching";
 import { formatPrice, SHOP_LABELS } from "@/lib/services/price-comparison";
 import type { CandidateOption, MatchedItem, ShopCandidate, ShopMatch, Size, WatchlistProduct } from "@/types";
 
@@ -22,13 +22,16 @@ const UNIT_NAMES = { ml: "ml", g: "g", pcs: "szt." } as const;
 /** A size as a shop wrote it, and parsed when that was possible. */
 type Sized = Pick<MatchedItem, "sizeText" | "size">;
 
+/** A brand as a shop wrote it, if it wrote one. */
+type Branded = Pick<MatchedItem, "brand">;
+
 /** A Natura item as the section shows it: its photo, its name and size, and its page in the shop. */
 export type NaturaItemSummary = Pick<MatchedItem, "brand" | "name" | "sizeText" | "imageUrl" | "productUrl">;
 
-/** The watched product, as far as the section looks at it: the id its links lead to, and its size. */
-export type NaturaProduct = Pick<WatchlistProduct, "id" | "sizeText" | "size">;
+/** The watched product, as far as the section looks at it: the id its links lead to, its brand and its size. */
+export type NaturaProduct = Pick<WatchlistProduct, "id" | "brand" | "sizeText" | "size">;
 
-/** A short flag on a candidate: a shared EAN, or a warning about its size. */
+/** A short flag on a candidate: a shared EAN, or a warning about its size or its brand. */
 export interface CandidateFlag {
   text: string;
   warning: boolean;
@@ -42,17 +45,21 @@ export interface NaturaOption {
 }
 
 /**
- * What the Natura section shows: the stored decision, the lookup's outcome, or why there's neither. A match shows only
- * how it was decided and whether its size differs: its price and its page are in its price row, so each shop appears
- * once on the page. A match the page couldn't save has no price row, so it carries its item too.
+ * What the Natura section shows: the stored decision, the lookup's outcome, or why there's neither. A match names its
+ * item, how it was decided and what differs from the product: its price and its page are in its price row, so each
+ * shop appears once on the page. A match the page couldn't save has no price row, so its card shows the item's photo
+ * and page too.
  */
 export type NaturaView =
   | {
       kind: "matched";
       note: string;
-      sizeWarning: string | null;
-      /** Only while the match isn't saved: it has no price row then, so the section shows the item in its place. */
-      item?: NaturaItemSummary;
+      /** A warning for each thing that definitely differs from the product: its size, then its brand. */
+      warnings: string[];
+      /** The matched item, which the card names. */
+      item: NaturaItemSummary;
+      /** The match isn't saved: it has no price row then, so the card shows the item's photo and page in its place. */
+      unsaved: boolean;
     }
   | { kind: "unmatched" }
   | { kind: "not-found"; text: string; href: string }
@@ -75,10 +82,20 @@ export function otherSize(item: Sized, own: Sized): string {
   return `Inny rozmiar: ${sizeLabel(item.sizeText, item.size)} zamiast ${sizeLabel(own.sizeText, own.size)}`;
 }
 
+/** The flag for an item whose brand differs from the product's, naming both brands as the shops wrote them. */
+export function otherBrand(item: Branded, own: Branded): string {
+  return `Inna marka: ${brandLabel(item.brand)} zamiast ${brandLabel(own.brand)}`;
+}
+
+/** A brand as the shop wrote it. The rule never flags a missing brand, so "marka nieznana" is only a fallback. */
+function brandLabel(brand: string | null): string {
+  return brand ?? "marka nieznana";
+}
+
 /**
- * A match: how it was decided, with its size flagged whenever both sizes are known and differ. A match the page
- * couldn't save (`unsaved`) has no price row, so it carries the item's summary for the section to show; a saved or
- * stored match carries none.
+ * A match: how it was decided, its item, and a warning for each thing that definitely differs from the product
+ * (matchDifferences), its size, then its brand. A match the page couldn't save (`unsaved`) has no price row, so its
+ * card shows the item's photo and page too; a saved or stored match has them in its price row.
  */
 export function matchedView(
   item: NaturaItemSummary & Sized,
@@ -86,14 +103,17 @@ export function matchedView(
   own: NaturaProduct,
   { unsaved = false }: { unsaved?: boolean } = {},
 ): NaturaView {
-  const differs = own.size !== null && item.size !== null && !sizesEqual(own.size, item.size);
-  const note = decidedBy === "auto" ? "Dopasowano automatycznie: ten sam EAN i rozmiar." : "Potwierdzone przez Ciebie.";
-  const sizeWarning = differs ? otherSize(item, own) : null;
-  if (!unsaved) {
-    return { kind: "matched", note, sizeWarning };
+  const differences = matchDifferences(own, item);
+  const warnings: string[] = [];
+  if (differences.size) {
+    warnings.push(otherSize(item, own));
   }
+  if (differences.brand) {
+    warnings.push(otherBrand(item, own));
+  }
+  const note = decidedBy === "auto" ? "Dopasowano automatycznie: ten sam EAN i rozmiar." : "Potwierdzone przez Ciebie.";
   const { brand, name, sizeText, imageUrl, productUrl } = item;
-  return { kind: "matched", note, sizeWarning, item: { brand, name, sizeText, imageUrl, productUrl } };
+  return { kind: "matched", note, warnings, item: { brand, name, sizeText, imageUrl, productUrl }, unsaved };
 }
 
 /** A lookup that found nothing at `checkedAt`, with the link that looks the product up again. */
@@ -128,6 +148,10 @@ export function optionView({ candidate, verdict }: CandidateOption, fetchedAt: D
     flags.push({ text: otherSize(candidate, own), warning: true });
   } else if (verdict.size === "unknown") {
     flags.push({ text: "Rozmiar nieznany", warning: true });
+  }
+  // A brand that can't be compared flags nothing: only one that differs warns.
+  if (verdict.brand === "differs") {
+    flags.push({ text: otherBrand(candidate, own), warning: true });
   }
   const source = `${SHOP_LABELS.natura.site}, pobrano ${clock.format(fetchedAt)}`;
   // A candidate without a price that can be stored says so, never a blank or a zero.

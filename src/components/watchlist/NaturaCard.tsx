@@ -27,15 +27,16 @@ interface Props {
 const LINE = "text-sm leading-normal lg:text-body";
 
 // Natura's card among the shops' cards, so each shop appears once on the page. A saved match is Natura's price card,
-// with a footer under a dashed line: how the match was decided and whether its size differs. Without one, the card
-// has no price and says where Natura stands instead: not matched yet, with the link that looks the product up; found
-// nothing, with the link that looks again; declined, as a dashed ghost on the paper; a decision another tab saved
-// meanwhile, with the link that shows it; Natura busy or a decision that couldn't be read, in the warning colour, as a
-// price that couldn't be read; or candidates to choose from, which the section below the cards holds with their forms.
-// A match the page couldn't save has no price row, so its item stands in the price's place. The notices of a decision
-// just made, and a lookup's outcome that couldn't be stored, close the card. Every action here is a plain link, which
-// works without JavaScript, and none changes a stored decision: re-pinning waits for S-08. It keeps no state, so it
-// renders the same in the island and in the kitchen sink.
+// with a footer under a dashed line: the matched item's brand and size above its name, how the match was decided, and
+// a warning for each thing that differs from the product, its size or its brand. Without one, the card has no price
+// and says where Natura stands instead: not matched yet, with the link that looks the product up; found nothing, with
+// the link that looks again; declined, as a dashed ghost on the paper; a decision another tab saved meanwhile, with the
+// link that shows it; Natura busy or a decision that couldn't be read, in the warning colour, as a price that couldn't
+// be read; or candidates to choose from, which the section below the cards holds with their forms. A match the page
+// couldn't save has no price row, so its item, with its photo and its page, stands in the price's place. The notices
+// of a decision just made, and a lookup's outcome that couldn't be stored, close the card. Every action here is a
+// plain link, which works without JavaScript, and none changes a stored decision: re-pinning waits for S-08. It keeps
+// no state, so it renders the same in the island and in the kitchen sink.
 export default function NaturaCard({ card, itemId, row, now }: Props) {
   const nameId = useId();
   const body = <NaturaBody card={card} itemId={itemId} />;
@@ -76,7 +77,7 @@ function NaturaBody({ card, itemId }: { card: NaturaCardModel; itemId: string })
 function NaturaState({ card, itemId }: { card: NaturaCardModel; itemId: string }) {
   switch (card.kind) {
     case "matched":
-      return <MatchFooter note={card.note} sizeWarning={card.sizeWarning} item={card.item} />;
+      return <MatchFooter note={card.note} warnings={card.warnings} item={card.item} unsaved={card.unsaved} />;
     case "prompt":
       // Full width on a phone, as the handoff draws it, and as wide as its words from lg.
       return (
@@ -120,29 +121,34 @@ function NaturaState({ card, itemId }: { card: NaturaCardModel; itemId: string }
 }
 
 /**
- * A match's footer, under a dashed line at the card's foot: how the match was decided, in DM Mono, and its size flagged
- * with a warning pill when it differs. While the match isn't saved, it has no price, so its item stands above the
- * footer, where the price would.
+ * A match's footer, under a dashed line at the card's foot: the matched item's brand and size above its name, how the
+ * match was decided, in DM Mono, and a warning pill for each thing that differs from the product, its size, then its
+ * brand. The price card above it has the item's page, so the footer has no second "Zobacz w sklepie" and no photo.
+ * While the match isn't saved, it has no price, so its item, with its photo and its page, stands above the footer,
+ * where the price would.
  */
 function MatchFooter({
   note,
-  sizeWarning,
+  warnings,
   item,
+  unsaved,
 }: {
   note: string;
-  sizeWarning: string | null;
-  item: NaturaItemSummary | null;
+  warnings: string[];
+  item: NaturaItemSummary;
+  unsaved: boolean;
 }) {
   return (
     <>
-      {item !== null && <MatchedItem item={item} />}
+      {unsaved && <MatchedItem item={item} />}
       <div className="border-t-hairline mt-auto flex flex-col items-start gap-2 border-dashed pt-2.5 lg:pt-3">
+        {!unsaved && <ItemText item={item} />}
         <p className="text-micro text-muted-foreground lg:text-meta font-mono">{note}</p>
-        {sizeWarning !== null && (
-          <Badge variant="warning" className="whitespace-normal">
-            {sizeWarning}
+        {warnings.map((warning) => (
+          <Badge key={warning} variant="warning" className="whitespace-normal">
+            {warning}
           </Badge>
-        )}
+        ))}
       </div>
     </>
   );
@@ -155,22 +161,29 @@ function MatchFooter({
 function MatchedItem({ item }: { item: NaturaItemSummary }) {
   // The item's name describes its "Zobacz w sklepie"; the id is this item's own.
   const textId = useId();
-  const { eyebrow, name, brand, imageUrl } = rowProductOf({ ...item, caption: null });
   return (
     <div className="flex flex-col items-start gap-2">
       <div className="flex items-center gap-3">
-        <ProductThumb brand={brand} imageUrl={imageUrl} size="row" />
-        <p id={textId} className="flex min-w-0 flex-col gap-0.75">
-          {eyebrow && (
-            <span className="text-meta tracking-eyebrow text-muted-foreground font-mono wrap-break-word uppercase">
-              {eyebrow}
-            </span>
-          )}
-          <span className="text-body leading-tight font-semibold wrap-break-word">{name}</span>
-        </p>
+        <ProductThumb brand={item.brand} imageUrl={item.imageUrl} size="row" />
+        <ItemText item={item} id={textId} />
       </div>
       {item.productUrl && <ShopLink href={item.productUrl} describedBy={textId} />}
     </div>
+  );
+}
+
+/** A matched item's brand and size above its name, as a list row draws a product (rowProductOf). */
+function ItemText({ item, id }: { item: NaturaItemSummary; id?: string }) {
+  const { eyebrow, name } = rowProductOf({ ...item, caption: null });
+  return (
+    <p id={id} className="flex min-w-0 flex-col gap-0.75">
+      {eyebrow && (
+        <span className="text-meta tracking-eyebrow text-muted-foreground font-mono wrap-break-word uppercase">
+          {eyebrow}
+        </span>
+      )}
+      <span className="text-body leading-tight font-semibold wrap-break-word">{name}</span>
+    </p>
   );
 }
 

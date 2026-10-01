@@ -3,10 +3,10 @@
 // confirm the one that is the same product ("To ten produkt") or decline them all ("Żaden z nich"). Every other state
 // of Natura sits in its card among the shops' cards (NaturaCard.tsx), which points here, and so do the notices of a
 // decision just made. Each candidate is drawn as a list row draws a product: its thumbnail, its brand and size above
-// its name, then its flags as pills, the shared EAN in the promotion's success colour and a size warning in the
-// warning's, its price with where and when it was fetched, and its buttons. The page and the dev kitchen sink render
-// it from the same view (src/lib/services/natura-view.ts). The decision forms are one submit-once group, so one tap
-// sends one decision, whichever button it was.
+// its name, then its flags as pills, the shared EAN in the promotion's success colour and a size or brand warning in
+// the warning's, its price with where and when it was fetched, and its buttons. The page and the dev kitchen sink
+// render it from the same view (src/lib/services/natura-view.ts). The decision forms are one submit-once group, so one
+// tap sends one decision, whichever button it was.
 import SubmitOnce from "@/components/SubmitOnce.astro";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
