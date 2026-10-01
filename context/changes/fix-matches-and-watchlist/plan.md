@@ -963,6 +963,30 @@ Shop requests per page view and action (lesson "Bound what each page view and ac
   - At 1280 and 390 px, the chips read "Wszystkie 3", "Promocje 0" and "Do sprawdzenia 1", and `?f=check` holds Q1 alone. Its line for screen readers ends "Natura: sprawdź dopasowanie, inna marka.", and Q2's and Q3's say nothing about their matches. The list beside Q1's product page holds the same, and no page overflows.
 - **Manual 5.7, verified by the agent at the owner's request:** `/dev/watchlist` draws the suspicious row in light and in the `.dark` wrapper, looking like any other row, with the same line for screen readers in both themes. The aside's chips read "Wszystkie 10", "Promocje 1" and "Do sprawdzenia 5". There's no overflow.
 
+### Phase 6
+
+- **CLAUDE.md, beyond the contract's list:**
+  - `:38` also says watchlist rows can't be changed, which the script has always asserted, beside the removal and re-add proofs.
+  - `:50` also says that `?repin=1` reaches Natura only on the user's own navigation (`decideMatchStep`), that the island's refetch is off while re-pinning (`autoRefresh`), and that the product page's own actions keep `?f=` (`filterHref`, `productRefreshBackTo`). That sentence names only the product page's own actions, since "Dodaj" and the header's search drop `?f=`.
+  - `:50` names the three return-address functions where it said "those two functions", and says `notices.ts` holds "Dodaj"'s and a removal's notices too.
+  - `:51` holds the list's suspicious-match rule (`naturaMismatchOf`) beside `matchDifferences`, rather than in the UI bullet, and the first lookup's search order (`lookupInNatura`), to contrast with the choice's two searches.
+  - `:52` adds what a direct call can still do, from Phase 1's notes: a user can set their own decision back to `not_found` or mark their own match `auto`, which changes only their own list. It also says that no observation references a product.
+- **PRD:**
+  - The notes also record owner calls from the plan: a delete behind a confirm with no undo (FR-005), the accepted "Dr Irena Eris" false alarm from plan review F6 (FR-006), and, from "What We're NOT Doing", no reset to undecided and no Rossmann re-pin (FR-007).
+  - The FR-006 note states the brand rule as precisely as the code applies it: "ł" doesn't decompose under NFKD, so "Łódź" and "Lodz" read as different brands.
+- **Roadmap:**
+  - The Risk line names two checks: `check-matches-db.mjs` for the cascade and `check-prices-db.mjs` for observations surviving a removal.
+  - Mine: it says "no foreign key ties an observation to a product or a user", not "no observation references" them, since `recorded_by` holds the recording user's id without a foreign key.
+- **Frontmatter:** unchanged. `prd.md` has no `updated:` key, and `roadmap.md`'s was already 2026-10-01.
+- **6.1:**
+  - `npm run lint` reports 1,513 problems, all in one file of the untracked handoff copy in the repository root (`Drogeria Radar redesign/`), which CI never checks out. Judged as the Testing Strategy says, `npx eslint . --ignore-pattern "Drogeria Radar redesign/**"` passes.
+  - Prettier reports `prd.md`, `roadmap.md` and this plan clean. `CLAUDE.md` is in `.prettierignore`.
+- **6.2:** the course block, from its BEGIN marker to its END marker (47 lines), has the same sha256 as `main`'s. CLAUDE.md's hunks are at lines 18, 38–40, 47 and 50–52 only.
+- **6.5, recorded by the agent (2026-10-01):** production runs PostgreSQL 17.6 (image 17.6.1.166).
+  - The source is `supabase/.temp/postgres-version`, which `supabase link` wrote from the linked project on 2026-09-27; the file is git-ignored.
+  - The local stack runs the same image (`supabase/postgres:17.6.1.166`, reporting "PostgreSQL 17.6"), so the research's probes P1–P3 ran on production's version. That closes research open question 7.
+  - An upgrade after that link would show in the dashboard (Project Settings → Infrastructure).
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -1042,27 +1066,27 @@ Shop requests per page view and action (lesson "Bound what each page view and ac
 
 #### Automated
 
-- [x] 5.1 `npm run test` passes, with automatic, user-confirmed and agreeing matches on the list
-- [x] 5.2 `npm run lint` passes, with `matching.ts` admitted by the island guard
-- [x] 5.3 `npx astro check` passes
-- [x] 5.4 `npm run build` passes
-- [x] 5.5 Break-checks go red: a server-only import in `matching.ts`, the check rule without the suspicious condition, and the rule counting a user-confirmed match
+- [x] 5.1 `npm run test` passes, with automatic, user-confirmed and agreeing matches on the list — baff9b9
+- [x] 5.2 `npm run lint` passes, with `matching.ts` admitted by the island guard — baff9b9
+- [x] 5.3 `npx astro check` passes — baff9b9
+- [x] 5.4 `npm run build` passes — baff9b9
+- [x] 5.5 Break-checks go red: a server-only import in `matching.ts`, the check rule without the suspicious condition, and the rule counting a user-confirmed match — baff9b9
 
 #### Manual
 
-- [x] 5.6 On dev, a product whose automatic match has another brand is under "Do sprawdzenia" with its reason on the row's screen-reader line, and a user-confirmed mismatch isn't
-- [x] 5.7 `/dev/watchlist` shows the suspicious row in both themes
+- [x] 5.6 On dev, a product whose automatic match has another brand is under "Do sprawdzenia" with its reason on the row's screen-reader line, and a user-confirmed mismatch isn't — baff9b9
+- [x] 5.7 `/dev/watchlist` shows the suspicious row in both themes — baff9b9
 
 ### Phase 6: Docs and rollout
 
 #### Automated
 
-- [ ] 6.1 `npm run lint` passes, and Prettier reports the changed docs clean
-- [ ] 6.2 The CLAUDE.md course block is identical to `main`'s
+- [x] 6.1 `npm run lint` passes, and Prettier reports the changed docs clean
+- [x] 6.2 The CLAUDE.md course block is identical to `main`'s
 - [ ] 6.3 CI is green on the PR (ci and smoke)
 
 #### Manual
 
 - [ ] 6.4 The owner pushes the migration, and `npx supabase migration list --linked` shows its remote version
-- [ ] 6.5 The production PostgreSQL version is recorded
+- [x] 6.5 The production PostgreSQL version is recorded
 - [ ] 6.6 After the merge, the owner's phone check on production passes: remove a product, re-pin a match

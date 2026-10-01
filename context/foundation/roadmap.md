@@ -211,7 +211,7 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **Parallel with:** S-03, S-04, S-05, S-06, S-07
 - **Blockers:** —
 - **Unknowns:** —
-- **Risk:** Removal must hide, never delete, because price history is shared. A wrong delete would silently erase other users' data.
+- **Risk:** Removal deletes the user's own watchlist entry and, through the cascade, only their own shop decisions for it. Shared price history stays, because no foreign key ties an observation to a product or a user and `price_observations` has no delete grant or policy. `scripts/check-matches-db.mjs` proves the cascade stops at the owner's decisions, and `scripts/check-prices-db.mjs` that a removal deletes no observation and the item's other watchers keep its prices.
 - **Carry-over from `etykiety-redesign`:** the re-pin controls the handoff draws in Natura's card (`NaturaCard.tsx`), which wait for this slice.
   - "Zmień" in a matched card's footer, and "Dopasuj ponownie" in a declined one.
   - The matched item's name in the card, which it shows today only while the match isn't saved, so a wrong match can be seen before it's re-pinned.
