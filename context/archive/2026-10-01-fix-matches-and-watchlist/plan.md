@@ -1017,6 +1017,14 @@ Shop requests per page view and action (lesson "Bound what each page view and ac
   - **F5:** `/watchlist/<a product no one has>?removal=failed` said "Produktu nie ma już na Twojej liście." as a status.
   - **Kitchen sink:** it draws the reload alert and the not-found notice in both themes. In its re-pin choices, the automatic matches' current items offer "To ten produkt", and the user-confirmed one shows the badge only.
 
+### Production rollout
+
+- **Merged on 2026-10-01** as `8235311` (PR #17), after the implementation review's fixes (`f630b9e`).
+  - The migration `20261001182905` was already on production, confirmed with `npx supabase migration list --linked` before the merge (6.4).
+  - Workers Builds deployed the merge at 22:49 UTC, and `ci` and `smoke` passed on `main`.
+- **The owner's phone check on production passed** (6.6, confirmed on 2026-10-02): removing a product and re-pinning a match.
+- **Left for later changes:** `follow-ups/review-fixes.md`, with what S-05 and S-06 need for re-pinning, the reload alert and the suspicious count, and the two accepted risks to revisit.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -1119,4 +1127,4 @@ Shop requests per page view and action (lesson "Bound what each page view and ac
 
 - [x] 6.4 The owner pushes the migration, and `npx supabase migration list --linked` shows its remote version — 93dd2fd
 - [x] 6.5 The production PostgreSQL version is recorded — 93dd2fd
-- [ ] 6.6 After the merge, the owner's phone check on production passes: remove a product, re-pin a match
+- [x] 6.6 After the merge, the owner's phone check on production passes: remove a product, re-pin a match — 8235311
