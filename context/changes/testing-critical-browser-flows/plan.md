@@ -858,12 +858,12 @@ One line per adaptation, naming the contract it changes and why, in the phase's 
 
 #### Automated
 
-- [x] 6.1 §6.3 and §6.6 of the test plan describe the shipped pattern, with no "TBD" left in §6.3, and Prettier passes on the changed Markdown
-- [x] 6.2 CLAUDE.md's project section names the e2e commands and the CI job, and its course block is byte-identical
-- [x] 6.3 The roadmap carries the S-04 and S-07 notes
-- [ ] 6.4 CI (`ci`, `smoke`, `e2e`) is green on the final commit
+- [x] 6.1 §6.3 and §6.6 of the test plan describe the shipped pattern, with no "TBD" left in §6.3, and Prettier passes on the changed Markdown — 4f77271
+- [x] 6.2 CLAUDE.md's project section names the e2e commands and the CI job, and its course block is byte-identical — 4f77271
+- [x] 6.3 The roadmap carries the S-04 and S-07 notes — 4f77271
+- [x] 6.4 CI (`ci`, `smoke`, `e2e`) is green on the final commit — 4f77271
 
 #### Manual
 
 - [ ] 6.5 After the merge, the owner adds `e2e` to the `preventFailedDeploy` ruleset's required checks, and the deploy plan records it
-- [x] 6.6 The owner reads §6.3 and finds it answers how to add an e2e test here
+- [x] 6.6 The owner reads §6.3 and finds it answers how to add an e2e test here — 4f77271
