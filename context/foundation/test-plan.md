@@ -75,7 +75,7 @@ The classic test base for this project. AI-native tools (if any) carry a `checke
 | e2e                | none yet — see Phase 1 (Playwright)                                                | —       | runs on the production preview with the local Supabase and no live shops                                                                                              |
 | accessibility      | contrast script only                                                               | n/a     | no automated axe checks yet                                                                                                                                           |
 | (AI-native)        | Playwright CLI (`@playwright/cli`) — checked: 2026-10-02                           | n/a     | the agent explores the running app through accessibility snapshots to write e2e tests. When NOT to use: as the gate itself; the committed Playwright test is the gate |
-| (AI-native)        | Claude Code hooks (post-edit lint, end-of-turn typecheck) — checked: 2026-10-02    | n/a     | set up by `/10x-configure-hook`. When NOT to use: as a CI substitute, or to run the whole suite on every edit                                                         |
+| (AI-native)        | Claude Code hooks (post-edit lint, end-of-turn typecheck) — checked: 2026-10-02    | n/a     | configured in `.claude/settings.json` by `/10x-configure-hook` (2026-10-02). When NOT to use: as a CI substitute, or to run the whole suite on every edit             |
 
 **Stack grounding tools (current session):**
 
@@ -88,17 +88,17 @@ The classic test base for this project. AI-native tools (if any) carry a `checke
 
 The full set of gates that must pass before a change reaches production. "Required after §3 Phase <N>" means the gate is enforced once that rollout phase lands; before that, the gate is planned.
 
-| Gate                                     | Where                             | Required?                                                         | Catches                                                  |
-| ---------------------------------------- | --------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------- |
-| lint + typecheck (ESLint, `astro check`) | local pre-commit (lint) + CI      | required                                                          | syntax, type and token-rule drift                        |
-| unit + integration (Vitest)              | local + CI                        | required                                                          | rule, adapter and service regressions                    |
-| database contract checks                 | CI (`smoke` job, local Supabase)  | required                                                          | row-level rules, grants, cascade and cap regressions     |
-| smoke on the workerd preview             | CI (`smoke` job)                  | required                                                          | auth flow and route refusals on the production build     |
-| contrast and font checks                 | CI                                | required                                                          | unreadable tokens, a build without its fonts             |
-| e2e on critical flows                    | CI (`e2e` job)                    | required                                                          | broken critical user paths in a real browser             |
-| migration on production before merge     | owner, before merging a migration | required after §3 Phase 4                                         | code shipping ahead of its schema                        |
-| signed-out production smoke              | after each deploy                 | required after §3 Phase 4                                         | environment and setting drift (sign-up open, pages down) |
-| post-edit hook + end-of-turn typecheck   | local (agent loop)                | recommended — set up by `/10x-configure-hook` (Module 3 Lesson 3) | errors at edit time, before a commit                     |
+| Gate                                     | Where                             | Required?                                                        | Catches                                                  |
+| ---------------------------------------- | --------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------- |
+| lint + typecheck (ESLint, `astro check`) | local pre-commit (lint) + CI      | required                                                         | syntax, type and token-rule drift                        |
+| unit + integration (Vitest)              | local + CI                        | required                                                         | rule, adapter and service regressions                    |
+| database contract checks                 | CI (`smoke` job, local Supabase)  | required                                                         | row-level rules, grants, cascade and cap regressions     |
+| smoke on the workerd preview             | CI (`smoke` job)                  | required                                                         | auth flow and route refusals on the production build     |
+| contrast and font checks                 | CI                                | required                                                         | unreadable tokens, a build without its fonts             |
+| e2e on critical flows                    | CI (`e2e` job)                    | required                                                         | broken critical user paths in a real browser             |
+| migration on production before merge     | owner, before merging a migration | required after §3 Phase 4                                        | code shipping ahead of its schema                        |
+| signed-out production smoke              | after each deploy                 | required after §3 Phase 4                                        | environment and setting drift (sign-up open, pages down) |
+| post-edit hook + end-of-turn typecheck   | local (agent loop)                | recommended — configured in `.claude/settings.json` (2026-10-02) | errors at edit time, before a commit                     |
 
 ## 6. Cookbook Patterns
 

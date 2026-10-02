@@ -2,8 +2,8 @@
   "package": "@przeprogramowani/10x-cli",
   "version": "1.22.1",
   "manifestVersion": 3,
-  "lastApplied": "2026-10-02T11:14:16.309Z",
-  "lessonId": "m3l1",
+  "lastApplied": "2026-10-02T19:43:14.440Z",
+  "lessonId": "m3l3",
   "course": "10xdevs4",
   "tool": "claude-code",
   "files": {
@@ -1885,12 +1885,18 @@
       "skills": {},
       "prompts": [],
       "configs": []
+    },
+    "m3l3": {
+      "appliedAt": "2026-10-02T19:43:14.440Z",
+      "skills": {},
+      "prompts": [],
+      "configs": []
     }
   },
   "managedRules": {
     "path": "CLAUDE.md",
     "begin": "<!-- BEGIN @przeprogramowani/10x-cli -->",
     "end": "<!-- END @przeprogramowani/10x-cli -->",
-    "upstreamHash": "64dd32ad11c5a5ae8c576c808bd7d39c5c7642c0b14abab431acc3c2e75f73c4"
+    "upstreamHash": "cb0e4e546416738cf3b00b101160c3b64c108e9f4a196d91f3d979342a0448ba"
   }
 }
