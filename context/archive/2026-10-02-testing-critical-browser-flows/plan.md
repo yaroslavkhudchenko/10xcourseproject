@@ -807,6 +807,16 @@ One line per adaptation, naming the contract it changes and why, in the phase's 
   - the roadmap's S-04 note;
   - the seeding helpers' comment on what acts as superuser.
 
+### Production rollout
+
+- **Merged on 2026-10-02** as `69661be` (PR #20), after the implementation review's fixes (`e741d73`).
+  - Workers Builds deployed the merge at 19:17 UTC, and `ci`, `smoke` and `e2e` passed on `main`.
+  - The change touched no app code: nothing under `src/` changed. Signed out, production's `/` and `/auth/signin` answer 200, and `/watchlist` redirects to sign-in.
+- **`e2e` is a required check (6.5).** At the owner's request it was added to `preventFailedDeploy` through the GitHub API on 2026-10-02 at 19:08 UTC, eight minutes before the merge. The ruleset's other rules and checks are unchanged.
+  - This plan put the step after the merge so that the check wouldn't block open PRs that never run it. PR #20 was the only open PR, and it stayed mergeable with all three checks green.
+  - The deploy plan's record and CLAUDE.md's ruleset sentence now name `ci`, `smoke` and `e2e`.
+- **Left for later changes:** the roadmap's S-04 note (the list's screen-reader line for a two-shop row with no current price) and S-07 note (the setup's English sign-in form and local sign-up), and the test plan's rollout Phases 2–4.
+
 ## References
 
 - Research: `context/changes/testing-critical-browser-flows/research.md`
@@ -894,5 +904,5 @@ One line per adaptation, naming the contract it changes and why, in the phase's 
 
 #### Manual
 
-- [ ] 6.5 After the merge, the owner adds `e2e` to the `preventFailedDeploy` ruleset's required checks, and the deploy plan records it
+- [x] 6.5 After the merge, the owner adds `e2e` to the `preventFailedDeploy` ruleset's required checks, and the deploy plan records it — 69661be
 - [x] 6.6 The owner reads §6.3 and finds it answers how to add an e2e test here — 4f77271
