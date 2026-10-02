@@ -746,6 +746,15 @@ One line per adaptation, naming the contract it changes and why, in the phase's 
 - **The web server's output in CI (Phase 1 §2, "Server").** The config sets `stdout: "pipe"` when `CI` is set. Playwright ignores a web server's stdout by default, so without it the job's log would show neither the build nor the preview's start, which 2.1 asks for, and a build that fails there couldn't be read. Local runs keep it ignored.
 - **The failure artifact (§1, step 5)** is kept for 14 days (`retention-days`), instead of the repository's default. It only serves to debug that PR's failed run.
 
+**Phase 3, written by `/10x-e2e` (2026-10-02):**
+
+- **Hydration before a product's assertions (§2, the flow).** Each product page waits for the `PriceComparison` island (`waitForIsland`, from Phase 1) before it asserts. Otherwise the server's HTML could pass where the hydrated island judges differently.
+- **Ages of fresh checks (§2).** A check made during the test may read "przed chwilą" or "N min temu", because a slow run crosses the one-minute line. While exploring, the first product page already said "1 min temu".
+- **P4 without "Najtaniej" (§2)** is checked inside `main` only. The product page keeps the list beside it in the DOM for wider screens, hidden on a phone, and the other rows' screen-reader lines say "Najtaniej: …".
+- **P4's hero (§2)** is checked with an inline ARIA snapshot of `main`: "Ostatnia znana cena", the price and "w Rossmannie", in reading order. The hero has no landmark or group, and Playwright's tree drops unnamed containers, so no locator could scope it without CSS.
+- **Fresh ids (§1)** are random rather than time-based: Rossmann ids are 9 followed by 11 digits, and SKUs are `E2E-` followed by 12 hex digits. After each insert the helper asserts that the item has no stored check, so a collision with an earlier run fails instead of bringing that run's prices along.
+- **The helpers' shape (§1).** `matchNatura` returns the SKU. `addRossmannProduct` records each product's name and id in the test's `test-data` annotations, so a leftover is findable.
+
 ## References
 
 - Research: `context/changes/testing-critical-browser-flows/research.md`
@@ -781,23 +790,23 @@ One line per adaptation, naming the contract it changes and why, in the phase's 
 
 #### Automated
 
-- [ ] 2.1 The `e2e` job runs on the phase's push and passes. Its log shows the local stack, the preview built and started by the config, the shop stop, the seed and the unmoved request log
-- [ ] 2.2 The job reads no repository secret and writes only the local stack's values into `.env` and `.dev.vars`
-- [ ] 2.3 `ci` and `smoke` stay green and unchanged on the same commit
+- [x] 2.1 The `e2e` job runs on the phase's push and passes. Its log shows the local stack, the preview built and started by the config, the shop stop, the seed and the unmoved request log — 15c060d
+- [x] 2.2 The job reads no repository secret and writes only the local stack's values into `.env` and `.dev.vars` — 15c060d
+- [x] 2.3 `ci` and `smoke` stay green and unchanged on the same commit — 15c060d
 
 ### Phase 3: Honest prices on both pages (#1)
 
 #### Automated
 
-- [ ] 3.1 `npx playwright test tests/e2e/price-honesty.spec.ts` passes from a cold server with the request log unmoved
-- [ ] 3.2 Deliberate break: with eligibility ignoring orderability, the spec goes red on P1's mark; reverted
-- [ ] 3.3 Deliberate break: with ended promotions read as fresh, the spec goes red on P3's mark; reverted
-- [ ] 3.4 After a green and a red run, none of the spec's products remain on the run user's list
+- [x] 3.1 `npx playwright test tests/e2e/price-honesty.spec.ts` passes from a cold server with the request log unmoved
+- [x] 3.2 Deliberate break: with eligibility ignoring orderability, the spec goes red on P1's mark; reverted
+- [x] 3.3 Deliberate break: with ended promotions read as fresh, the spec goes red on P3's mark; reverted
+- [x] 3.4 After a green and a red run, none of the spec's products remain on the run user's list
 - [ ] 3.5 Lint, `astro check` and unit tests pass, and CI's `e2e` job is green on the phase's commit
 
 #### Manual
 
-- [ ] 3.6 The owner checks the spec's expected values against the PRD guardrail and the S-03 decision record
+- [x] 3.6 The owner checks the spec's expected values against the PRD guardrail and the S-03 decision record
 
 ### Phase 4: Prices and refresh on a phone (#7)
 
