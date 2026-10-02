@@ -153,6 +153,7 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **Carry-over from `etykiety-redesign`:** the judgement's own looks, which the handoff draws and the redesign left out until the rule exists.
   - The "Dobra / cena!" and "Zwykła / cena" stickers on the verdict's hero (`Sticker.tsx` has only "Tylko 1 sklep" and "Stara cena").
   - The judgement sentence in the price-track card (`PriceTrack.tsx`), where the handoff says which comparison was made.
+- **Carry-over from `testing-critical-browser-flows`:** the list's screen-reader line for a row with two shops and no current price is "Ceny nieaktualne. Odśwież ceny lub otwórz produkt.", with no shop, price or age (`price-comparison.ts`, pinned by a unit test), while the row's visible tag shows all three. Give the line what the tag shows; the e2e (`price-honesty.spec.ts`, P4) leaves it unasserted until then.
 - **Status:** blocked
 
 ### S-05: Add Hebe to the comparison
@@ -200,6 +201,9 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **Carry-over from `etykiety-redesign`:** restyle the pages still pinned to the dark theme on the new tokens, and drop the pin.
   - `/`, `/dashboard` and `/auth/*` pass `theme="dark"` to `Layout` and keep `bg-cosmic` and their literal colours, which work only on a dark canvas.
   - They don't pad the safe-area insets yet. `Layout.astro`'s viewport has `viewport-fit=cover` on every page, so on a phone with a notch their content can reach under it; `WatchlistShell.astro` shows the padding.
+- **Carry-over from `testing-critical-browser-flows`:** the e2e setup (`tests/e2e/auth.setup.ts`) signs its run user up with supabase-js on the local stack and signs in through the starter's English form ("Email", "Password", "Sign in").
+  - The Polish sign-in page must update the setup's labels.
+  - Removing sign-up must keep local sign-up, which the e2e and the database checks need, or move both to another local way of creating users.
 - **Status:** ready
 
 ### S-08: Fix a wrong match and remove a product

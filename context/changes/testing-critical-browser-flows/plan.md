@@ -772,6 +772,12 @@ One line per adaptation, naming the contract it changes and why, in the phase's 
 - **The choice (§2, steps 2–3).** Its "Anuluj" is the one in the "Drogerie Natura" region, because Natura's card offers its own "Anuluj" while the choice is open. "No candidate" means no "To ten produkt" button in the choice.
 - **After the decline (§2, step 6).** The spec waits for the island before asserting that no "Najtaniej" is left. It checks the verdict with an inline ARIA snapshot ("Jedyna znana cena", 19,99 zł, "w Rossmannie"), as Phase 3 does.
 
+**Phase 6 (2026-10-02):**
+
+- **§6.3's extra bullets (§1).** Besides the eight topics, §6.3 says how to explore first (shops stopped, the preview, playwright-cli with the saved session) and what "done" means: green from a cold server, red under a deliberate break, no products left. Every spec in this change followed that method.
+- **§6.6 (§1).** Its placeholder line became the first note.
+- **CLAUDE.md's ruleset sentence (§2)** still names `ci` and `smoke`. The ruleset changes only after the merge (6.5), so that sentence and the deploy plan's record change together in the archive PR.
+
 ## References
 
 - Research: `context/changes/testing-critical-browser-flows/research.md`
@@ -841,23 +847,23 @@ One line per adaptation, naming the contract it changes and why, in the phase's 
 
 #### Automated
 
-- [x] 5.1 `phone-remove-product.spec.ts` passes from a cold server with the request log unmoved
-- [x] 5.2 `phone-decline-match.spec.ts` passes from a cold server with the request log unmoved
-- [x] 5.3 Deliberate break: with the removal route redirecting `done` without deleting, the removal spec goes red on the row's absence; reverted
-- [x] 5.4 Deliberate break: with the decline's write never matching, the decline spec goes red on Natura's card; reverted
-- [x] 5.5 After green and red runs, neither spec leaves a product on the run user's list
-- [ ] 5.6 The whole suite passes in one cold run with the request log unmoved, and CI's `e2e` job is green on the phase's commit
+- [x] 5.1 `phone-remove-product.spec.ts` passes from a cold server with the request log unmoved — c48d74d
+- [x] 5.2 `phone-decline-match.spec.ts` passes from a cold server with the request log unmoved — c48d74d
+- [x] 5.3 Deliberate break: with the removal route redirecting `done` without deleting, the removal spec goes red on the row's absence; reverted — c48d74d
+- [x] 5.4 Deliberate break: with the decline's write never matching, the decline spec goes red on Natura's card; reverted — c48d74d
+- [x] 5.5 After green and red runs, neither spec leaves a product on the run user's list — c48d74d
+- [x] 5.6 The whole suite passes in one cold run with the request log unmoved, and CI's `e2e` job is green on the phase's commit — c48d74d
 
 ### Phase 6: Docs and the cookbook
 
 #### Automated
 
-- [ ] 6.1 §6.3 and §6.6 of the test plan describe the shipped pattern, with no "TBD" left in §6.3, and Prettier passes on the changed Markdown
-- [ ] 6.2 CLAUDE.md's project section names the e2e commands and the CI job, and its course block is byte-identical
-- [ ] 6.3 The roadmap carries the S-04 and S-07 notes
+- [x] 6.1 §6.3 and §6.6 of the test plan describe the shipped pattern, with no "TBD" left in §6.3, and Prettier passes on the changed Markdown
+- [x] 6.2 CLAUDE.md's project section names the e2e commands and the CI job, and its course block is byte-identical
+- [x] 6.3 The roadmap carries the S-04 and S-07 notes
 - [ ] 6.4 CI (`ci`, `smoke`, `e2e`) is green on the final commit
 
 #### Manual
 
 - [ ] 6.5 After the merge, the owner adds `e2e` to the `preventFailedDeploy` ruleset's required checks, and the deploy plan records it
-- [ ] 6.6 The owner reads §6.3 and finds it answers how to add an e2e test here
+- [x] 6.6 The owner reads §6.3 and finds it answers how to add an e2e test here

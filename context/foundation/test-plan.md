@@ -117,7 +117,25 @@ How to add new tests in this project. Each sub-section is filled in once the rel
 
 ### 6.3 Adding an e2e test
 
-- TBD — see §3 Phase 1 (a signed-in shopper on a phone, recorded shop answers, one flow per risk).
+- **Location and naming**: `tests/e2e/<risk-facet>.spec.ts`, one test per file, titled after its risk (`"#7: on a phone, …"`). A provenance header names the risk, the facet the test protects, where its expected values come from (the PRD and the decision records, never the code under test) and the seed.
+- **The run user**: the `setup` project (`tests/e2e/auth.setup.ts`) signs up one throwaway local user per run and signs it in once through the form. Every spec starts with that session and never signs in itself.
+- **Seeding**: the helpers in `tests/e2e/support/watchlist-data.ts` act as the run user.
+  - `addMatchedProduct` gives each product fresh ids (a 12-digit Rossmann id, within the app's 1–12 rule, and an `E2E-` Natura SKU) and checks that no earlier run's prices come with them.
+  - Each check is one insert (`recordPrice`, `recordMissing`), and a promotion's end is a Warsaw date (`warsawDate`). A check older than 24 hours needs `backdateChecks`, the one superuser step (`scripts/e2e-local-db.mjs`).
+  - Every product registers itself as it's added: `test.afterEach(removeSeededProducts)` deletes them and fails unless none is left.
+- **Shops**: no spec reaches a shop. The setup stops every enabled shop in the local `public.shops`. The teardown switches back on only those, then fails the run if any shop request was reserved. A refetch gets the stopped notice, so the refused refresh is the only refresh outcome a spec can reach. Never run with `--no-deps`: it skips the stop, and the helpers then refuse to seed.
+- **Locators and waits**: roles and texts from `tests/e2e/support/pages.ts` (`rowOf`, `cardOf`, `priceOf`, `ageLine`, `stoppedNotice`, `JUST_NOW`).
+  - On a product page, wait for the price island (`openFromList`, `waitForIsland`), never for every island.
+  - Assert inside `main`, since a phone keeps the list beside the product hidden in the page.
+  - A spec without JavaScript sets `test.use({ javaScriptEnabled: false })`.
+- **Explore first**: stop the shops (`node scripts/e2e-local-db.mjs stop`), build, and start `ASTRO_PREVIEW_BACKGROUND=1 npx astro preview`. Drive it with `playwright-cli -s=projekt` after `state-load playwright/.auth/user.json`. Afterwards restore the shops (`… restore`) and stop the preview (`npx astro preview stop`).
+- **Done means**:
+  - the spec is green from a cold server, with nothing listening on 4321;
+  - it goes red under a deliberate break of the behaviour it protects, on the risk's own assertion;
+  - the run user's list is empty after both runs.
+- **Reference specs**: `tests/e2e/seed.spec.ts` (the shape) and `tests/e2e/price-honesty.spec.ts` (seeded price states on both pages).
+- **Run locally**: `npx playwright test tests/e2e/<name>.spec.ts`, or the suite with `npx playwright test`. It needs Docker, `npx supabase start` and a local `.env` and `.dev.vars`, and refuses any other Supabase.
+- **CI**: the `e2e` job runs the suite on every push and PR to `main`, with its own local Supabase and no secrets. When it fails it uploads the report.
 
 ### 6.4 Adding a test for a shop adapter
 
@@ -129,7 +147,7 @@ How to add new tests in this project. Each sub-section is filled in once the rel
 
 ### 6.6 Per-rollout-phase notes
 
-(Filled in as phases land: a 2–3 line note on anything a rollout phase taught.)
+- **Phase 1, critical flows in a real browser (`testing-critical-browser-flows`, 2026-10-02):** "no live shops" is a state of the environment, not a mock: it is the deployment's own stop switch in the local database. Recorded answers can't reach the production build, whose shops are called from the Worker. A phone-width page never hydrates every island and keeps the wide-screen list hidden in its DOM, so wait for the island a step needs and assert inside the visible pane.
 
 ## 7. What We Deliberately Don't Test
 
