@@ -36,6 +36,10 @@ const clientOptions = { auth: { persistSession: false, autoRefreshToken: false, 
 // The run's user, signed in once per worker: each sign-in counts against the local limit of 30 per 5 minutes.
 let runUser: Promise<SupabaseClient> | undefined;
 
+// The products the current test added, registered as each insert succeeds, so a test that fails halfway through its
+// seeding still leaves nothing behind. A worker runs one test at a time, and removeSeededProducts empties it after each.
+const seededProducts: string[] = [];
+
 function asRunUser(): Promise<SupabaseClient> {
   runUser ??= signInRunUser();
   return runUser;
@@ -98,9 +102,16 @@ export async function addRossmannProduct({ name }: { name: string }): Promise<Se
     .single();
   expect(error, `${fullName} is added to the run user's list`).toBeNull();
   const productId = idOf(data);
+  seededProducts.push(productId);
   test.info().annotations.push({ type: "test-data", description: `${fullName} (${productId})` });
   await expectNoChecks(client, "rossmann", itemId);
   return { productId, itemId, name: fullName };
+}
+
+/** Adds a product from Rossmann matched in Natura, the shape every spec compares: its name, ids and Natura's SKU. */
+export async function addMatchedProduct(name: string): Promise<SeededProduct & { sku: string }> {
+  const product = await addRossmannProduct({ name });
+  return { ...product, sku: await matchNatura(product.productId, { name: `Natura ${name}` }) };
 }
 
 /** Stores an automatic Natura match for the product, so its page doesn't look Natura up. Returns the matched SKU. */
@@ -191,4 +202,9 @@ export async function removeProducts(productIds: string[]): Promise<void> {
   const left = await client.from("watchlist_items").select("id").in("id", productIds);
   expect(left.error).toBeNull();
   expect(left.data, "none of the spec's products is left on the list").toEqual([]);
+}
+
+/** Removes every product the current test added (removeProducts): each spec's afterEach. */
+export async function removeSeededProducts(): Promise<void> {
+  await removeProducts(seededProducts.splice(0));
 }

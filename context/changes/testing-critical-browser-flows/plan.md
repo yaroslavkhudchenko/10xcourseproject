@@ -755,6 +755,15 @@ One line per adaptation, naming the contract it changes and why, in the phase's 
 - **Fresh ids (§1)** are random rather than time-based: Rossmann ids are 9 followed by 11 digits, and SKUs are `E2E-` followed by 12 hex digits. After each insert the helper asserts that the item has no stored check, so a collision with an earlier run fails instead of bringing that run's prices along.
 - **The helpers' shape (§1).** `matchNatura` returns the SKU. `addRossmannProduct` records each product's name and id in the test's `test-data` annotations, so a leftover is findable.
 
+**Phase 4, written by `/10x-e2e` (2026-10-02):**
+
+- **Shared page helpers (Phase 3 §2, Phase 4 §2–§3).** `tests/e2e/support/pages.ts` holds what every spec finds: the list row, a shop's card, its price and age lines, the cheapest marks, the stopped notice, `openFromList` and `sidewaysScroll`. `price-honesty.spec.ts` now uses it too, so the specs define each locator and text once (lessons, "Define shared constants and helpers once").
+- **Products are registered as they're added (Phase 3 §1).** `addRossmannProduct` registers each product as soon as its insert succeeds, and `removeSeededProducts`, which every spec's `afterEach` calls, deletes the current test's products, so seeding that fails halfway leaves nothing behind. `addMatchedProduct` moved into `watchlist-data.ts`, and `removeProducts(ids)` stays for Phase 5.
+- **Taps, not clicks (§2).** `openFromList` and the bar's "Odśwież ceny" use `tap()`, the phone's own gesture, since the project emulates touch.
+- **The row's line with two fresh prices (§2, step 1)** also says how much cheaper the cheapest shop is: "Najtaniej: Natura 14,49 zł, o 5,50 zł taniej niż Rossmann · {age}." The S-03 decision gives the list that savings text. The spec asserts the whole line.
+- **The focus check (§2, step 7)** reads the focused control's computed outline after one Tab, then again with forced colours emulated on the same control. A second Tab would depend on where the first one landed.
+- **The hydration helper (§1)** already existed from Phase 1, so this phase adds nothing there.
+
 ## References
 
 - Research: `context/changes/testing-critical-browser-flows/research.md`
@@ -798,26 +807,26 @@ One line per adaptation, naming the contract it changes and why, in the phase's 
 
 #### Automated
 
-- [x] 3.1 `npx playwright test tests/e2e/price-honesty.spec.ts` passes from a cold server with the request log unmoved
-- [x] 3.2 Deliberate break: with eligibility ignoring orderability, the spec goes red on P1's mark; reverted
-- [x] 3.3 Deliberate break: with ended promotions read as fresh, the spec goes red on P3's mark; reverted
-- [x] 3.4 After a green and a red run, none of the spec's products remain on the run user's list
-- [ ] 3.5 Lint, `astro check` and unit tests pass, and CI's `e2e` job is green on the phase's commit
+- [x] 3.1 `npx playwright test tests/e2e/price-honesty.spec.ts` passes from a cold server with the request log unmoved — 040c88f
+- [x] 3.2 Deliberate break: with eligibility ignoring orderability, the spec goes red on P1's mark; reverted — 040c88f
+- [x] 3.3 Deliberate break: with ended promotions read as fresh, the spec goes red on P3's mark; reverted — 040c88f
+- [x] 3.4 After a green and a red run, none of the spec's products remain on the run user's list — 040c88f
+- [x] 3.5 Lint, `astro check` and unit tests pass, and CI's `e2e` job is green on the phase's commit — 040c88f
 
 #### Manual
 
-- [x] 3.6 The owner checks the spec's expected values against the PRD guardrail and the S-03 decision record
+- [x] 3.6 The owner checks the spec's expected values against the PRD guardrail and the S-03 decision record — 040c88f
 
 ### Phase 4: Prices and refresh on a phone (#7)
 
 #### Automated
 
-- [ ] 4.1 `phone-refresh.spec.ts` passes from a cold server with the request log unmoved
-- [ ] 4.2 `phone-refresh-no-js.spec.ts` passes from a cold server with the request log unmoved
-- [ ] 4.3 Deliberate break: with the prices route answering an error, `phone-refresh.spec.ts` goes red on the stopped notice; reverted
-- [ ] 4.4 Deliberate break: with the base layer's focus outline removed, `phone-refresh.spec.ts` goes red on the focus check; reverted
-- [ ] 4.5 Deliberate break: with the refresh route redirecting without its result code, `phone-refresh-no-js.spec.ts` goes red on the notice; reverted
-- [ ] 4.6 After green and red runs, neither spec leaves a product on the run user's list
+- [x] 4.1 `phone-refresh.spec.ts` passes from a cold server with the request log unmoved
+- [x] 4.2 `phone-refresh-no-js.spec.ts` passes from a cold server with the request log unmoved
+- [x] 4.3 Deliberate break: with the prices route answering an error, `phone-refresh.spec.ts` goes red on the stopped notice; reverted
+- [x] 4.4 Deliberate break: with the base layer's focus outline removed, `phone-refresh.spec.ts` goes red on the focus check; reverted
+- [x] 4.5 Deliberate break: with the refresh route redirecting without its result code, `phone-refresh-no-js.spec.ts` goes red on the notice; reverted
+- [x] 4.6 After green and red runs, neither spec leaves a product on the run user's list
 - [ ] 4.7 Lint, `astro check` and unit tests pass, and CI's `e2e` job is green on the phase's commit
 
 ### Phase 5: Removals on a phone (#7)

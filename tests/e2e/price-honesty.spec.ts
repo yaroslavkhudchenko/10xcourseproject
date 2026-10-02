@@ -9,68 +9,20 @@
 // promotion is out of date, its last day still fresh). The texts are the running app's. None of it is read off the
 // comparison code.
 // seed: tests/e2e/seed.spec.ts
-import { expect, test, type Locator, type Page } from "@playwright/test";
-import { waitForIsland } from "./support/islands";
+import { expect, test } from "@playwright/test";
+import { ageLine, cardOf, JUST_NOW, marksOf, openFromList, priceOf, rowOf, stoppedNotice } from "./support/pages";
 import {
-  addRossmannProduct,
+  addMatchedProduct,
   backdateChecks,
-  matchNatura,
   recordMissing,
   recordPrice,
-  removeProducts,
+  removeSeededProducts,
   warsawDate,
-  type SeededProduct,
 } from "./support/watchlist-data";
 
-// A check made during the test reads "przed chwilą" for a minute and "N min temu" after that; a slow run crosses it.
-const JUST_NOW = String.raw`(?:przed chwilą|\d+ min temu)`;
-
-// What a shop's card says once the island asked it again and the stopped shop refused (the setup stops every shop).
-const stopped = (shop: string) => `Odświeżanie cen w sklepie ${shop} jest wyłączone, bo sklep zablokował zapytania.`;
-
-const seeded: string[] = [];
-
 test.afterEach(async () => {
-  await removeProducts(seeded.splice(0));
+  await removeSeededProducts();
 });
-
-/** Adds a product from Rossmann, matched in Natura, as the run's user. */
-async function addMatchedProduct(name: string): Promise<SeededProduct & { sku: string }> {
-  const product = await addRossmannProduct({ name });
-  seeded.push(product.productId);
-  return { ...product, sku: await matchNatura(product.productId, { name: `Natura ${name}` }) };
-}
-
-/** The product's row on the list: a link whose name is what a screen reader hears, its whole comparison. */
-function rowOf(page: Page, product: SeededProduct): Locator {
-  return page.getByRole("list", { name: "Moja lista" }).getByRole("link", { name: product.name });
-}
-
-/** A shop's card among the product's prices. */
-function cardOf(page: Page, shop: "Rossmann" | "Natura"): Locator {
-  return page
-    .getByRole("region", { name: "Ceny" })
-    .getByRole("listitem")
-    .filter({ has: page.getByRole("heading", { name: shop, level: 3 }) });
-}
-
-/** The cheapest marks among the product's prices. */
-function marksOf(page: Page): Locator {
-  return page.getByRole("region", { name: "Ceny" }).getByText("Najtaniej", { exact: true });
-}
-
-/** A card's line with the price's source and age: the price is the shop's online one, checked that long ago. */
-function ageLine(card: Locator, age: string): Locator {
-  return card.getByText(new RegExp(String.raw`^cena online · ${age}$`));
-}
-
-/** Opens the product from its row on the list, and waits for its prices to be live. */
-async function openFromList(page: Page, product: SeededProduct): Promise<void> {
-  await page.goto("/watchlist");
-  await rowOf(page, product).click();
-  await expect(page.getByRole("heading", { level: 1, name: product.name })).toBeVisible();
-  await waitForIsland(page, "PriceComparison");
-}
 
 test("#1: only a fresh price the shop sells online is marked cheapest, and every price shows its shop and age", async ({
   page,
@@ -130,10 +82,11 @@ test("#1: only a fresh price the shop sells online is marked cheapest, and every
 
   // P2's page: Natura's card is the cheapest. The island asks Rossmann again on load, since its check is old, and the
   // stopped shop refuses; Rossmann's card keeps its old price, marked out of date, with its age.
+  await page.goto("/watchlist");
   await openFromList(page, p2);
   const p2Rossmann = cardOf(page, "Rossmann");
-  await expect(p2Rossmann.getByText(stopped("Rossmann"), { exact: true })).toBeVisible();
-  await expect(p2Rossmann.getByText(/^8,99\szł$/)).toBeAttached();
+  await expect(p2Rossmann.getByText(stoppedNotice("Rossmann"), { exact: true })).toBeVisible();
+  await expect(priceOf(p2Rossmann, "8,99")).toBeAttached();
   await expect(p2Rossmann.getByText("Nieaktualna", { exact: true })).toBeVisible();
   await expect(ageLine(p2Rossmann, "wczoraj")).toBeVisible();
   await expect(marksOf(page)).toHaveCount(1);
@@ -141,6 +94,7 @@ test("#1: only a fresh price the shop sells online is marked cheapest, and every
   await expect(ageLine(cardOf(page, "Natura"), JUST_NOW)).toBeVisible();
 
   // P3's page: Natura's card is the cheapest; Rossmann's ended promotion is out of date.
+  await page.goto("/watchlist");
   await openFromList(page, p3);
   await expect(marksOf(page)).toHaveCount(1);
   await expect(cardOf(page, "Natura").getByText("Najtaniej", { exact: true })).toBeVisible();
@@ -150,9 +104,10 @@ test("#1: only a fresh price the shop sells online is marked cheapest, and every
 
   // P4's page: no shop is marked, and the page names Rossmann's price as its last known one. Rossmann's card says the
   // shop no longer returns the item. Natura's has no price yet: the island asks Natura on load, and is refused.
+  await page.goto("/watchlist");
   await openFromList(page, p4);
   const p4Natura = cardOf(page, "Natura");
-  await expect(p4Natura.getByText(stopped("Natura"), { exact: true })).toBeVisible();
+  await expect(p4Natura.getByText(stoppedNotice("Natura"), { exact: true })).toBeVisible();
   await expect(p4Natura.getByText("Jeszcze bez ceny", { exact: true })).toBeVisible();
   await expect(
     cardOf(page, "Rossmann").getByText("Sklep nie zwraca już tego produktu. Cena może być nieaktualna.", {
