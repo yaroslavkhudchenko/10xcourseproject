@@ -52,3 +52,27 @@ export async function openFromList(page: Page, product: SeededProduct): Promise<
 export function sidewaysScroll(page: Page): Promise<number> {
   return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 }
+
+/** One of the island's price requests: the shop it asks again, and the item it names there. */
+export interface PriceCall {
+  shop: string;
+  shopItemId: string;
+}
+
+/**
+ * Records the island's price requests (POST /api/watchlist/prices) as the page sends them, from now on. Each would cost
+ * its shop one request if the shops weren't stopped, so their count is what a page view or a tap costs the shops.
+ */
+export function recordPriceCalls(page: Page): PriceCall[] {
+  const calls: PriceCall[] = [];
+  page.on("request", (request) => {
+    if (request.method() !== "POST" || new URL(request.url()).pathname !== "/api/watchlist/prices") return;
+    const body: unknown = request.postDataJSON();
+    const field = (name: string): string => {
+      const value = typeof body === "object" && body !== null ? (body as Record<string, unknown>)[name] : undefined;
+      return typeof value === "string" ? value : "";
+    };
+    calls.push({ shop: field("shop"), shopItemId: field("shopItemId") });
+  });
+  return calls;
+}

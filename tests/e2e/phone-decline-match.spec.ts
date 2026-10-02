@@ -41,7 +41,9 @@ test("#7: on a phone, a wrong Natura match is removed through its re-pin choice,
 
   // 3. Tap "Anuluj": the page is back without the choice, and Natura is still matched, cheapest at its price.
   await choice.getByRole("link", { name: "Anuluj" }).tap();
+  // The choice is gone only from the new page, so the island waited for is that page's.
   await expect(choice).toBeHidden();
+  await waitForIsland(page, "PriceComparison");
   await expect(natura.getByRole("link", { name: "Zmień" })).toBeVisible();
   await expect(priceOf(natura, "14,49")).toBeAttached();
   await expect(natura.getByText("Najtaniej", { exact: true })).toBeVisible();

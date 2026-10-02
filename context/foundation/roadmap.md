@@ -153,7 +153,7 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **Carry-over from `etykiety-redesign`:** the judgement's own looks, which the handoff draws and the redesign left out until the rule exists.
   - The "Dobra / cena!" and "Zwykła / cena" stickers on the verdict's hero (`Sticker.tsx` has only "Tylko 1 sklep" and "Stara cena").
   - The judgement sentence in the price-track card (`PriceTrack.tsx`), where the handoff says which comparison was made.
-- **Carry-over from `testing-critical-browser-flows`:** the list's screen-reader line for a row with two shops and no current price is "Ceny nieaktualne. Odśwież ceny lub otwórz produkt.", with no shop, price or age (`price-comparison.ts`, pinned by a unit test), while the row's visible tag shows all three. Give the line what the tag shows; the e2e (`price-honesty.spec.ts`, P4) leaves it unasserted until then.
+- **Carry-over from `testing-critical-browser-flows`:** the list's screen-reader line for a row with two shops and no current price is "Ceny nieaktualne. Odśwież ceny lub otwórz produkt.", with no shop, price or age (`price-comparison.ts`, pinned by a unit test), while the row's visible tag shows all three. Give the line what the tag shows; until then the e2e (`price-honesty.spec.ts`, P4) asserts only that the line names no cheapest shop.
 - **Status:** blocked
 
 ### S-05: Add Hebe to the comparison

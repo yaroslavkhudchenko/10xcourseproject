@@ -79,6 +79,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      # The CLI pin and the services left out below are the smoke job's: change them in both jobs together.
       - uses: supabase/setup-cli@v1
         with:
           # Pinned: CLI releases change config keys (auto_expose_new_tables is removed on 2026-10-30).

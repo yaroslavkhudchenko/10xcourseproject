@@ -1,7 +1,7 @@
 ---
 change_id: testing-critical-browser-flows
 title: Critical flows in a real browser (e2e tests for test-plan Phase 1)
-status: implemented
+status: impl_reviewed
 created: 2026-10-02
 updated: 2026-10-02
 archived_at: null

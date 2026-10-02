@@ -10,7 +10,17 @@
 // comparison code.
 // seed: tests/e2e/seed.spec.ts
 import { expect, test } from "@playwright/test";
-import { ageLine, cardOf, JUST_NOW, marksOf, openFromList, priceOf, rowOf, stoppedNotice } from "./support/pages";
+import {
+  ageLine,
+  cardOf,
+  JUST_NOW,
+  marksOf,
+  openFromList,
+  priceOf,
+  recordPriceCalls,
+  rowOf,
+  stoppedNotice,
+} from "./support/pages";
 import {
   addMatchedProduct,
   backdateChecks,
@@ -49,6 +59,9 @@ test("#1: only a fresh price the shop sells online is marked cheapest, and every
   const p4 = await addMatchedProduct("Pasta P4");
   await recordPrice("rossmann", p4.itemId, { price: 11.99, available: true });
   await recordMissing("rossmann", p4.itemId);
+  // What the pages ask the shops for, through the island's price requests (lessons: "Bound what each page view and
+  // action costs every shop"). The list asks none.
+  const priceCalls = recordPriceCalls(page);
 
   // The list: each row names the cheapest shop with its price and age, and the other shop's state; its tag shows
   // the price's shop and age.
@@ -123,4 +136,12 @@ test("#1: only a fresh price the shop sells online is marked cheapest, and every
     - text: /11,99\szł/
     - paragraph: w Rossmannie
   `);
+
+  // Only the checks that needed it were asked again on load: P2's day-old Rossmann price and P4's never-checked Natura,
+  // each for the item its page shows. P1's and P3's fresh checks asked nothing, P3's ended promotion included, since it
+  // was checked after the end.
+  expect(priceCalls, "each product page asks only the shops whose check is old or missing").toEqual([
+    { shop: "rossmann", shopItemId: p2.itemId },
+    { shop: "natura", shopItemId: p4.sku },
+  ]);
 });

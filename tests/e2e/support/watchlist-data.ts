@@ -1,8 +1,9 @@
 // What a spec seeds and removes (test-plan Phase 1, context/changes/testing-critical-browser-flows/plan.md): its own
 // products, a Natura match and exact price states, written as the run's user through supabase-js on the local stack, as
-// the database checks do, and deleted again after the test. Only backdating a check acts as the local superuser
-// (scripts/e2e-local-db.mjs), because the database stamps each check's time. Every product gets fresh shop ids: price
-// checks are shared and never deleted, so an id an earlier run used would bring that run's prices along.
+// the database checks do, and deleted again after the test. Two reads and writes act as the local superuser
+// (scripts/e2e-local-db.mjs): the check that every shop is stopped, since no API role may read the shops, and backdating
+// a check, since the database stamps each check's time. Every product gets fresh shop ids: price checks are shared and
+// never deleted, so an id an earlier run used would bring that run's prices along.
 import { randomBytes, randomInt } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -33,7 +34,8 @@ export interface SeededPrice {
 
 const clientOptions = { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } };
 
-// The run's user, signed in once per worker: each sign-in counts against the local limit of 30 per 5 minutes.
+// The run's user, once per worker, in the session the setup's sign-up got: no worker signs in, so seeding costs nothing
+// against the local auth limit of 30 sign-ins and sign-ups per 5 minutes.
 let runUser: Promise<SupabaseClient> | undefined;
 
 // The products the current test added, registered as each insert succeeds, so a test that fails halfway through its
@@ -41,20 +43,24 @@ let runUser: Promise<SupabaseClient> | undefined;
 const seededProducts: string[] = [];
 
 function asRunUser(): Promise<SupabaseClient> {
-  runUser ??= signInRunUser();
+  runUser ??= takeOverRunUser();
   return runUser;
 }
 
-async function signInRunUser(): Promise<SupabaseClient> {
+async function takeOverRunUser(): Promise<SupabaseClient> {
   // A seeded product's page asks every shop whose check is old or missing, so nothing is seeded while a shop is live.
   // Only the setup project stops them, so a run without it (--no-deps) stops here, before any page is opened.
   expect(enabledShops(), "every shop is stopped for the run: run the specs with the setup project").toEqual([]);
   const { SUPABASE_URL, SUPABASE_KEY } = process.env;
   if (!SUPABASE_URL || !SUPABASE_KEY) throw new Error("SUPABASE_URL and SUPABASE_KEY must be set (.env)");
-  const { email, password } = readRun();
+  const { session } = readRun();
   const client = createClient(SUPABASE_URL, SUPABASE_KEY, clientOptions);
-  const { error } = await client.auth.signInWithPassword({ email, password });
-  expect(error, "the run's user signs in to seed").toBeNull();
+  // The access token outlives a run (an hour), so taking the session over only reads the user, and signs no one in.
+  const { error } = await client.auth.setSession({
+    access_token: session.accessToken,
+    refresh_token: session.refreshToken,
+  });
+  expect(error, "the seeding helpers take over the run user's session").toBeNull();
   return client;
 }
 

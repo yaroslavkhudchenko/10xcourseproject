@@ -117,14 +117,18 @@ How to add new tests in this project. Each sub-section is filled in once the rel
 
 ### 6.3 Adding an e2e test
 
-- **Location and naming**: `tests/e2e/<risk-facet>.spec.ts`, one test per file, titled after its risk (`"#7: on a phone, …"`). A provenance header names the risk, the facet the test protects, where its expected values come from (the PRD and the decision records, never the code under test) and the seed.
-- **The run user**: the `setup` project (`tests/e2e/auth.setup.ts`) signs up one throwaway local user per run and signs it in once through the form. Every spec starts with that session and never signs in itself.
+- **Location and naming**: `tests/e2e/<risk-facet>.spec.ts`, one test per file, titled after its risk (`"#7: on a phone, …"`). A provenance header names the risk, the facet the test protects and the seed. A spec that judges prices also names where its expected values come from (the PRD and the decision records, never the code under test).
+- **The run user**: the `setup` project (`tests/e2e/auth.setup.ts`) signs up one throwaway local user per run and signs it in once through the form. Every spec starts with that session and never signs in itself. The seeding helpers take over the sign-up's session, so a run costs the local auth limit (30 per 5 minutes) two calls at any worker count.
 - **Seeding**: the helpers in `tests/e2e/support/watchlist-data.ts` act as the run user.
   - `addMatchedProduct` gives each product fresh ids (a 12-digit Rossmann id, within the app's 1–12 rule, and an `E2E-` Natura SKU) and checks that no earlier run's prices come with them.
-  - Each check is one insert (`recordPrice`, `recordMissing`), and a promotion's end is a Warsaw date (`warsawDate`). A check older than 24 hours needs `backdateChecks`, the one superuser step (`scripts/e2e-local-db.mjs`).
+  - Each check is one insert (`recordPrice`, `recordMissing`), and a promotion's end is a Warsaw date (`warsawDate`). A check older than 24 hours needs `backdateChecks`, seeding's one superuser write (`scripts/e2e-local-db.mjs`).
   - Every product registers itself as it's added: `test.afterEach(removeSeededProducts)` deletes them and fails unless none is left.
-- **Shops**: no spec reaches a shop. The setup stops every enabled shop in the local `public.shops`. The teardown switches back on only those, then fails the run if any shop request was reserved. A refetch gets the stopped notice, so the refused refresh is the only refresh outcome a spec can reach. Never run with `--no-deps`: it skips the stop, and the helpers then refuse to seed.
-- **Locators and waits**: roles and texts from `tests/e2e/support/pages.ts` (`rowOf`, `cardOf`, `priceOf`, `ageLine`, `stoppedNotice`, `JUST_NOW`).
+- **Shops**: no spec reaches a shop.
+  - The setup holds every enabled shop in the local `public.shops` under the run's name, and refuses to start while another run or a manual `stop` holds them.
+  - The teardown switches back on exactly the run's own shops, then fails the run if any shop request was reserved. A `globalTeardown` switches them back on after Ctrl+C too.
+  - A refetch gets the stopped notice, so the refused refresh is the only refresh outcome a spec can reach. `recordPriceCalls` pins what a page view or a tap would have asked the shops.
+  - Never run with `--no-deps`: it skips the stop, and the helpers then refuse to seed.
+- **Locators and waits**: roles and texts from `tests/e2e/support/pages.ts` (`rowOf`, `cardOf`, `priceOf`, `ageLine`, `stoppedNotice`, `JUST_NOW`, `recordPriceCalls`).
   - On a product page, wait for the price island (`openFromList`, `waitForIsland`), never for every island.
   - Assert inside `main`, since a phone keeps the list beside the product hidden in the page.
   - A spec without JavaScript sets `test.use({ javaScriptEnabled: false })`.
@@ -134,7 +138,7 @@ How to add new tests in this project. Each sub-section is filled in once the rel
   - it goes red under a deliberate break of the behaviour it protects, on the risk's own assertion;
   - the run user's list is empty after both runs.
 - **Reference specs**: `tests/e2e/seed.spec.ts` (the shape) and `tests/e2e/price-honesty.spec.ts` (seeded price states on both pages).
-- **Run locally**: `npx playwright test tests/e2e/<name>.spec.ts`, or the suite with `npx playwright test`. It needs Docker, `npx supabase start` and a local `.env` and `.dev.vars`, and refuses any other Supabase.
+- **Run locally**: `npx playwright test tests/e2e/<name>.spec.ts`, or the suite with `npx playwright test`, with a timeout of several minutes, since it builds first. It needs Docker, `npx supabase start` and a local `.env` and `.dev.vars`, and refuses any other Supabase. It also refuses a port that another server already holds.
 - **CI**: the `e2e` job runs the suite on every push and PR to `main`, with its own local Supabase and no secrets. When it fails it uploads the report.
 
 ### 6.4 Adding a test for a shop adapter

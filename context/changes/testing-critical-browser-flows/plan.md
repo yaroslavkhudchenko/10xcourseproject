@@ -737,7 +737,8 @@ One line per adaptation, naming the contract it changes and why, in the phase's 
 - **The setup's sign-in (§4, step 4).** The setup waits for the `SignInForm` island to hydrate, then signs in once. The sign-in route's own answer proves it: a 302 whose `location` is `/watchlist`. It no longer waits for `/watchlist`, asserts the list's heading or retries the form. Where the browser lands afterwards is the seed's to judge, so a middleware that doesn't attach the user turns the seed red (1.6), not the setup. A retry would also spend one more sign-in against the local limit of 30 per 5 minutes on every try.
 - **The hydration helper arrives in Phase 1, not Phase 4.** `tests/e2e/support/islands.ts` (`waitForIsland(page, component)`) is written now for the sign-in form; Phase 4 uses it for `PriceComparison`.
 - **The CI reporter (§2).** It is `list`, one line per test in the job's log. That is what "a line reporter" meant; Playwright's `line` reporter shows only the last test.
-- **The guard reads every `SUPABASE_URL` line (§2, §3).** Node's `loadEnvFile` and wrangler take a file's last one, so a first-line check would let a local line followed by a remote one pass.
+- **What the guard reads (§2, §3).** Through the config, `.env` is already loaded, so the guard judges the value the tests use, the file's last line, as Node keeps it. For `.dev.vars`, and for `.env` from the command line, it judges every `SUPABASE_URL` line, since wrangler also keeps a file's last one: a first-line check would let a local line followed by a remote one pass. Review fix F2 made both files strict on every line.
+- **The request-log mark (§3)** is `last_value:is_called`, not the sequence's value alone, so the first reservation on an unused sequence, as on CI's fresh stack, moves it too.
 - **`backdateChecks` (§3)** also refuses a shop id that isn't a row of `public.shops`, the contract's "Shop ids must exist", at the cost of one extra select per call.
 - **Every gate ran again before the commit (1.1–1.7).** The session that wrote the phase ended before committing, so the resumed one re-ran them. It tried the guard (1.5) on crafted `.env` and `.dev.vars` copies in a scratch directory, loaded through the real config, and on a remote `SUPABASE_URL` in the environment, instead of editing the real files. All of them refused, the last before any build.
 
@@ -777,6 +778,34 @@ One line per adaptation, naming the contract it changes and why, in the phase's 
 - **§6.3's extra bullets (§1).** Besides the eight topics, §6.3 says how to explore first (shops stopped, the preview, playwright-cli with the saved session) and what "done" means: green from a cold server, red under a deliberate break, no products left. Every spec in this change followed that method.
 - **§6.6 (§1).** Its placeholder line became the first note.
 - **CLAUDE.md's ruleset sentence (§2)** still names `ci` and `smoke`. The ruleset changes only after the merge (6.5), so that sentence and the deploy plan's record change together in the archive PR.
+
+**Implementation review fixes (2026-10-02; `reviews/impl-review.md`):**
+
+- **F1, a per-run hold (Phase 1 §3–§5).** The config names each run (`E2E_RUN`, inherited by every worker), and the shops a run stops carry `e2e:<run>`; the command line holds them as `e2e:manual`.
+  - The setup refuses while any e2e hold exists, before it touches the run file.
+  - The teardown switches back on only its own shops, and fails unless it restored exactly the ones its setup stopped. Otherwise someone released them mid-run.
+  - `restore` releases every e2e hold: the way out of a killed run.
+  - `run.json` now holds the run's name and the stopped shops, and no password.
+- **F2, the guard (Phase 1 §2–§3).**
+  - Every line of `.env` and `.dev.vars` that mentions `SUPABASE_URL`, outside a comment, must be exactly `SUPABASE_URL=http://127.0.0.1` or `http://localhost` (any port, quoted or not). Wrangler's dotenv grammar also reads `export`, spaces around `=` and `KEY: value`.
+  - Both files are read from the repository's root, which the config loads `.env` from too.
+  - `CLOUDFLARE_ENV` must be unset.
+- **F3, no reused server (Phase 1 §2).** `reuseExistingServer` is `false`, so a server already on the port fails the run instead of being tested in place of the build.
+- **F4, the focus check (Phase 4 §2, step 7)** also requires the outline's colour not to be transparent (alpha > 0), read through a 1 × 1 canvas. A transparent outline has a style and a width, and shows nothing.
+  - The check reads the outline only once the control's transitions have finished (`getAnimations()`), because Tailwind's `transition` fades `outline-color` too.
+  - Without that wait, its first break run stayed green: the check read the colour mid-fade, still near the ring's.
+- **F5, the session handoff (Phase 3 §1).** The setup hands the sign-up's session to the seeding helpers through `run.json`, and the helpers take it over (`setSession`) instead of signing in. A run now costs the local auth limit one sign-up and the form's one sign-in, at any worker count, against the plan's "at most one helper sign-in per worker".
+- **F6, a page's cost (Phases 3–4).** `recordPriceCalls` records the island's price requests, each naming its shop and item.
+  - phone-refresh asserts none on opening the fresh product, and exactly one per shop, for the page's items, after the tap.
+  - price-honesty asserts that the whole flow asked only P2's Rossmann and P4's Natura.
+- **F7, a safety net (Phase 1 §5).** A `globalTeardown` switches the run's shops back on after Ctrl+C, which can skip the teardown project. A run killed outright leaves its hold, and the next run refuses until `restore`.
+- **F8, the CI pin (Phase 2 §1).** A comment in the e2e job says its CLI pin and left-out services are the smoke job's, to change together. The smoke job stays untouched.
+- **F9 (Phase 5 §2, step 3).** The decline spec waits for the island after "Anuluj", once the choice is gone from the new page.
+- **F10.** Five texts were corrected:
+  - this plan's Phase 1 notes on the guard and the mark;
+  - §6.3's provenance rule, which now asks for the values' source only where a spec judges prices;
+  - the roadmap's S-04 note;
+  - the seeding helpers' comment on what acts as superuser.
 
 ## References
 

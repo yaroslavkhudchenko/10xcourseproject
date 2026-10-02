@@ -1,20 +1,30 @@
 // The run's setup (test-plan Phase 1, context/changes/testing-critical-browser-flows/plan.md): it stops every shop for
-// the whole run, signs a fresh local user up, and signs that user in once through the real form, so every spec starts
-// with that user's session (storageState) and none can reach a shop. It only obtains the session: the seed
-// (seed.spec.ts), not the setup, proves that the list honours it on workerd. Its teardown is shops.teardown.ts.
+// the whole run, held under the run's own name, signs a fresh local user up, and signs that user in once through the real
+// form, so every spec starts with that user's session (storageState) and none can reach a shop. It only obtains the
+// session: the seed (seed.spec.ts), not the setup, proves that the list honours it on workerd. Its teardown is
+// shops.teardown.ts, and support/global-teardown.ts switches the run's shops back on if that one never ran.
 import { randomBytes } from "node:crypto";
 import { expect, test as setup } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
-import { requestLogMark, stopShops } from "../../scripts/e2e-local-db.mjs";
+import { e2eHolds, requestLogMark, stopShops } from "../../scripts/e2e-local-db.mjs";
 import { waitForIsland } from "./support/islands";
-import { clearRun, SESSION_FILE, writeRun } from "./support/run";
+import { clearRun, runId, SESSION_FILE, writeRun } from "./support/run";
 
-setup("stop every shop, then sign the run's user up and in", async ({ page }) => {
+setup("stop every shop for this run, then sign the run's user up and in", async ({ page }) => {
+  const run = runId();
+  // Another run, or a manual `stop`, holds the shops. Going on would let one of the two switch them back on while the
+  // other still runs. A hold whose run was killed stays until `restore`. Checked before anything is touched, so a run
+  // that stops here leaves the other run's files and shops as they are.
+  expect(
+    e2eHolds(),
+    "no other e2e run or manual stop holds the shops (if none is going: node scripts/e2e-local-db.mjs restore)",
+  ).toEqual([]);
+
   // A run file an earlier run left would hand this run's teardown a stale mark.
   clearRun();
 
   // Every shop stops before anything is asked. The mark comes after, once nothing can reserve a request any more.
-  stopShops();
+  const stopped = stopShops(run);
   const mark = requestLogMark();
 
   // Local sign-up is on with email confirmation off, so signing up returns a session (supabase/config.toml).
@@ -27,7 +37,9 @@ setup("stop every shop, then sign the run's user up and in", async ({ page }) =>
   const password = `E2e-${randomBytes(12).toString("base64url")}`;
   const { data, error } = await client.auth.signUp({ email, password });
   expect(error).toBeNull();
-  expect(data.session, "local sign-up returns a session").not.toBeNull();
+  const session = data.session;
+  if (!session)
+    throw new Error("local sign-up returned no session (is email confirmation off in supabase/config.toml?)");
 
   // The gate's own view: the shops the app calls answer "stopped" before any request is counted or sent.
   for (const shop of ["rossmann", "natura"]) {
@@ -57,5 +69,13 @@ setup("stop every shop, then sign the run's user up and in", async ({ page }) =>
   expect(answer.headers().location, "the sign-in route sends a signed-in user to the list").toBe("/watchlist");
 
   await page.context().storageState({ path: SESSION_FILE });
-  writeRun({ email, password, mark });
+  // The sign-up's session goes to the seeding helpers, so no worker signs in again: a run costs the local auth limit one
+  // sign-up and this one sign-in, at any worker count.
+  writeRun({
+    run,
+    email,
+    session: { accessToken: session.access_token, refreshToken: session.refresh_token },
+    mark,
+    stopped,
+  });
 });

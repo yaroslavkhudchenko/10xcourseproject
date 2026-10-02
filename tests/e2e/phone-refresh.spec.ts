@@ -13,6 +13,7 @@ import {
   marksOf,
   openFromList,
   priceOf,
+  recordPriceCalls,
   rowOf,
   sidewaysScroll,
   stoppedNotice,
@@ -23,16 +24,35 @@ test.afterEach(async () => {
   await removeSeededProducts();
 });
 
-/** Keyboard focus as drawn: whether it sits on a control the keyboard reached, and that control's outline. */
+/**
+ * Keyboard focus as drawn: whether it sits on a control the keyboard reached, and that control's outline, with the
+ * opacity of its colour (0 to 255), read by painting the colour, since a canvas parses every syntax the page computes.
+ * It's read once the control's transitions have run: Tailwind's `transition` fades `outline-color` too, so an outline
+ * turning transparent still shows its old colour for a moment.
+ */
 function focusRing(page: Page) {
-  return page.evaluate(() => {
+  return page.evaluate(async () => {
     const control = document.activeElement;
-    if (control === null || control === document.body) return { onControl: false, style: "none", width: 0 };
-    const { outlineStyle, outlineWidth } = getComputedStyle(control);
+    if (control === null || control === document.body) return { onControl: false, style: "none", width: 0, alpha: 0 };
+    await Promise.all(control.getAnimations().map((animation) => animation.finished.catch(() => undefined)));
+    const { outlineStyle, outlineWidth, outlineColor } = getComputedStyle(control);
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    const paint = canvas.getContext("2d");
+    let alpha = 0;
+    if (paint) {
+      // A colour the canvas can't parse leaves this transparent one in place, so it reads as no outline, not as one.
+      paint.fillStyle = "rgba(0, 0, 0, 0)";
+      paint.fillStyle = outlineColor;
+      paint.fillRect(0, 0, 1, 1);
+      alpha = paint.getImageData(0, 0, 1, 1).data[3];
+    }
     return {
       onControl: control.matches(":focus-visible"),
       style: outlineStyle,
       width: Number.parseFloat(outlineWidth),
+      alpha,
     };
   });
 }
@@ -42,6 +62,8 @@ async function expectDrawnFocus(page: Page, when: string): Promise<void> {
   expect(ring.onControl, `${when}: keyboard focus is on a control`).toBe(true);
   expect(ring.style, `${when}: the focused control draws an outline`).not.toBe("none");
   expect(ring.width, `${when}: the outline is at least 2 px wide`).toBeGreaterThanOrEqual(2);
+  // A transparent outline (Tailwind's outline-hidden) has a style and a width, and shows nothing.
+  expect(ring.alpha, `${when}: the outline's colour isn't transparent`).toBeGreaterThan(0);
 }
 
 test("#7: on a phone, a refresh with every shop stopped keeps each price and age, says why, and shows focus", async ({
@@ -55,6 +77,9 @@ test("#7: on a phone, a refresh with every shop stopped keeps each price and age
     ["Rossmann", "19,99"],
     ["Natura", "14,49"],
   ] as const;
+  // What the page asks the shops for, through the island's price requests (lessons: "Bound what each page view and
+  // action costs every shop").
+  const priceCalls = recordPriceCalls(page);
 
   // 1. On the list, the row names Natura as cheapest with its price, how much cheaper it is and its age, and the page
   // doesn't scroll sideways.
@@ -73,6 +98,8 @@ test("#7: on a phone, a refresh with every shop stopped keeps each price and age
     await expect(ageLine(cardOf(page, shop), JUST_NOW)).toBeVisible();
   }
   await expect(cardOf(page, "Natura").getByText("Najtaniej", { exact: true })).toBeVisible();
+  // Both prices are fresh, so opening the product asks no shop.
+  expect(priceCalls, "opening a product whose prices are fresh asks no shop").toEqual([]);
 
   // 4. Tap the bottom bar's "Odśwież ceny".
   await page.getByRole("button", { name: "Odśwież ceny tego produktu" }).tap();
@@ -86,6 +113,14 @@ test("#7: on a phone, a refresh with every shop stopped keeps each price and age
   }
   await expect(marksOf(page)).toHaveCount(1);
   await expect(cardOf(page, "Natura").getByText("Najtaniej", { exact: true })).toBeVisible();
+  // The refresh asked each shop once, for the item the page shows there, and opening the product asked none.
+  expect(
+    [...priceCalls].sort((a, b) => a.shop.localeCompare(b.shop)),
+    "the refresh asks each shop once, for this product's item",
+  ).toEqual([
+    { shop: "natura", shopItemId: product.sku },
+    { shop: "rossmann", shopItemId: product.itemId },
+  ]);
 
   // 6. The page still doesn't scroll sideways.
   await expect.poll(() => sidewaysScroll(page)).toBe(0);

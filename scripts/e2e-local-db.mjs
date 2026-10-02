@@ -1,82 +1,101 @@
-// Local superuser access for the e2e tests (tests/e2e): what no user token may do. It stops every shop for a run and
-// switches those shops back on afterwards, reads the shop request log's sequence, and moves a seeded check back in time.
-// Every statement runs as the local postgres superuser through `docker exec` on the local stack's database container,
-// so it can never reach a hosted project, and nothing runs unless .env and .dev.vars point at the local stack.
+// Local superuser access for the e2e tests (tests/e2e): what no user token may do. It holds every shop for a run, under
+// the run's own name, and switches only that run's shops back on afterwards; it reads the shop request log's sequence,
+// and it moves a seeded check back in time. Every statement runs as the local postgres superuser through `docker exec`
+// on the local stack's database container, so it can never reach a hosted project, and nothing runs unless .env and
+// .dev.vars point at the local stack.
 // Between runs, before exploring the app with playwright-cli: `node scripts/e2e-local-db.mjs stop`, then `restore`.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// The reason a run stops a shop with, so its teardown switches back on only those, never a shop a real block stopped.
-const E2E_REASON = "e2e";
+// The repository's root: the files the guard judges are the ones the build reads, wherever the command runs from.
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
+// Every e2e hold's reason starts with this. A run holds the shops as `e2e:<its name>` and the command line as
+// `e2e:manual`, so each holder switches back on only its own shops, never another run's or a shop a real block stopped.
+const HOLD = "e2e";
+// A holder's name, a run's or "manual", goes into a statement only in this shape.
+const HOLDER = /^[A-Za-z0-9-]{1,40}$/;
 // A shop id goes into a statement only once it has this shape and names a row of public.shops.
 const SHOP_ID = /^[a-z-]{1,40}$/;
 // The database's rule for a shop item id (watchlist_items, watchlist_matches, price_observations).
 const SHOP_ITEM_ID = /^[A-Za-z0-9._-]{1,40}$/;
+// The only SUPABASE_URL a run accepts: the local stack, over plain http, on any port, quoted or not.
+const LOCAL_URL = /^(["']?)http:\/\/(?:127\.0\.0\.1|localhost)(?::\d{1,5})?\/?\1$/;
 
 /**
- * The hosts of every SUPABASE_URL line in a dotenv-style file, since Node's loadEnvFile and wrangler take the last one:
- * each is judged. Empty when the file or the line is missing.
- * @param {string} file
- * @returns {(string | null)[]}
+ * Refuses to go on unless both the tests' Supabase and the preview's are the local stack. A run stops shops for the whole
+ * deployment it talks to, so a hosted project must never be one.
+ * - The value the tests use (SUPABASE_URL in the environment, which the config loads from .env) must be local.
+ * - Every line of .env and .dev.vars that mentions SUPABASE_URL, outside a comment, must be exactly a local
+ *   `SUPABASE_URL=`. Node and wrangler read dotenv's wider grammar (`export`, spaces around `=`, `KEY: value`) and keep a
+ *   file's last line, so any other form could set the value the build binds.
+ * - .dev.vars must set it, since the build copies that file into dist/server for the preview.
+ * - CLOUDFLARE_ENV must be unset: wrangler would read `.dev.vars.<that environment>` instead.
  */
-function supabaseHostsIn(file) {
-  if (!existsSync(file)) return [];
-  return readFileSync(file, "utf8")
-    .split(/\r?\n/)
-    .filter((entry) => entry.startsWith("SUPABASE_URL="))
-    .map((entry) => hostOf(entry.slice("SUPABASE_URL=".length).trim()));
+export function assertLocalSupabase() {
+  const cloudflareEnv = process.env.CLOUDFLARE_ENV;
+  if (cloudflareEnv) refuse(`CLOUDFLARE_ENV is set, so wrangler would read .dev.vars.${cloudflareEnv} instead`);
+  const fromEnvironment = process.env.SUPABASE_URL;
+  if (fromEnvironment !== undefined && !LOCAL_URL.test(fromEnvironment)) {
+    refuse(`SUPABASE_URL in the environment points at ${hostOf(fromEnvironment)}, not the local Supabase`);
+  }
+  judgeFile(".env", fromEnvironment === undefined);
+  judgeFile(".dev.vars", true);
 }
 
 /**
- * @param {string | undefined} url
- * @returns {string | null}
+ * Refuses a file whose SUPABASE_URL lines aren't all exactly local, or that sets none when it must.
+ * @param {string} name
+ * @param {boolean} required
+ */
+function judgeFile(name, required) {
+  const file = join(ROOT, name);
+  const lines = existsSync(file) ? readFileSync(file, "utf8").split(/\r?\n/) : [];
+  let found = false;
+  lines.forEach((line, index) => {
+    if (!line.includes("SUPABASE_URL") || /^\s*#/.test(line)) return;
+    found = true;
+    const value = line.startsWith("SUPABASE_URL=") ? line.slice("SUPABASE_URL=".length) : null;
+    if (value === null || !LOCAL_URL.test(value)) {
+      refuse(`${name}, line ${String(index + 1)}, isn't SUPABASE_URL=http://127.0.0.1 or http://localhost (any port)`);
+    }
+  });
+  if (required && !found) refuse(`${name} sets no SUPABASE_URL`);
+}
+
+/**
+ * @param {string} url
+ * @returns {string}
  */
 function hostOf(url) {
-  if (!url) return null;
   try {
     return new URL(url).hostname;
   } catch {
-    return null;
+    return "an address that doesn't parse";
   }
 }
 
 /**
- * Refuses to go on unless both the tests' Supabase (SUPABASE_URL, from the environment or .env) and the preview's
- * (.dev.vars, which the build copies into dist/server) are the local stack. A run stops shops for the whole deployment
- * it talks to, so a hosted project must never be one.
+ * @param {string} reason
+ * @returns {never}
  */
-export function assertLocalSupabase() {
-  const fromEnvironment = process.env.SUPABASE_URL;
-  if (fromEnvironment === undefined) refuseUnlessLocal(".env", supabaseHostsIn(".env"));
-  else refuseUnlessLocal("SUPABASE_URL in the environment", [hostOf(fromEnvironment)]);
-  refuseUnlessLocal(".dev.vars", supabaseHostsIn(".dev.vars"));
-}
-
-/**
- * @param {string} source
- * @param {(string | null)[]} hosts
- */
-function refuseUnlessLocal(source, hosts) {
-  const notLocal = hosts.length === 0 ? [null] : hosts.filter((host) => host !== "127.0.0.1" && host !== "localhost");
-  if (notLocal.length > 0) {
-    throw new Error(
-      `refusing to run e2e tests: ${source} points at ${notLocal.map((host) => host ?? "nothing").join(", ")}, not the local Supabase (127.0.0.1 or localhost)`,
-    );
-  }
+function refuse(reason) {
+  throw new Error(`refusing to run e2e tests: ${reason}`);
 }
 
 /** The local stack's database container: the Supabase CLI names it after supabase/config.toml's project_id. */
 function databaseContainer() {
-  const projectId = /^project_id\s*=\s*"([^"]+)"/m.exec(readFileSync("supabase/config.toml", "utf8"))?.[1];
+  const config = readFileSync(join(ROOT, "supabase", "config.toml"), "utf8");
+  const projectId = /^project_id\s*=\s*"([^"]+)"/m.exec(config)?.[1];
   if (!projectId) throw new Error("supabase/config.toml names no project_id");
   return `supabase_db_${projectId}`;
 }
 
 /**
  * Runs one statement as the local superuser and returns its rows, one line each, columns joined by "|".
- * Every value in a statement comes from a constant or passed one of the id rules above.
+ * Every value in a statement comes from a constant or passed one of the rules above.
  * @param {string} statement
  * @returns {string[]}
  */
@@ -104,22 +123,55 @@ function sql(statement) {
 }
 
 /**
- * Stops every enabled shop for the run, marked as the e2e run's, and returns their ids.
+ * The reason a holder's shops carry.
+ * @param {string} holder
+ * @returns {string}
+ */
+function holdOf(holder) {
+  if (!HOLDER.test(holder)) throw new Error(`refusing a hold named ${holder}`);
+  return `${HOLD}:${holder}`;
+}
+
+/**
+ * Stops every enabled shop, held under the holder's name (a run's, or "manual"), and returns their ids.
+ * @param {string} holder
  * @returns {string[]}
  */
-export function stopShops() {
+export function stopShops(holder) {
   return sql(
-    `update public.shops set enabled = false, disabled_reason = '${E2E_REASON}', disabled_at = now(), updated_at = now() where enabled returning id`,
+    `update public.shops set enabled = false, disabled_reason = '${holdOf(holder)}', disabled_at = now(), updated_at = now() where enabled returning id`,
   );
 }
 
 /**
- * Switches back on the shops an e2e run stopped, and only those, and returns their ids.
+ * Switches back on the shops the holder stopped, and only those, and returns their ids.
+ * @param {string} holder
  * @returns {string[]}
  */
-export function restoreShops() {
+export function restoreShops(holder) {
   return sql(
-    `update public.shops set enabled = true, disabled_reason = null, disabled_at = null, updated_at = now() where not enabled and disabled_reason = '${E2E_REASON}' returning id`,
+    `update public.shops set enabled = true, disabled_reason = null, disabled_at = null, updated_at = now() where not enabled and disabled_reason = '${holdOf(holder)}' returning id`,
+  );
+}
+
+/**
+ * The shops an e2e holder stops, as "<shop>|<reason>": none while no run or manual stop holds them.
+ * @returns {string[]}
+ */
+export function e2eHolds() {
+  return sql(
+    `select id || '|' || disabled_reason from public.shops where not enabled and disabled_reason like '${HOLD}%' order by id`,
+  );
+}
+
+/**
+ * Switches back on every shop any e2e holder stops: the way out of a hold whose run was killed before its teardown.
+ * Only while no run is going, since it releases that run's hold too.
+ * @returns {string[]}
+ */
+export function restoreAllHolds() {
+  return sql(
+    `update public.shops set enabled = true, disabled_reason = null, disabled_at = null, updated_at = now() where not enabled and disabled_reason like '${HOLD}%' returning id`,
   );
 }
 
@@ -132,8 +184,8 @@ export function enabledShops() {
 }
 
 /**
- * The shop request log's sequence. Every reservation moves it and a stopped shop never does, so an unchanged mark proves
- * that no shop request was reserved in between.
+ * The shop request log's sequence and whether it was ever used. Every reservation moves it and a stopped shop never
+ * does, so an unchanged mark proves that no shop request was reserved in between, the first one on a fresh stack too.
  * @returns {string}
  */
 export function requestLogMark() {
@@ -163,15 +215,21 @@ export function backdateChecks(shopId, shopItemId, hours) {
   ).length;
 }
 
-// `node scripts/e2e-local-db.mjs stop|restore`: hold the shops while exploring the app between runs.
+// `node scripts/e2e-local-db.mjs stop|restore`: hold the shops while exploring the app between runs, and let them go.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const command = process.argv[2];
   if (command === "stop") {
-    const stopped = stopShops();
+    // A run holds them already: a manual hold now would end when that run's teardown switches its shops back on.
+    const held = e2eHolds();
+    if (held.length) {
+      console.log(`already held: ${held.join(", ")}. Wait for that run, or run \`restore\` if none is going.`);
+      process.exit(1);
+    }
+    const stopped = stopShops("manual");
     console.log(stopped.length ? `stopped: ${stopped.join(", ")}` : "no enabled shop to stop");
   } else if (command === "restore") {
-    const restored = restoreShops();
-    console.log(restored.length ? `switched back on: ${restored.join(", ")}` : "no shop stopped by an e2e run");
+    const restored = restoreAllHolds();
+    console.log(restored.length ? `switched back on: ${restored.join(", ")}` : "no shop held by an e2e run or a stop");
   } else {
     console.log("usage: node scripts/e2e-local-db.mjs stop|restore");
     process.exit(1);
