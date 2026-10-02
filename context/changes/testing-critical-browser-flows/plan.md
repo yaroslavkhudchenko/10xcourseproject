@@ -764,6 +764,14 @@ One line per adaptation, naming the contract it changes and why, in the phase's 
 - **The focus check (§2, step 7)** reads the focused control's computed outline after one Tab, then again with forced colours emulated on the same control. A second Tab would depend on where the first one landed.
 - **The hydration helper (§1)** already existed from Phase 1, so this phase adds nothing there.
 
+**Phase 5, written by `/10x-e2e` (2026-10-02):**
+
+- **The removal's summary (§1, step 1; the phase's note on `<summary>`).** Playwright gives `<summary>` no role of its own: the `<details>` is a `group` whose text is "Usuń z listy". A closed `<details>` also keeps its confirm button in the DOM, which `getByText` matches too. So the spec taps the visible "Usuń z listy" inside the group (`filter({ visible: true })`), and finds the confirm as the group's button.
+- **"Removes nothing" on the first tap (§1, step 1).** The confirm becomes visible, while the product's heading and its page's address stay. A removal posts and leaves the page.
+- **The notices' roles (§1, step 3; §2, step 5).** The removal's notice on the list is a `status`. The decline's notice is a `status` inside Natura's card.
+- **The choice (§2, steps 2–3).** Its "Anuluj" is the one in the "Drogerie Natura" region, because Natura's card offers its own "Anuluj" while the choice is open. "No candidate" means no "To ten produkt" button in the choice.
+- **After the decline (§2, step 6).** The spec waits for the island before asserting that no "Najtaniej" is left. It checks the verdict with an inline ARIA snapshot ("Jedyna znana cena", 19,99 zł, "w Rossmannie"), as Phase 3 does.
+
 ## References
 
 - Research: `context/changes/testing-critical-browser-flows/research.md`
@@ -821,23 +829,23 @@ One line per adaptation, naming the contract it changes and why, in the phase's 
 
 #### Automated
 
-- [x] 4.1 `phone-refresh.spec.ts` passes from a cold server with the request log unmoved
-- [x] 4.2 `phone-refresh-no-js.spec.ts` passes from a cold server with the request log unmoved
-- [x] 4.3 Deliberate break: with the prices route answering an error, `phone-refresh.spec.ts` goes red on the stopped notice; reverted
-- [x] 4.4 Deliberate break: with the base layer's focus outline removed, `phone-refresh.spec.ts` goes red on the focus check; reverted
-- [x] 4.5 Deliberate break: with the refresh route redirecting without its result code, `phone-refresh-no-js.spec.ts` goes red on the notice; reverted
-- [x] 4.6 After green and red runs, neither spec leaves a product on the run user's list
-- [ ] 4.7 Lint, `astro check` and unit tests pass, and CI's `e2e` job is green on the phase's commit
+- [x] 4.1 `phone-refresh.spec.ts` passes from a cold server with the request log unmoved — cc2acf0
+- [x] 4.2 `phone-refresh-no-js.spec.ts` passes from a cold server with the request log unmoved — cc2acf0
+- [x] 4.3 Deliberate break: with the prices route answering an error, `phone-refresh.spec.ts` goes red on the stopped notice; reverted — cc2acf0
+- [x] 4.4 Deliberate break: with the base layer's focus outline removed, `phone-refresh.spec.ts` goes red on the focus check; reverted — cc2acf0
+- [x] 4.5 Deliberate break: with the refresh route redirecting without its result code, `phone-refresh-no-js.spec.ts` goes red on the notice; reverted — cc2acf0
+- [x] 4.6 After green and red runs, neither spec leaves a product on the run user's list — cc2acf0
+- [x] 4.7 Lint, `astro check` and unit tests pass, and CI's `e2e` job is green on the phase's commit — cc2acf0
 
 ### Phase 5: Removals on a phone (#7)
 
 #### Automated
 
-- [ ] 5.1 `phone-remove-product.spec.ts` passes from a cold server with the request log unmoved
-- [ ] 5.2 `phone-decline-match.spec.ts` passes from a cold server with the request log unmoved
-- [ ] 5.3 Deliberate break: with the removal route redirecting `done` without deleting, the removal spec goes red on the row's absence; reverted
-- [ ] 5.4 Deliberate break: with the decline's write never matching, the decline spec goes red on Natura's card; reverted
-- [ ] 5.5 After green and red runs, neither spec leaves a product on the run user's list
+- [x] 5.1 `phone-remove-product.spec.ts` passes from a cold server with the request log unmoved
+- [x] 5.2 `phone-decline-match.spec.ts` passes from a cold server with the request log unmoved
+- [x] 5.3 Deliberate break: with the removal route redirecting `done` without deleting, the removal spec goes red on the row's absence; reverted
+- [x] 5.4 Deliberate break: with the decline's write never matching, the decline spec goes red on Natura's card; reverted
+- [x] 5.5 After green and red runs, neither spec leaves a product on the run user's list
 - [ ] 5.6 The whole suite passes in one cold run with the request log unmoved, and CI's `e2e` job is green on the phase's commit
 
 ### Phase 6: Docs and the cookbook
