@@ -1,0 +1,154 @@
+# Test Plan
+
+> Phased test rollout for this project. Strategy is frozen at the top
+> (§1–§5); cookbook patterns at the bottom (§6) fill in as phases ship.
+> Read before writing any new test.
+>
+> Refresh: re-run `/10x-test-plan --refresh` when stale (see §8).
+>
+> Last updated: 2026-10-02
+
+## 1. Strategy
+
+Tests follow three non-negotiable principles for this project:
+
+1. **Cost × signal.** The cheapest test that gives a real signal for the risk wins. Do not promote to e2e because e2e "feels safer." Do not put a vision model on top of a deterministic visual diff that already catches the regression.
+2. **User concerns are first-class evidence.** Risks anchored in "the owner is worried that a stale price looks current, and the failure would surface somewhere in the price display" carry the same weight as PRD lines or hot-spot data.
+3. **Risks are scenarios, not code locations.** This plan documents _what could fail_ and _why we believe it's likely_ — drawn from documents, interview, and codebase _signal_ (churn, structure, test base). It does NOT claim to know which line owns the failure. That knowledge is produced by `/10x-research` during each rollout phase. If the plan and research disagree about where the failure lives, research is the ground truth.
+
+Hot-spot scope used for likelihood weighting: `src/` (without `src/lib/services/shops/fixtures/` and `src/dev/`), `supabase/migrations/`, `scripts/`. The project started on 2026-09-20, so the 30-day window is its whole history: 36 commits in scope.
+
+## 2. Risk Map
+
+The top failure scenarios this project must protect against, ordered by risk = impact × likelihood. Risks are failure scenarios in user / business terms, not test names. The Source column cites the _evidence that surfaced this risk_ — never a specific file as "where the failure lives" (that is research's job, see §1 principle #3).
+
+Archive folders are under `context/archive/`, and "review F<n>" is finding F<n> in that change's `reviews/impl-review.md`. Interview (2026-10-02): Q1 what worries you most, Q2 where you were burned, Q3 what you change without confidence, Q4 what feels under-tested, Q5 what not to spend tests on.
+
+| #   | Risk (failure scenario)                                                                                                                                                                      | Impact | Likelihood | Source (evidence — not anchor)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | A stale, ended-promotion or unread price is shown as current, or the wrong shop is marked cheapest, and the shopper buys at the wrong shop                                                   | High   | High       | `prd.md:49` (guardrail), US-01; `2026-09-28-cheapest-shop-today` review F1 (an ended promotion stayed cheapest); `2026-09-29-product-page-ui` review F1 and `2026-09-30-etykiety-redesign` review F1–F2 (unread prices read as "not checked", list prices without their age); interview Q1, Q3; hot-spot dirs `src/lib/services` (27 commits/30d), `src/components/watchlist` (19 commits/30d); roadmap S-04, S-05, S-06                                         |
+| 2   | A deploy breaks production for everyone: code ships before its migration, a setting drifts, or code that passes in Node fails on Workers, and nothing notices before the owner's phone check | High   | High       | `2026-09-27-watchlist-add-by-search/plan.md:570-573` (merged before its migration, every list and add failed); `2026-09-26-polite-shop-access` review F4 (green in Node, "Illegal invocation" on workerd); `deploy-plan.md:216-219` (production sign-up stayed open until saved); interview Q1, Q2, Q4                                                                                                                                                           |
+| 3   | A shop blocks the deployment for every user because a page view, a crafted link, a reload, a retry or search text spends the shared per-shop cap, bypasses the gate or trips its firewall    | High   | High       | `prd.md:146` (polite to the shops); `lessons.md:15-16`; a cap or gate finding in six of seven reviews: `2026-09-26-polite-shop-access` F1, `2026-09-27-watchlist-add-by-search` F5, `2026-09-27-shop-matching-first-two-shops` F3, `2026-09-28-cheapest-shop-today` F3, `2026-09-30-etykiety-redesign` F7, `2026-10-01-fix-matches-and-watchlist` F2; interview Q1, Q3; roadmap S-05, S-06                                                                       |
+| 4   | A signed-in user reads, infers or changes another user's watchlist, matches or prices through a route or a direct database call, or a stranger creates an account                            | High   | Medium     | `prd.md:50` and Access Control; `deploy-plan.md:216-219`; security gaps in the first schema designs (`2026-09-26-polite-shop-access/plan.md:390`, `2026-09-27-shop-matching-first-two-shops/plan.md:601-602`) and the accepted direct-call stop (`2026-09-26-polite-shop-access` review F2); interview Q1, Q2, Q3; hot-spot dir `supabase/migrations` (6 commits/30d); roadmap S-07                                                                              |
+| 5   | A shop changes its answer and the app shows a wrong price, "not found" or "missing" instead of a visible gap                                                                                 | High   | Medium     | `polish-drugstore-price-apis.md:269` (undocumented endpoints change without notice); `2026-09-27-shop-matching-first-two-shops` review F2 (a format change would be stored as "not found"); `lessons.md:22-23`; recordings that contradicted the research note (`2026-09-27-watchlist-add-by-search/plan.md:546-547`, `2026-09-27-shop-matching-first-two-shops/plan.md:605-606`); interview Q2, Q4                                                              |
+| 6   | The comparison uses the wrong product: an automatic match with another size or brand, a shop with wrong or missing EANs, or a stale tab overwriting a newer decision                         | High   | Medium     | `prd.md:95`, FR-006, FR-007; `polish-drugstore-price-apis.md:33` (Hebe's EAN query gave a 237 ml item); `2026-09-27-shop-matching-first-two-shops/plan-brief.md:76`; `2026-10-01-fix-matches-and-watchlist/research.md:259` (the brand rule rests on one recorded pair) and review F1 (a stale page priced a re-pinned item under the old name); interview Q1; roadmap S-05, S-06                                                                                |
+| 7   | A browser-only regression breaks the phone flow at the shelf: islands don't hydrate, the live per-shop refresh stops, a no-JavaScript form fails, the layout overflows or focus disappears   | Medium | High       | PRD non-functional requirements (usable on a phone in the shop, feedback per shop); `2026-09-30-etykiety-redesign/plan.md:1137` (no island hydrated on a stale dev cache) and `:1187-1196` (layout and tap-target bugs found only in a browser); `2026-10-01-fix-matches-and-watchlist/plan.md:936-941` (no-JS confirm and bottom bar checked by hand); interview Q2, Q3, Q4; hot-spot dirs `src/pages/watchlist` (16 commits/30d), `src/styles` (9 commits/30d) |
+
+Abuse scenarios: #3 (resource abuse: crafted links, firewall-tripping search text, direct calls that spend the cap) and #4 (another user's data, sign-up without an invite).
+
+### Risk Response Guidance
+
+| Risk | What would prove protection                                                                                                                                                                                                                                                                    | Must challenge                                                                                                                        | Context `/10x-research` must ground                                                                                                                                         | Likely cheapest layer                                                                                                                                    | Anti-pattern to avoid                                                                                                  |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| #1   | With shops in mixed states (fresh, older than 24 h, ended promotion, not orderable, unreadable, still loading), no shop is marked cheapest unless its price is fresh and orderable, every price shows its shop and age, and an unread shop shows a gap, on the list and the product page alike | "The list and the product page read prices the same way"; "a stored price is a current price"                                         | every reader of stored prices (list, product page, live refresh) and what each does with an unread row; how each shop's promotion end and 30-day low are read               | unit (the rules are covered) + integration over the stored-price reads; one rendered check in Phase 1                                                    | expected values copied from the rule under test (take them from the PRD guardrail and FR-011); an all-fresh happy path |
+| #2   | A build that would break production fails before or at deploy: Workers-only breakage fails the CI preview, a PR whose migration isn't on production can't merge unnoticed, and after a deploy production answers, refuses sign-up and protects its pages                                       | "Green Node tests mean it works on Workers"; "a ticked Progress row means the migration is live"                                      | what CI's smoke job runs on, what Workers Builds runs, how migrations reach production, which production checks can run read-only and signed out without secrets in GitHub  | smoke on the workerd preview (exists) + a pre-merge migration gate + a signed-out post-deploy smoke                                                      | a check that needs production secrets in GitHub or writes to production; a smoke that asserts only status 200          |
+| #3   | No path (page view, cross-site link, reload or back, list refresh, retry, a refused shop) sends a shop more requests than its cap or any request after a 403 or challenge, and search text that could trip a firewall never reaches the shop                                                   | "Every shop call goes through the gate" (a new adapter or a redirect can bypass it); "a request counted is a request sent"            | every entry point that can reach a shop and what triggers it; the gate's reservation and stop rules; hosts shared between shops (Luigi's Box serves Hebe and Natura)        | integration through the real gate, counting the URLs the replay served, + the existing cap check in the database script                                  | mocking the gate itself; asserting the final status instead of the number of shop requests served                      |
+| #4   | With two real users, neither can read, list, infer, change or delete the other's rows (watchlist, matches, prices of items they don't watch) through any route or a direct database call, and production refuses sign-up                                                                       | "The UI only shows my rows, so the data is private"; "sign-up is off because the dashboard says so"; "a new table inherits the rules" | the row-level rules and grants on every table and view, each route's ownership check, how auth settings reach production, the cache headers on signed-in pages              | database contract checks (exist; extend with each migration) + two-user route tests + a read-only production auth-settings check                         | testing as one user; asserting the UI hides data instead of the database refusing it; a service-role key in tests      |
+| #5   | A changed answer (a missing field, a string for a number, HTML instead of JSON, a moved route, empty hits) becomes a visible gap or a failed check, never a price, "not found" or "missing", and is never stored as a price                                                                    | "The recording is the shop's contract" (recorded once, contradicted twice); "an empty answer means nothing found"; "a 404 means gone" | each adapter's parsing and failure translation, what is stored for each outcome, the recordings' provenance and dates                                                       | contract tests on deliberately broken copies of the recordings; noticing live drift is monitoring's job (Module 3 Lesson 5), since CI never calls a shop | replaying only the happy recording; broken copies shaped to what the parser already tolerates                          |
+| #6   | The automatic match never accepts a candidate whose size or brand definitely differs, a shop without EANs can't auto-accept, a stale tab's decision can't overwrite a newer one, and a suspicious match stays flagged                                                                          | "A shared EAN means the same product" (Hebe returns wrong EANs); "the brand rule is proven" (one recorded pair)                       | the matching rule and its inputs per shop, each shop's size units, the conditional decision write, where the flags show                                                     | unit tables on real recorded candidates, wrong-EAN cases included, + the decision write against the real database (today only stubbed)                   | candidates invented to pass; testing the conditional write only through stubs                                          |
+| #7   | On a phone-sized viewport and the production build, a signed-in user opens the list and a product, sees each shop's price with its age, refreshes, removes a product through the confirm and re-pins a match, with no live shops, no sideways scroll and visible focus                         | "Server HTML that looks right means the page works"; "the dev server behaves like the production build"                               | which flows cross auth, routing, API and database; how tests sign in once; how shops stay out (recorded answers or shops disabled); the preview build versus the dev server | e2e (Playwright), 2–3 flows, not every page                                                                                                              | e2e for what a unit test covers; fixed waits instead of waiting for state; tests sharing data; pixel snapshots (§7)    |
+
+## 3. Phased Rollout
+
+Each row is a discrete rollout phase that will open its own change folder via `/10x-new`. Status moves left-to-right through the values below; the orchestrator updates Status as artifacts appear on disk.
+
+| #   | Phase name                       | Goal (one line)                                                                                                                                                   | Risks covered  | Test types                                          | Status        | Change folder                                     |
+| --- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | --------------------------------------------------- | ------------- | ------------------------------------------------- |
+| 1   | Critical flows in a real browser | Prove a signed-in shopper on a phone sees each shop's price with its age and can refresh, remove and re-pin, on the production build and without live shops       | #7, #1, #2     | e2e (Playwright: `/10x-e2e-setup`, then `/10x-e2e`) | change opened | `context/changes/testing-critical-browser-flows/` |
+| 2   | Route and database seams         | Prove the list and the product page agree on unread or stale prices, routes refuse other users' rows, a stale decision loses, and every path to a shop is counted | #1, #3, #4, #6 | integration + database contract                     | not started   | —                                                 |
+| 3   | Shop answer contracts            | Prove a changed or refused shop answer becomes a visible gap, never a price or "not found", as the pattern the Hebe and Super-Pharm adapters reuse                | #5, #3         | contract + unit                                     | not started   | —                                                 |
+| 4   | Deploy and production checks     | Prove a merge can't ship ahead of its migration, and that production still answers, refuses sign-up and protects its pages after each deploy                      | #2, #4         | smoke + gates                                       | not started   | —                                                 |
+
+Phase 1 runs first although Risk #1 ranks higher: its cheapest layer, the unit rules, is already covered by the existing suite, the browser is the largest gap named in the interview (Q2, Q4) and the archives, and the course certification needs one user-perspective e2e test.
+
+## 4. Stack
+
+The classic test base for this project. AI-native tools (if any) carry a `checked:` date so future readers can see which lines need re-verification. Recommendations in this section are grounded in local manifests and configs plus the tools exposed in the current session.
+
+| Layer              | Tool                                                                               | Version | Notes                                                                                                                                                                 |
+| ------------------ | ---------------------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| unit + integration | Vitest                                                                             | 5.0.2   | Node environment, `src/**/*.test.ts`; not workerd, so breakage only on Workers needs the smoke or e2e layer                                                           |
+| shop answers       | recorded responses through `createReplayFetch`                                     | n/a     | recorded once with `curl` and the gate's User-Agent; no test calls a live shop                                                                                        |
+| database contract  | Node scripts against the local Supabase (CLI 2.117.0)                              | n/a     | four scripts in CI's `smoke` job: shop gate, watchlist, matches, prices; fresh throwaway users each run                                                               |
+| smoke              | `scripts/smoke.mjs`                                                                | n/a     | auth flow and route refusals against the workerd production preview in CI                                                                                             |
+| design guards      | `check-token-contrast.mjs`, `check-built-fonts.mjs`, ESLint token and island rules | n/a     | contrast pairs in both themes, fonts shipped by the build, tokens only in the watchlist views                                                                         |
+| e2e                | none yet — see Phase 1 (Playwright)                                                | —       | runs on the production preview with the local Supabase and no live shops                                                                                              |
+| accessibility      | contrast script only                                                               | n/a     | no automated axe checks yet                                                                                                                                           |
+| (AI-native)        | Playwright CLI (`@playwright/cli`) — checked: 2026-10-02                           | n/a     | the agent explores the running app through accessibility snapshots to write e2e tests. When NOT to use: as the gate itself; the committed Playwright test is the gate |
+| (AI-native)        | Claude Code hooks (post-edit lint, end-of-turn typecheck) — checked: 2026-10-02    | n/a     | set up by `/10x-configure-hook`. When NOT to use: as a CI substitute, or to run the whole suite on every edit                                                         |
+
+**Stack grounding tools (current session):**
+
+- Docs: none — Context7 is not available in the current session; versions read from `package.json`, `vitest.config.ts` and `.github/workflows/ci.yml`; checked: 2026-10-02
+- Search: built-in web search (Exa.ai is not available in the current session) — confirmed Playwright CLI for coding agents at playwright.dev/agent-cli; checked: 2026-10-02
+- Runtime/browser: no Playwright MCP; the `claude-in-chrome` skill and ad-hoc headless Chrome scripts exist but are not test layers; checked: 2026-10-02
+- Provider/platform: Cloudflare MCP installed but not signed in; GitHub through the `gh` CLI; Supabase through its CLI (`migration list --linked` is read-only); none wired into a gate yet; checked: 2026-10-02
+
+## 5. Quality Gates
+
+The full set of gates that must pass before a change reaches production. "Required after §3 Phase <N>" means the gate is enforced once that rollout phase lands; before that, the gate is planned.
+
+| Gate                                     | Where                             | Required?                                                         | Catches                                                  |
+| ---------------------------------------- | --------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------- |
+| lint + typecheck (ESLint, `astro check`) | local pre-commit (lint) + CI      | required                                                          | syntax, type and token-rule drift                        |
+| unit + integration (Vitest)              | local + CI                        | required                                                          | rule, adapter and service regressions                    |
+| database contract checks                 | CI (`smoke` job, local Supabase)  | required                                                          | row-level rules, grants, cascade and cap regressions     |
+| smoke on the workerd preview             | CI (`smoke` job)                  | required                                                          | auth flow and route refusals on the production build     |
+| contrast and font checks                 | CI                                | required                                                          | unreadable tokens, a build without its fonts             |
+| e2e on critical flows                    | CI on PR                          | required after §3 Phase 1                                         | broken critical user paths in a real browser             |
+| migration on production before merge     | owner, before merging a migration | required after §3 Phase 4                                         | code shipping ahead of its schema                        |
+| signed-out production smoke              | after each deploy                 | required after §3 Phase 4                                         | environment and setting drift (sign-up open, pages down) |
+| post-edit hook + end-of-turn typecheck   | local (agent loop)                | recommended — set up by `/10x-configure-hook` (Module 3 Lesson 3) | errors at edit time, before a commit                     |
+
+## 6. Cookbook Patterns
+
+How to add new tests in this project. Each sub-section is filled in once the relevant rollout phase ships; before that, the sub-section reads "TBD — see §3 Phase <N>."
+
+### 6.1 Adding a unit test
+
+- **Location**: beside the module, as `<module>.test.ts` under `src/`; Vitest includes `src/**/*.test.ts` only.
+- **Shop answers**: only through `createReplayFetch` (`src/lib/services/testing/replay-fetch.ts`) with recordings in `src/lib/services/shops/fixtures/`. Assert which URLs the replay served, because a miss looks like `failed/network`.
+- **Reference test**: `src/lib/services/shop-matching.test.ts`.
+- **Run locally**: `npm run test`; one test with `npx vitest run <file> -t "<name>"`.
+
+### 6.2 Adding an integration test against the local database
+
+- TBD — see §3 Phase 2 (two real users and real row-level rules: the list and the product page agreeing on an unread price, a route refusing another user's row, a stale decision losing).
+
+### 6.3 Adding an e2e test
+
+- TBD — see §3 Phase 1 (a signed-in shopper on a phone, recorded shop answers, one flow per risk).
+
+### 6.4 Adding a test for a shop adapter
+
+- TBD — see §3 Phase 3 (a changed or refused answer becoming a visible gap; the pattern for the Hebe and Super-Pharm adapters).
+
+### 6.5 Adding a production check
+
+- TBD — see §3 Phase 4 (the migration on production before a merge; signed-out checks after a deploy).
+
+### 6.6 Per-rollout-phase notes
+
+(Filled in as phases land: a 2–3 line note on anything a rollout phase taught.)
+
+## 7. What We Deliberately Don't Test
+
+Exclusions agreed during the rollout (Phase 2 interview, Q5). Future contributors should respect these unless the underlying assumption changes.
+
+- **Pixel-perfect screenshot comparisons** of every page and theme — the design changes with most slices, so such diffs would break constantly; visual risks get targeted e2e assertions instead. Re-evaluate if a visual regression reaches production twice. (Source: Phase 2 interview Q5.)
+- **The dev-only kitchen sinks** (`/dev/product-page`, `/dev/watchlist`) — served only by `astro dev` and never shipped. Re-evaluate if they become the review baseline for the views. (Source: Phase 2 interview Q5.)
+- **Coverage targets** — no coverage percentage is tracked, and rules already covered by boundary tables get no new tests for the number's sake. Re-evaluate if mutation testing (Module 3 Lesson 2) shows assertions that miss regressions. (Source: Phase 2 interview Q5.)
+- **Live shop calls in any automated suite** — tests and CI never call a shop (`CLAUDE.md` non-negotiables, `roadmap.md:80`); live drift is a monitoring concern. Re-evaluate only through an official shop feed. (Source: project rule.)
+
+## 8. Freshness Ledger
+
+- Strategy (§1–§5) last reviewed: 2026-10-02
+- Stack versions last verified: 2026-10-02
+- AI-native tool references last verified: 2026-10-02
+
+Refresh (`/10x-test-plan --refresh`) when:
+
+- a new top-3 risk surfaces from the roadmap or archive,
+- a recommended tool's `checked:` date is older than three months,
+- the project's tech stack changes (new framework, new test runner),
+- §7 negative-space no longer matches what the team believes.
