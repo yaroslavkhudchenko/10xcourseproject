@@ -48,6 +48,9 @@ export default defineConfig({
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
+    // In CI the build and the preview's start go into the job's log, so a failed build there can be read; locally they
+    // stay out of the test output.
+    stdout: process.env.CI ? "pipe" : "ignore",
     // Astro 7 moves `astro preview` into a background daemon when it detects an AI agent; this keeps it in the
     // foreground, so Playwright owns the server and stops it after the run.
     env: { ASTRO_PREVIEW_BACKGROUND: "1" },

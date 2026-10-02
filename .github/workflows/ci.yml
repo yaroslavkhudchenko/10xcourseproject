@@ -70,3 +70,41 @@ jobs:
           BASE_URL=http://localhost:4321 npm run smoke
       - if: always()
         run: supabase stop --no-backup
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          # Pinned: CLI releases change config keys (auto_expose_new_tables is removed on 2026-10-30).
+          version: 2.117.0
+      - run: npm ci
+      - name: Start local Supabase
+        run: |
+          supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,realtime,storage-api,postgres-meta,supavisor
+          supabase status -o env | grep -E '^(API_URL|ANON_KEY)=' > supabase.env
+      - name: Configure secrets for build and preview
+        run: |
+          source supabase.env
+          printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\n' "$API_URL" "$ANON_KEY" > .env
+          cp .env .dev.vars
+      - name: Install Playwright's Chromium
+        run: npx playwright install --with-deps chromium
+      # GitHub sets CI, so the config builds the app and starts the workerd preview itself.
+      - name: Run e2e tests against production preview
+        run: npx playwright test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+      - if: always()
+        run: supabase stop --no-backup

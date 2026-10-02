@@ -741,6 +741,11 @@ One line per adaptation, naming the contract it changes and why, in the phase's 
 - **`backdateChecks` (§3)** also refuses a shop id that isn't a row of `public.shops`, the contract's "Shop ids must exist", at the cost of one extra select per call.
 - **Every gate ran again before the commit (1.1–1.7).** The session that wrote the phase ended before committing, so the resumed one re-ran them. It tried the guard (1.5) on crafted `.env` and `.dev.vars` copies in a scratch directory, loaded through the real config, and on a remote `SUPABASE_URL` in the environment, instead of editing the real files. All of them refused, the last before any build.
 
+**Phase 2 (2026-10-02):**
+
+- **The web server's output in CI (Phase 1 §2, "Server").** The config sets `stdout: "pipe"` when `CI` is set. Playwright ignores a web server's stdout by default, so without it the job's log would show neither the build nor the preview's start, which 2.1 asks for, and a build that fails there couldn't be read. Local runs keep it ignored.
+- **The failure artifact (§1, step 5)** is kept for 14 days (`retention-days`), instead of the repository's default. It only serves to debug that PR's failed run.
+
 ## References
 
 - Research: `context/changes/testing-critical-browser-flows/research.md`
@@ -760,17 +765,17 @@ One line per adaptation, naming the contract it changes and why, in the phase's 
 
 #### Automated
 
-- [x] 1.1 `@playwright/test` is a devDependency installed with npm 11.16, `npm ci` passes on the new lockfile, and Chromium is installed
-- [x] 1.2 `npm run lint`, `npx astro sync && npx astro check` and `npm run test` pass with the new files
-- [x] 1.3 From a cold server, `npx playwright test tests/e2e/seed.spec.ts` passes: the setup stops every enabled shop and proves Rossmann and Natura `stopped`, and the teardown re-enables only the shops it stopped and finds the request log unmoved
-- [x] 1.4 A shop stopped for another reason before a run is still stopped after it, with its reason unchanged
-- [x] 1.5 The guard stops a run at config load, before the build or any request, when `SUPABASE_URL` in `.env` or in `.dev.vars` names a non-local host (each tried on a temporary edit, restored afterwards)
-- [x] 1.6 Deliberate break: with the middleware not attaching the signed-in user, the seed goes red on its signed-in assertion; reverted
-- [x] 1.7 `context/foundation/test-stack.md` has its `## E2E` section with every required field
+- [x] 1.1 `@playwright/test` is a devDependency installed with npm 11.16, `npm ci` passes on the new lockfile, and Chromium is installed — 722d904
+- [x] 1.2 `npm run lint`, `npx astro sync && npx astro check` and `npm run test` pass with the new files — 722d904
+- [x] 1.3 From a cold server, `npx playwright test tests/e2e/seed.spec.ts` passes: the setup stops every enabled shop and proves Rossmann and Natura `stopped`, and the teardown re-enables only the shops it stopped and finds the request log unmoved — 722d904
+- [x] 1.4 A shop stopped for another reason before a run is still stopped after it, with its reason unchanged — 722d904
+- [x] 1.5 The guard stops a run at config load, before the build or any request, when `SUPABASE_URL` in `.env` or in `.dev.vars` names a non-local host (each tried on a temporary edit, restored afterwards) — 722d904
+- [x] 1.6 Deliberate break: with the middleware not attaching the signed-in user, the seed goes red on its signed-in assertion; reverted — 722d904
+- [x] 1.7 `context/foundation/test-stack.md` has its `## E2E` section with every required field — 722d904
 
 #### Manual
 
-- [x] 1.8 The owner reviews `tests/e2e/seed.spec.ts` and `playwright.config.ts`, the pattern every later spec copies
+- [x] 1.8 The owner reviews `tests/e2e/seed.spec.ts` and `playwright.config.ts`, the pattern every later spec copies — 722d904
 
 ### Phase 2: The e2e gate in CI
 
