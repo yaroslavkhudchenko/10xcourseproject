@@ -23,7 +23,7 @@ Approved on 2026-09-23. Checkboxes track execution; the Deployment record at the
 **Decided after the deploy (2026-09-24):**
 
 - dm is dropped from the MVP (PRD FR-013 update, research §9).
-- Changes reach `main` only through pull requests. The `preventFailedDeploy` ruleset is active, with `ci` and `smoke` required, and every merge deploys.
+- Changes reach `main` only through pull requests. The `preventFailedDeploy` ruleset is active, with `ci` and `smoke` required, and every merge deploys. Since 2026-10-02 it requires `e2e` too, the Playwright suite added by `testing-critical-browser-flows`.
 
 ## Context
 
@@ -292,7 +292,7 @@ This replaces step 5 of Getting Started in `infrastructure.md`.
 
 ## Operations after this plan
 
-- **Deploy:** merge a pull request into `main`. The ruleset requires green `ci` and `smoke`, and the merge deploys through Workers Builds. A manual `wrangler deploy` is for emergencies only, and only from a clean, up-to-date `main`: `git status` clean, then `npm ci`, `npm run build`, `npx wrangler deploy`.
+- **Deploy:** merge a pull request into `main`. The ruleset requires green `ci`, `smoke` and `e2e`, and the merge deploys through Workers Builds. A manual `wrangler deploy` is for emergencies only, and only from a clean, up-to-date `main`: `git status` clean, then `npm ci`, `npm run build`, `npx wrangler deploy`.
 - **Rollback [you]:** run `npx wrangler versions list --name drogeria-radar`, then `npx wrangler rollback <version-id> --message "<why>"`.
   - Then revert the bad commit on `main`, or the next push redeploys it.
   - A version carries its secret set, and wrangler asks you to confirm when the sets differ. So never roll back to the Phase 3 version `d25099a4` (no secrets) or the 4.1 version `b06bf8cc` (URL only), and never past a key rotation.
