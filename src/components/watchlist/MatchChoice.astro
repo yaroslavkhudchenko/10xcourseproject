@@ -1,44 +1,50 @@
 ---
-// A product's choice in Natura, below its shops' cards: the candidates Natura's lookup left to the user (`choose`), or,
-// once the user opens a stored decision's choice with "Zmień" or "Dopasuj ponownie" (`repin`), the candidates
-// Natura's two searches found again, with the current match marked "Obecne dopasowanie", which keeps its button only
-// while the rule matched it on its own, so confirming it makes the match the user's. The user confirms the one that is
-// the same product ("To ten produkt") or declines them all ("Żaden z nich", from a first choice or a match), and a
-// re-pin's choice ends with "Anuluj", which leaves the decision as it was. Every other state of Natura sits in its card
-// among the shops' cards (NaturaCard.tsx), which points here, and so do the notices of a decision just made. Each
-// candidate is drawn as a list row draws a product: its thumbnail, its brand and size above its name, then its flags as
-// pills, the shared EAN in the promotion's success colour and a size or brand warning in the warning's, its price with
-// where and when it was fetched, and its buttons. Every form posts the list's filter, so the page it goes back to keeps
-// it, and a re-pin's forms post the decision they replace, so one from a stale tab changes nothing. The page and the
-// dev kitchen sink render it from the same views (src/lib/services/match-view.ts). The decision forms are one
-// submit-once group, so one tap sends one decision, whichever button it was.
+// A product's choice in one matched shop, below its shops' cards: the candidates the shop's lookup left to the user
+// (`choose`), or, once the user opens a stored decision's choice with "Zmień" or "Dopasuj ponownie" (`repin`), the
+// candidates the shop's two searches found again, with the current match marked "Obecne dopasowanie", which keeps its
+// button only while the rule matched it on its own, so confirming it makes the match the user's. The user confirms
+// the one that is the same product ("To ten produkt") or declines them all ("Żaden z nich", from a first choice or a
+// match), and a re-pin's choice ends with "Anuluj", which leaves the decision as it was. Every other state of the shop
+// sits in its card among the shops' cards (MatchCard.tsx), which points here, and so do the notices of a decision just
+// made. The section is headed by the shop's title ("Drogerie Natura"), which names its region. Each candidate is drawn
+// as a list row draws a product: its thumbnail, its brand and size above its name, then its flags as pills, the shared
+// EAN in the promotion's success colour and a size or brand warning in the warning's, its price with where and when it
+// was fetched, and its buttons. Every form posts the shop and the list's filter, so the page it goes back to keeps it
+// and shows the outcome on that shop's card, and a re-pin's forms post the decision they replace, so one from a stale
+// tab changes nothing. The page and the dev kitchen sink render it from the same views (src/lib/services/match-view.ts).
+// Each shop's decision forms are one submit-once group, so one tap sends one decision there, whichever button it was.
 import SubmitOnce from "@/components/SubmitOnce.astro";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import ProductThumb from "@/components/watchlist/ProductThumb";
 import ShopLink from "@/components/watchlist/ShopLink";
 import type { MatchRepin, MatchView, RepinOption } from "@/lib/services/match-view";
+import { SHOP_LABELS, type MatchedShop } from "@/lib/services/price-comparison";
 import { productFullName } from "@/lib/services/watchlist";
 import { rowProductOf, type ListFilter } from "@/lib/services/watchlist-rows";
 import { cn } from "@/lib/utils";
 
 interface Props {
-  /** The candidates to choose from: a first choice, as the page's view of Natura gives it, or a re-pin's (repinView). */
+  /** The shop the candidates are from, which every decision form posts. */
+  shop: MatchedShop;
+  /** The candidates to choose from: a first choice, as the page's view of the shop has it, or a re-pin's. */
   view: Extract<MatchView, { kind: "choose" }> | MatchRepin;
   /** The watched product's id, which the decision forms post. */
   productId: string;
   /** The filter the list is shown with, which every decision form posts, so the page it goes back to keeps it. */
   filter: ListFilter;
   /**
-   * What the section's ids start with, "natura" by default. The dev kitchen sink shows several sections on one page,
-   * each with a prefix of its own, so their ids stay unique.
+   * What the section's ids start with, the shop's id by default, so two shops' sections on one page keep their ids
+   * apart. The dev kitchen sink shows several sections of one shop on one page, each with a prefix of its own.
    */
   idPrefix?: string;
 }
 
-const { view, productId, filter, idPrefix = "natura" } = Astro.props;
+const { shop, view, productId, filter, idPrefix = shop } = Astro.props;
 
 const headingId = `${idPrefix}-heading`;
+// The shop's decision forms, one group a submit disables together; each shop's are a group of their own.
+const decisionGroup = `${shop}-decision`;
 
 // A first choice has no current match, offers every candidate and "Żaden z nich", and replaces only a lookup that found
 // nothing; a re-pin's says what its forms replace, offers "Żaden z nich" only from a match, and ends with "Anuluj".
@@ -61,7 +67,7 @@ const candidates = options.map((option, index) => ({
 
 <section aria-labelledby={headingId} class="flex flex-col gap-3 lg:gap-4">
   <h2 id={headingId} class="text-track-title font-extrabold tracking-tight lg:text-track-title-lg">
-    Drogerie Natura
+    {SHOP_LABELS[shop].title}
   </h2>
   {view.intro && <p class="text-sm leading-normal text-muted-foreground lg:text-body">{view.intro}</p>}
   {message && (
@@ -107,9 +113,9 @@ const candidates = options.map((option, index) => ({
           <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
             {current && <Badge variant="secondary">Obecne dopasowanie</Badge>}
             {confirm && (
-              <form method="POST" action="/api/watchlist/matches" data-submit-once="natura-decision">
+              <form method="POST" action="/api/watchlist/matches" data-submit-once={decisionGroup}>
                 <input type="hidden" name="itemId" value={productId} />
-                <input type="hidden" name="shop" value="natura" />
+                <input type="hidden" name="shop" value={shop} />
                 <input type="hidden" name="f" value={filter} />
                 {replaces !== null && <input type="hidden" name="replaces" value={replaces} />}
                 <input type="hidden" name="action" value="confirm" />
@@ -134,9 +140,9 @@ const candidates = options.map((option, index) => ({
     </ul>
   )}
   {decline && (
-    <form method="POST" action="/api/watchlist/matches" data-submit-once="natura-decision">
+    <form method="POST" action="/api/watchlist/matches" data-submit-once={decisionGroup}>
       <input type="hidden" name="itemId" value={productId} />
-      <input type="hidden" name="shop" value="natura" />
+      <input type="hidden" name="shop" value={shop} />
       <input type="hidden" name="f" value={filter} />
       {replaces !== null && <input type="hidden" name="replaces" value={replaces} />}
       <input type="hidden" name="action" value="decline" />

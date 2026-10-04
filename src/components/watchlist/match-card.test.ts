@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
-  naturaCardOf,
-  naturaUndecided,
-  naturaUnreadable,
-  type NaturaCardAlert,
-} from "@/components/watchlist/natura-card";
+  matchCardOf,
+  undecided,
+  undecidedShopsOf,
+  unreadable,
+  unreadableShopsOf,
+  type MatchCardAlert,
+  type MatchedShopView,
+} from "@/components/watchlist/match-card";
 import { DECISION_NOTICES } from "@/lib/notices";
 import type { MatchItemSummary, MatchView } from "@/lib/services/match-view";
+import type { MatchableShop } from "@/lib/services/price-comparison";
 
 const ITEM_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
 // The product's page, as the views link it for a product opened from the list's "Do sprawdzenia" chip, and its
@@ -48,40 +52,78 @@ const VIEWS = {
 
 const quiet = { notice: null, error: null, unsaved: false };
 
-describe("naturaUndecided", () => {
+/** A decision's notice and error, and whether the lookup's outcome went unsaved, as a test sets them. */
+type Extra = Partial<Pick<MatchedShopView, "notice" | "error" | "unsaved">>;
+
+/** Natura as the page hands it to the island: this view, and no notices unless `extra` adds them. */
+const natura = (view: MatchView, extra: Extra = {}): MatchedShopView => ({ shop: "natura", view, ...quiet, ...extra });
+
+/** Hebe in the same place, before it's switched on: a rule takes any shop the code can match. */
+const hebe = (view: MatchView, extra: Extra = {}): MatchedShopView<MatchableShop> => ({
+  shop: "hebe",
+  view,
+  ...quiet,
+  ...extra,
+});
+
+describe("undecided", () => {
   it.each(["prompt", "choose", "unavailable"] as const)("is true for %s, which has no stored decision", (kind) => {
-    expect(naturaUndecided(VIEWS[kind])).toBe(true);
+    expect(undecided(VIEWS[kind])).toBe(true);
   });
 
   it.each(["matched", "unmatched", "not-found", "decided", "read-failed"] as const)("is false for %s", (kind) => {
-    expect(naturaUndecided(VIEWS[kind])).toBe(false);
+    expect(undecided(VIEWS[kind])).toBe(false);
   });
 
   it("is false without a view", () => {
-    expect(naturaUndecided(null)).toBe(false);
+    expect(undecided(null)).toBe(false);
   });
 });
 
-describe("naturaUnreadable", () => {
+describe("unreadable", () => {
   it("is true for a decision that couldn't be read, whose match could name a lower price", () => {
-    expect(naturaUnreadable(VIEWS["read-failed"])).toBe(true);
+    expect(unreadable(VIEWS["read-failed"])).toBe(true);
   });
 
   it.each(["matched", "unmatched", "not-found", "choose", "unavailable", "prompt", "decided"] as const)(
     "is false for %s",
     (kind) => {
-      expect(naturaUnreadable(VIEWS[kind])).toBe(false);
+      expect(unreadable(VIEWS[kind])).toBe(false);
     },
   );
 
   it("is false without a view", () => {
-    expect(naturaUnreadable(null)).toBe(false);
+    expect(unreadable(null)).toBe(false);
   });
 });
 
-describe("naturaCardOf", () => {
+describe("undecidedShopsOf and unreadableShopsOf: the matched shops the product area names", () => {
+  it("lists each shop still to be matched, and each whose decision couldn't be read, in the page's order", () => {
+    const matched = [natura(VIEWS.prompt), hebe(VIEWS.unavailable)];
+
+    expect(undecidedShopsOf(matched)).toEqual(["natura", "hebe"]);
+    expect(unreadableShopsOf(matched)).toEqual([]);
+  });
+
+  it("keeps each shop's own state apart", () => {
+    const matched = [natura(VIEWS.matched), hebe(VIEWS["read-failed"])];
+
+    expect(undecidedShopsOf(matched)).toEqual([]);
+    expect(unreadableShopsOf(matched)).toEqual(["hebe"]);
+    expect(unreadableShopsOf([natura(VIEWS["read-failed"]), hebe(VIEWS.choose)])).toEqual(["natura"]);
+    expect(undecidedShopsOf([natura(VIEWS["read-failed"]), hebe(VIEWS.choose)])).toEqual(["hebe"]);
+  });
+
+  it("lists none without a matched shop", () => {
+    expect(undecidedShopsOf([])).toEqual([]);
+    expect(unreadableShopsOf([])).toEqual([]);
+  });
+});
+
+describe("matchCardOf", () => {
   it("gives a saved match's footer: its item, how it was decided, Zmień, and no warning when nothing differs", () => {
-    expect(naturaCardOf({ view: VIEWS.matched, ...quiet })).toEqual({
+    expect(matchCardOf(natura(VIEWS.matched))).toEqual({
+      shop: "natura",
       kind: "matched",
       note: "Dopasowano automatycznie: ten sam EAN i rozmiar.",
       warnings: [],
@@ -96,7 +138,8 @@ describe("naturaCardOf", () => {
     const warnings = ["Inny rozmiar: 200 ml zamiast 300 ml", "Inna marka: YOPE zamiast NIVEA"];
     const view: MatchView = { ...VIEWS.matched, note: "Potwierdzone przez Ciebie.", warnings };
 
-    expect(naturaCardOf({ view, ...quiet })).toEqual({
+    expect(matchCardOf(natura(view))).toEqual({
+      shop: "natura",
       kind: "matched",
       note: "Potwierdzone przez Ciebie.",
       warnings,
@@ -110,7 +153,8 @@ describe("naturaCardOf", () => {
   it("says a match the page couldn't save is unsaved, so the card shows its item's photo and page, and no action", () => {
     const view: MatchView = { ...VIEWS.matched, unsaved: true, action: null };
 
-    expect(naturaCardOf({ view, ...quiet, unsaved: true })).toMatchObject({
+    expect(matchCardOf(natura(view, { unsaved: true }))).toMatchObject({
+      shop: "natura",
       kind: "matched",
       item,
       unsaved: true,
@@ -119,7 +163,8 @@ describe("naturaCardOf", () => {
   });
 
   it("offers Dopasuj ponownie on the user's decline, a ghost card", () => {
-    expect(naturaCardOf({ view: VIEWS.unmatched, ...quiet })).toEqual({
+    expect(matchCardOf(natura(VIEWS.unmatched))).toEqual({
+      shop: "natura",
       kind: "unmatched",
       text: "Brak w Naturze — Twój wybór.",
       action: { link: { label: "Dopasuj ponownie", href: REPIN_PAGE }, hint: null },
@@ -137,11 +182,12 @@ describe("naturaCardOf", () => {
       hint: "Wybierz poniżej produkt z Natury albo „Anuluj”.",
     },
   ])("points a $view.kind's card to its open choice below, with Anuluj", ({ view, hint }) => {
-    expect(naturaCardOf({ view, ...quiet })).toMatchObject({ action: { link: { label: "Anuluj", href: PAGE }, hint } });
+    expect(matchCardOf(natura(view))).toMatchObject({ action: { link: { label: "Anuluj", href: PAGE }, hint } });
   });
 
   it("says another tab stored a decision meanwhile, with the link that shows it", () => {
-    expect(naturaCardOf({ view: VIEWS.decided, ...quiet })).toEqual({
+    expect(matchCardOf(natura(VIEWS.decided))).toEqual({
+      shop: "natura",
       kind: "decided",
       text: DECISION_NOTICES.decided,
       link: { label: "Pokaż zapisaną decyzję", href: PAGE },
@@ -150,7 +196,8 @@ describe("naturaCardOf", () => {
   });
 
   it("asks to match a product not matched yet, with the link that looks it up", () => {
-    expect(naturaCardOf({ view: VIEWS.prompt, ...quiet })).toEqual({
+    expect(matchCardOf(natura(VIEWS.prompt))).toEqual({
+      shop: "natura",
       kind: "prompt",
       text: "Produkt nie jest jeszcze dopasowany w Naturze.",
       link: { label: "Dopasuj w Naturze", href: PAGE },
@@ -159,7 +206,8 @@ describe("naturaCardOf", () => {
   });
 
   it("says the lookup found nothing, with the link that looks the product up again", () => {
-    expect(naturaCardOf({ view: VIEWS["not-found"], ...quiet })).toEqual({
+    expect(matchCardOf(natura(VIEWS["not-found"]))).toEqual({
+      shop: "natura",
       kind: "not-found",
       text: "Nie znaleziono w Naturze (sprawdzono 28.09, 14:00).",
       link: { label: "Szukaj ponownie", href: `/watchlist/${ITEM_ID}?f=check&retry=natura` },
@@ -172,34 +220,74 @@ describe("naturaCardOf", () => {
     { kind: "read-failed", text: "Nie udało się wczytać dopasowania Natury." },
     { kind: "choose", text: "Wybierz pasujący produkt poniżej." },
   ])("says what $kind means, with no link and no action", ({ kind, text }) => {
-    const card = naturaCardOf({ view: VIEWS[kind], ...quiet });
+    const card = matchCardOf(natura(VIEWS[kind]));
 
-    expect(card).toEqual({ kind, text, alerts: [] });
+    expect(card).toEqual({ shop: "natura", kind, text, alerts: [] });
     expect(card).not.toHaveProperty("link");
     expect(card).not.toHaveProperty("action");
   });
 
   it("brings a saved decision's notice and a decision's error along as alerts", () => {
-    const alerts: NaturaCardAlert[] = [
+    const alerts: MatchCardAlert[] = [
       { tone: "success", text: "Zapisano dopasowanie." },
       { tone: "destructive", text: "Nie udało się zapisać wyboru. Spróbuj ponownie." },
     ];
 
     expect(
-      naturaCardOf({
-        view: VIEWS.matched,
-        notice: "Zapisano dopasowanie.",
-        error: "Nie udało się zapisać wyboru. Spróbuj ponownie.",
-        unsaved: false,
-      }).alerts,
+      matchCardOf(
+        natura(VIEWS.matched, {
+          notice: "Zapisano dopasowanie.",
+          error: "Nie udało się zapisać wyboru. Spróbuj ponownie.",
+        }),
+      ).alerts,
     ).toEqual(alerts);
   });
 
-  it("warns when the lookup's outcome couldn't be stored, as the Natura section did", () => {
-    expect(naturaCardOf({ view: VIEWS["not-found"], ...quiet, unsaved: true }).alerts).toEqual([
+  it("warns when the lookup's outcome couldn't be stored, naming the shop that's looked up again", () => {
+    expect(matchCardOf(natura(VIEWS["not-found"], { unsaved: true })).alerts).toEqual([
       {
         tone: "warning",
-        text: "Nie udało się zapisać wyniku. Przy następnym otwarciu produktu Natura zostanie sprawdzona ponownie.",
+        text: "Nie udało się zapisać wyniku. Przy następnym otwarciu produktu sklep Natura zostanie sprawdzony ponownie.",
+      },
+    ]);
+  });
+});
+
+describe("matchCardOf for another matched shop: every text from the shop's label", () => {
+  it("names Hebe's decline, its prompt and a decision of Hebe's that couldn't be read", () => {
+    expect(matchCardOf(hebe(VIEWS.unmatched))).toMatchObject({
+      shop: "hebe",
+      kind: "unmatched",
+      text: "Brak w Hebe — Twój wybór.",
+    });
+    expect(matchCardOf(hebe(VIEWS.prompt))).toEqual({
+      shop: "hebe",
+      kind: "prompt",
+      text: "Produkt nie jest jeszcze dopasowany w Hebe.",
+      link: { label: "Dopasuj w Hebe", href: PAGE },
+      alerts: [],
+    });
+    expect(matchCardOf(hebe(VIEWS["read-failed"]))).toEqual({
+      shop: "hebe",
+      kind: "read-failed",
+      text: "Nie udało się wczytać dopasowania Hebe.",
+      alerts: [],
+    });
+  });
+
+  it("points Hebe's open choice after a decline to Hebe's products", () => {
+    const view: MatchView = { kind: "unmatched", action: { kind: "cancel", href: PAGE } };
+
+    expect(matchCardOf(hebe(view))).toMatchObject({
+      action: { link: { label: "Anuluj", href: PAGE }, hint: "Wybierz poniżej produkt z Hebe albo „Anuluj”." },
+    });
+  });
+
+  it("says Hebe is looked up again when its lookup's outcome couldn't be stored", () => {
+    expect(matchCardOf(hebe(VIEWS["not-found"], { unsaved: true })).alerts).toEqual([
+      {
+        tone: "warning",
+        text: "Nie udało się zapisać wyniku. Przy następnym otwarciu produktu sklep Hebe zostanie sprawdzony ponownie.",
       },
     ]);
   });

@@ -10,7 +10,10 @@ import {
   sinceText,
   verdictOf,
   type Comparison,
+  type KnownShop,
   type LatestCheck,
+  type MatchableShop,
+  type MatchedShop,
   type PricedShop,
   type PriceVerdict,
   type ShopPrice,
@@ -19,11 +22,12 @@ import type { RowShop } from "@/lib/services/watchlist-rows";
 import { priceMissingText, priceUnavailableText } from "@/lib/shop-messages";
 import type { LatestPrice, PriceRefreshAnswer, SearchUnavailableReason, ShopOffer } from "@/types";
 
-// The product page's price island, without React: each matched shop's latest price, whether its refetch runs, why the
-// last one gave no answer, whether the page couldn't read its stored price, and what screen readers hear of the
-// answers. Every change goes through the reducer, and the order and marks always come from compareShops, withheld while
-// a stored price is unread (compareRows), so Vitest can check them in Node. What the product area says of it, its hero,
-// its price track and its caption, is decided here too. It runs in the browser, so it imports nothing server-only.
+// The product page's price island, without React: each priced shop's latest price, whether its refetch runs, why the
+// last one gave no answer, whether the page couldn't read its stored price, which matched shops' decisions it couldn't
+// read, and what screen readers hear of the answers. Every change goes through the reducer, and the order and marks
+// always come from compareShops, withheld while a stored price or a matched shop's decision is unread (compareRows), so
+// Vitest can check them in Node. What the product area says of it, its hero, its price track and its caption, is
+// decided here too. It runs in the browser, so it imports nothing server-only.
 
 /** The route that refetches one shop of one product (src/pages/api/watchlist/prices.ts). */
 export const PRICES_ROUTE = "/api/watchlist/prices";
@@ -87,8 +91,17 @@ export interface PriceComparisonState {
   now: number;
   /** A refetch found the session ended. */
   sessionEnded: boolean;
-  /** A refetch found a shop's stored match is no longer the item the page shows: the page has to be reloaded. */
-  matchChanged: boolean;
+  /**
+   * The shops whose stored match a refetch found is no longer the item the page shows, each once, in the order their
+   * answers came: the page has to be reloaded, and its alert names them.
+   */
+  matchChanged: KnownShop[];
+  /**
+   * The matched shops whose stored decision the page couldn't read, as it handed them over: a match one of them hides
+   * could name a lower price, so while there's one no shop is named cheapest, in the rows or aloud. The island never
+   * reads the decisions again, so it stays as the page rendered it.
+   */
+  unreadable: readonly MatchableShop[];
   /**
    * What the island's live region says: one message per answer of the current round, in the order the answers came.
    * A round starts with a refetch while none runs.
@@ -96,18 +109,20 @@ export interface PriceComparisonState {
   announcements: string[];
 }
 
+// A refetch names its shop, any shop the code knows: an answer for a shop without a row of its own still says whose
+// match changed.
 export type PriceComparisonAction =
-  | { type: "start"; shop: PricedShop }
-  | { type: "done"; shop: PricedShop; result: RefreshResult; at: number }
+  | { type: "start"; shop: KnownShop }
+  | { type: "done"; shop: KnownShop; result: RefreshResult; at: number }
   | { type: "tick"; now: number };
 
 /** A shop's refetch has started. */
-export function start(shop: PricedShop): PriceComparisonAction {
+export function start(shop: KnownShop): PriceComparisonAction {
   return { type: "start", shop };
 }
 
 /** A shop's refetch came back with `result`, at `at` on the browser's clock. */
-export function done(shop: PricedShop, result: RefreshResult, at: number): PriceComparisonAction {
+export function done(shop: KnownShop, result: RefreshResult, at: number): PriceComparisonAction {
   return { type: "done", shop, result, at };
 }
 
@@ -120,16 +135,19 @@ export function tick(now: number): PriceComparisonAction {
  * The state the page renders with: the stored prices, nothing running, on the server's clock (`now`, an ISO
  * timestamp), so the browser's first render matches the page's HTML. With `pricesFailed`, the page couldn't read the
  * stored prices, and every row starts marked `readFailed`; otherwise only the rows of the shops handed over with
- * `readFailed` do.
+ * `readFailed` do. `unreadable` are the matched shops whose stored decision the page couldn't read (unreadableShopsOf),
+ * which keep every shop from being named cheapest.
  */
 export function initialState({
   shops,
   now,
   pricesFailed = false,
+  unreadable = [],
 }: {
   shops: PriceComparisonShop[];
   now: string;
   pricesFailed?: boolean;
+  unreadable?: readonly MatchableShop[];
 }): PriceComparisonState {
   return {
     rows: shops.map(({ shop, shopItemId, productUrl, latest, readFailed }) => ({
@@ -143,7 +161,8 @@ export function initialState({
     })),
     now: Date.parse(now),
     sessionEnded: false,
-    matchChanged: false,
+    matchChanged: [],
+    unreadable,
     announcements: [],
   };
 }
@@ -160,19 +179,22 @@ export function priceComparisonReducer(
       return {
         ...state,
         sessionEnded: false,
-        matchChanged: false,
+        matchChanged: [],
         rows: state.rows.map((row) => (row.shop === action.shop ? { ...row, pending: true, notice: null } : row)),
         announcements: newRound ? [] : state.announcements,
       };
     }
     case "done": {
       const rows = state.rows.map((row) => (row.shop === action.shop ? settled(row, action.result) : row));
-      const said = announcement(rows, action.at, action.shop, action.result);
+      const said = announcement(rows, action.at, action.shop, action.result, state.unreadable);
+      // The shop whose match changed, once, so the alert names it.
+      const changed = action.result.kind === "match-changed" && !state.matchChanged.includes(action.shop);
       return {
+        ...state,
         rows,
         now: action.at,
         sessionEnded: state.sessionEnded || action.result.kind === "session-ended",
-        matchChanged: state.matchChanged || action.result.kind === "match-changed",
+        matchChanged: changed ? [...state.matchChanged, action.shop] : state.matchChanged,
         announcements: said === null ? state.announcements : [...state.announcements, said],
       };
     }
@@ -182,18 +204,24 @@ export function priceComparisonReducer(
 }
 
 /**
- * What the live region says about one shop's answer, judged on the rows that answer made, at `now`: the new price, and
- * whether it's now the cheapest, as the rows mark it, or the text the row shows next to the last known price. Null for
- * an ended session and for a changed match, which the page's own alerts announce, with their links to sign in and to
- * reload the page.
+ * What the live region says about one shop's answer, judged on the rows that answer made, at `now`, beside the matched
+ * shops whose decision couldn't be read (`unreadable`): the new price, and whether it's now the cheapest, as the rows
+ * mark it, or the text the row shows next to the last known price. Null for an ended session and for a changed match,
+ * which the page's own alerts announce, with their links to sign in and to reload the page.
  */
-function announcement(rows: ShopRow[], now: number, shop: PricedShop, result: RefreshResult): string | null {
+function announcement(
+  rows: ShopRow[],
+  now: number,
+  shop: KnownShop,
+  result: RefreshResult,
+  unreadable: readonly MatchableShop[],
+): string | null {
   const { name } = SHOP_LABELS[shop];
   // The texts promise the last known price only when the row still shows one.
   const hasPrice = (rows.find((row) => row.shop === shop)?.latest?.offer ?? null) !== null;
   switch (result.kind) {
     case "price": {
-      const cheapest = compareRows(rows, now).rows.some((row) => row.shop === shop && row.cheapest);
+      const cheapest = compareRows(rows, now, unreadable).rows.some((row) => row.shop === shop && row.cheapest);
       return `${name}: ${formatPrice(result.offer.price)}${cheapest ? ", najtaniej" : ""}`;
     }
     case "missing":
@@ -259,17 +287,18 @@ export function gapText(row: Pick<ShopRow, "shop" | "latest" | "readFailed">): s
 
 /** The rows in their order with their marks, and the summary, at the state's time, as compareRows gives them. */
 export function comparisonOf(state: PriceComparisonState): Comparison<ShopRow> {
-  return compareRows(state.rows, state.now);
+  return compareRows(state.rows, state.now, state.unreadable);
 }
 
 /**
- * The rows compared at `now`: compareShops' order, marks and summary, unless some row's stored price couldn't be read.
- * That price may be the lowest, so then no row is marked cheapest, in the rows or in what screen readers hear, and a
- * summary that would name the cheapest names none. Each row keeps its order, its state and whether it's eligible.
+ * The rows compared at `now`: compareShops' order, marks and summary, unless some row's stored price couldn't be read,
+ * or some matched shop's decision couldn't be (`unreadable`), whose hidden match has no row at all. Either price may be
+ * the lowest, so then no row is marked cheapest, in the rows or in what screen readers hear, and a summary that would
+ * name the cheapest names none. Each row keeps its order, its state and whether it's eligible.
  */
-function compareRows(rows: readonly ShopRow[], now: number): Comparison<ShopRow> {
+function compareRows(rows: readonly ShopRow[], now: number, unreadable: readonly MatchableShop[]): Comparison<ShopRow> {
   const comparison = compareShops(rows, now);
-  if (!rows.some((row) => row.readFailed)) {
+  if (unreadable.length === 0 && !rows.some((row) => row.readFailed)) {
     return comparison;
   }
   return {
@@ -281,23 +310,18 @@ function compareRows(rows: readonly ShopRow[], now: number): Comparison<ShopRow>
 /** A row as the island renders it, with its verdict. */
 export type ComparedRow = Comparison<ShopRow>["rows"][number];
 
-/** What the product's island knows of Natura's match beside its rows: whether the page couldn't read it. */
-export interface NaturaRead {
-  /** Natura's stored decision couldn't be read (naturaUnreadable), so a match it hides could name a lower price. */
-  naturaUnreadable?: boolean;
-}
-
 /**
  * The verdict on the island's prices at the state's time (verdictOf), as comparisonOf compares them: `unread` while
  * some row's stored price couldn't be read, which a failed read of all the stored prices (`pricesFailed`) marks on
- * every row, and while Natura's match couldn't be read (`naturaUnreadable`). The price that couldn't be read may be
- * the lowest, so then the product area names no shop.
+ * every row, and while some matched shop's decision couldn't be read (`unreadable`). The price that couldn't be read
+ * may be the lowest, so then the product area names no shop.
  */
-export function verdictOfState(
-  state: PriceComparisonState,
-  { naturaUnreadable = false }: NaturaRead = {},
-): PriceVerdict {
-  return verdictOf(comparisonOf(state), state.now, naturaUnreadable || state.rows.some((row) => row.readFailed));
+export function verdictOfState(state: PriceComparisonState): PriceVerdict {
+  return verdictOf(
+    comparisonOf(state),
+    state.now,
+    state.unreadable.length > 0 || state.rows.some((row) => row.readFailed),
+  );
 }
 
 /**
@@ -309,8 +333,8 @@ export const PRICES_EVENT = "drogeria:prices";
 
 /**
  * What PRICES_EVENT carries: which product, and each of its shops as the island holds it: its latest check and whether
- * its price couldn't be read. The list's row recomputes its tag from them (rowTagOf); a Natura match that couldn't be
- * read goes as a Natura shop whose price couldn't be read.
+ * its price couldn't be read. The list's row recomputes its tag from them (rowTagOf); a matched shop's decision that
+ * couldn't be read goes as that shop with a price that couldn't be read.
  */
 export interface PricesEventDetail {
   itemId: string;
@@ -319,15 +343,18 @@ export interface PricesEventDetail {
 
 /**
  * The product's shops as the list's row compares them (RowShop), from the island's rows: each row's shop, its latest
- * check and whether its stored price couldn't be read, and, while Natura's match couldn't be read (`naturaUnreadable`),
- * Natura as a shop whose price couldn't be read, since that match could name a lower price. The island sends them with
- * PRICES_EVENT after each change of its rows, and the page judges the selected row's first tag by the rows the island
- * starts with, so the list beside the product and the product agree from the first paint.
+ * check and whether its stored price couldn't be read, and, for each matched shop whose decision couldn't be read
+ * (`unreadable`, unreadableShopsOf), that shop as one whose price couldn't be read, since its match could name a lower
+ * price. The island sends them with PRICES_EVENT after each change of its rows, and the page judges the selected row's
+ * first tag by the rows the island starts with, so the list beside the product and the product agree from the first
+ * paint.
  */
-export function rowShopsOfIsland(rows: readonly ShopRow[], { naturaUnreadable = false }: NaturaRead = {}): RowShop[] {
+export function rowShopsOfIsland(rows: readonly ShopRow[], unreadable: readonly MatchedShop[] = []): RowShop[] {
   const shops: RowShop[] = rows.map(({ shop, latest, readFailed }) => ({ shop, latest, readFailed }));
-  if (naturaUnreadable && !shops.some(({ shop }) => shop === "natura")) {
-    shops.push({ shop: "natura", latest: null, readFailed: true });
+  for (const unread of unreadable) {
+    if (!shops.some(({ shop }) => shop === unread)) {
+      shops.push({ shop: unread, latest: null, readFailed: true });
+    }
   }
   return shops;
 }
@@ -349,9 +376,32 @@ function isPricesDetail(value: unknown): value is PricesEventDetail {
   return isRecord(value) && typeof value.itemId === "string" && Array.isArray(value.shops);
 }
 
-/** What the product area knows of Natura beside the prices: whether its match is still to be made. */
-export interface NaturaContext {
-  naturaUndecided: boolean;
+/**
+ * What the product area knows of the matched shops beside the prices: the ones whose match is still to be made
+ * (undecidedShopsOf), in the pages' order.
+ */
+export interface MatchContext {
+  undecided: readonly MatchableShop[];
+}
+
+/**
+ * What the page's alert says when refetches found that these shops' stored matches are no longer the items the page
+ * shows, agreeing in number: "Dopasowanie w Naturze się zmieniło." and "Dopasowania w Naturze i w Hebe się zmieniły.".
+ */
+export function matchChangedText(shops: readonly KnownShop[]): string {
+  const where = namesOf(shops, "in");
+  return shops.length > 1 ? `Dopasowania ${where} się zmieniły.` : `Dopasowanie ${where} się zmieniło.`;
+}
+
+/**
+ * What the hero says of the matched shops still to be matched, agreeing in number: "Natura czeka na dopasowanie" and
+ * "Natura i Hebe czekają na dopasowanie"; null for none.
+ */
+function waitingText(undecided: readonly MatchableShop[]): string | null {
+  if (undecided.length === 0) {
+    return null;
+  }
+  return `${namesOf(undecided)} ${undecided.length > 1 ? "czekają" : "czeka"} na dopasowanie`;
 }
 
 /**
@@ -370,10 +420,11 @@ export interface Hero {
 
 /**
  * The hero of a product whose prices came to `verdict`, reading every age at the time it was judged. The line below
- * the price gives how much less the cheapest price is and the age of the price it names (a tie's oldest), says when
- * Natura still waits for its match beside the only price, and warns that a stale price may be out of date.
+ * the price gives how much less the cheapest price is and the age of the price it names (a tie's oldest), names the
+ * matched shops that still wait for their match beside the only price, and warns that a stale price may be out of
+ * date.
  */
-export function heroOf(verdict: PriceVerdict, { naturaUndecided }: NaturaContext): Hero {
+export function heroOf(verdict: PriceVerdict, { undecided }: MatchContext): Hero {
   switch (verdict.kind) {
     case "cheapest":
       return {
@@ -393,10 +444,7 @@ export function heroOf(verdict: PriceVerdict, { naturaUndecided }: NaturaContext
         eyebrow: "Jedyna znana cena",
         shops: SHOP_LABELS[verdict.shop].in,
         price: verdict.price,
-        sub: parts(
-          checkedText(verdict.pricedAt, verdict.at),
-          naturaUndecided ? `${SHOP_LABELS.natura.name} czeka na dopasowanie` : null,
-        ),
+        sub: parts(checkedText(verdict.pricedAt, verdict.at), waitingText(undecided)),
         sticker: "one-shop",
       };
     case "unavailable":
@@ -553,12 +601,12 @@ function trackNote(verdict: PriceVerdict): string | null {
 }
 
 /**
- * What the price track's card says, beside the track or in its place: the only price asks for Natura's match while it
- * waits, and a stale price asks for a refresh. Null when there's nothing to say.
+ * What the price track's card says, beside the track or in its place: the only price asks for the matches of the
+ * matched shops that still wait for one, and a stale price asks for a refresh. Null when there's nothing to say.
  */
-export function trackHint(verdict: PriceVerdict, { naturaUndecided }: NaturaContext): string | null {
-  if (verdict.kind === "only" && naturaUndecided) {
-    return "Dopasuj produkt w Naturze, aby porównać ceny.";
+export function trackHint(verdict: PriceVerdict, { undecided }: MatchContext): string | null {
+  if (verdict.kind === "only" && undecided.length > 0) {
+    return `Dopasuj produkt ${namesOf(undecided, "in")}, aby porównać ceny.`;
   }
   if (verdict.kind === "stale") {
     return "Odśwież ceny, aby sprawdzić aktualną cenę.";

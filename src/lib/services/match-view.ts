@@ -1,7 +1,13 @@
-import { DECISION_CODES, DECISION_NOTICES, REPIN_PARAM, RETRY_PARAM, SHOP_PARAM } from "@/lib/notices";
-import { replacesFieldOf } from "@/lib/services/matches";
+import { DECISION_CODES, DECISION_NOTICES, ERROR_PARAM, REPIN_PARAM, RETRY_PARAM, SHOP_PARAM } from "@/lib/notices";
+import { matchErrorMessage, replacesFieldOf } from "@/lib/services/matches";
 import { matchDifferences } from "@/lib/services/matching";
-import { formatPrice, parseMatchedShop, SHOP_LABELS, type MatchedShop } from "@/lib/services/price-comparison";
+import {
+  formatPrice,
+  parseMatchedShop,
+  SHOP_LABELS,
+  type MatchableShop,
+  type MatchedShop,
+} from "@/lib/services/price-comparison";
 import { filterHref, type ListFilter } from "@/lib/services/watchlist-rows";
 import { shopUnavailableText } from "@/lib/shop-messages";
 import type {
@@ -171,7 +177,11 @@ function pageHref(own: MatchProduct, filter: ListFilter, params: Record<string, 
  * A stored decision's action: the link that opens its shop's choice (`?repin=<shop>`), or, while the choice is open,
  * the plain page, which closes it.
  */
-function actionOf(shop: MatchedShop, own: MatchProduct, { filter, repinning = false }: StoredViewOptions): MatchAction {
+function actionOf(
+  shop: MatchableShop,
+  own: MatchProduct,
+  { filter, repinning = false }: StoredViewOptions,
+): MatchAction {
   return repinning
     ? { kind: "cancel", href: pageHref(own, filter) }
     : { kind: "repin", href: pageHref(own, filter, { [REPIN_PARAM]: shop }) };
@@ -184,7 +194,7 @@ function actionOf(shop: MatchedShop, own: MatchProduct, { filter, repinning = fa
  * stored match has them in its price row, and "Zmień", or "Anuluj" while its choice is open (`repinning`).
  */
 export function matchedView(
-  shop: MatchedShop,
+  shop: MatchableShop,
   item: MatchItemSummary & Sized,
   decidedBy: "auto" | "user",
   own: MatchProduct,
@@ -211,7 +221,7 @@ export function matchedView(
 }
 
 /** A lookup in `shop` that found nothing at `checkedAt`, with the link that looks the product up there again. */
-export function notFoundView(shop: MatchedShop, checkedAt: Date, own: MatchProduct, filter: ListFilter): MatchView {
+export function notFoundView(shop: MatchableShop, checkedAt: Date, own: MatchProduct, filter: ListFilter): MatchView {
   return {
     kind: "not-found",
     text: `Nie znaleziono ${SHOP_LABELS[shop].in} (sprawdzono ${dayAndTime.format(checkedAt)}).`,
@@ -225,7 +235,7 @@ export function notFoundView(shop: MatchedShop, checkedAt: Date, own: MatchProdu
  * lookup that found nothing, the time it ran, whose link looks again instead.
  */
 export function storedView(
-  shop: MatchedShop,
+  shop: MatchableShop,
   match: ShopMatch,
   own: MatchProduct,
   options: StoredViewOptions,
@@ -244,7 +254,7 @@ export function storedView(
  * A candidate for the user to pick, with its flags and its price, labelled as the shop's online price at `fetchedAt`.
  */
 export function optionView(
-  shop: MatchedShop,
+  shop: MatchableShop,
   { candidate, verdict }: CandidateOption,
   fetchedAt: Date,
   own: MatchProduct,
@@ -279,7 +289,7 @@ const FOUND_BY = { ean: "po kodzie EAN", name: "po nazwie", both: "po kodzie EAN
  * intro says whether they were found by the product's EAN or by its name.
  */
 export function chooseView(
-  shop: MatchedShop,
+  shop: MatchableShop,
   options: CandidateOption[],
   via: "ean" | "name",
   fetchedAt: Date,
@@ -301,7 +311,7 @@ export function chooseView(
  * Every link keeps the list's filter.
  */
 export function repinView(
-  shop: MatchedShop,
+  shop: MatchableShop,
   choices: ShopChoices,
   current: RepinnableMatch,
   fetchedAt: Date,
@@ -350,7 +360,7 @@ export function repinView(
 }
 
 /** Why the shop gave no answer, in the words every page uses. */
-function unavailableText(shop: MatchedShop, { reason, until }: ShopUnavailable): string {
+function unavailableText(shop: MatchableShop, { reason, until }: ShopUnavailable): string {
   return shopUnavailableText(SHOP_LABELS[shop].name, reason, until);
 }
 
@@ -359,7 +369,7 @@ function unavailableText(shop: MatchedShop, { reason, until }: ShopUnavailable):
  * not spend the shop's cap, or opened to re-pin or retry another shop. A retry stays in its link
  * (`?retry=<shop>`), so the lookup it leads to checks a stored "not found" again.
  */
-export function promptView(shop: MatchedShop, own: MatchProduct, retrying: boolean, filter: ListFilter): MatchView {
+export function promptView(shop: MatchableShop, own: MatchProduct, retrying: boolean, filter: ListFilter): MatchView {
   return { kind: "prompt", href: pageHref(own, filter, retrying ? { [RETRY_PARAM]: shop } : {}) };
 }
 
@@ -383,4 +393,15 @@ export function decisionNotice(params: URLSearchParams): { shop: MatchedShop; te
     return null;
   }
   return { shop, text: code === "declined" ? DECISION_NOTICES.declined(shop) : DECISION_NOTICES[code] };
+}
+
+/**
+ * Why the decision the page was sent back with wasn't saved (`?shop=natura&error=failed`), with the matched shop it was
+ * for, whose card says it; null for none, for a code the app didn't send, and for a code without a matched shop, which
+ * only a crafted post comes back with.
+ */
+export function decisionError(params: URLSearchParams): { shop: MatchedShop; text: string } | null {
+  const text = matchErrorMessage(params.get(ERROR_PARAM));
+  const shop = parseMatchedShop(params.get(SHOP_PARAM));
+  return text === null || shop === null ? null : { shop, text };
 }

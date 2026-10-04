@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useReducer, useRef } from "react";
-import { naturaUnreadable, type NaturaCardInput } from "@/components/watchlist/natura-card";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import { unreadableShopsOf, type MatchedShopView } from "@/components/watchlist/match-card";
 import {
   done,
   initialState,
@@ -31,10 +31,11 @@ interface Props {
   /** The product, as the title names it. */
   product: TitleProduct;
   /**
-   * Natura as the page read it, for its card among the shops' cards: its view, with no candidates for a choice, which
-   * the section below the island holds; a decision's notice and error; and whether the lookup's outcome went unsaved.
+   * The matched shops as the page read them, in MATCHED_SHOPS order, each for its card among the shops' cards: its
+   * view, with no candidates for a choice, which the shop's section below the island holds; a decision's notice and
+   * error; and whether the lookup's outcome went unsaved.
    */
-  natura: NaturaCardInput | null;
+  matched: MatchedShopView[];
   /** The product's matched shops, in the page's order, each with its item's page and its stored price. */
   shops: PriceComparisonShop[];
   /** Whether opening the page may refetch shops on its own: only the user's own navigation may. */
@@ -45,26 +46,27 @@ interface Props {
   pricesFailed: boolean;
 }
 
-// A product's page from its title down: its prices in its matched shops, ordered and with the cheapest marked, shown at
-// once from the stored prices, with the verdict's hero, the price track, Natura's card and when the prices were
-// checked. Each shop is refetched on its own through /api/watchlist/prices, and its card, the order, the marks, the
-// hero, the track and the check change as it answers; after each change of its rows the island tells the list beside
-// the product (PRICES_EVENT), whose row for it follows. Without JavaScript, either "Odśwież ceny" posts its form to
-// /api/watchlist/refresh, and the page comes back with the refreshed prices and the list's filter. This island keeps
-// the state and the effects; PriceComparisonView renders them.
+// A product's page from its title down: its prices in its priced shops, ordered and with the cheapest marked, shown at
+// once from the stored prices, with the verdict's hero, the price track, each matched shop's card and when the prices
+// were checked. Each shop is refetched on its own through /api/watchlist/prices, and its card, the order, the marks,
+// the hero, the track and the check change as it answers; after each change of its rows the island tells the list
+// beside the product (PRICES_EVENT), whose row for it follows. Without JavaScript, either "Odśwież ceny" posts its form
+// to /api/watchlist/refresh, and the page comes back with the refreshed prices and the list's filter. This island
+// keeps the state and the effects; PriceComparisonView renders them.
 export default function PriceComparison({
   itemId,
   listFilter,
   product,
-  natura,
+  matched,
   shops,
   autoRefresh,
   now,
   pricesFailed,
 }: Props) {
-  const [state, dispatch] = useReducer(priceComparisonReducer, { shops, now, pricesFailed }, initialState);
-  // A Natura decision that couldn't be read may hide a lower price, so the list's row says so too.
-  const unreadable = naturaUnreadable(natura?.view ?? null);
+  // The matched shops whose decision couldn't be read: a match one of them hides may name a lower price, so no shop is
+  // named cheapest, here or on the list's row. The page's props don't change, so neither does this list.
+  const unreadable = useMemo(() => unreadableShopsOf(matched), [matched]);
+  const [state, dispatch] = useReducer(priceComparisonReducer, { shops, now, pricesFailed, unreadable }, initialState);
 
   // Each refetch names the shop's item the page shows, so the route can tell when it's no longer the shop's match.
   const refresh = useCallback(
@@ -110,7 +112,7 @@ export default function PriceComparison({
   // starts, and each shop's answer. Its row then shows the tag these rows come to, which the page drew from the same
   // stored rows, so nothing moves until a shop answers. It asks no shop.
   useEffect(() => {
-    const detail: PricesEventDetail = { itemId, shops: rowShopsOfIsland(state.rows, { naturaUnreadable: unreadable }) };
+    const detail: PricesEventDetail = { itemId, shops: rowShopsOfIsland(state.rows, unreadable) };
     window.dispatchEvent(new CustomEvent(PRICES_EVENT, { detail }));
   }, [itemId, state.rows, unreadable]);
 
@@ -120,7 +122,7 @@ export default function PriceComparison({
       listFilter={listFilter}
       product={product}
       state={state}
-      natura={natura}
+      matched={matched}
       onRefresh={() => {
         for (const row of state.rows) {
           refresh(row.shop, row.shopItemId);

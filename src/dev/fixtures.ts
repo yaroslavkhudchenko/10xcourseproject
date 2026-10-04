@@ -7,7 +7,7 @@
 // states include the choice that changes a stored decision, in each of the outcomes its searches can have, and the
 // product's removal at the page's foot is drawn closed, open and after a failure. Nothing here is real user data, and
 // nothing here asks Supabase or a shop.
-import type { NaturaCardInput } from "@/components/watchlist/natura-card";
+import { unreadableShopsOf, type MatchedShopView } from "@/components/watchlist/match-card";
 import type { PriceSize } from "@/components/watchlist/Price";
 import type { TitleProduct } from "@/components/watchlist/ProductTitle";
 import {
@@ -183,12 +183,22 @@ const LINKS = { filter: "all" } as const;
 const REPINNING = { filter: "all", repinning: true } as const;
 
 /** Natura as the page hands it to the island, with this view and, unless `extra` adds them, no notices. */
-function naturaOf(view: MatchView, extra: Partial<Omit<NaturaCardInput, "view">> = {}): NaturaCardInput {
-  return { view, notice: null, error: null, unsaved: false, ...extra };
+function naturaOf(view: MatchView, extra: Partial<Omit<MatchedShopView, "shop" | "view">> = {}): MatchedShopView {
+  return { shop: "natura", view, notice: null, error: null, unsaved: false, ...extra };
+}
+
+/**
+ * The island's state for `shops` beside Natura's view, as the island starts it from the page's props, at NOW: a
+ * decision that couldn't be read keeps every shop from being named cheapest.
+ */
+function islandBeside(natura: MatchedShopView, shops: PriceComparisonShop[]): PriceComparisonState {
+  return initialState({ shops, now: NOW, unreadable: unreadableShopsOf([natura]) });
 }
 
 // The product's stored match, found by its EAN and size, which every price state of the product area has but one.
 const MATCHED = naturaOf(matchedView("natura", NATURA_ITEM, "auto", PRODUCT, LINKS));
+// A Natura decision that couldn't be read.
+const NATURA_UNREAD = naturaOf({ kind: "read-failed" });
 
 /** One state of the product area, with the kitchen sink's label for it: the island's state and the product it's for. */
 export interface PriceFixture {
@@ -197,14 +207,28 @@ export interface PriceFixture {
   state: PriceComparisonState;
   /** The product the title names. */
   product: TitleProduct;
-  /** Natura as the page read it: its card among the shops', and, still to match, what the hero and the hint say. */
-  natura: NaturaCardInput | null;
+  /**
+   * The matched shops as the page read them, Natura alone: each one's card among the shops', and, still to match, what
+   * the hero and the hint say.
+   */
+  matched: MatchedShopView[];
   /** Natura's candidates, which the page's choice below the island holds while the island's card points to it. */
   choice?: Extract<MatchView, { kind: "choose" }>;
 }
 
+/**
+ * One state of the product area as the fixtures below write it: Natura, the only matched shop, as the page read it,
+ * and the product, the made-up one unless the state names another.
+ */
+type AreaState = Omit<PriceFixture, "product" | "matched"> & { natura: MatchedShopView; product?: TitleProduct };
+
+/** The product area's fixture for one written state: Natura as the matched shops, and the state's product. */
+function areaFixture({ natura, product = PRODUCT, ...fixture }: AreaState): PriceFixture {
+  return { ...fixture, product, matched: [natura] };
+}
+
 // The island's states for the made-up product, whose Natura match is stored, so Natura has its price row.
-const PRICE_STATES: Omit<PriceFixture, "product">[] = [
+const PRICE_STATES: AreaState[] = [
   {
     code: "cheapest",
     text: "Natura najtańsza, w promocji: z ceną regularną, końcem promocji i najniższą ceną z 30 dni",
@@ -357,7 +381,7 @@ const PRICE_STATES: Omit<PriceFixture, "product">[] = [
   },
 ];
 
-export const PRICE_FIXTURES: PriceFixture[] = PRICE_STATES.map((fixture) => ({ ...fixture, product: PRODUCT }));
+export const PRICE_FIXTURES: PriceFixture[] = PRICE_STATES.map(areaFixture);
 
 /** One of the design handoff's sample products: no photo, so its title shows its brand's tile. */
 function sample(brand: string, name: string, caption: string, sizeText: string, addedOn: string): TitleProduct {
@@ -371,7 +395,7 @@ function sample(brand: string, name: string, caption: string, sizeText: string, 
  * handoff's "wczoraj" would be stale by the 24-hour rule. Colgate's Natura was declined, so it has no Natura row. Their
  * Natura cards lead to the made-up product, whose page answers 404 before any lookup.
  */
-export const HANDOFF_FIXTURES: PriceFixture[] = [
+const HANDOFF_STATES: AreaState[] = [
   {
     code: "nivea",
     text: "próbka z projektu: Natura najtańsza, w promocji, z najniższą ceną z 30 dni, bez końca promocji",
@@ -397,6 +421,8 @@ export const HANDOFF_FIXTURES: PriceFixture[] = [
     natura: naturaOf(storedView("natura", DECLINED, PRODUCT, LINKS)),
   },
 ];
+
+export const HANDOFF_FIXTURES: PriceFixture[] = HANDOFF_STATES.map(areaFixture);
 
 // What Natura's search by the product's EAN returned. The only one that shares both the EAN and the size is of
 // another brand, so the matching rule leaves the choice to the user, and between them the candidates carry every flag
@@ -482,7 +508,7 @@ export interface NaturaFixture {
   code: string;
   text: string;
   idPrefix: string;
-  natura: NaturaCardInput;
+  natura: MatchedShopView;
   state: PriceComparisonState;
   repin?: MatchRepin;
 }
@@ -618,8 +644,8 @@ export const NATURA_FIXTURES: NaturaFixture[] = [
     code: "read-failed",
     text: "nie udało się wczytać zapisanej decyzji",
     idPrefix: "natura-read-failed",
-    natura: naturaOf({ kind: "read-failed" }),
-    state: ROSSMANN_ONLY,
+    natura: NATURA_UNREAD,
+    state: islandBeside(NATURA_UNREAD, [ROSSMANN_CHECKED]),
   },
   {
     code: "not-found + unsaved",
@@ -647,7 +673,7 @@ const CHOICE = choiceOf(chooseView("natura", leftToUser(CANDIDATES), "ean", new 
 // kinds apart only as still to match (prompt, choose, unavailable), decided (unmatched, not-found, decided, a match
 // that wasn't saved) and unreadable (read-failed): a state looks the same beside another kind of its group, but for
 // Natura's own card, which the Natura section shows in every kind.
-const ALONE_STATES: Omit<PriceFixture, "product">[] = [
+const ALONE_STATES: AreaState[] = [
   {
     code: "lone",
     text: "jeden sklep, Natura odrzucona: nie ma z czym porównać, więc bez oznaczenia",
@@ -723,12 +749,12 @@ const ALONE_STATES: Omit<PriceFixture, "product">[] = [
     code: "natura-read-failed",
     text: "nie udało się wczytać decyzji Natury: świeża cena Rossmanna, ale żaden sklep nie jest nazwany",
     // Without the decision there's no Natura row, and a match it hides could name a lower price.
-    state: island([ROSSMANN_CHECKED]),
-    natura: naturaOf({ kind: "read-failed" }),
+    state: islandBeside(NATURA_UNREAD, [ROSSMANN_CHECKED]),
+    natura: NATURA_UNREAD,
   },
 ];
 
-export const ALONE_FIXTURES: PriceFixture[] = ALONE_STATES.map((fixture) => ({ ...fixture, product: PRODUCT }));
+export const ALONE_FIXTURES: PriceFixture[] = ALONE_STATES.map(areaFixture);
 
 /** The page's text for `?error=gone`, which its not-found branch shows: a decision posted for a product not listed. */
 export const GONE_ERROR = matchErrorMessage("gone");

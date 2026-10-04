@@ -1016,6 +1016,27 @@ Each adaptation made during implementation gets one line here, naming the contra
 - Unchanged for Natura and Rossmann: the same fetchers, order and keys, and at most 2 shop requests in flight. The e2e price-call pins pass unedited.
 - Left for Phases 4–5: `ShopPrice`, `RowShop` and similar rendered types stay keyed by `PricedShop`, and `listLatestPrices` still decides odd rows by `PRICED_SHOPS` (Phase 5's list rules).
 
+### Phase 4
+
+- §4/§8: `NaturaCardInput` became `MatchedShopView` (the plan's name for the island's per-shop input) and gained `shop`. It and the card model `MatchCard` are generic over `Shop extends MatchableShop = MatchedShop`, so tests can run Hebe through `matchCardOf`. The other types are renamed `MatchCardLink`, `MatchCardAction` and `MatchCardAlert`.
+- §2: `undecidedShopsOf(matched)` and `unreadableShopsOf(matched)` in match-card.ts are the one source of the per-shop lists for the island, the view, the page and the sink.
+- §4: `NaturaRead` moved into the island's state. `initialState({…, unreadable})` stores `state.unreadable`, which `comparisonOf`/`compareRows`, the reducer's `announcement` and `verdictOfState(state)` (now one argument) read. `rowShopsOfIsland(rows, unreadable = [])` takes a list.
+- §4: `NaturaContext` became `MatchContext { undecided: readonly MatchableShop[] }`. These are lists in `MATCHED_SHOPS` order rather than the plan's "per-shop maps", so the hero names the shops in the pages' order.
+- §4: `match-changed` takes its shop from the `done` action. `state.matchChanged` is a `KnownShop[]` (each shop once, cleared by any `start`), and `matchChangedText(shops)` agrees in number: "Dopasowanie w Naturze się zmieniło.", or "Dopasowania w Naturze i w Hebe się zmieniły.". `start` and `done` take a `KnownShop`; the route's answer is unchanged.
+- §4: `namesOf` takes `readonly KnownShop[]` (it took `PricedShop[]`), so the texts can name matched shops that aren't priced yet.
+- §1: `runMatchSteps({ supabase, gate, product, matches, retryShop, repinShop, ownNavigation, filter, shops = MATCHED_SHOPS })` in shop-matching.ts returns `MatchStepResult[]` (`shop`, `step`, `view`, `repin`, `unsaved`, `item`, `retried`). The page maps it into `MatchedShopView[]` and the choice sections, and redirects when any step says `retried`. The match-view builders take `shop: MatchableShop`, a type-only widening, so its tests can run Hebe.
+- §1 (F6): a shop whose step throws shows its "failed" text ("Wyszukiwarka sklepu X jest chwilowo niedostępna. Spróbuj za chwilę.") with no item. It is logged as `{ event: "shop-lookup", shop, reason: "step failed", error: <error name> }`, never with the message. A throw in a re-pin's choice searches keeps the stored decision's card, with "Anuluj" and its price row, and shows the choice as unavailable, rather than blanking a stored match and its price.
+- §1: decision errors are routed per shop by a new tested `decisionError(params)` beside `decisionNotice`. An `?error=` without a valid `shop=`, which only a crafted post sends, shows on no card. The not-found branch still shows a decision's error whatever its shop.
+- §1: the page creates one shop gate per render (`shopGateFor(supabase)`) for all shops, rather than one per lookup. Creating a gate sends no request.
+- §3: `MatchChoice` takes a required `shop: MatchedShop`. `idPrefix` defaults to the shop and the submit-once group is `${shop}-decision`, so Natura's ids ("natura-heading", "natura-candidate-N") and group ("natura-decision") are unchanged. Each shop's forms submit once on their own, so a quick tap on another shop's form can still send that shop's decision.
+- §7: the sink's fixtures keep one Natura view per state (`AreaState.natura`), mapped to `PriceFixture.matched: [natura]`. The two states beside an unreadable Natura decision use a new `islandBeside` helper, which sets `unreadable` as the island does. The sink's prose now names `matchCardOf` and `MatchChoice`.
+- §8: tests beyond the plan's four cases. `shop-matching.test.ts` covers `runMatchSteps`' concurrency (at most 2 in flight, 1 per shop), the stored automatic match with its first price, a recording that throws, the retry flag, a re-pin with and without a throw, and three cases that send no request. `match-view.test.ts` covers `decisionError`, and `match-card.test.ts` Hebe's label texts and the two list helpers.
+- What Natura's users can see: exactly the two planned rewrites. No URL changed. The island's props carry `matched: [{ shop: "natura", … }]` instead of `natura`. A price-less Natura card now renders from a list, so React's `useId` values change; the card's h3 id and its ShopLink's `aria-describedby` stay paired. Request counts are unchanged.
+- 4.7 was verified by the agent at the owner's request (2026-10-04). The sinks were captured under `astro dev` at Phase 3's commit (39b7396) and at this phase's tree.
+  - `/dev/product-page`: exactly 11 visible lines differ: 6 × the unsaved alert, 4 × the removal confirm, and 1 line of the sink's own prose naming `matchCardOf`/`MatchChoice`. The 446 headings and 498 links are identical.
+  - Compared in 4,096 px slices (a single canvas can't hold the 90,369 px page): 19 of 23 slices are pixel-identical, and the other 4 differ only around those texts. At 1400 px and at a 390 px viewport, the rewritten texts wrap cleanly in light and dark, and the page has no horizontal scroll at 390 px.
+  - `/dev/watchlist` is byte-identical.
+
 ## References
 
 - Research: `context/changes/hebe-in-comparison/research.md`
@@ -1067,26 +1088,26 @@ Each adaptation made during implementation gets one line here, naming the contra
 
 #### Automated
 
-- [x] 3.1 `npm run test` passes, with the new two-shop refresh cases green
-- [x] 3.2 `npm run lint` and `npx astro check` are clean
-- [x] 3.3 `npx playwright test` passes the six existing specs unedited, with their exact price-call pins
-- [x] 3.4 `npm run smoke` passes
-- [x] 3.5 Break-checks turn a unit test red: refreshing the shops one after the other, letting a refusal from one shop stop the other, and dropping a matched shop's key
+- [x] 3.1 `npm run test` passes, with the new two-shop refresh cases green — 39b7396
+- [x] 3.2 `npm run lint` and `npx astro check` are clean — 39b7396
+- [x] 3.3 `npx playwright test` passes the six existing specs unedited, with their exact price-call pins — 39b7396
+- [x] 3.4 `npm run smoke` passes — 39b7396
+- [x] 3.5 Break-checks turn a unit test red: refreshing the shops one after the other, letting a refusal from one shop stop the other, and dropping a matched shop's key — 39b7396
 
 ### Phase 4: The product page and the island for every matched shop (Natura only)
 
 #### Automated
 
-- [ ] 4.1 `npm run test` passes, with the new two-shop island cases green
-- [ ] 4.2 `npm run lint`, `npx astro check` and `node scripts/check-token-contrast.mjs` are clean
-- [ ] 4.3 `npm run build` ships its fonts
-- [ ] 4.4 `npx playwright test` passes the six existing specs unedited
-- [ ] 4.5 `npm run smoke` passes
-- [ ] 4.6 Break-checks turn a unit test red: ignoring an unreadable decision in `compareRows`, a `match-changed` without its shop, and letting one shop's throw reject the others
+- [x] 4.1 `npm run test` passes, with the new two-shop island cases green
+- [x] 4.2 `npm run lint`, `npx astro check` and `node scripts/check-token-contrast.mjs` are clean
+- [x] 4.3 `npm run build` ships its fonts
+- [x] 4.4 `npx playwright test` passes the six existing specs unedited
+- [x] 4.5 `npm run smoke` passes
+- [x] 4.6 Break-checks turn a unit test red: ignoring an unreadable decision in `compareRows`, a `match-changed` without its shop, and letting one shop's throw reject the others
 
 #### Manual
 
-- [ ] 4.7 `/dev/product-page` shows every state as before, apart from the two rewritten texts, in light and dark, at 390 px and at 1280 px
+- [x] 4.7 `/dev/product-page` shows every state as before, apart from the two rewritten texts, in light and dark, at 390 px and at 1280 px
 
 ### Phase 5: The list for every matched shop (Natura only)
 

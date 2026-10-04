@@ -1,6 +1,16 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
-import { createShopGate, type ShopGateDeps } from "@/lib/services/shop-gate";
-import { lookupChoicesInShop, lookupInShop, type LookupProduct } from "@/lib/services/shop-matching";
+import type { MatchView } from "@/lib/services/match-view";
+import type { MatchesRead } from "@/lib/services/matches";
+import type { MatchableShop } from "@/lib/services/price-comparison";
+import { createShopGate, type ShopGate, type ShopGateDeps } from "@/lib/services/shop-gate";
+import {
+  lookupChoicesInShop,
+  lookupInShop,
+  runMatchSteps,
+  type LookupProduct,
+  type MatchStepsInput,
+} from "@/lib/services/shop-matching";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
 import hebeEanOffline from "@/lib/services/shops/fixtures/hebe-ean-offline.json";
 import hebeEanOnline from "@/lib/services/shops/fixtures/hebe-ean-online.json";
@@ -8,7 +18,7 @@ import hebeNameSearch from "@/lib/services/shops/fixtures/hebe-name-search.json"
 import eanHit from "@/lib/services/shops/fixtures/natura-ean-hit.json";
 import eanMiss from "@/lib/services/shops/fixtures/natura-ean-miss.json";
 import nameSearch from "@/lib/services/shops/fixtures/natura-name-search.json";
-import type { ShopChoices } from "@/types";
+import type { ShopChoices, ShopMatch, WatchlistProduct } from "@/types";
 
 // Natura answers with real Luigi's Box recordings, through the real gate; no test reaches the live search.
 const searchUrl = (query: string, size: number) =>
@@ -464,5 +474,410 @@ describe("lookups in Hebe, through Hebe's own adapter", () => {
     const line: unknown = JSON.parse(text);
     expect(line).toMatchObject({ event: "shop-lookup", shop: "hebe", searchedByEan: true, searchedByName: false });
     expect(text).not.toContain(SOFT_EAN);
+  });
+});
+
+// The product page's steps for its matched shops (runMatchSteps), on Natura's and Hebe's recordings together, through
+// the real gate. Hebe isn't switched on yet, so each test names both shops.
+const BOTH_SHOPS: readonly MatchableShop[] = ["natura", "hebe"];
+const PRODUCT_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
+const PLAIN_PAGE = `/watchlist/${PRODUCT_ID}`;
+// What a shop's card says when its step threw: the shop gave no answer.
+const HEBE_FAILED = "Wyszukiwarka sklepu Hebe jest chwilowo niedostępna. Spróbuj za chwilę.";
+const NATURA_FAILED = "Wyszukiwarka sklepu Natura jest chwilowo niedostępna. Spróbuj za chwilę.";
+
+/** A watched product picked in Rossmann, with a lookup's fields. */
+function watched(fields: LookupProduct): WatchlistProduct {
+  return {
+    id: PRODUCT_ID,
+    source: "rossmann",
+    sourceItemId: "26900",
+    caption: null,
+    imageUrl: null,
+    productUrl: null,
+    addedAt: "2026-09-20T08:00:00.000Z",
+    ...fields,
+  };
+}
+
+// Nivea Soft 300 ml, named as Hebe's recorded name search asked for it: Natura's EAN search accepts Natura's item,
+// while Hebe's only hit for the EAN isn't sold online, so Hebe searches by name and leaves the choice to the user.
+const softInBoth = watched({
+  brand: null,
+  name: "nivea soft",
+  sizeText: null,
+  size: { value: 300, unit: "ml" },
+  eans: [SOFT_EAN],
+});
+
+/** The product's stored decisions as listMatches reads them when every row can be read. */
+const stored = (...matches: ShopMatch[]): MatchesRead => ({ matches, unreadable: [] });
+
+// Natura's stored decisions for the product.
+const DECIDED = { watchlistItemId: PRODUCT_ID, shop: "natura", checkedAt: "2026-09-27T19:45:12+00:00" } as const;
+const naturaNotFound: ShopMatch = { ...DECIDED, decidedBy: "auto", state: "not_found", item: null };
+const naturaMatched: ShopMatch = {
+  ...DECIDED,
+  decidedBy: "auto",
+  state: "matched",
+  item: {
+    shopItemId: "NV89063",
+    brand: "NIVEA",
+    name: "NIVEA SOFT krem intensywnie nawilżający 300 ml",
+    sizeText: "300 ml",
+    size: { value: 300, unit: "ml" },
+    eans: [SOFT_EAN],
+    productUrl: null,
+    imageUrl: null,
+  },
+};
+
+/** One builder call a query made, such as `["insert", row]`. */
+type Call = [method: string, ...args: unknown[]];
+
+interface Answer {
+  data?: unknown;
+  error?: { code: string; message: string };
+}
+
+interface QueryStub {
+  insert: (row: unknown) => QueryStub;
+  update: (fields: unknown) => QueryStub;
+  select: (columns: string) => QueryStub;
+  eq: (column: string, value: unknown) => QueryStub;
+  abortSignal: (signal: AbortSignal) => Promise<{ data: unknown; error: Answer["error"] | null }>;
+}
+
+/**
+ * A client whose queries succeed, unless `answer` gives another answer by the query's table and its first call (an
+ * insert or an update), or makes it throw. Every builder call is recorded, so a test sees what each step stored.
+ */
+function stubClient(answer: (table: string, first: string | undefined) => Answer | "throw" = () => ({})) {
+  const queries: Call[][] = [];
+  const from = (table: string): QueryStub => {
+    const calls: Call[] = [["from", table]];
+    queries.push(calls);
+    const query: QueryStub = {
+      insert: (row) => {
+        calls.push(["insert", row]);
+        return query;
+      },
+      update: (fields) => {
+        calls.push(["update", fields]);
+        return query;
+      },
+      select: (columns) => {
+        calls.push(["select", columns]);
+        return query;
+      },
+      eq: (column, value) => {
+        calls.push(["eq", column, value]);
+        return query;
+      },
+      abortSignal: () => {
+        const reply = answer(table, calls.at(1)?.[0]);
+        if (reply === "throw") {
+          return Promise.reject(new TypeError("fetch failed"));
+        }
+        return Promise.resolve({ data: reply.data ?? null, error: reply.error ?? null });
+      },
+    };
+    return query;
+  };
+  return { client: { from } as unknown as SupabaseClient, queries };
+}
+
+/** What the steps stored: each query's table, its first call and that call's row. */
+const writesOf = (queries: Call[][]) => queries.map((calls) => [calls[0][1], ...(calls.at(1) ?? [])]);
+
+/** The shop a Luigi's Box URL asks, by its tracker id. */
+const trackerShop = (url: string): "natura" | "hebe" => (url.includes("tracker_id=421168-505233") ? "hebe" : "natura");
+
+/**
+ * A real gate over a fetch that answers the recordings a moment after each request, so requests sent together overlap,
+ * and keeps the most requests in flight at once, in all and to each shop.
+ */
+function slowGate(entries: ReplayEntry[]) {
+  const replay = createReplayFetch(entries);
+  const inFlight: ("natura" | "hebe")[] = [];
+  const most = { all: 0, natura: 0, hebe: 0 };
+  const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
+    const shop = trackerShop(input instanceof Request ? input.url : new URL(input).href);
+    inFlight.push(shop);
+    most.all = Math.max(most.all, inFlight.length);
+    most[shop] = Math.max(most[shop], inFlight.filter((each) => each === shop).length);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return await replay(input, init);
+    } finally {
+      inFlight.splice(inFlight.indexOf(shop), 1);
+    }
+  });
+  const reserve = vi.fn<ShopGateDeps["reserve"]>(() => Promise.resolve({ outcome: "allowed" }));
+  const gate = createShopGate({
+    reserve,
+    reportBlock: () => Promise.resolve(),
+    fetch: fetchMock,
+    log: () => undefined,
+  });
+  return { gate, fetchMock, reserve, most };
+}
+
+/** A gate that throws for `shop`, as a gate given a URL that isn't the shop's does, and passes the others on. */
+const throwingFor = (shop: MatchableShop, gate: ShopGate): ShopGate => ({
+  fetch: (shopId, url, init) =>
+    shopId === shop
+      ? Promise.reject(new TypeError(`${String(url)} is not a ${shop} URL`))
+      : gate.fetch(shopId, url, init),
+});
+
+/** The page opened plainly, by the user's own navigation, for the product without decisions, in both shops. */
+function opened(
+  fields: Pick<MatchStepsInput<MatchableShop>, "supabase" | "gate"> & Partial<MatchStepsInput<MatchableShop>>,
+): MatchStepsInput<MatchableShop> {
+  return {
+    product: softInBoth,
+    matches: stored(),
+    retryShop: null,
+    repinShop: null,
+    ownNavigation: true,
+    filter: "all",
+    shops: BOTH_SHOPS,
+    ...fields,
+  };
+}
+
+/** The lines the steps logged, read back as JSON. */
+const loggedLines = (warn: Mock) => warn.mock.calls.map(([text]) => JSON.parse(String(text)) as unknown);
+
+/** The items a first choice offers, in its order; any other view fails the test. */
+function choiceIds(view: MatchView): string[] {
+  if (view.kind !== "choose") {
+    throw new Error(`expected choose, got ${view.kind}`);
+  }
+  return view.options.map(({ candidate }) => candidate.shopItemId);
+}
+
+describe("runMatchSteps: each matched shop's step on the product's page", () => {
+  it("looks the undecided shops up at once, one search at a time in each, and stores what the rule settled", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { gate, fetchMock, reserve, most } = slowGate([answers.eanHit, hebeAnswers.offlineEan, hebeAnswers.name]);
+    const { client, queries } = stubClient();
+
+    const steps = await runMatchSteps(opened({ supabase: client, gate }));
+
+    expect(steps.map(({ shop, step }) => [shop, step])).toEqual([
+      ["natura", { kind: "lookup", retry: false }],
+      ["hebe", { kind: "lookup", retry: false }],
+    ]);
+    // Natura's EAN search accepts its item, which is stored with the price it came with, and its card shows it.
+    expect(steps[0]).toMatchObject({
+      view: {
+        kind: "matched",
+        note: "Dopasowano automatycznie: ten sam EAN i rozmiar.",
+        warnings: [],
+        unsaved: false,
+        action: { kind: "repin", href: `${PLAIN_PAGE}?repin=natura` },
+      },
+      item: { shopItemId: "NV89063" },
+      repin: null,
+      unsaved: false,
+      retried: false,
+    });
+    // Hebe's EAN search finds only an item it doesn't sell online, so its name search leaves the choice to the user.
+    expect(steps[1]).toMatchObject({ view: { kind: "choose" }, item: null, repin: null, unsaved: false });
+    expect(choiceIds(steps[1].view)).toEqual(["000000000000218807", "000000000000255134", "000000000000742817"]);
+    // Each shop asked its own tracker, charged to itself: the two shops at once, each one's searches one at a time.
+    expect(requestedUrls(fetchMock).filter((url) => trackerShop(url) === "natura")).toEqual([EAN_SEARCH]);
+    expect(requestedUrls(fetchMock).filter((url) => trackerShop(url) === "hebe")).toEqual([
+      HEBE_OFFLINE_EAN_SEARCH,
+      HEBE_NAME_SEARCH,
+    ]);
+    expect(reserve.mock.calls.map(([shop]) => shop).sort()).toEqual(["hebe", "hebe", "natura"]);
+    expect(most).toEqual({ all: 2, natura: 1, hebe: 1 });
+    // Only Natura's automatic match and its first price were stored; a choice stores nothing.
+    expect(writesOf(queries)).toEqual([
+      [
+        "watchlist_matches",
+        "insert",
+        expect.objectContaining({
+          watchlist_item_id: PRODUCT_ID,
+          shop_id: "natura",
+          state: "matched",
+          decided_by: "auto",
+          shop_item_id: "NV89063",
+        }),
+      ],
+      [
+        "price_observations",
+        "insert",
+        [expect.objectContaining({ shop_id: "natura", shop_item_id: "NV89063", status: "price", price: 16.99 })],
+      ],
+    ]);
+  });
+
+  it("shows a shop whose lookup throws as unavailable, and keeps the other shop's result", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { gate, fetchMock } = slowGate([answers.eanHit, hebeAnswers.offlineEan, hebeAnswers.name]);
+    const { client, queries } = stubClient();
+
+    const steps = await runMatchSteps(opened({ supabase: client, gate: throwingFor("hebe", gate) }));
+
+    expect(steps[0]).toMatchObject({ shop: "natura", view: { kind: "matched" }, item: { shopItemId: "NV89063" } });
+    expect(steps[1]).toEqual({
+      shop: "hebe",
+      step: { kind: "lookup", retry: false },
+      view: { kind: "unavailable", message: HEBE_FAILED },
+      repin: null,
+      unsaved: false,
+      item: null,
+      retried: false,
+    });
+    // Hebe's search threw before any request; Natura's went ahead, and its match was stored.
+    expect(requestedUrls(fetchMock)).toEqual([EAN_SEARCH]);
+    expect(writesOf(queries).map(([table]) => table)).toEqual(["watchlist_matches", "price_observations"]);
+    // The log names the shop and the error's kind, never the search.
+    expect(loggedLines(warn)).toEqual([
+      { event: "shop-lookup", shop: "hebe", reason: "step failed", error: "TypeError" },
+    ]);
+    expect(String(warn.mock.calls[0][0])).not.toContain(SOFT_EAN);
+  });
+
+  it("shows a shop whose recording throws as unavailable, and keeps the other shop's choice", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { gate } = slowGate([answers.eanHit, hebeAnswers.offlineEan, hebeAnswers.name]);
+    // Natura's automatic match can't be written at all.
+    const { client, queries } = stubClient((table) => (table === "watchlist_matches" ? "throw" : {}));
+
+    const steps = await runMatchSteps(opened({ supabase: client, gate }));
+
+    expect(steps[0]).toMatchObject({
+      shop: "natura",
+      view: { kind: "unavailable", message: NATURA_FAILED },
+      item: null,
+      retried: false,
+    });
+    expect(steps[1]).toMatchObject({ shop: "hebe", view: { kind: "choose" } });
+    // No first price follows a match that wasn't stored.
+    expect(writesOf(queries).map(([table]) => table)).toEqual(["watchlist_matches"]);
+    expect(loggedLines(warn)).toEqual([
+      { event: "shop-lookup", shop: "natura", reason: "step failed", error: "TypeError" },
+    ]);
+  });
+
+  it("says a retry that stored its outcome, and gives the other shop, still undecided, only its button", async () => {
+    const { gate, fetchMock } = slowGate([answers.eanHit, hebeAnswers.offlineEan, hebeAnswers.name]);
+    // The stored "not found" is updated, since the product has a decision in Natura already.
+    const { client, queries } = stubClient((table, first) => {
+      if (table === "watchlist_matches" && first === "insert") {
+        return { error: { code: "23505", message: "duplicate key value violates unique constraint" } };
+      }
+      return first === "update" ? { data: [{ id: "decision" }] } : {};
+    });
+
+    const steps = await runMatchSteps(
+      opened({ supabase: client, gate, matches: stored(naturaNotFound), retryShop: "natura" }),
+    );
+
+    expect(steps[0]).toMatchObject({
+      shop: "natura",
+      step: { kind: "lookup", retry: true },
+      item: { shopItemId: "NV89063" },
+      retried: true,
+    });
+    expect(steps[1]).toEqual({
+      shop: "hebe",
+      step: { kind: "prompt" },
+      view: { kind: "prompt", href: PLAIN_PAGE },
+      repin: null,
+      unsaved: false,
+      item: null,
+      retried: false,
+    });
+    // The retry asks Natura alone.
+    expect(requestedUrls(fetchMock)).toEqual([EAN_SEARCH]);
+    expect(writesOf(queries).map(([table, first]) => [table, first])).toEqual([
+      ["watchlist_matches", "insert"],
+      ["watchlist_matches", "update"],
+      ["price_observations", "insert"],
+    ]);
+  });
+
+  it("opens the re-pinned shop's choice beside its stored card, and asks the other shop nothing", async () => {
+    const { gate, fetchMock } = slowGate([answers.eanHit, answers.name]);
+    const { client, queries } = stubClient();
+
+    const steps = await runMatchSteps(
+      opened({
+        supabase: client,
+        gate,
+        product: watched(soft),
+        matches: stored(naturaMatched),
+        repinShop: "natura",
+      }),
+    );
+
+    expect(steps[0]).toMatchObject({
+      shop: "natura",
+      step: { kind: "repin" },
+      // The stored match's card, which keeps its price row and offers "Anuluj" while the choice is open.
+      view: { kind: "matched", action: { kind: "cancel", href: PLAIN_PAGE } },
+      item: { shopItemId: "NV89063" },
+      repin: { kind: "repin", replaces: "matched:NV89063", decline: true, message: null },
+    });
+    expect(steps[0].repin?.options.map(({ candidate, current }) => [candidate.shopItemId, current])).toEqual([
+      ["NV89063", true],
+      ["JM00370", false],
+      ["NV81063", false],
+    ]);
+    expect(steps[1]).toMatchObject({ shop: "hebe", step: { kind: "prompt" }, view: { kind: "prompt" } });
+    // Natura's two searches, one after the other, and nothing stored.
+    expect(requestedUrls(fetchMock)).toEqual([EAN_SEARCH, NAME_SEARCH]);
+    expect(queries).toEqual([]);
+  });
+
+  it("keeps a re-pinned shop's card when its searches throw, and says in the choice it gave no answer", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { gate, fetchMock } = slowGate([answers.eanHit, answers.name]);
+    const { client } = stubClient();
+
+    const steps = await runMatchSteps(
+      opened({
+        supabase: client,
+        gate: throwingFor("natura", gate),
+        product: watched(soft),
+        matches: stored(naturaMatched),
+        repinShop: "natura",
+      }),
+    );
+
+    expect(steps[0]).toMatchObject({
+      view: { kind: "matched", action: { kind: "cancel" } },
+      item: { shopItemId: "NV89063" },
+      repin: { kind: "repin", options: [], decline: true, message: { text: NATURA_FAILED, warning: true } },
+    });
+    expect(requestedUrls(fetchMock)).toEqual([]);
+    expect(loggedLines(warn)).toEqual([
+      { event: "shop-lookup", shop: "natura", reason: "step failed", error: "TypeError" },
+    ]);
+  });
+
+  it.each<{ why: string; input: Partial<MatchStepsInput<MatchableShop>>; views: string[] }>([
+    { why: "decisions that couldn't be read", input: { matches: null }, views: ["read-failed", "read-failed"] },
+    {
+      why: "a decision of one shop that came back odd, beside the other's",
+      input: { matches: { matches: [naturaMatched], unreadable: ["hebe"] } },
+      views: ["matched", "read-failed"],
+    },
+    { why: "a page another site opened", input: { ownNavigation: false }, views: ["prompt", "prompt"] },
+  ])("asks no shop for $why", async ({ input, views }) => {
+    const { gate, fetchMock } = slowGate([answers.eanHit, hebeAnswers.offlineEan, hebeAnswers.name]);
+    const { client, queries } = stubClient();
+
+    const steps = await runMatchSteps(opened({ supabase: client, gate, ...input }));
+
+    expect(steps.map(({ view }) => view.kind)).toEqual(views);
+    expect(requestedUrls(fetchMock)).toEqual([]);
+    expect(queries).toEqual([]);
   });
 });

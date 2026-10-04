@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   chooseView,
   decidedView,
+  decisionError,
   decisionNotice,
   matchedView,
   notFoundView,
@@ -526,6 +527,31 @@ describe("decisionNotice", () => {
       expect(decisionNotice(new URLSearchParams(query))).toBeNull();
     },
   );
+});
+
+describe("decisionError", () => {
+  it.each<{ query: string; text: string }>([
+    { query: "shop=natura&error=failed", text: "Nie udało się zapisać wyboru. Spróbuj ponownie." },
+    { query: "shop=natura&error=invalid", text: "Nie udało się zapisać wyboru: nieprawidłowe dane." },
+    {
+      query: "f=check&shop=natura&error=gone",
+      text: "Nie udało się zapisać wyboru: tego produktu nie ma na Twojej liście.",
+    },
+  ])("gives the page's error for ?$query, with the shop whose card says it", ({ query, text }) => {
+    expect(decisionError(new URLSearchParams(query))).toEqual({ shop: "natura", text });
+  });
+
+  it.each([
+    "",
+    "shop=natura&matched=1",
+    "shop=natura&error=",
+    "shop=natura&error=Twoje+konto+wygasło",
+    "error=failed",
+    "shop=rossmann&error=failed",
+    "shop=hebe&error=failed",
+  ])("gives none for ?%s: no error the app sent, or no matched shop to show it", (query) => {
+    expect(decisionError(new URLSearchParams(query))).toBeNull();
+  });
 });
 
 describe("sizeLabel", () => {

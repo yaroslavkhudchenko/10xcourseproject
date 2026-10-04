@@ -629,9 +629,10 @@ export function savingsText(savings: { amount: number; than: PricedShop }): stri
 
 /**
  * Shops as a line lists them, by their names or after "w": "Natura", "Rossmann i Natura", "Rossmann, Hebe i Natura",
- * or "w Rossmannie i w Naturze".
+ * or "w Rossmannie i w Naturze". Any shop the code knows has a label, so a rule can name a matched shop that isn't
+ * priced yet.
  */
-export function namesOf(shops: readonly PricedShop[], label: "name" | "in" = "name"): string {
+export function namesOf(shops: readonly KnownShop[], label: "name" | "in" = "name"): string {
   const names = shops.map((shop) => SHOP_LABELS[shop][label]);
   const last = names.pop() ?? "";
   return names.length === 0 ? last : `${names.join(", ")} i ${last}`;

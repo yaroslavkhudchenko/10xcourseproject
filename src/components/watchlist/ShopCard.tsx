@@ -10,7 +10,7 @@ import { priceMissingText, priceUnavailableText } from "@/lib/shop-messages";
 import { cn } from "@/lib/utils";
 
 /**
- * Every shop's card, with a price or without one (NaturaCard): its paddings and gaps, and a 2 px edge, which the card
+ * Every shop's card, with a price or without one (MatchCard): its paddings and gaps, and a 2 px edge, which the card
  * colours by its state. It stretches to its row of the grid.
  */
 export const SHOP_CARD = "relative h-full gap-2.5 border-2 p-4.5 lg:gap-3 lg:px-6 lg:py-5.5";
@@ -50,7 +50,7 @@ interface Props {
   row: ComparedRow;
   /** The time the price's age is read at, in milliseconds. */
   now: number;
-  /** What follows "Zobacz w sklepie" in the card: Natura's card adds how its match was decided (NaturaCard). */
+  /** What follows "Zobacz w sklepie" in the card: a matched shop's card adds how its match was decided (MatchCard). */
   children?: ReactNode;
 }
 

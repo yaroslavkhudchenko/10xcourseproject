@@ -8,6 +8,7 @@ import {
   heroOf,
   initialState,
   markerLabelSides,
+  matchChangedText,
   parseRefreshAnswer,
   priceComparisonReducer,
   PRICES_EVENT,
@@ -33,6 +34,7 @@ import {
   STALE_AFTER_MS,
   verdictOf,
   type LatestCheck,
+  type MatchableShop,
   type PricedShop,
   type PriceVerdict,
   type ShopPrice,
@@ -101,7 +103,8 @@ describe("price comparison state", () => {
 
     expect(state.now).toBe(RENDERED_AT);
     expect(state.sessionEnded).toBe(false);
-    expect(state.matchChanged).toBe(false);
+    expect(state.matchChanged).toEqual([]);
+    expect(state.unreadable).toEqual([]);
     expect(state.rows.map(({ shop, pending, notice }) => [shop, pending, notice])).toEqual([
       ["rossmann", false, null],
       ["natura", false, null],
@@ -226,12 +229,13 @@ describe("price comparison state", () => {
 
     const state = run(before, start("natura"), done("natura", { kind: "match-changed" }, ANSWERED_AT + 1));
 
-    expect(state.matchChanged).toBe(true);
+    expect(state.matchChanged).toEqual(["natura"]);
+    expect(matchChangedText(state.matchChanged)).toBe("Dopasowanie w Naturze się zmieniło.");
     // The row shows its last known price as it was, and says nothing itself: the page's alert asks for a reload.
     expect(rowOf(state, "natura")).toEqual({ ...rowOf(before, "natura"), pending: false });
     expect(rowOf(state, "rossmann")).toEqual(rowOf(before, "rossmann"));
     expect(state.announcements).toEqual([]);
-    expect(run(state, start("natura")).matchChanged).toBe(false);
+    expect(run(state, start("natura")).matchChanged).toEqual([]);
   });
 
   it("moves the clock on, so a price that turns stale loses its mark", () => {
@@ -666,7 +670,7 @@ const colgate = () =>
 
 describe("heroOf", () => {
   it("names the cheapest shop and how much less it is, with the age of its price", () => {
-    expect(heroOf(nivea().verdict, { naturaUndecided: false })).toEqual({
+    expect(heroOf(nivea().verdict, { undecided: [] })).toEqual({
       tone: "sun",
       eyebrow: "Najtaniej dziś",
       shops: "w Naturze",
@@ -683,7 +687,7 @@ describe("heroOf", () => {
       { shop: "natura", latest: checkOf(16.99, { pricedAgo: HOUR }) },
     ]);
 
-    expect(heroOf(verdict, { naturaUndecided: false })).toMatchObject({
+    expect(heroOf(verdict, { undecided: [] })).toMatchObject({
       tone: "sun",
       shops: "w Rossmannie i w Naturze",
       price: 16.99,
@@ -691,11 +695,11 @@ describe("heroOf", () => {
     });
   });
 
-  it.each<{ undecided: boolean; sub: string }>([
-    { undecided: true, sub: "sprawdzono wczoraj · Natura czeka na dopasowanie" },
-    { undecided: false, sub: "sprawdzono wczoraj" },
+  it.each<{ undecided: MatchableShop[]; sub: string }>([
+    { undecided: ["natura"], sub: "sprawdzono wczoraj · Natura czeka na dopasowanie" },
+    { undecided: [], sub: "sprawdzono wczoraj" },
   ])("gives the only known price, saying Natura waits only while it does ($undecided)", ({ undecided, sub }) => {
-    expect(heroOf(ziaja().verdict, { naturaUndecided: undecided })).toEqual({
+    expect(heroOf(ziaja().verdict, { undecided })).toEqual({
       tone: "plain",
       eyebrow: "Jedyna znana cena",
       shops: "w Rossmannie",
@@ -705,10 +709,20 @@ describe("heroOf", () => {
     });
   });
 
+  it("names every matched shop that waits for its match, agreeing in number", () => {
+    expect(heroOf(ziaja().verdict, { undecided: ["natura", "hebe"] })).toMatchObject({
+      eyebrow: "Jedyna znana cena",
+      sub: "sprawdzono wczoraj · Natura i Hebe czekają na dopasowanie",
+    });
+    expect(heroOf(ziaja().verdict, { undecided: ["hebe"] })).toMatchObject({
+      sub: "sprawdzono wczoraj · Hebe czeka na dopasowanie",
+    });
+  });
+
   it("gives a price that can't be ordered online, with its age", () => {
     const { verdict } = judged([{ shop: "rossmann", latest: checkOf(26.99, { available: false }) }]);
 
-    expect(heroOf(verdict, { naturaUndecided: true })).toEqual({
+    expect(heroOf(verdict, { undecided: ["natura"] })).toEqual({
       tone: "plain",
       eyebrow: "Niedostępny online",
       shops: "w Rossmannie",
@@ -719,7 +733,7 @@ describe("heroOf", () => {
   });
 
   it("gives the last known price with its age, saying it may be out of date", () => {
-    expect(heroOf(colgate().verdict, { naturaUndecided: false })).toEqual({
+    expect(heroOf(colgate().verdict, { undecided: [] })).toEqual({
       tone: "warn",
       eyebrow: "Ostatnia znana cena",
       shops: "w Rossmannie",
@@ -733,7 +747,7 @@ describe("heroOf", () => {
     { verdict: { kind: "unread", at: RENDERED_AT }, eyebrow: "Nie udało się wczytać cen" },
     { verdict: { kind: "none", at: RENDERED_AT }, eyebrow: "Jeszcze bez ceny" },
   ])("names no shop and no price when the verdict is $verdict.kind", ({ verdict, eyebrow }) => {
-    expect(heroOf(verdict, { naturaUndecided: true })).toEqual({
+    expect(heroOf(verdict, { undecided: ["natura"] })).toEqual({
       tone: "plain",
       eyebrow,
       shops: null,
@@ -841,30 +855,36 @@ describe("trackOf", () => {
 });
 
 describe("trackHint", () => {
-  it.each<{ why: string; verdict: () => PriceVerdict; naturaUndecided: boolean; hint: string | null }>([
+  it.each<{ why: string; verdict: () => PriceVerdict; undecided: MatchableShop[]; hint: string | null }>([
     {
       why: "the only price while Natura waits",
       verdict: () => ziaja().verdict,
-      naturaUndecided: true,
+      undecided: ["natura"],
       hint: "Dopasuj produkt w Naturze, aby porównać ceny.",
     },
     {
       why: "the only price once Natura is decided",
       verdict: () => ziaja().verdict,
-      naturaUndecided: false,
+      undecided: [],
       hint: null,
+    },
+    {
+      why: "the only price while Natura and Hebe wait",
+      verdict: () => ziaja().verdict,
+      undecided: ["natura", "hebe"],
+      hint: "Dopasuj produkt w Naturze i w Hebe, aby porównać ceny.",
     },
     {
       why: "a stale price",
       verdict: () => colgate().verdict,
-      naturaUndecided: true,
+      undecided: ["natura"],
       hint: "Odśwież ceny, aby sprawdzić aktualną cenę.",
     },
-    { why: "the cheapest shop", verdict: () => nivea().verdict, naturaUndecided: true, hint: null },
-    { why: "an unread price", verdict: () => ({ kind: "unread", at: RENDERED_AT }), naturaUndecided: true, hint: null },
-    { why: "no price", verdict: () => ({ kind: "none", at: RENDERED_AT }), naturaUndecided: true, hint: null },
-  ])("gives $hint for $why", ({ verdict, naturaUndecided, hint }) => {
-    expect(trackHint(verdict(), { naturaUndecided })).toBe(hint);
+    { why: "the cheapest shop", verdict: () => nivea().verdict, undecided: ["natura"], hint: null },
+    { why: "an unread price", verdict: () => ({ kind: "unread", at: RENDERED_AT }), undecided: ["natura"], hint: null },
+    { why: "no price", verdict: () => ({ kind: "none", at: RENDERED_AT }), undecided: ["natura"], hint: null },
+  ])("gives $hint for $why", ({ verdict, undecided, hint }) => {
+    expect(trackHint(verdict(), { undecided })).toBe(hint);
   });
 });
 
@@ -1015,13 +1035,95 @@ describe("verdictOfState", () => {
 
   it("is unread while Natura's match couldn't be read, beside Rossmann's fresh price, even after Rossmann answers", () => {
     // Without the match there's no Natura row, and Rossmann's price would read as the only one.
-    const state = initialState({ shops: [rossmann()], now: RENDERED });
+    const read = initialState({ shops: [rossmann()], now: RENDERED });
+    const state = initialState({ shops: [rossmann()], now: RENDERED, unreadable: ["natura"] });
     const answered = run(state, start("rossmann"), done("rossmann", priceAnswer(26.49), ANSWERED_AT));
 
-    expect(verdictOfState(state)).toMatchObject({ kind: "only", shop: "rossmann" });
-    expect(verdictOfState(state, { naturaUnreadable: true })).toEqual({ kind: "unread", at: RENDERED_AT });
-    expect(verdictOfState(answered, { naturaUnreadable: true })).toEqual({ kind: "unread", at: ANSWERED_AT });
-    expect(verdictOfState(state, { naturaUnreadable: false })).toEqual(verdictOfState(state));
+    expect(verdictOfState(read)).toMatchObject({ kind: "only", shop: "rossmann" });
+    expect(verdictOfState(state)).toEqual({ kind: "unread", at: RENDERED_AT });
+    expect(verdictOfState(answered)).toEqual({ kind: "unread", at: ANSWERED_AT });
+    expect(initialState({ shops: [rossmann()], now: RENDERED, unreadable: [] })).toEqual(read);
+  });
+});
+
+describe("a matched shop's decision that couldn't be read, beside two priced shops", () => {
+  // Rossmann's 26,99 zł and Natura's 16,99 zł are both fresh, but Hebe's decision couldn't be read: a match it hides
+  // has no row at all, and may name a lower price.
+  const beside = (unreadable: MatchableShop[]) =>
+    initialState({
+      shops: [rossmann(), natura(stored("natura", "NV89063", 16.99))],
+      now: RENDERED,
+      unreadable,
+    });
+
+  it("names no shop cheapest while Hebe's decision is unread, in the rows, the summary and the verdict", () => {
+    expect(marks(beside([]))).toEqual([
+      ["natura", true],
+      ["rossmann", false],
+    ]);
+
+    const state = beside(["hebe"]);
+
+    expect(marks(state)).toEqual([
+      ["natura", false],
+      ["rossmann", false],
+    ]);
+    expect(comparisonOf(state).summary).toEqual({ kind: "none" });
+    expect(verdictOfState(state)).toEqual({ kind: "unread", at: RENDERED_AT });
+  });
+
+  it("says no shop is the cheapest aloud while Hebe's decision is unread, after a shop's answer too", () => {
+    const answered = (unreadable: MatchableShop[]) =>
+      run(beside(unreadable), start("natura"), done("natura", priceAnswer(15.99), ANSWERED_AT)).announcements;
+
+    expect(answered([])).toEqual([`Natura: 15,99${NO_BREAK_SPACE}zł, najtaniej`]);
+    expect(answered(["hebe"])).toEqual([`Natura: 15,99${NO_BREAK_SPACE}zł`]);
+  });
+
+  it("keeps the unread decision through every refetch, since the island never reads the decisions again", () => {
+    const state = run(
+      beside(["hebe"]),
+      start("rossmann"),
+      start("natura"),
+      done("rossmann", priceAnswer(26.49), ANSWERED_AT),
+      done("natura", priceAnswer(15.99), ANSWERED_AT + 1),
+      tick(ANSWERED_AT + 2),
+    );
+
+    expect(state.unreadable).toEqual(["hebe"]);
+    expect(marks(state)).toEqual([
+      ["natura", false],
+      ["rossmann", false],
+    ]);
+  });
+});
+
+describe("a match that changed under the page", () => {
+  it("names Hebe when Hebe's refetch finds its match changed", () => {
+    const state = run(
+      initialState({ shops: [rossmann(), natura()], now: RENDERED }),
+      start("hebe"),
+      done("hebe", { kind: "match-changed" }, ANSWERED_AT),
+    );
+
+    expect(state.matchChanged).toEqual(["hebe"]);
+    expect(matchChangedText(state.matchChanged)).toBe("Dopasowanie w Hebe się zmieniło.");
+    // The page's alert says it, so the live region doesn't.
+    expect(state.announcements).toEqual([]);
+  });
+
+  it("names each shop whose match changed once, in the order their answers came, agreeing in number", () => {
+    const state = run(
+      initialState({ shops: [rossmann(), natura()], now: RENDERED }),
+      start("natura"),
+      start("hebe"),
+      done("natura", { kind: "match-changed" }, ANSWERED_AT),
+      done("hebe", { kind: "match-changed" }, ANSWERED_AT + 1),
+      done("natura", { kind: "match-changed" }, ANSWERED_AT + 2),
+    );
+
+    expect(state.matchChanged).toEqual(["natura", "hebe"]);
+    expect(matchChangedText(state.matchChanged)).toBe("Dopasowania w Naturze i w Hebe się zmieniły.");
   });
 });
 
@@ -1089,7 +1191,7 @@ describe("rowShopsOfIsland", () => {
 
   it("adds Natura as a price that couldn't be read while its match couldn't be, so no shop is named", () => {
     const state = initialState({ shops: [rossmann()], now: RENDERED });
-    const shops = rowShopsOfIsland(state.rows, { naturaUnreadable: true });
+    const shops = rowShopsOfIsland(state.rows, ["natura"]);
 
     expect(shops).toEqual([
       { shop: "rossmann", latest: stored("rossmann", "26900", 26.99), readFailed: false },
@@ -1103,10 +1205,7 @@ describe("rowShopsOfIsland", () => {
   it("keeps a Natura row the island has, and adds none", () => {
     const state = initialState({ shops: [rossmann(), natura()], now: RENDERED });
 
-    expect(rowShopsOfIsland(state.rows, { naturaUnreadable: true }).map(({ shop }) => shop)).toEqual([
-      "rossmann",
-      "natura",
-    ]);
+    expect(rowShopsOfIsland(state.rows, ["natura"]).map(({ shop }) => shop)).toEqual(["rossmann", "natura"]);
   });
 });
 

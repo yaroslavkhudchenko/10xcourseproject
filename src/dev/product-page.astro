@@ -26,8 +26,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { naturaCardOf } from "@/components/watchlist/natura-card";
-import NaturaSection from "@/components/watchlist/NaturaSection.astro";
+import { matchCardOf } from "@/components/watchlist/match-card";
+import MatchChoice from "@/components/watchlist/MatchChoice.astro";
 import Price from "@/components/watchlist/Price";
 import { comparisonOf } from "@/components/watchlist/price-comparison-state";
 import PriceComparisonView, { ShopGrid } from "@/components/watchlist/PriceComparisonView";
@@ -271,7 +271,7 @@ const LINK_BUTTONS = [
               <h3 id={id} class="text-base font-semibold">
                 {heading}
               </h3>
-              {fixtures.map(({ code, text, state, product, natura, choice }) => (
+              {fixtures.map(({ code, text, state, product, matched, choice }) => (
                 <div class="flex flex-col gap-1">
                   <p class="text-xs text-muted-foreground">
                     <code>{code}</code> · {text}
@@ -286,10 +286,11 @@ const LINK_BUTTONS = [
                             listFilter="all"
                             product={product}
                             state={state}
-                            natura={natura}
+                            matched={matched}
                           />
                           {choice && (
-                            <NaturaSection
+                            <MatchChoice
+                              shop="natura"
                               view={choice}
                               productId={PRODUCT_ID}
                               filter="all"
@@ -312,9 +313,9 @@ const LINK_BUTTONS = [
           Natura
         </h2>
         <p class="text-sm text-muted-foreground" style={COLUMN_STYLE}>
-          Karta Natury wśród kart sklepów (<code>ShopGrid</code>, <code>naturaCardOf</code>) w każdym rodzaju widoku, z
+          Karta Natury wśród kart sklepów (<code>ShopGrid</code>, <code>matchCardOf</code>) w każdym rodzaju widoku, z
           komunikatem o zapisie, błędem zapisu i niezapisanym wynikiem wyszukiwania, obok ceny Rossmanna. Przy wyborze
-          kandydatów pod kartami stoi sekcja wyboru (<code>NaturaSection</code>), także przy wyborze, który zmienia
+          kandydatów pod kartami stoi sekcja wyboru (<code>MatchChoice</code>), także przy wyborze, który zmienia
           zapisaną decyzję („Zmień”, „Dopasuj ponownie”), w każdym wyniku jego wyszukiwań. Każdy stan jest dwa razy: w
           jasnym motywie i w ciemnym.
         </p>
@@ -328,10 +329,11 @@ const LINK_BUTTONS = [
                 {COPIES.map(({ theme, wrapper }) => (
                   <div class:list={[CARDS_FRAME, wrapper]} style={FRAME_STYLE}>
                     <div class="flex flex-col gap-6 lg:gap-6.5">
-                      <ShopGrid rows={comparisonOf(state).rows} now={state.now} natura={naturaCardOf(natura)} />
+                      <ShopGrid rows={comparisonOf(state).rows} now={state.now} cards={[matchCardOf(natura)]} />
                       {/* The choice that changes a stored decision, below the cards, as the page stands it. */}
                       {repin && (
-                        <NaturaSection
+                        <MatchChoice
+                          shop="natura"
                           view={repin}
                           productId={PRODUCT_ID}
                           filter="all"
@@ -340,7 +342,8 @@ const LINK_BUTTONS = [
                       )}
                       {natura.view.kind === "choose" && (
                         <>
-                          <NaturaSection
+                          <MatchChoice
+                            shop="natura"
                             view={natura.view}
                             productId={PRODUCT_ID}
                             filter="all"
