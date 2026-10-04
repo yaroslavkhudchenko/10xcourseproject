@@ -79,6 +79,7 @@ async function request(path, { method = "GET", form, json, origin = BASE_URL } =
     status: response.status,
     location: response.headers.get("location") ?? "",
     cacheControl: response.headers.get("cache-control") ?? "",
+    referrerPolicy: response.headers.get("referrer-policy") ?? "",
   };
 }
 
@@ -105,10 +106,22 @@ const listRefresh = (options) => request("/api/watchlist/refresh", { method: "PO
 const removal = (options) =>
   request("/api/watchlist/remove", { method: "POST", form: { itemId: missingProductId }, ...options });
 
+// A handed-over link's "Ustaw hasło", a plain form post of the link's token and type. Smoke has no secret key, so it
+// holds no real link: a malformed token, which never reaches Auth, or one in the right shape that no one was given,
+// which Auth refuses after one /verify call.
+const confirmLink = (form, options) => request("/api/auth/confirm", { method: "POST", form, ...options });
+const unknownToken = "0".repeat(56);
+
+// The set-password form's post. Its password differs from the smoke user's, so a route that let a password session set
+// one would change it, and the smoke user's own password would stop signing in.
+const setPassword = (options) =>
+  request("/api/auth/set-password", { method: "POST", form: { password: "Smoke-New-Passw0rd!" }, ...options });
+
 // No signed-in step searches (the one `q` is a visitor's, whom the middleware sends to sign-in before the page runs),
 // opens a product that exists or refreshes its price, and the list refresh runs on an empty list, so the smoke test
-// never calls a shop; no removal names a product anyone has, so no step deletes anything. A step's location is where
-// the redirect starts, or, with `exact`, all of it, so a step can check a redirect carries no code.
+// never calls a shop; no removal names a product anyone has, so no step deletes anything. One confirm step asks Auth's
+// /verify about a token no one was given, and no step sets a password. A step's location is where the redirect starts,
+// or, with `exact`, all of it, so a step can check a redirect carries no code.
 const steps = [
   ["home sends a visitor to sign-in", () => request("/"), { status: 302, location: "/auth/signin", exact: true }],
   // The starter's demo page is gone, so it answers 404, not a redirect to sign-in.
@@ -137,6 +150,43 @@ const steps = [
     { status: 302, location: "/auth/signin", exact: true },
   ],
   ["removal redirects anonymous user", () => removal(), { status: 302, location: "/auth/signin", exact: true }],
+  [
+    // Only a session a handed-over link just opened may set a password, so a visitor goes to the plain sign-in page.
+    "set-password page redirects anonymous user",
+    () => request("/auth/set-password"),
+    { status: 302, location: "/auth/signin", exact: true },
+  ],
+  [
+    "set-password route redirects anonymous user",
+    () => setPassword(),
+    { status: 302, location: "/auth/signin", exact: true },
+  ],
+  [
+    // The link's page only shows its button, so opening it uses nothing. Its address holds a token, so no cache keeps
+    // it, and its requests name only the site as their referrer: strict-origin, since under no-referrer a browser
+    // posts the page's own form with `Origin: null`, which Astro's checkOrigin refuses.
+    "confirm page renders, isn't cacheable and keeps its address out of referrers",
+    () => request("/auth/confirm"),
+    { status: 200, cacheControl: "no-store", referrerPolicy: "strict-origin" },
+  ],
+  [
+    // A token that isn't 56 lowercase hex digits never reaches Auth: the page's own code.
+    "confirm rejects a malformed link without asking Auth",
+    () => confirmLink({ token_hash: "not-a-token", type: "invite" }),
+    { status: 302, location: "/auth/confirm?error=invalid", exact: true },
+  ],
+  [
+    // One /verify call: Auth answers a link no one was given as one that expired, and the redirect carries no token.
+    "confirm of a link no one was given says it expired",
+    () => confirmLink({ token_hash: unknownToken, type: "invite" }),
+    { status: 302, location: "/auth/confirm?error=expired", exact: true },
+  ],
+  [
+    // Astro's checkOrigin is the confirm route's only defence against a form posted from another site.
+    "confirm posted from another site is refused",
+    () => confirmLink({ token_hash: unknownToken, type: "invite" }, { origin: "https://evil.example" }),
+    { status: 403 },
+  ],
   [
     // No one registers through the app: the smoke user came from Auth's own sign-up, before the steps.
     "sign-up route answers 404",
@@ -171,6 +221,23 @@ const steps = [
   [
     "sign-in page sends a signed-in user on to the list",
     () => request("/auth/signin"),
+    { status: 302, location: "/watchlist", exact: true },
+  ],
+  [
+    // Signed in by password, not by a handed-over link: set-password never becomes a page that changes a password.
+    "set-password page sends a password session to the list",
+    () => request("/auth/set-password"),
+    { status: 302, location: "/watchlist", exact: true },
+  ],
+  [
+    "set-password route sends a password session to the list before changing anything",
+    () => setPassword(),
+    { status: 302, location: "/watchlist", exact: true },
+  ],
+  [
+    // The proof that the route changed nothing: the smoke user's own password still signs in.
+    "the smoke user's own password still signs in after set-password",
+    () => signIn({ email, password }),
     { status: 302, location: "/watchlist", exact: true },
   ],
   [
@@ -269,11 +336,14 @@ for (const [name, run, expected] of steps) {
     actual.status === expected.status &&
     (expected.location === undefined ||
       (expected.exact ? actual.location === expected.location : actual.location.startsWith(expected.location))) &&
-    (expected.cacheControl === undefined || actual.cacheControl.includes(expected.cacheControl));
-  console.log(`${ok ? "PASS" : "FAIL"}  ${name}  -> ${actual.status} ${actual.location || actual.cacheControl}`);
+    (expected.cacheControl === undefined || actual.cacheControl.includes(expected.cacheControl)) &&
+    (expected.referrerPolicy === undefined || actual.referrerPolicy === expected.referrerPolicy);
+  const shown = actual.location || [actual.cacheControl, actual.referrerPolicy].filter(Boolean).join(" ");
+  console.log(`${ok ? "PASS" : "FAIL"}  ${name}  -> ${actual.status} ${shown}`);
   if (!ok) {
     failed++;
-    console.log(`      expected ${expected.status} ${expected.location ?? ""} ${expected.cacheControl ?? ""}`);
+    const wanted = [expected.location, expected.cacheControl, expected.referrerPolicy].filter(Boolean).join(" ");
+    console.log(`      expected ${expected.status} ${wanted}`);
   }
 }
 

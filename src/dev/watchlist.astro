@@ -36,7 +36,7 @@ import {
   SEARCH_LISTED,
 } from "@/dev/watchlist-fixtures";
 import Layout from "@/layouts/Layout.astro";
-import { signOutErrorMessage } from "@/lib/notices";
+import { PASSWORD_SET_NOTICE, signOutErrorMessage } from "@/lib/notices";
 import type { PriceRefreshCode } from "@/lib/services/price-refresh";
 import { removedNotice } from "@/lib/services/watchlist";
 import { LIST_FILTERS, type ListFilter } from "@/lib/services/watchlist-rows";
@@ -55,8 +55,8 @@ const ASIDE_STYLE = "max-width: 420px";
 
 /**
  * The list's head in its states: each chip on, each refresh notice, the empty list, a failed read, what a removal
- * from a product's page came to, and a sign-out that didn't go through, which the page shows in the head's default
- * slot.
+ * from a product's page came to, a sign-out that didn't go through, and a password a handed-over link let the user set,
+ * which the page shows in the head's default slot.
  */
 const HEADS: {
   code: string;
@@ -140,6 +140,15 @@ const HEADS: {
     refreshCode: null,
     notice: null,
     error: signOutErrorMessage("failed"),
+  },
+  {
+    code: "password-set",
+    text: "po ustawieniu hasła z linku od właściciela (?password-set=1), na pustej liście nowego konta z zaproszenia: komunikat jako status",
+    count: 0,
+    filter: "all",
+    counts: null,
+    refreshCode: null,
+    notice: PASSWORD_SET_NOTICE,
   },
 ];
 ---
@@ -251,7 +260,8 @@ const HEADS: {
               </h2>
               <p class="text-sm text-muted-foreground">
                 <code>ListHead</code>: tytuł z licznikiem, „Odśwież ceny”, komunikat odświeżenia, komunikat po usunięciu
-                produktu, błąd nieudanego wylogowania, wyszukiwarka telefonu (poniżej 1024 px) i filtry.
+                produktu, błąd nieudanego wylogowania, komunikat po ustawieniu hasła, wyszukiwarka telefonu (poniżej
+                1024 px) i filtry.
               </p>
               <div class="flex flex-col gap-6">
                 {HEADS.map(({ code, text, count, filter, counts, refreshCode, notice, error }, index) => (

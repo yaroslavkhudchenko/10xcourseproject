@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  CONFIRM_ERROR_CODES,
+  CONFIRM_ERRORS,
+  confirmErrorMessage,
   DECISION_CODES,
   DECISION_NOTICES,
   ERROR_PARAM,
@@ -7,10 +10,15 @@ import {
   LIST_NOTICE_PARAMS,
   LIST_PRICES_PARAM,
   NOTICE_PARAMS,
+  PASSWORD_ERROR_CODES,
+  PASSWORD_ERRORS,
+  PASSWORD_SET_PARAM,
+  passwordErrorMessage,
   PRICES_PARAM,
   REMOVAL_PARAM,
   REMOVED_PARAM,
   REPIN_PARAM,
+  SET_PASSWORD_NOTICE_PARAMS,
   SHOP_PARAM,
   SIGN_IN_ERROR_CODES,
   SIGN_IN_ERRORS,
@@ -30,10 +38,17 @@ import {
 // list's filter.
 
 describe("LIST_NOTICE_PARAMS, which the list's address bar forgets", () => {
-  it("holds every parameter the list shows a notice by: Dodaj's, an error's, the refresh's, a removal's and a failed sign-out's", () => {
-    expect(LIST_NOTICE_PARAMS).toHaveLength(5);
+  it("holds every parameter the list shows a notice by: Dodaj's, an error's, the refresh's, a removal's, a failed sign-out's and a saved password's", () => {
+    expect(LIST_NOTICE_PARAMS).toHaveLength(6);
     expect(LIST_NOTICE_PARAMS).toEqual(
-      expect.arrayContaining([EXISTS_PARAM, ERROR_PARAM, LIST_PRICES_PARAM, REMOVED_PARAM, SIGN_OUT_PARAM]),
+      expect.arrayContaining([
+        EXISTS_PARAM,
+        ERROR_PARAM,
+        LIST_PRICES_PARAM,
+        REMOVED_PARAM,
+        SIGN_OUT_PARAM,
+        PASSWORD_SET_PARAM,
+      ]),
     );
   });
 
@@ -94,6 +109,95 @@ describe("a sign-out's parameters", () => {
     expect(SIGNED_OUT_PARAM).not.toBe(SIGN_OUT_PARAM);
     expect(LIST_NOTICE_PARAMS).not.toContain(SIGNED_OUT_PARAM);
     expect(SIGN_IN_NOTICE_PARAMS).not.toContain(SIGN_OUT_PARAM);
+  });
+});
+
+describe("SET_PASSWORD_NOTICE_PARAMS, which the set-password page's address bar forgets", () => {
+  it("holds a refused password's error alone", () => {
+    expect(SET_PASSWORD_NOTICE_PARAMS).toEqual([ERROR_PARAM]);
+  });
+});
+
+describe("a saved password's parameter", () => {
+  it("is the list's alone, so no other page reads it and no other notice's parameter is it", () => {
+    expect(NOTICE_PARAMS).not.toContain(PASSWORD_SET_PARAM);
+    expect(SIGN_IN_NOTICE_PARAMS).not.toContain(PASSWORD_SET_PARAM);
+    expect(SET_PASSWORD_NOTICE_PARAMS).not.toContain(PASSWORD_SET_PARAM);
+    expect(LIST_NOTICE_PARAMS.filter((param) => param === PASSWORD_SET_PARAM)).toHaveLength(1);
+  });
+});
+
+describe("confirmErrorMessage, the confirm page's text for a handed-over link that didn't sign anyone in", () => {
+  it.each([
+    { code: "expired", text: "Link wygasł albo został już użyty. Poproś o nowy." },
+    { code: "invalid", text: "Ten link jest nieprawidłowy. Poproś o nowy." },
+    { code: "busy", text: "Zbyt wiele prób. Spróbuj za kilka minut." },
+    { code: "failed", text: "Nie udało się sprawdzić linku. Otwórz go jeszcze raz." },
+    { code: "config", text: "Supabase nie jest skonfigurowany." },
+  ])("says $text for $code", ({ code, text }) => {
+    expect(confirmErrorMessage(code)).toBe(text);
+  });
+
+  it("has a text for every code the route sends", () => {
+    for (const code of CONFIRM_ERROR_CODES) {
+      expect(confirmErrorMessage(code)).toBe(CONFIRM_ERRORS[code]);
+    }
+  });
+
+  it.each([
+    null,
+    "",
+    "EXPIRED",
+    "expired ",
+    "Email link is invalid or has expired",
+    "weak",
+    "toString",
+    "__proto__",
+    "constructor",
+  ])("says nothing for %j, which the route never sends", (value) => {
+    expect(confirmErrorMessage(value)).toBeNull();
+  });
+});
+
+describe("passwordErrorMessage, the set-password page's text for a password that wasn't saved", () => {
+  it.each([
+    { code: "invalid", text: "Hasło musi mieć od 8 do 72 znaków." },
+    { code: "weak", text: "Hasło jest za słabe." },
+    { code: "same", text: "To hasło jest już ustawione." },
+    { code: "busy", text: "Zbyt wiele prób. Spróbuj za kilka minut." },
+    { code: "failed", text: "Nie udało się zapisać hasła. Spróbuj ponownie." },
+    { code: "config", text: "Supabase nie jest skonfigurowany." },
+  ])("says $text for $code", ({ code, text }) => {
+    expect(passwordErrorMessage(code)).toBe(text);
+  });
+
+  it("has a text for every code the route sends", () => {
+    for (const code of PASSWORD_ERROR_CODES) {
+      expect(passwordErrorMessage(code)).toBe(PASSWORD_ERRORS[code]);
+    }
+  });
+
+  it.each([
+    null,
+    "",
+    "WEAK",
+    "weak ",
+    "Password is known to be weak",
+    "expired",
+    "toString",
+    "__proto__",
+    "constructor",
+  ])("says nothing for %j, which the route never sends", (value) => {
+    expect(passwordErrorMessage(value)).toBeNull();
+  });
+});
+
+describe("the auth pages' shared texts", () => {
+  it("say too many tries and no Supabase alike on each page", () => {
+    for (const errors of [CONFIRM_ERRORS, PASSWORD_ERRORS]) {
+      expect(errors.busy).toBe(SIGN_IN_ERRORS.busy);
+      expect(errors.config).toBe(SIGN_IN_ERRORS.config);
+    }
   });
 });
 
@@ -171,6 +275,17 @@ describe("withoutNotices, which both pages' address-bar scripts forget their not
     expect(withoutNotices(`${BASE}/watchlist?f=check&sign-out=failed`, LIST_NOTICE_PARAMS)).toBe(
       `${BASE}/watchlist?f=check`,
     );
+  });
+
+  it("drops a saved password's notice from the list", () => {
+    expect(withoutNotices(`${BASE}/watchlist?password-set=1`, LIST_NOTICE_PARAMS)).toBe(`${BASE}/watchlist`);
+  });
+
+  it("drops the set-password page's error, so a reload shows the plain form", () => {
+    expect(withoutNotices(`${BASE}/auth/set-password?error=weak`, SET_PASSWORD_NOTICE_PARAMS)).toBe(
+      `${BASE}/auth/set-password`,
+    );
+    expect(withoutNotices(`${BASE}/auth/set-password`, SET_PASSWORD_NOTICE_PARAMS)).toBeNull();
   });
 
   it("drops the sign-in page's error and notice, and keeps the page a sign-in goes back to", () => {

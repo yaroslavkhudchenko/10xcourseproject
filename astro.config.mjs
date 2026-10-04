@@ -7,8 +7,8 @@ import tailwindcss from "@tailwindcss/vite";
 import cloudflare from "@astrojs/cloudflare";
 
 // The kitchen sinks at /dev/product-page, /dev/watchlist and /dev/auth render the product page's, the list's and the
-// sign-in page's components and states from fixtures, for review and screenshots. Only `astro dev` gets the routes:
-// the build never sees them, so no Worker serves them.
+// auth pages' (sign-in, a handed-over link's page, set-password) components and states from fixtures, for review and
+// screenshots. Only `astro dev` gets the routes: the build never sees them, so no Worker serves them.
 /** @type {import("astro").AstroIntegration} */
 const devKitchenSink = {
   name: "dev-kitchen-sink",

@@ -1,0 +1,55 @@
+---
+// A handed-over link's page in the auth shell's card, as the confirm page and the kitchen sink draw it: the page's
+// heading, then either the button that uses the link, or the text of why there's no link to use. The button is a plain
+// form, which works without JavaScript: it posts the link's two fields back to /api/auth/confirm once (SubmitOnce), so
+// only pressing it uses the link. Without a link there's no button, since the link's token never comes back in an
+// address, and the way to sign-in follows the text, for someone whose password is already set. It renders from its
+// props alone, so the page and the kitchen sink show the same thing.
+import SubmitOnce from "@/components/SubmitOnce.astro";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button, buttonVariants } from "@/components/ui/button";
+import type { ConfirmFields } from "@/lib/services/auth";
+import { SIGN_IN_PATH } from "@/lib/services/watchlist-rows";
+import { cn } from "@/lib/utils";
+
+interface Props {
+  /** The handed-over link the page's address holds, which the form posts back, or null when there's none to use. */
+  link: ConfirmFields | null;
+  /** Why there's no link to use, as text, or null. */
+  error: string | null;
+}
+
+const { link, error } = Astro.props;
+---
+
+<div class="flex flex-col gap-5 lg:gap-6">
+  <h1 class="text-2xl font-extrabold tracking-heading">Hasło do konta</h1>
+  {error && (
+    <Alert variant="destructive">
+      <AlertDescription>{error}</AlertDescription>
+    </Alert>
+  )}
+  {link && (
+    <>
+      <p class="text-sm text-muted-foreground">
+        Naciśnij przycisk, aby się zalogować i ustawić hasło. Link działa tylko raz.
+      </p>
+      <form method="POST" action="/api/auth/confirm" data-submit-once class="flex flex-col gap-4">
+        {/* The link's two fields, under the names the route reads them by (confirmFormSchema). */}
+        {Object.entries(link).map(([name, value]) => (
+          <input type="hidden" name={name} value={value} />
+        ))}
+        {/* The phone bottom bar's primary button: 52 px, radius 16, 16 px extra bold, across the card. */}
+        <Button type="submit" size="touch" className="h-13 w-full rounded-button-lg text-base font-extrabold">
+          Ustaw hasło
+        </Button>
+      </form>
+    </>
+  )}
+  {error && (
+    <a href={SIGN_IN_PATH} class:list={cn(buttonVariants({ variant: "underlined", size: "inline" }), "self-start")}>
+      Przejdź do logowania
+    </a>
+  )}
+</div>
+<SubmitOnce />

@@ -802,6 +802,70 @@ The "Deferred" item "Sign-up page" is marked done. The end-to-end verification i
   - Without JavaScript, the show/hide button was hidden and the form signed in.
 - **Seen, not this change:** when all three shops have the same price, S-05's price track draws their labels on top of one another ("ROSSMANNATURHEBE"). This showed in the 2.9 screenshot and is a follow-up for the price track.
 
+### Phase 3
+
+- **§2 `Referrer-Policy: strict-origin`, not `no-referrer`.** Under the Fetch standard ("append a request `Origin` header"), a form post from a page whose policy is `no-referrer` carries `Origin: null`. Astro's `checkOrigin` would then refuse the page's own "Ustaw hasło" with a 403. `strict-origin` still keeps the address, and so the token, out of every Referer: a request names only the site. Smoke pins the exact value, and 3.9 proved in a browser that the post goes through.
+- **§1 `auth.ts` gains more tested helpers than the contract names**, so the routes and pages only call and map (`lessons.md`):
+  - `parseConfirmForm`, `confirmPageOf`, `confirmErrorCodeOf`, `confirmBackTo`;
+  - `parsePasswordForm`, `passwordErrorCodeOf`, `setPasswordBackTo`;
+  - `isLinkSession` (`getClaims`, then `linkSessionOf`) and `setPasswordRedirectOf` (null, or `/watchlist`), which the page and the route share;
+  - `LINK_TYPES` and `PASSWORD_MIN_LENGTH = 8`, plus `PASSWORD_MAX_LENGTH`, now exported.
+- **§1 one error mapper per form**, sharing a private `tooManyRequests` (429 or `over_request_rate_limit` → `busy`). Sign-in's `authErrorCodeOf` behaves as before, so `validation_failed` stays `failed` there.
+- **§1 `linkSessionOf`'s boundaries:**
+  - `now` is in milliseconds, Auth's timestamps in Unix seconds.
+  - Exactly 60 minutes counts; a second more doesn't.
+  - A timestamp up to 5 minutes after `now` counts (clock skew); one further ahead doesn't.
+  - Any fresh `otp` entry is enough, whatever else the `amr` holds.
+  - `["otp"]`, `"OTP"` and non-numeric timestamps are refused.
+  - A `getClaims` error counts as no link session (to the list), so a transient Auth error mid-flow needs a new link.
+- **§1 `passwordFormSchema` counts bytes at both bounds.** So 4 Polish letters (8 bytes) pass the route, though the browser's `minlength`, which counts characters, stops them first. Passwords aren't trimmed.
+- **§1 `notices.ts`:**
+  - The `busy` and `config` texts are constants shared by the sign-in, confirm and password maps; the sign-in texts are unchanged.
+  - `PASSWORD_SET_PARAM = "password-set"`: a saved password lands on `/watchlist?password-set=1`.
+  - Texts the plan didn't give, which the owner may reword: confirm `invalid` "Ten link jest nieprawidłowy. Poproś o nowy.", confirm `failed` "Nie udało się sprawdzić linku. Otwórz go jeszcze raz.", and password `failed` "Nie udało się zapisać hasła. Spróbuj ponownie.".
+- **§2 the confirm route** sends `?error=failed`, not the set-password page, when Auth answers with neither an error nor a session.
+- **§2 the confirm page:**
+  - Its heading is "Hasło do konta". The ready state adds the line "Naciśnij przycisk, aby się zalogować i ustawić hasło. Link działa tylko raz.", and every error is followed by a "Przejdź do logowania" link.
+  - Without a token it shows `invalid`'s text. A code the app sent wins over a token in the same address, and an unknown code is ignored.
+  - It keeps `?error=` in the address: a reload without it would call the link invalid, which misleads after `busy` or `failed`.
+- **§3 the set-password page:**
+  - Its heading is "Nowe hasło", its label "Hasło", and its hint "Wybierz hasło do konta: od 8 do 72 znaków.".
+  - Its address bar forgets `?error=`, as sign-in's does.
+  - The route checks the link session before it reads the form.
+- **§2–§3 both forms post once while JavaScript runs (`SubmitOnce`).** Without JavaScript, a double tap on "Ustaw hasło" would show "expired" to someone the first post signed in. Not handled.
+- **§4 the owner script, beyond the contract:**
+  - It accepts only an `sb_secret_…` key or a JWT whose role is `service_role`, so unknown shapes are refused too, and it refuses a `SUPABASE_URL` that isn't http(s).
+  - `APP_URL` may end with a bare slash; a path, query, hash or credentials are refused.
+  - Before printing, it checks Auth's answer: `hashed_token` must be 56 hex digits and `verification_type` invite or recovery.
+  - The link goes to stdout alone, the reminder to stderr.
+  - On an error it prints only Auth's code (or the HTTP status), with the two hints.
+- **§4 a newer link replaces an older one, checked on the local stack.** A second link of the same type for the same email makes Auth refuse the first (`otp_expired`), and the newer one signs in. A second invite before the first is accepted is made without `email_exists`, which comes only once the account is confirmed. Phase 4's how-to should say both.
+- **§6 smoke:**
+  - `request()` also returns `Referrer-Policy`, which a step may assert exactly.
+  - 9 steps were added: 2 for a visitor's set-password, 4 for confirm, 2 for a password session's set-password, and the original password signing in again.
+  - A run now makes 6 sign-in attempts, 1 sign-up and 1 `/verify` call.
+- **Files outside the list:**
+  - `src/pages/watchlist.astro` shows "Hasło zapisane.", and its address bar forgets `password-set`.
+  - `src/dev/watchlist.astro` gains that head state, per the kitchen-sink rule.
+  - `astro.config.mjs` and `src/middleware.ts` got comment updates beyond `PROTECTED_ROUTES`.
+  - `eslint.config.js` and `PasswordInput.astro` are unchanged: `tokenConfig`'s globs cover the new files, and `PasswordInput` already took `autocomplete`, `minlength` and `maxlength`.
+- **Lint ran without the untracked "Drogeria Radar redesign/" folder** (`--ignore-pattern`). Its `support.js` alone fails `npm run lint`, and a clean checkout, CI's included, has no such folder.
+- **3.8 to 3.11 were agent-run, at the owner's standing request**, after the owner approved the local restart (data kept: 205 local users before and after).
+  - **3.8:** the auth container shows `GOTRUE_MAILER_OTP_EXP=86400` and `GOTRUE_MAILER_OTP_LENGTH=10`.
+  - **3.9 and 3.10:** headless Chromium at 390 × 844 with touch, on the local preview, every shop held stopped. The local secret key went only into each command's environment and was never printed.
+    - The invite link opened twice by GET with its button, `no-store` and `strict-origin`, then signed the person in.
+    - The new password landed on the list with "Hasło zapisane.", and the address bar forgot the notice.
+    - Sign-out, then sign-in with the new password.
+    - A password session's `/auth/set-password` went to the list.
+    - The used link and an unknown one showed "Link wygasł albo został już użyty. Poproś o nowy.".
+    - Recovery refused the current password with "To hasło jest już ustawione." and saved a new one; the old password stopped signing in.
+    - The script printed `email_exists` with the recovery hint for the accepted account, and `user_not_found` with the invite hint for an unknown address.
+  - **3.11:** `/dev/auth` under `astro dev`, at 390 and 1280 px, screenshots read back.
+    - Every confirm and set-password state showed its text in both themes.
+    - "Ustaw hasło", "Zapisz hasło" and the field showed the 2 px ring at 2 px; the buttons are 52 px.
+    - The show/hide button kept its 44 × 44 px hit area and stayed hidden without JavaScript. "Przejdź do logowania" is 44 px tall.
+    - Ids are unique in the page; the dev toolbar's shadow roots repeat their own, which don't collide.
+
 ## References
 
 - Research: `context/changes/invite-only-access/research.md`
@@ -838,37 +902,37 @@ The "Deferred" item "Sign-up page" is marked done. The end-to-end verification i
 
 #### Automated
 
-- [x] 2.1 The new unit tests pass (return path, auth service, sign-in link, notices)
-- [x] 2.2 All unit tests, lint and types pass
-- [x] 2.3 The token contrast check passes
-- [x] 2.4 The build passes
-- [x] 2.5 Smoke passes with the return-path, code, origin and sign-out steps
-- [x] 2.6 The e2e suite passes, its setup signing in through the Polish form
-- [x] 2.7 Break-checks turn the return-path and exact-error steps red
+- [x] 2.1 The new unit tests pass (return path, auth service, sign-in link, notices) — ae7f6f4
+- [x] 2.2 All unit tests, lint and types pass — ae7f6f4
+- [x] 2.3 The token contrast check passes — ae7f6f4
+- [x] 2.4 The build passes — ae7f6f4
+- [x] 2.5 Smoke passes with the return-path, code, origin and sign-out steps — ae7f6f4
+- [x] 2.6 The e2e suite passes, its setup signing in through the Polish form — ae7f6f4
+- [x] 2.7 Break-checks turn the return-path and exact-error steps red — ae7f6f4
 
 #### Manual
 
-- [x] 2.8 `/dev/auth` sign-in states in light and dark at 390 px and 1280 px
-- [x] 2.9 In a browser at 390 px, the return path, the session link, the Polish error, "Wylogowano." and the form without JavaScript
+- [x] 2.8 `/dev/auth` sign-in states in light and dark at 390 px and 1280 px — ae7f6f4
+- [x] 2.9 In a browser at 390 px, the return path, the session link, the Polish error, "Wylogowano." and the form without JavaScript — ae7f6f4
 
 ### Phase 3: Invite and recovery links
 
 #### Automated
 
-- [ ] 3.1 The auth service and notices unit tests pass
-- [ ] 3.2 All unit tests, lint, types and contrast pass
-- [ ] 3.3 The build passes
-- [ ] 3.4 Smoke passes with the confirm and set-password steps
-- [ ] 3.5 The e2e suite passes
-- [ ] 3.6 The owner script refuses each bad input without a request
-- [ ] 3.7 Break-checks: verifying a malformed token, and skipping the link-session check, turn their smoke steps red
+- [x] 3.1 The auth service and notices unit tests pass
+- [x] 3.2 All unit tests, lint, types and contrast pass
+- [x] 3.3 The build passes
+- [x] 3.4 Smoke passes with the confirm and set-password steps
+- [x] 3.5 The e2e suite passes
+- [x] 3.6 The owner script refuses each bad input without a request
+- [x] 3.7 Break-checks: verifying a malformed token, and skipping the link-session check, turn their smoke steps red
 
 #### Manual
 
-- [ ] 3.8 After the local restart, the auth container shows the 24-hour, 10-digit OTP settings
-- [ ] 3.9 The local invite flow end to end at 390 px, the link surviving GETs
-- [ ] 3.10 The local recovery flow, the Polish error for a used or unknown link, and a password session kept off set-password
-- [ ] 3.11 `/dev/auth` confirm and set-password states in light and dark at 390 px and 1280 px
+- [x] 3.8 After the local restart, the auth container shows the 24-hour, 10-digit OTP settings
+- [x] 3.9 The local invite flow end to end at 390 px, the link surviving GETs
+- [x] 3.10 The local recovery flow, the Polish error for a used or unknown link, and a password session kept off set-password
+- [x] 3.11 `/dev/auth` confirm and set-password states in light and dark at 390 px and 1280 px
 
 ### Phase 4: Docs and rollout
 
