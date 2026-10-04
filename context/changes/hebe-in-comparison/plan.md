@@ -1097,6 +1097,17 @@ Each adaptation made during implementation gets one line here, naming the contra
   - Samples at 1280 and 390 px (three-cheapest, the list's Hebe rows) read right in both themes. Hebe's pink (#FEC7E0) reads apart from Natura's mint and Rossmann's blue on the price track and the cards.
   - Neither sink scrolls sideways at 390 px.
 
+### Phase 7
+
+- §3: the research note's §6 (steps 5–6) and §7's Hebe caveat repeated the "Hebe's EAN was wrong" claim. They are corrected in place too, so the note no longer contradicts its own §2.2.
+- §3: §2.2's pinned-by-`ID` request block shows the adapter's four `hit_fields`. Probe 4 sent a longer list, and the four-field form was exercised live in 6.7. The text says both.
+- §1: CLAUDE.md's island-guard sentence names the islands' modules generically, so it needed no rename. The UI and Shops bullets also name the pieces that were built: `runMatchSteps`, `SHOP_PARAM` with `decisionNotice`/`decisionError`, `PRICE_FETCHERS`, the row-by-row reads, `parseMatchForm`/`decisionBackTo`, `matchStatesOf`, `matchesFailedText`/`priceSourcesText`/`listJoin`, `--shop-hebe` with `SHOP_FILLS`, and a pointer to test-plan §6.4. All of it stays inside those two bullets. The course block's sha256 is unchanged (`bb541ab6…`).
+- §4: S-05's etykiety carry-over in the roadmap gets a "done in this slice" clause, since Phase 4 built the "Najtaniej" withholding. S-06's carry-over says the same, and it names the risk of a gate that stops a shop on a 403 when Algolia answers a rotated key with one.
+- §5: test-plan §6.6's `--refresh` follow-up also records two §2 citations that this phase's insertions moved: `prd.md:146` is now 150, and `polish-drugstore-price-apis.md:269` is now 290. §6.3 also names the setup's `PRICED_SHOPS` check, the stopped-search notice, `marksOf`, and the three-shop spec as a reference spec.
+- §2: FR-013's PRD note records the shop order (Hebe before Super-Pharm, the owner's call). Open Question 2 is unedited.
+- Beyond the docs (the orchestrator's change): the header comment of `src/lib/services/matching.ts` cited the old claim ("research note §7: Hebe's were wrong"). It now cites §2.2 ("one EAN can come with another size"). It's a comment-only code change in a docs phase.
+- Left as history: `context/foundation/shape-notes.md:155`, the record from before the PRD, still has the old reading.
+
 ## References
 
 - Research: `context/changes/hebe-in-comparison/research.md`
@@ -1187,27 +1198,27 @@ Each adaptation made during implementation gets one line here, naming the contra
 
 #### Automated
 
-- [x] 6.1 `npm run test` passes with Hebe matched and priced, and the flipped tests state Hebe's behaviour
-- [x] 6.2 `npm run lint`, `npx astro check` and `node scripts/check-token-contrast.mjs` are clean, and `npm run build` ships its fonts
-- [x] 6.3 `npx playwright test` passes the updated six specs and the new three-shop spec from a cold server, with no products left and the request log unmoved
-- [x] 6.4 `npm run smoke` passes
-- [x] 6.5 Break-checks turn something red: dropping Hebe from `listPricedItems` (the new spec or a unit test), and marking a stale Hebe price cheapest (a unit test)
-- [ ] 6.6 CI (`ci`, `smoke`, `e2e`) is green on the phase's commit
+- [x] 6.1 `npm run test` passes with Hebe matched and priced, and the flipped tests state Hebe's behaviour — ba6b220
+- [x] 6.2 `npm run lint`, `npx astro check` and `node scripts/check-token-contrast.mjs` are clean, and `npm run build` ships its fonts — ba6b220
+- [x] 6.3 `npx playwright test` passes the updated six specs and the new three-shop spec from a cold server, with no products left and the request log unmoved — ba6b220
+- [x] 6.4 `npm run smoke` passes — ba6b220
+- [x] 6.5 Break-checks turn something red: dropping Hebe from `listPricedItems` (the new spec or a unit test), and marking a stale Hebe price cheapest (a unit test) — ba6b220
+- [x] 6.6 CI (`ci`, `smoke`, `e2e`) is green on the phase's commit — ba6b220
 
 #### Manual
 
-- [x] 6.7 A local check against live Hebe, within a budget the owner approves first (at most 10 Hebe requests), matches the cost table
-- [x] 6.8 `/dev/product-page` and `/dev/watchlist` show every Hebe state, in light and dark, at 390 px and at 1280 px, and Hebe's pink reads apart from blue and mint
+- [x] 6.7 A local check against live Hebe, within a budget the owner approves first (at most 10 Hebe requests), matches the cost table — ba6b220
+- [x] 6.8 `/dev/product-page` and `/dev/watchlist` show every Hebe state, in light and dark, at 390 px and at 1280 px, and Hebe's pink reads apart from blue and mint — ba6b220
 
 ### Phase 7: Docs and rollout
 
 #### Automated
 
-- [ ] 7.1 Prettier passes on every changed Markdown file, and `npm run lint` is clean
-- [ ] 7.2 CLAUDE.md's course block is byte-identical (sha256 before and after)
+- [x] 7.1 Prettier passes on every changed Markdown file, and `npm run lint` is clean
+- [x] 7.2 CLAUDE.md's course block is byte-identical (sha256 before and after)
 - [ ] 7.3 CI (`ci`, `smoke`, `e2e`) is green on the final commit
 
 #### Manual
 
-- [ ] 7.4 The owner confirms that production's `hebe` shop row is enabled before the merge
+- [x] 7.4 The owner confirms that production's `hebe` shop row is enabled before the merge
 - [ ] 7.5 After the merge, the owner's phone check on production passes: a Hebe card, the list's Hebe line and a list refresh

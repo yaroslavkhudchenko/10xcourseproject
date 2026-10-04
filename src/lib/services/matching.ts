@@ -3,9 +3,9 @@ import type { CandidateOption, CandidateVerdict, ShopCandidate, Size } from "@/t
 // The matching rule (FR-006), without I/O: a shop's candidate is the watched product when it shares one of the
 // product's EANs and has the same size, and its brand doesn't contradict the product's. Exactly one such candidate is
 // accepted without asking; everything else is the user's choice, because no shop's EANs are trusted on their own
-// (research note §7: Hebe's were wrong). Brands are compared leniently (brandsAgree), and a brand missing on either
-// side says nothing, so only a brand that definitely differs stops an automatic match. The same comparisons tell what
-// differs about a saved match (FR-007, matchDifferences).
+// (research note §2.2: one EAN can come with another size). Brands are compared leniently (brandsAgree), and a brand
+// missing on either side says nothing, so only a brand that definitely differs stops an automatic match. The same
+// comparisons tell what differs about a saved match (FR-007, matchDifferences).
 
 /** The watched product, as far as the rule looks at it. */
 export interface MatchProduct {

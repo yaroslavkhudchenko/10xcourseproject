@@ -165,9 +165,9 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **Parallel with:** S-04, S-06, S-07, S-08
 - **Blockers:** —
 - **Unknowns:**
-  - Is Hebe one of the shops the owner buys from, and should it come before Super-Pharm? (PRD Open Question 2) — Owner: user. Block: no.
-- **Risk:** Hebe returned a wrong EAN for at least one product, so matching here must rely on size and name, not the EAN alone.
-- **Carry-over from `etykiety-redesign`:** when a shop's match row can't be read, only the verdict says unread; the cards' "Najtaniej" mark and the live region's ", najtaniej" aren't withheld yet. Withhold them once a third shop joins: with two shops it can't happen, since an unmatched Natura has no price row.
+  - Is Hebe one of the shops the owner buys from, and should it come before Super-Pharm? (PRD Open Question 2) — Owner: user. Block: no. Answered 2026-10-02: Hebe comes first, before Super-Pharm (the owner's call).
+- **Risk:** Matching here must not trust the EAN alone, nor Hebe's own size field. Corrected 2026-10-04: the "wrong EAN" once reported for Hebe was its `Pojemność` field, which read 237 ml for the 300 ml item its EAN search found; the EAN itself was right (research note §2.2, re-checked 2026-10-02). The real case is a shared EAN with another size: Hebe's 5,5 ml lip balm carries the EAN of Rossmann's 4,8 g one. So Hebe's size comes from the item's legal name, a candidate of another size is flagged and never accepted on its own, and, by the owner's call, no name comparison was added: a wrong EAN on an item of the same size and brand would still be accepted, and "Zmień" stays the remedy.
+- **Carry-over from `etykiety-redesign`:** when a shop's match row can't be read, only the verdict says unread; the cards' "Najtaniej" mark and the live region's ", najtaniej" aren't withheld yet. Withhold them once a third shop joins: with two shops it can't happen, since an unmatched Natura has no price row. Done in this slice (2026-10-04): both are withheld while any matched shop's decision can't be read.
 - **Status:** in-progress
 
 ### S-06: Add Super-Pharm to the comparison
@@ -182,6 +182,12 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
   - Is Super-Pharm one of the shops the owner buys from? (PRD Open Question 2) — Owner: user. Block: no.
 - **Risk:** With no EAN in its index and a search key that must be read from the shop's own page, Super-Pharm is the most fragile shop. It comes after the first comparison so a breakage can't hold that up.
 - **Carry-over from `etykiety-redesign`:** when a shop's match row can't be read, only the verdict says unread; the cards' "Najtaniej" mark and the live region's ", najtaniej" aren't withheld yet. Withhold them once a third shop joins: with two shops it can't happen, since an unmatched Natura has no price row.
+- **Carry-over from `hebe-in-comparison`:** Super-Pharm joins the way Hebe did, as one more matched shop.
+  - It joins `MATCHABLE_SHOPS` with its label (`SHOP_LABELS`) and its adapter in the registry (`SHOP_ADAPTERS` in `src/lib/services/shops/registry.ts`), then `MATCHED_SHOPS`, the one switch, where the compiler asks for its colour (`SHOP_FILLS`). The matching steps, the price refresh, the island and the list already run per matched shop.
+  - Its index has no EAN, so it needs candidate rules of its own: today's rule accepts only a candidate that shares an EAN, so every Super-Pharm match would be the user's choice unless S-06 adds one.
+  - The `etykiety-redesign` carry-over above is done: S-05 withholds "Najtaniej" and ", najtaniej" while any matched shop's decision can't be read.
+  - Its adapter's tests follow test-plan §6.4: real recordings, broken copies and the shop binding.
+  - A known risk for its plan: the shop gate stops a shop on any 403, and Algolia answers a rotated or wrong search key with 403. Without a narrow exception, every change of the key would stop Super-Pharm for everyone until the owner switches it back on.
 - **Status:** proposed
 
 ### S-07: Invite-only front door
