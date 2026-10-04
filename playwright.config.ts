@@ -52,7 +52,8 @@ export default defineConfig({
   ],
   webServer: {
     // The production build on workerd, as CI's smoke job and Workers Builds build it, on the port above. Its readiness
-    // check only says the server answers (`/` answers 200 even without Supabase); the setup's sign-in proves the binding.
+    // check only says the server answers (`/` redirects to sign-in, which answers even without Supabase); the setup's
+    // sign-in proves the binding.
     command: `npm run build && npm run preview -- --port ${PORT}`,
     url: baseURL,
     // Never a server that's already there: a dev server or an earlier preview would be tested instead of this build,

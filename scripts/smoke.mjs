@@ -1,10 +1,51 @@
 // Smoke test: proves the built app, the Cloudflare adapter and the Supabase auth flow still work together.
-// Zero dependencies on purpose. Run against a live server: BASE_URL=http://localhost:4321 node scripts/smoke.mjs
+// Zero dependencies on purpose. Run against a live server bound to the local Supabase: `npm run smoke`, which reads
+// SUPABASE_URL and SUPABASE_KEY from .env when it's there; BASE_URL defaults to http://localhost:4321.
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:4321";
 const email = `smoke-${Date.now()}@example.com`;
 const password = "Smoke-Test-Passw0rd!";
 const jar = new Map();
+
+// The app lets no one register, so the smoke user comes from Auth's own sign-up, on the Supabase the server is bound
+// to. That signs a user up, so smoke only ever runs against the local stack, like the database checks.
+const { SUPABASE_URL, SUPABASE_KEY } = process.env;
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.log("FAIL  SUPABASE_URL and SUPABASE_KEY must be set (.env)");
+  process.exit(1);
+}
+const { hostname } = new URL(SUPABASE_URL);
+if (hostname !== "127.0.0.1" && hostname !== "localhost") {
+  console.log(`FAIL  refusing to run against ${hostname}: point SUPABASE_URL at the local Supabase`);
+  process.exit(1);
+}
+
+// Local sign-up is on with email confirmation off (supabase/config.toml), so Auth answers a sign-up with a session.
+// It gives null once the user exists, else the reason it doesn't, and only that is printed: the answer holds tokens.
+async function signUpSmokeUser() {
+  let response;
+  try {
+    response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch {
+    return `no answer from ${SUPABASE_URL}`;
+  }
+  const answer = await response.json().catch(() => null);
+  if (response.ok && answer?.access_token) return null;
+  const reason =
+    answer?.error_code ??
+    answer?.msg ??
+    answer?.message ??
+    "no session returned (is email confirmation off in supabase/config.toml?)";
+  return `${response.status} ${reason}`;
+}
+
+const signUpFailure = await signUpSmokeUser();
+console.log(`${signUpFailure ? "FAIL" : "PASS"}  sign up the smoke user through Auth  -> ${signUpFailure ?? email}`);
+if (signUpFailure) process.exit(1);
 
 function cookieHeader() {
   return [...jar.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
@@ -63,8 +104,9 @@ const removal = (options) =>
 // step's location is where the redirect starts, or, with `exact`, all of it, so a step can check a redirect carries no
 // code.
 const steps = [
-  ["home renders", () => request("/"), { status: 200 }],
-  ["dashboard redirects anonymous user", () => request("/dashboard"), { status: 302, location: "/auth/signin" }],
+  ["home sends a visitor to sign-in", () => request("/"), { status: 302, location: "/auth/signin", exact: true }],
+  // The starter's demo page is gone, so it answers 404, not a redirect to sign-in.
+  ["dashboard answers 404", () => request("/dashboard"), { status: 404 }],
   ["watchlist redirects anonymous user", () => request("/watchlist"), { status: 302, location: "/auth/signin" }],
   ["product page redirects anonymous user", () => request(missingProduct), { status: 302, location: "/auth/signin" }],
   [
@@ -75,9 +117,10 @@ const steps = [
   ["list price refresh redirects anonymous user", () => listRefresh(), { status: 302, location: "/auth/signin" }],
   ["removal redirects anonymous user", () => removal(), { status: 302, location: "/auth/signin" }],
   [
-    "signup creates account",
+    // No one registers through the app: the smoke user came from Auth's own sign-up, before the steps.
+    "sign-up route answers 404",
     () => request("/api/auth/signup", { method: "POST", form: { email, password } }),
-    { status: 302, location: "/auth/confirm-email" },
+    { status: 404 },
   ],
   [
     "signin rejects wrong password",
@@ -89,6 +132,7 @@ const steps = [
     () => request("/api/auth/signin", { method: "POST", form: { email, password } }),
     { status: 302, location: "/watchlist" },
   ],
+  ["home sends a signed-in user to the list", () => request("/"), { status: 302, location: "/watchlist", exact: true }],
   [
     "watchlist renders for signed-in user and isn't cacheable",
     () => request("/watchlist"),
@@ -169,9 +213,8 @@ const steps = [
     () => removal({ form: { itemId: missingProductId, f: "check" } }),
     { status: 302, location: "/watchlist?f=check&removed=gone", exact: true },
   ],
-  ["dashboard renders for signed-in user", () => request("/dashboard"), { status: 200 }],
   ["signout clears session", () => request("/api/auth/signout", { method: "POST" }), { status: 302, location: "/" }],
-  ["dashboard redirects after signout", () => request("/dashboard"), { status: 302, location: "/auth/signin" }],
+  ["watchlist redirects after signout", () => request("/watchlist"), { status: 302, location: "/auth/signin" }],
 ];
 
 let failed = 0;

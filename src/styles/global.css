@@ -394,9 +394,8 @@
   background-size: 18px 18px;
 }
 
-/* The starter's navy gradient, which /, /dashboard and /auth/* paint with until S-07 restyles them. Its stops are the
-   old dark theme's --background and --background-glow, as fixed values, so those pages keep their look in the new
-   dark theme. */
+/* The starter's navy gradient, which the sign-in page paints with until S-07 restyles it. Its stops are the old dark
+   theme's --background and --background-glow, as fixed values, so the page keeps its look in the new dark theme. */
 @utility bg-cosmic {
   background-image: linear-gradient(
     to bottom,

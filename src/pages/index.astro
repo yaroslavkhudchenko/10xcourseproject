@@ -1,8 +1,5 @@
 ---
-import Welcome from "@/components/Welcome.astro";
-import Layout from "@/layouts/Layout.astro";
+// No landing page: the front door sends a signed-in user to their list and a visitor to sign-in. It reads only the user
+// the middleware attached, so it asks no shop, and without Supabase every visitor goes to sign-in.
+return Astro.redirect(Astro.locals.user ? "/watchlist" : "/auth/signin");
 ---
-
-<Layout theme="dark">
-  <Welcome />
-</Layout>

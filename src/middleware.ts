@@ -2,7 +2,7 @@ import { defineMiddleware } from "astro:middleware";
 import { withHeaders } from "@/lib/response-headers";
 import { createClient } from "@/lib/supabase";
 
-const PROTECTED_ROUTES = ["/dashboard", "/watchlist", "/api/watchlist"];
+const PROTECTED_ROUTES = ["/watchlist", "/api/watchlist"];
 
 export const onRequest = defineMiddleware(async (context, next) => {
   // The request's only Supabase client. Pages and routes use locals.supabase, so the cache headers @supabase/ssr sends
