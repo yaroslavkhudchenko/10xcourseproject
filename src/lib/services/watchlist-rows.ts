@@ -3,13 +3,20 @@ import {
   ageText,
   compareShops,
   keyText,
+  listJoin,
   listPricedItems,
   listSummaryText,
+  MATCHABLE_SHOPS,
+  MATCHED_SHOPS,
   namesOf,
+  PRICED_SHOPS,
   priceState,
   SHOP_LABELS,
   verdictOf,
+  type KnownShop,
   type LatestCheck,
+  type MatchableShop,
+  type MatchedShop,
   type PricedItem,
   type PricedShop,
   type PriceVerdict,
@@ -46,20 +53,40 @@ export interface RowShop {
 }
 
 /**
- * Where a listed product stands in Natura: its decision there, `none` without one (a choice still to be made
- * included), or `unreadable` when its decision couldn't be read.
+ * Where a listed product stands in one matched shop, as matchStatesOf gives it: matched, with what the match differs in
+ * from the product unseen; declined by the user (`unmatched`); not found by the lookup (`not_found`); `none` without a
+ * decision, a choice still to be made included; or `unreadable` when its decision couldn't be read.
  */
-export type NaturaListState = MatchState | "none" | "unreadable";
+export type ListMatchState =
+  { state: "matched"; mismatch: ListMismatch } | { state: Exclude<MatchState, "matched"> | "none" | "unreadable" };
 
 /**
- * What definitely differs between a listed product and its match in Natura that nobody has seen, as naturaMismatchOf
- * gives it: the size, the brand, or both (matchDifferences). Only an automatic match can differ unseen; a match the
- * user confirmed, and any other decision, differs in nothing here.
+ * A listed product's state in every matched shop, as matchStatesOf gives it, which its row says and counts
+ * (listRowOf). A test may add a shop the code can match that isn't switched on yet.
  */
-export type NaturaMismatch = ReturnType<typeof matchDifferences>;
+export type ListMatchStates = Readonly<
+  Record<MatchedShop, ListMatchState> & Partial<Record<MatchableShop, ListMatchState>>
+>;
 
-/** Nothing to check about a product's Natura decision. */
-const NO_MISMATCH: NaturaMismatch = { size: false, brand: false };
+/**
+ * The list's read of the decisions, as listMatchStates gives it: the decisions that were read, the ones that came back
+ * odd, by product and shop, and the shops some odd row of which couldn't say which product it's about.
+ */
+export interface DecisionsRead {
+  states: readonly ShopMatchState[];
+  unread: readonly { watchlistItemId: string; shop: MatchableShop }[];
+  unattributed: readonly MatchableShop[];
+}
+
+/**
+ * What definitely differs between a listed product and its match in a shop that nobody has seen, as matchStatesOf
+ * gives it: the size, the brand, or both (matchDifferences). Only an automatic match can differ unseen; a match the
+ * user confirmed differs in nothing here, and any other decision has no match to differ.
+ */
+export type ListMismatch = ReturnType<typeof matchDifferences>;
+
+/** Nothing to check about a match. */
+const NO_MISMATCH: ListMismatch = { size: false, brand: false };
 
 /**
  * A row's price tag: its tone, the price it shows, if any, its label, and the line under it that says where that price
@@ -115,68 +142,106 @@ export function rowProductOf(product: NamedProduct): RowProduct {
   };
 }
 
-// What a row says about Natura after its price line, as S-02's list did. A match's price line names Natura's price, so
-// a matched product says more only when its match differs from it unseen (mismatchText).
-const NATURA_STATUS: Record<Exclude<NaturaListState, "matched">, string> = {
-  none: `${SHOP_LABELS.natura.name}: do dopasowania`,
-  not_found: `${SHOP_LABELS.natura.name}: nie znaleziono`,
-  unmatched: `${SHOP_LABELS.natura.name}: brak (Twój wybór)`,
-  unreadable: `${SHOP_LABELS.natura.name}: nie udało się wczytać dopasowania`,
+/** A listed product's state in one matched shop, with its shop. */
+type ShopListState = ListMatchState & { shop: MatchableShop };
+
+/**
+ * Each shop's state among `states`, with its shop, in the order of the shops the code knows (MATCHABLE_SHOPS), which
+ * the matched shops keep, so a row names its shops in the pages' order however its states were put together. A shop
+ * the code knows that isn't switched on may have no state, so `states` is read as one that may leave any shop out.
+ */
+function shopStatesOf(states: ListMatchStates): ShopListState[] {
+  const known: Readonly<Partial<Record<MatchableShop, ListMatchState>>> = states;
+  return MATCHABLE_SHOPS.flatMap((shop) => {
+    const state = known[shop];
+    return state === undefined ? [] : [{ ...state, shop }];
+  });
+}
+
+// What a row says about a matched shop after its price line, by its decision other than a match, after the shop's
+// name, as S-02's list said it of Natura.
+const STATUS_TEXTS: Record<Exclude<ListMatchState["state"], "matched">, string> = {
+  none: "do dopasowania",
+  not_found: "nie znaleziono",
+  unmatched: "brak (Twój wybór)",
+  unreadable: "nie udało się wczytać dopasowania",
 };
 
 /**
- * What a row says after its price line about a Natura match that differs from the product unseen: which of its size
- * and its brand to check. The row looks as drawn, so the line screen readers hear is where it says why the product is
- * one to check. Null when nothing differs.
+ * What a row says about a matched shop after its price line, naming the shop by its label: its decision other than a
+ * match, or which of the size and the brand to check about a match that differs from the product unseen. The row looks
+ * as drawn, so the line screen readers hear is where it says why the product is one to check. A match that differs in
+ * nothing says nothing more, since the price line names its price: null.
  */
-function mismatchText({ size, brand }: NaturaMismatch): string | null {
+function statusText(shopState: ShopListState): string | null {
+  const { name } = SHOP_LABELS[shopState.shop];
+  if (shopState.state !== "matched") {
+    return `${name}: ${STATUS_TEXTS[shopState.state]}`;
+  }
+  const { size, brand } = shopState.mismatch;
   if (!size && !brand) {
     return null;
   }
   const what = size && brand ? "inny rozmiar i marka" : size ? "inny rozmiar" : "inna marka";
-  return `${SHOP_LABELS.natura.name}: sprawdź dopasowanie, ${what}`;
+  return `${name}: sprawdź dopasowanie, ${what}`;
 }
 
 /**
- * A product's row, judged at `now` from its priced shops and its Natura state, with what its Natura match differs in
- * unseen (`mismatch`, naturaMismatchOf), which only a match can. A Natura decision that couldn't be read counts as a
- * price that couldn't be read: the match it hides may name a lower price, so no shop is named, and the row never reads
- * as having only Rossmann.
+ * Whether a matched shop's state puts its product in Do sprawdzenia: no decision there, a lookup that found nothing, a
+ * decision that couldn't be read, or a match whose size or brand differs from the product unseen (FR-007). A decline
+ * doesn't.
+ */
+function needsCheck(shopState: ListMatchState): boolean {
+  switch (shopState.state) {
+    case "matched":
+      return shopState.mismatch.size || shopState.mismatch.brand;
+    case "unmatched":
+      return false;
+    case "none":
+    case "not_found":
+    case "unreadable":
+      return true;
+  }
+}
+
+/**
+ * A product's row, judged at `now` from its priced shops and its state in every matched shop (`matchStates`,
+ * matchStatesOf). A decision that couldn't be read, in any matched shop, counts as a price that couldn't be read: the
+ * match it hides may name a lower price, so no shop is named, and the row never reads as having only the shops whose
+ * prices it has. After the price line, the row's line says each matched shop's state other than a match, and what to
+ * check about a match that differs from the product unseen, in the shops' order.
  *
  * - Promocje holds a product with a fresh price, which may be one that can't be ordered online, carrying a regular
  *   price or a promotion's end.
  * - Do sprawdzenia holds a product with a price that isn't fresh (stale, its item missing, never checked or unread), or
- *   with no Natura decision, a lookup that found nothing, a decision that couldn't be read, or a match whose size or
- *   brand differs unseen, which the row's line names (FR-007). A decline doesn't count, and neither does a fresh price
- *   that can't be ordered online.
+ *   with a matched shop where it has no decision, its lookup found nothing, its decision couldn't be read, or its match
+ *   differs in size or brand unseen, which the row's line names (FR-007). A decline doesn't count, and neither does a
+ *   fresh price that can't be ordered online.
  *
  * The tag never shows a mismatch: the row looks as drawn.
  */
 export function listRowOf(
   item: ListedProduct,
   pricedShops: readonly RowShop[],
-  natura: NaturaListState,
+  matchStates: ListMatchStates,
   now: number,
-  mismatch: NaturaMismatch = NO_MISMATCH,
 ): ListRow {
+  const states = shopStatesOf(matchStates);
   const compared = compareShops(pricedShops, now);
-  const unread = pricedShops.some((shop) => shop.readFailed) || natura === "unreadable";
+  const unread = pricedShops.some((shop) => shop.readFailed) || states.some((each) => each.state === "unreadable");
   const priceLine = listSummaryText(compared.summary, compared.rows, now, unread);
-  // A match that differs from the product unseen: only an automatic one comes with a mismatch (naturaMismatchOf).
-  const suspicious = natura === "matched" && (mismatch.size || mismatch.brand);
-  const status = natura === "matched" ? mismatchText(mismatch) : NATURA_STATUS[natura];
-  const sentences = status === null ? [priceLine] : [priceLine, status];
+  const statuses = states.flatMap((each) => {
+    const status = statusText(each);
+    return status === null ? [] : [status];
+  });
   return {
     itemId: item.id,
     ...rowProductOf(item),
     tag: priceTagOf(verdictOf(compared, now, unread)),
-    summary: sentences.map(sentence).join(" "),
+    summary: [priceLine, ...statuses].map(sentence).join(" "),
     promo: pricedShops.some((shop) => onPromotion(shop, now)),
     check:
-      suspicious ||
-      natura === "none" ||
-      natura === "not_found" ||
-      natura === "unreadable" ||
+      states.some((each) => needsCheck(each)) ||
       pricedShops.some((shop) => shop.readFailed || priceState(shop.latest, now) !== "fresh"),
   };
 }
@@ -244,8 +309,8 @@ function shopLine({ shop, pricedAt, at }: { shop: PricedShop; pricedAt: string; 
 
 /**
  * The price tag of a row from its shops as the product's island sends them (PRICES_EVENT), at `now`, by the same rule
- * as listRowOf, so the selected row's tag follows the product's refresh. The island names a Natura match that couldn't
- * be read as a Natura shop whose price couldn't be read.
+ * as listRowOf, so the selected row's tag follows the product's refresh. The island names a matched shop whose decision
+ * couldn't be read as that shop with a price that couldn't be read (rowShopsOfIsland).
  */
 export function rowTagOf(shops: readonly RowShop[], now: number): PriceTag {
   const compared = compareShops(shops, now);
@@ -295,8 +360,8 @@ export function listChipsOf(
  * A link on the page at `path` that keeps the list's filter: the same page with the filter first, unless it's every
  * product's, then `params` in their order, so it drops the search, the notices and anything else the address held. A
  * chip's link is the page with its filter alone, and every product's chip is the bare page. The product page's own
- * links, forms' redirects and the list's refresh add what they carry after the filter, such as `retry=1`, `repin=1` or
- * a notice's code.
+ * links, forms' redirects and the list's refresh add what they carry after the filter, such as `retry=natura`,
+ * `repin=natura` or a notice's code.
  */
 export function filterHref(path: string, filter: ListFilter, params: Record<string, string> = {}): string {
   const page = path.split(/[?#]/, 1)[0];
@@ -327,69 +392,91 @@ export function rowShopsOf(
 }
 
 /**
- * Where a product stands in Natura, from the list's read of the decisions, or null when they couldn't be read at all.
- * A Natura decision that was read stands even when another row of the product couldn't be, or a row couldn't say whose
- * it is: a product has one decision per shop, so that row is someone else's. Without one, a product counts as
- * unreadable when one of its rows couldn't be read, or when a row that couldn't say whose it is may be its decision.
+ * Where a listed product stands in each of `shops`, from the list's read of the decisions, or null when they couldn't
+ * be read at all, which makes every shop's unreadable. Each shop is read on its own:
+ *
+ * - A decision that was read stands even when another row of the product couldn't be, or a row couldn't say whose it
+ *   is: a product has one decision per shop, so that row is another shop's or someone else's.
+ * - Without one, the product's decision there is unreadable when its row of that shop couldn't be read, or when a row
+ *   of that shop that couldn't say whose it is may be its decision. Another shop's odd row says nothing about it.
+ * - A match comes with what it differs in from the product unseen: what definitely differs between them
+ *   (matchDifferences), a size or a brand unknown on either side never counting, for an automatic match only. A match
+ *   the user confirmed was shown with its flags before they confirmed it, so it differs in nothing here.
+ *
+ * `shops` are the matched shops unless a test names others.
  */
-export function naturaStateOf(
-  itemId: string,
-  read: { states: readonly ShopMatchState[]; unread: readonly string[]; unattributed: number } | null,
-): NaturaListState {
-  if (read === null) {
-    return "unreadable";
-  }
-  const decision = naturaDecisionOf(itemId, read.states);
-  if (decision !== undefined) {
-    return decision.state;
-  }
-  return read.unread.includes(itemId) || read.unattributed > 0 ? "unreadable" : "none";
-}
-
-/**
- * What a product's Natura match differs in that nobody has seen, from the list's read of the decisions: what
- * definitely differs between the product and an automatic match (matchDifferences), a size or a brand unknown on
- * either side never counting. A match the user confirmed was shown with its flags before they confirmed it, so it
- * differs in nothing here, and neither does any other decision, nor one that couldn't be read: its product says so
- * (naturaStateOf).
- */
-export function naturaMismatchOf(
+export function matchStatesOf<Shop extends MatchableShop = MatchedShop>(
   item: Pick<WatchlistItem, "id" | "brand" | "size">,
-  read: { states: readonly ShopMatchState[]; unread: readonly string[]; unattributed: number } | null,
-): NaturaMismatch {
-  const decision = read === null ? undefined : naturaDecisionOf(item.id, read.states);
-  if (decision?.state !== "matched" || decision.decidedBy !== "auto") {
-    return NO_MISMATCH;
+  read: DecisionsRead | null,
+  shops: readonly Shop[] | typeof MATCHED_SHOPS = MATCHED_SHOPS,
+): Record<Shop, ListMatchState> {
+  const states: Partial<Record<MatchableShop, ListMatchState>> = {};
+  for (const shop of shops) {
+    states[shop] = matchStateIn(shop, item, read);
   }
-  return matchDifferences(item, decision);
+  // Every shop of `shops` has its state, and the default's shops are the matched shops, which `Shop` defaults to, so
+  // the cast holds.
+  return states as Record<Shop, ListMatchState>;
 }
 
-/** The product's decision in Natura among the decisions that were read, if there is one. */
-function naturaDecisionOf(itemId: string, states: readonly ShopMatchState[]): ShopMatchState | undefined {
-  return states.find((state) => state.watchlistItemId === itemId && state.shop === "natura");
+/** Where a listed product stands in one shop, by matchStatesOf's rules. */
+function matchStateIn(
+  shop: MatchableShop,
+  item: Pick<WatchlistItem, "id" | "brand" | "size">,
+  read: DecisionsRead | null,
+): ListMatchState {
+  if (read === null) {
+    return { state: "unreadable" };
+  }
+  const decision = read.states.find((state) => state.watchlistItemId === item.id && state.shop === shop);
+  if (decision === undefined) {
+    const unread = read.unread.some((odd) => odd.watchlistItemId === item.id && odd.shop === shop);
+    return unread || read.unattributed.includes(shop) ? { state: "unreadable" } : { state: "none" };
+  }
+  if (decision.state !== "matched") {
+    return { state: decision.state };
+  }
+  return {
+    state: "matched",
+    mismatch: decision.decidedBy === "auto" ? matchDifferences(item, decision) : NO_MISMATCH,
+  };
 }
 
 /**
  * The list's rows, in the list's order, judged at `now` from its three reads: the products, their decisions per shop
  * and the latest prices, each read as its list read gives it, null when it couldn't be read at all. A product whose
- * price or Natura decision couldn't be read says so, and a read that failed altogether marks every product's, so no
- * row reads a failed read as a product without a price or a match. A product whose automatic Natura match differs
- * from it is one to check, and its row says why. The list, and the list beside a product, build their rows here.
+ * price or decision in a matched shop couldn't be read says so, and a read that failed altogether marks every
+ * product's, so no row reads a failed read as a product without a price or a match. A product whose automatic match in
+ * a matched shop differs from it is one to check, and its row says why. The list, and the list beside a product, build
+ * their rows here.
  */
 export function listRowsOf(
   items: readonly (ListedProduct & Pick<WatchlistItem, "source" | "sourceItemId" | "size">)[],
-  matchRead: { states: readonly ShopMatchState[]; unread: readonly string[]; unattributed: number } | null,
+  matchRead: DecisionsRead | null,
   priceRead: { prices: readonly LatestPrice[]; unread: readonly PriceKey[]; unattributed: number } | null,
   now: number,
 ): ListRow[] {
   const priced = listPricedItems(items, matchRead?.states ?? [], priceRead?.prices ?? []);
   return items.map((item) =>
-    listRowOf(
-      item,
-      rowShopsOf(priced.get(item.id) ?? [], priceRead),
-      naturaStateOf(item.id, matchRead),
-      now,
-      naturaMismatchOf(item, matchRead),
-    ),
+    listRowOf(item, rowShopsOf(priced.get(item.id) ?? [], priceRead), matchStatesOf(item, matchRead), now),
   );
+}
+
+/**
+ * What the list says above its rows when the decisions couldn't be read at all, naming the shops they're of: "Nie
+ * udało się wczytać dopasowań w Naturze. Odśwież stronę." Each row then says its decisions couldn't be read, never that
+ * its product is still to be matched. One read holds every matched shop's decisions, so `shops` are the matched shops
+ * unless a test names others.
+ */
+export function matchesFailedText(shops: readonly MatchableShop[] = MATCHED_SHOPS): string {
+  return `Nie udało się wczytać dopasowań ${namesOf(shops, "in")}. Odśwież stronę.`;
+}
+
+/**
+ * Where the list's prices come from, as its footer says it under the rows: online prices, from the sites of `shops`
+ * (FR-010), listed the Polish way (listJoin), "Ceny online z rossmann.pl i drogerienatura.pl". `shops` are the priced
+ * shops unless a test names others.
+ */
+export function priceSourcesText(shops: readonly KnownShop[] = PRICED_SHOPS): string {
+  return `Ceny online z ${listJoin(shops.map((shop) => SHOP_LABELS[shop].site))}`;
 }

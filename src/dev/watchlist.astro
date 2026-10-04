@@ -187,10 +187,12 @@ const HEADS: {
               </h2>
               <p class="text-sm text-muted-foreground">
                 <code>WatchlistRow</code> w każdym stanie etykiety ceny (<code>priceTagOf</code>), ze sklepem i wiekiem
-                ceny pod etykietą, wybrany i z długą nazwą. Czytnik ekranu słyszy zamiast etykiety i tej linii cały
-                wiersz (<code>summary</code>). Automatyczne dopasowanie w Naturze, które różni się od produktu rozmiarem
-                lub marką, wygląda jak inne, ale liczy się w „Do sprawdzenia”, a linia czytnika mówi dlaczego: wiersz
-                <code>suspicious</code>.
+                ceny pod etykietą, wybrany i z długą nazwą, przy Hebe odrzuconej przez Ciebie. Czytnik ekranu słyszy
+                zamiast etykiety i tej linii cały wiersz (<code>summary</code>). Automatyczne dopasowanie w Naturze,
+                które różni się od produktu rozmiarem lub marką, wygląda jak inne, ale liczy się w „Do sprawdzenia”, a
+                linia czytnika mówi dlaczego: wiersz <code>suspicious</code>. Wiersze Hebe, od{" "}
+                <code>hebe-cheapest</code>: najtańsza z trzech sklepów, do dopasowania, nie znaleziona, dopasowana w
+                innym rozmiarze i z decyzją, której nie udało się wczytać, każdy z tym, co słyszy czytnik ekranu.
               </p>
               <div class="flex flex-col gap-6">
                 {ROW_FIXTURES.map(({ code, text, row, selected }) => (

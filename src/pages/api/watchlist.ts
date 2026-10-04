@@ -11,7 +11,7 @@ function backToWatchlist(result: "exists" | WatchlistError): string {
 }
 
 // "Dodaj" from the search results. It stores the posted product for the signed-in user and makes no shop request;
-// the product's page, where it lands, settles its match in Natura.
+// the product's page, where it lands, settles its match in each matched shop.
 export const POST: APIRoute = async (context) => {
   const supabase = context.locals.supabase;
   if (!supabase) {

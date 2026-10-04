@@ -1,8 +1,10 @@
 // The list's kitchen sink's fixtures (src/dev/watchlist.astro): made-up products on no one's list, their shops' latest
-// checks and their Natura decisions, on a fixed clock, and search results. Every row is built by the list's own row
-// service (watchlist-rows.ts): one product at a time from its shops, or the whole list from its three reads as the
-// page gets them, so the kitchen sink shows only rows the page can reach. Nothing here is real user data, and nothing
-// here asks Supabase or a shop.
+// checks and their decisions in Natura and Hebe, on a fixed clock, and search results. Every row is built by the
+// list's own row service (watchlist-rows.ts): one product at a time from its shops, or the whole list from its three
+// reads as the page gets them, so the kitchen sink shows only rows the page can reach. The tag states' rows stand
+// beside a Hebe the user declined, and Hebe's own rows follow them: the cheapest of three, still to match, not found,
+// a match that differs from its product, and a decision that couldn't be read. Nothing here is real user data, and
+// nothing here asks Supabase or a shop.
 import type { LatestCheck, PricedShop } from "@/lib/services/price-comparison";
 import { parseSize } from "@/lib/services/size";
 import {
@@ -10,8 +12,9 @@ import {
   listRowOf,
   listRowsOf,
   type ListFilter,
+  type ListMatchState,
+  type ListMatchStates,
   type ListRow,
-  type NaturaListState,
   type RowShop,
 } from "@/lib/services/watchlist-rows";
 import type { LatestPrice, ProductCandidate, ShopMatchState, WatchlistItem } from "@/types";
@@ -95,14 +98,28 @@ const NIVEA_SHOPS = [
   shop("natura", checked(5 * MINUTE, 22.99, { regularPrice: 27.99 })),
 ];
 
-/** The row of `item` with these shops and this Natura state, at the page's time. */
-const rowOf = (item: WatchlistItem, shops: RowShop[], natura: NaturaListState): ListRow =>
-  listRowOf(item, shops, natura, NOW_MS);
+/** A product's state in one matched shop, by its name there: a match agrees with the product. */
+function stateOf(state: ListMatchState["state"]): ListMatchState {
+  return state === "matched" ? { state, mismatch: { size: false, brand: false } } : { state };
+}
+
+/** A product's state in every matched shop, by its name there: Hebe declined by the user unless given. */
+function statesOf(natura: ListMatchState["state"], hebe: ListMatchState["state"] = "unmatched"): ListMatchStates {
+  return { natura: stateOf(natura), hebe: stateOf(hebe) };
+}
+
+/** The row of `item` with these shops and these states in Natura and Hebe, at the page's time. */
+const rowOf = (
+  item: WatchlistItem,
+  shops: RowShop[],
+  natura: ListMatchState["state"],
+  hebe?: ListMatchState["state"],
+): ListRow => listRowOf(item, shops, statesOf(natura, hebe), NOW_MS);
 
 // A shampoo matched in Natura to an item of another brand in its size, which a lookup accepted on its own before the
-// brand rule. Nobody has seen it differ, so the list counts the product in "Do sprawdzenia", and the row's line for
-// screen readers says why, while the row looks like any other. The row comes from the list's own reads as the page
-// gets them, so the list's rule decides all that.
+// brand rule, and declined in Hebe. Nobody has seen it differ, so the list counts the product in "Do sprawdzenia", and
+// the row's line for screen readers says why, while the row looks like any other. The row comes from the list's own
+// reads as the page gets them, so the list's rule decides all that.
 const JOANNA = product(15, { brand: "Joanna", name: "Naturia", caption: "szampon z pokrzywą", sizeText: "500 ml" });
 const JOANNA_SKU = "NV90015";
 const OTHER_BRAND_MATCH: ShopMatchState = {
@@ -116,7 +133,11 @@ const OTHER_BRAND_MATCH: ShopMatchState = {
 };
 const [OTHER_BRAND_ROW] = listRowsOf(
   [JOANNA],
-  { states: [OTHER_BRAND_MATCH], unread: [], unattributed: 0 },
+  {
+    states: [OTHER_BRAND_MATCH, { watchlistItemId: JOANNA.id, shop: "hebe", state: "unmatched", shopItemId: null }],
+    unread: [],
+    unattributed: [],
+  },
   {
     prices: [
       { shop: "rossmann", shopItemId: JOANNA.sourceItemId, ...checked(15 * MINUTE, 8.99) },
@@ -127,6 +148,94 @@ const [OTHER_BRAND_ROW] = listRowsOf(
   },
   NOW_MS,
 );
+
+// Hebe's rows. A cleanser priced in all three shops, cheapest in Hebe.
+const GARNIER_MICELLAR = product(16, {
+  brand: "Garnier",
+  name: "Płyn micelarny",
+  caption: "do skóry wrażliwej",
+  sizeText: "400 ml",
+});
+const THREE_SHOPS = [
+  shop("rossmann", checked(10 * MINUTE, 19.99)),
+  shop("natura", checked(5 * MINUTE, 17.49)),
+  shop("hebe", checked(5 * MINUTE, 16.99)),
+];
+// A foot cream matched in Natura, still to match in Hebe, and a hand cream Hebe's lookup didn't find.
+const ZIAJA_FEET = product(17, { brand: "Ziaja", name: "Krem do stóp", caption: "z mocznikiem", sizeText: "100 ml" });
+const ISANA_HANDS = product(18, { brand: "Isana", name: "Krem do rąk", caption: "z masłem shea", sizeText: "75 ml" });
+const FOOT_SHOPS = [shop("rossmann", checked(30 * MINUTE, 8.99)), shop("natura", checked(30 * MINUTE, 9.49))];
+const HAND_SHOPS = [shop("rossmann", checked(30 * MINUTE, 6.99)), shop("natura", checked(30 * MINUTE, 7.29))];
+const HEBE_NONE_ROW = rowOf(ZIAJA_FEET, FOOT_SHOPS, "matched", "none");
+const HEBE_NOT_FOUND_ROW = rowOf(ISANA_HANDS, HAND_SHOPS, "matched", "not_found");
+
+// A lip balm declined in Natura and matched automatically in Hebe to its item in another size, as such a match is
+// stored: nobody has seen it differ, so the list counts the product in "Do sprawdzenia", and the line says why.
+const LABELLO = product(19, { brand: "Labello", name: "Original", caption: "pomadka do ust", sizeText: "4,8 g" });
+const LABELLO_HEBE_ID = "990000000000000019";
+const [HEBE_SIZE_ROW] = listRowsOf(
+  [LABELLO],
+  {
+    states: [
+      { watchlistItemId: LABELLO.id, shop: "natura", state: "unmatched", shopItemId: null },
+      {
+        watchlistItemId: LABELLO.id,
+        shop: "hebe",
+        state: "matched",
+        shopItemId: LABELLO_HEBE_ID,
+        brand: "Labello",
+        size: parseSize("5,5 ml"),
+        decidedBy: "auto",
+      },
+    ],
+    unread: [],
+    unattributed: [],
+  },
+  {
+    prices: [
+      { shop: "rossmann", shopItemId: LABELLO.sourceItemId, ...checked(20 * MINUTE, 9.99) },
+      { shop: "hebe", shopItemId: LABELLO_HEBE_ID, ...checked(20 * MINUTE, 10.49) },
+    ],
+    unread: [],
+    unattributed: 0,
+  },
+  NOW_MS,
+);
+
+// A shower gel matched in Natura whose Hebe decision came back odd: Hebe's match may name a lower price, so the row
+// names no shop.
+const PALMOLIVE = product(20, { brand: "Palmolive", name: "Żel pod prysznic", caption: "Aroma", sizeText: "500 ml" });
+const PALMOLIVE_SKU = "NV90020";
+const [HEBE_UNREAD_ROW] = listRowsOf(
+  [PALMOLIVE],
+  {
+    states: [
+      {
+        watchlistItemId: PALMOLIVE.id,
+        shop: "natura",
+        state: "matched",
+        shopItemId: PALMOLIVE_SKU,
+        brand: "PALMOLIVE",
+        size: parseSize("500 ml"),
+        decidedBy: "auto",
+      },
+    ],
+    unread: [{ watchlistItemId: PALMOLIVE.id, shop: "hebe" }],
+    unattributed: [],
+  },
+  {
+    prices: [
+      { shop: "rossmann", shopItemId: PALMOLIVE.sourceItemId, ...checked(15 * MINUTE, 11.99) },
+      { shop: "natura", shopItemId: PALMOLIVE_SKU, ...checked(15 * MINUTE, 10.99) },
+    ],
+    unread: [],
+    unattributed: 0,
+  },
+  NOW_MS,
+);
+
+/** What a screen reader hears of a row, as a fixture's label quotes it. */
+const heard = (row: ListRow) => `czytnik ekranu słyszy: „${row.summary}”`;
 
 /** One row of the list, with the kitchen sink's label for it. */
 export interface RowFixture {
@@ -200,8 +309,35 @@ export const ROW_FIXTURES: RowFixture[] = [
     code: "suspicious",
     text:
       "dopasowane automatycznie do innej marki, zanim porównywano marki: wygląda jak inne, ale liczy się " +
-      `w „Do sprawdzenia”, a czytnik ekranu słyszy: „${OTHER_BRAND_ROW.summary}”`,
+      `w „Do sprawdzenia”, a ${heard(OTHER_BRAND_ROW)}`,
     row: OTHER_BRAND_ROW,
+  },
+  {
+    code: "hebe-cheapest",
+    text: "trzy sklepy, Hebe najtańsza: etykieta w kolorze sun z nazwą Hebe",
+    row: rowOf(GARNIER_MICELLAR, THREE_SHOPS, "matched", "matched"),
+  },
+  {
+    code: "hebe-none",
+    text: `Hebe do dopasowania: wiersz liczy się w „Do sprawdzenia”, a ${heard(HEBE_NONE_ROW)}`,
+    row: HEBE_NONE_ROW,
+  },
+  {
+    code: "hebe-not-found",
+    text: `Hebe nie znalazła produktu: wiersz liczy się w „Do sprawdzenia”, a ${heard(HEBE_NOT_FOUND_ROW)}`,
+    row: HEBE_NOT_FOUND_ROW,
+  },
+  {
+    code: "hebe-suspicious",
+    text:
+      "dopasowane automatycznie w Hebe w innym rozmiarze: wygląda jak inne, ale liczy się w „Do sprawdzenia”, a " +
+      heard(HEBE_SIZE_ROW),
+    row: HEBE_SIZE_ROW,
+  },
+  {
+    code: "hebe-unread",
+    text: `nie udało się wczytać decyzji Hebe: żaden sklep nie jest nazwany, a ${heard(HEBE_UNREAD_ROW)}`,
+    row: HEBE_UNREAD_ROW,
   },
 ];
 
@@ -269,7 +405,8 @@ export const LONG_ROWS: ListRow[] = [...GALLERY_ROWS.filter((row) => row.itemId 
 export const LONG_COUNTS = filterCounts(LONG_ROWS);
 
 // The whole list's three reads as the page gets them, from which the read failures are built: Nivea matched in Natura
-// on its own, to an item of its brand and size, Ziaja still to match, Colgate declined there.
+// on its own, to an item of its brand and size, Ziaja still to match, Colgate declined there; none of them has a
+// decision in Hebe yet.
 const LIST: WatchlistItem[] = [NIVEA, ZIAJA, COLGATE];
 const LIST_STATES: ShopMatchState[] = [
   {
@@ -289,7 +426,7 @@ const LIST_PRICES: LatestPrice[] = [
   { shop: "rossmann", shopItemId: ZIAJA.sourceItemId, ...checked(20 * HOUR, 12.99) },
   { shop: "rossmann", shopItemId: COLGATE.sourceItemId, ...checked(2 * DAY, 11.49) },
 ];
-const MATCH_READ = { states: LIST_STATES, unread: [], unattributed: 0 };
+const MATCH_READ = { states: LIST_STATES, unread: [], unattributed: [] };
 const PRICE_READ = { prices: LIST_PRICES, unread: [], unattributed: 0 };
 
 /** One state of the list's rows, with the kitchen sink's label for it. */
@@ -321,7 +458,7 @@ export const ROWS_FIXTURES: RowsFixture[] = [
   },
   {
     code: "matches-failed",
-    text: "nie udało się wczytać decyzji Natury: żaden wiersz nie mówi, że czeka na dopasowanie",
+    text: "nie udało się wczytać decyzji Natury i Hebe: żaden wiersz nie mówi, że czeka na dopasowanie",
     rows: listRowsOf(LIST, null, PRICE_READ, NOW_MS),
     filter: "all",
     matchesFailed: true,

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { LIST_PRICES_PARAM, NOTICE_PARAMS, PRICES_PARAM } from "@/lib/notices";
+import { keyText, type KnownShop } from "@/lib/services/price-comparison";
 import {
   listRefreshBackOf,
   listRefreshBackTo,
@@ -17,6 +18,8 @@ import { createShopGate } from "@/lib/services/shop-gate";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
 import type { ListFilter } from "@/lib/services/watchlist-rows";
 import type { PriceCheck, PriceKey, ShopId, ShopOffer } from "@/types";
+import hebeIdUnknown from "@/lib/services/shops/fixtures/hebe-id-unknown.json";
+import hebeIds from "@/lib/services/shops/fixtures/hebe-ids.json";
 import skuUnknown from "@/lib/services/shops/fixtures/natura-sku-unknown.json";
 import oneSku from "@/lib/services/shops/fixtures/natura-sku.json";
 import twoSkus from "@/lib/services/shops/fixtures/natura-skus.json";
@@ -24,22 +27,29 @@ import reduced from "@/lib/services/shops/fixtures/rossmann-detail-reduced.json"
 import regular from "@/lib/services/shops/fixtures/rossmann-detail-regular.json";
 import unknownProduct from "@/lib/services/shops/fixtures/rossmann-detail-unknown.json";
 
-// Both shops answer with their real recordings, through the real gate; no test reaches a live shop.
+// The shops answer with their real recordings, through the real gate; no test reaches a live shop.
 const detailUrl = (id: string) => `https://www.rossmann.pl/products/v2/api/Products/${id}?shopNumber=null`;
 // Natura's price request, spelled out as the natura-sku*.json recordings were made: one repeated f[] per SKU.
-const priceUrl = (skus: string[]) =>
+const naturaPriceUrl = (skus: string[]) =>
   "https://live.luigisbox.com/search?tracker_id=703598-939363&f%5B%5D=type%3Aproduct" +
   skus.map((sku) => `&f%5B%5D=sku%3A${sku}`).join("") +
   `&size=${skus.length}&hit_fields=sku%2Cprice_amount%2Cprice_old_amount%2Clowest_price%2Cavailability`;
+// Hebe's price request, spelled out as its adapter sends it: items only, one repeated f[] per id, and only the price
+// attributes. hebe-ids.json was recorded with a longer hit_fields list (hebe.test.ts), which only adds attributes.
+const hebePriceUrl = (ids: string[]) =>
+  "https://live.luigisbox.com/search?tracker_id=421168-505233&f%5B%5D=type%3Aitem" +
+  ids.map((id) => `&f%5B%5D=ID%3A${id}`).join("") +
+  `&size=${ids.length}&hit_fields=price_amount%2Cprice_sale_amount%2Cprice_omnibus_amount%2Conline_flag`;
 
 // Rossmann's Felix on promotion, Nivea Soft at its regular price, and an id Rossmann doesn't have; Natura's Nivea Soft
-// on promotion, Nivea MEN, and a SKU Natura doesn't have.
+// on promotion, Nivea MEN, and a SKU Natura doesn't have; and Hebe's Nivea Soft 200 ml.
 const FELIX: PriceKey = { shop: "rossmann", shopItemId: "131225" };
 const NIVEA: PriceKey = { shop: "rossmann", shopItemId: "26900" };
 const GONE: PriceKey = { shop: "rossmann", shopItemId: "999999999" };
 const SOFT: PriceKey = { shop: "natura", shopItemId: "NV89063" };
 const MEN: PriceKey = { shop: "natura", shopItemId: "NV81063" };
 const UNKNOWN_SKU: PriceKey = { shop: "natura", shopItemId: "ZZ00000000" };
+const HEBE_SOFT: PriceKey = { shop: "hebe", shopItemId: "000000000000218807" };
 
 const answers = {
   felix: { url: detailUrl("131225"), status: 200, body: JSON.stringify(reduced) },
@@ -50,9 +60,10 @@ const answers = {
     headers: { "Content-Type": unknownProduct.contentType },
     body: unknownProduct.body,
   },
-  soft: { url: priceUrl(["NV89063"]), status: 200, body: JSON.stringify(oneSku) },
-  softAndMen: { url: priceUrl(["NV89063", "NV81063"]), status: 200, body: JSON.stringify(twoSkus) },
-  unknownSku: { url: priceUrl(["ZZ00000000"]), status: 200, body: JSON.stringify(skuUnknown) },
+  soft: { url: naturaPriceUrl(["NV89063"]), status: 200, body: JSON.stringify(oneSku) },
+  softAndMen: { url: naturaPriceUrl(["NV89063", "NV81063"]), status: 200, body: JSON.stringify(twoSkus) },
+  unknownSku: { url: naturaPriceUrl(["ZZ00000000"]), status: 200, body: JSON.stringify(skuUnknown) },
+  hebeSoft: { url: hebePriceUrl([HEBE_SOFT.shopItemId]), status: 200, body: JSON.stringify(hebeIds) },
 } satisfies Record<string, ReplayEntry>;
 
 // The offers the recordings carry.
@@ -84,6 +95,13 @@ const menOffer: ShopOffer = {
   promoEndsOn: null,
   available: true,
 };
+const hebeSoftOffer: ShopOffer = {
+  price: 15.99,
+  regularPrice: null,
+  lowestPrice30d: 10.89,
+  promoEndsOn: null,
+  available: true,
+};
 const FAILED: PriceCheck = { kind: "unavailable", reason: "failed" };
 const BUSY: PriceCheck = { kind: "unavailable", reason: "busy" };
 const STOPPED: PriceCheck = { kind: "unavailable", reason: "stopped" };
@@ -92,6 +110,22 @@ const PAUSE_END = "2026-09-28T12:15:00.000Z";
 /** The URL a fetch was asked for. */
 function urlOf(input: RequestInfo | URL): string {
   return input instanceof Request ? input.url : new URL(input).href;
+}
+
+// Natura and Hebe share Luigi's Box's host, so a request says which of them it asks by its tracker.
+const TRACKER_SHOPS = new Map<string, KnownShop>([
+  ["703598-939363", "natura"],
+  ["421168-505233", "hebe"],
+]);
+
+/** The shop a request asks: Rossmann by its host, and Natura or Hebe by their trackers. */
+function shopOf(url: string): KnownShop {
+  const { host, searchParams } = new URL(url);
+  const shop = host === "www.rossmann.pl" ? "rossmann" : TRACKER_SHOPS.get(searchParams.get("tracker_id") ?? "");
+  if (shop === undefined) {
+    throw new Error(`No shop asked by ${url}`);
+  }
+  return shop;
 }
 
 /**
@@ -120,22 +154,22 @@ function setup(entries: ReplayEntry[], reserve?: (shop: ShopId) => unknown) {
 
 /**
  * A fetch that serves the given recordings a moment after each request, so requests sent together would overlap, and
- * keeps the most requests in flight at once, in all and to Rossmann.
+ * keeps the most requests in flight at once, in all and to each shop.
  */
 function slowReplay(entries: ReplayEntry[]) {
   const replay = createReplayFetch(entries);
-  const inFlight: string[] = [];
-  const most = { all: 0, rossmann: 0 };
+  const inFlight: KnownShop[] = [];
+  const most: Record<"all" | KnownShop, number> = { all: 0, rossmann: 0, natura: 0, hebe: 0 };
   const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
-    const { host } = new URL(urlOf(input));
-    inFlight.push(host);
+    const shop = shopOf(urlOf(input));
+    inFlight.push(shop);
     most.all = Math.max(most.all, inFlight.length);
-    most.rossmann = Math.max(most.rossmann, inFlight.filter((entry) => entry === "www.rossmann.pl").length);
+    most[shop] = Math.max(most[shop], inFlight.filter((entry) => entry === shop).length);
     try {
       await new Promise((resolve) => setTimeout(resolve, 10));
       return await replay(input, init);
     } finally {
-      inFlight.splice(inFlight.indexOf(host), 1);
+      inFlight.splice(inFlight.indexOf(shop), 1);
     }
   });
   return { fetchMock, most };
@@ -144,6 +178,11 @@ function slowReplay(entries: ReplayEntry[]) {
 /** Every URL the fetch was asked for: a miss would look like a network failure, so each test checks its requests. */
 function requestedUrls(fetchMock: Mock<typeof fetch>): string[] {
   return fetchMock.mock.calls.map(([input]) => urlOf(input));
+}
+
+/** The URLs one shop was asked for, in the order it was asked. */
+function urlsTo(fetchMock: Mock<typeof fetch>, shop: KnownShop): string[] {
+  return requestedUrls(fetchMock).filter((url) => shopOf(url) === shop);
 }
 
 /** One builder call a query made, such as `["insert", rows]`. */
@@ -374,11 +413,11 @@ describe("refreshPrices: storing", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { gate, fetchMock } = setup([answers.felix, answers.gone, answers.unknownSku]);
     const { client, queries } = stubClient();
-    // A stored id that isn't Rossmann's, and a shop whose prices S-03 doesn't fetch.
+    // A stored id that isn't Rossmann's, and a shop whose prices aren't fetched.
     const odd: PriceKey = { shop: "rossmann", shopItemId: ".." };
-    const hebe: PriceKey = { shop: "hebe", shopItemId: "000000000000218807" };
+    const superPharm: PriceKey = { shop: "super-pharm", shopItemId: "39477" };
 
-    const refresh = await refreshPrices(gate, client, [FELIX, odd, GONE, hebe, UNKNOWN_SKU]);
+    const refresh = await refreshPrices(gate, client, [FELIX, odd, GONE, superPharm, UNKNOWN_SKU]);
 
     expect(requestedUrls(fetchMock)).toHaveLength(3);
     expect(new Set(requestedUrls(fetchMock))).toEqual(
@@ -389,7 +428,7 @@ describe("refreshPrices: storing", () => {
         { key: FELIX, check: { kind: "price", offer: felixOffer } },
         { key: odd, check: FAILED },
         { key: GONE, check: { kind: "missing" } },
-        { key: hebe, check: FAILED },
+        { key: superPharm, check: FAILED },
         { key: UNKNOWN_SKU, check: { kind: "missing" } },
       ],
       saved: "saved",
@@ -498,10 +537,184 @@ describe("refreshPrices: storing", () => {
   });
 });
 
+describe("refreshPrices: every priced shop, Hebe's too", () => {
+  // Two requests' worth in each matched shop: Nivea Soft, which each shop's first recorded answer holds, then 50 ids the
+  // shop answers without.
+  const naturaSkus = [SOFT.shopItemId, ...Array.from({ length: 50 }, (_, i) => `ZZ${String(i).padStart(8, "0")}`)];
+  const hebeItemIds = [
+    HEBE_SOFT.shopItemId,
+    ...Array.from({ length: 50 }, (_, i) => `99${String(i).padStart(16, "0")}`),
+  ];
+  const naturaBatches = [naturaSkus.slice(0, 50), naturaSkus.slice(50)].map(naturaPriceUrl);
+  const hebeBatches = [hebeItemIds.slice(0, 50), hebeItemIds.slice(50)].map(hebePriceUrl);
+  // Each request's recorded answer: Nivea Soft alone in each shop's first, nothing in its second.
+  const naturaAnswers: ReplayEntry[] = [
+    { url: naturaBatches[0], status: 200, body: JSON.stringify(oneSku) },
+    { url: naturaBatches[1], status: 200, body: JSON.stringify(skuUnknown) },
+  ];
+  const hebeAnswers: ReplayEntry[] = [
+    { url: hebeBatches[0], status: 200, body: JSON.stringify(hebeIds) },
+    { url: hebeBatches[1], status: 200, body: JSON.stringify(hebeIdUnknown) },
+  ];
+  const keysIn = (shop: ShopId, ids: string[]): PriceKey[] => ids.map((shopItemId) => ({ shop, shopItemId }));
+  const naturaKeys = keysIn("natura", naturaSkus);
+  const hebeKeys = keysIn("hebe", hebeItemIds);
+  // Rossmann's two products, then every Natura and Hebe item.
+  const targets = [FELIX, NIVEA, ...naturaKeys, ...hebeKeys];
+  // The offers the recordings carry; every other item is one its shop answered without.
+  const offers = new Map([
+    [keyText(FELIX), felixOffer],
+    [keyText(NIVEA), niveaOffer],
+    [keyText(SOFT), softOffer],
+    [keyText(HEBE_SOFT), hebeSoftOffer],
+  ]);
+  /** An item's check once its shop has answered: its recorded offer, or missing. */
+  const answered = (key: PriceKey): PriceCheck => {
+    const offer = offers.get(keyText(key));
+    return offer === undefined ? { kind: "missing" } : { kind: "price", offer };
+  };
+  /** The rows one shop's insert stores for its items, once the shop has answered. */
+  const rowsOf = (keys: PriceKey[]) =>
+    keys.map((key) => {
+      const offer = offers.get(keyText(key));
+      return offer === undefined ? missingRow(key) : priceRow(key, offer);
+    });
+
+  it("asks Rossmann, Natura and Hebe at once, and stores each shop's checks with an insert of its own", async () => {
+    const { fetchMock, most } = slowReplay([answers.felix, answers.soft, answers.hebeSoft]);
+    const { gate } = gateOver(fetchMock);
+    const { client, queries } = stubClient();
+
+    const refresh = await refreshPrices(gate, client, [FELIX, SOFT, HEBE_SOFT]);
+
+    expect(requestedUrls(fetchMock)).toHaveLength(3);
+    expect(new Set(requestedUrls(fetchMock))).toEqual(
+      new Set([answers.felix.url, answers.soft.url, answers.hebeSoft.url]),
+    );
+    // The three shops' requests were in flight together.
+    expect(most.all).toBe(3);
+    expect(refresh).toEqual({
+      results: [
+        { key: FELIX, check: { kind: "price", offer: felixOffer } },
+        { key: SOFT, check: { kind: "price", offer: softOffer } },
+        { key: HEBE_SOFT, check: { kind: "price", offer: hebeSoftOffer } },
+      ],
+      saved: "saved",
+    });
+    expect(queries).toHaveLength(3);
+    expect(queries).toEqual(
+      expect.arrayContaining([
+        insertOf([priceRow(FELIX, felixOffer)]),
+        insertOf([priceRow(SOFT, softOffer)]),
+        insertOf([priceRow(HEBE_SOFT, hebeSoftOffer)]),
+      ]),
+    );
+  });
+
+  it("asks each shop one request at a time, in the order given, while the shops' requests overlap", async () => {
+    const { fetchMock, most } = slowReplay([answers.felix, answers.nivea, ...naturaAnswers, ...hebeAnswers]);
+    const { gate } = gateOver(fetchMock);
+    const { client, queries } = stubClient();
+
+    const refresh = await refreshPrices(gate, client, targets);
+
+    expect(urlsTo(fetchMock, "rossmann")).toEqual([answers.felix.url, answers.nivea.url]);
+    expect(urlsTo(fetchMock, "natura")).toEqual(naturaBatches);
+    expect(urlsTo(fetchMock, "hebe")).toEqual(hebeBatches);
+    // Never two requests to one shop at once, and the three shops' requests in flight together.
+    expect(most).toEqual({ all: 3, rossmann: 1, natura: 1, hebe: 1 });
+    expect(refresh).toEqual({ results: targets.map((key) => ({ key, check: answered(key) })), saved: "saved" });
+    expect(queries).toHaveLength(3);
+    expect(queries).toEqual(
+      expect.arrayContaining([
+        insertOf(rowsOf([FELIX, NIVEA])),
+        insertOf(rowsOf(naturaKeys)),
+        insertOf(rowsOf(hebeKeys)),
+      ]),
+    );
+  });
+
+  it("stops only Hebe once it answers 403: its later ids are neither reserved nor asked, and the other shops go on", async () => {
+    const { gate, fetchMock, reservations } = setup([
+      answers.felix,
+      answers.nivea,
+      ...naturaAnswers,
+      // Served before the recorded answer for the same request.
+      { url: hebeBatches[0], status: 403 },
+      ...hebeAnswers,
+    ]);
+    const { client, queries } = stubClient();
+
+    const refresh = await refreshPrices(gate, client, targets);
+
+    expect(urlsTo(fetchMock, "hebe")).toEqual([hebeBatches[0]]);
+    expect(reservations.filter((shop) => shop === "hebe")).toHaveLength(1);
+    expect(urlsTo(fetchMock, "rossmann")).toEqual([answers.felix.url, answers.nivea.url]);
+    expect(urlsTo(fetchMock, "natura")).toEqual(naturaBatches);
+    expect(refresh.results).toEqual(
+      targets.map((key) => ({ key, check: key.shop === "hebe" ? STOPPED : answered(key) })),
+    );
+    // Hebe's items store nothing, so they keep their last prices.
+    expect(queries).toHaveLength(2);
+    expect(queries).toEqual(expect.arrayContaining([insertOf(rowsOf([FELIX, NIVEA])), insertOf(rowsOf(naturaKeys))]));
+  });
+
+  it("stops only Natura while it's busy under the cap: Rossmann and Hebe are asked as usual", async () => {
+    const { gate, fetchMock, reservations } = setup(
+      [answers.felix, answers.nivea, ...naturaAnswers, ...hebeAnswers],
+      (shop) => ({ outcome: shop === "natura" ? "capped" : "allowed" }),
+    );
+    const { client, queries } = stubClient();
+
+    const refresh = await refreshPrices(gate, client, targets);
+
+    // Natura's second request isn't even reserved.
+    expect(urlsTo(fetchMock, "natura")).toEqual([]);
+    expect(reservations.filter((shop) => shop === "natura")).toHaveLength(1);
+    expect(urlsTo(fetchMock, "rossmann")).toEqual([answers.felix.url, answers.nivea.url]);
+    expect(urlsTo(fetchMock, "hebe")).toEqual(hebeBatches);
+    expect(refresh.results).toEqual(
+      targets.map((key) => ({ key, check: key.shop === "natura" ? BUSY : answered(key) })),
+    );
+    expect(queries).toHaveLength(2);
+    expect(queries).toEqual(expect.arrayContaining([insertOf(rowsOf([FELIX, NIVEA])), insertOf(rowsOf(hebeKeys))]));
+  });
+
+  it("leaves the items of a shop outside the list unavailable, and asks that shop nothing", async () => {
+    const { gate, fetchMock, reservations } = setup([answers.felix, answers.soft, answers.hebeSoft]);
+    const { client, queries } = stubClient();
+
+    const refresh = await refreshPrices(gate, client, [FELIX, SOFT, HEBE_SOFT], ["rossmann", "hebe"]);
+
+    expect(reservations).not.toContain("natura");
+    expect(urlsTo(fetchMock, "natura")).toEqual([]);
+    expect(refresh).toEqual({
+      results: [
+        { key: FELIX, check: { kind: "price", offer: felixOffer } },
+        { key: SOFT, check: FAILED },
+        { key: HEBE_SOFT, check: { kind: "price", offer: hebeSoftOffer } },
+      ],
+      saved: "saved",
+    });
+    expect(queries).toHaveLength(2);
+  });
+
+  it("asks a shop listed twice once", async () => {
+    const { gate, fetchMock } = setup([answers.soft]);
+    const { client, queries } = stubClient();
+
+    const refresh = await refreshPrices(gate, client, [SOFT], ["natura", "natura"]);
+
+    expect(requestedUrls(fetchMock)).toEqual([answers.soft.url]);
+    expect(refresh.results).toEqual([{ key: SOFT, check: { kind: "price", offer: softOffer } }]);
+    expect(queries).toEqual([insertOf([priceRow(SOFT, softOffer)])]);
+  });
+});
+
 describe("refreshCodeOf", () => {
   const felixPrice = { key: FELIX, check: { kind: "price", offer: felixOffer } } as const;
 
-  it.each<{ why: string; refresh: PriceRefresh; code: PriceRefreshCode }>([
+  it.each<{ why: string; refresh: PriceRefresh; unread?: number; code: PriceRefreshCode }>([
     { why: "no item needed refreshing", refresh: { results: [], saved: "none" }, code: "none" },
     {
       why: "every item got a price or a missing check, all stored",
@@ -529,8 +742,20 @@ describe("refreshCodeOf", () => {
       },
       code: "failed",
     },
-  ])("gives $code when $why", ({ refresh, code }) => {
-    expect(refreshCodeOf(refresh)).toBe(code);
+    {
+      why: "every item got an answer, all stored, but a shop's decision couldn't be read",
+      refresh: { results: [felixPrice, { key: GONE, check: { kind: "missing" } }], saved: "saved" },
+      unread: 1,
+      code: "partial",
+    },
+    {
+      why: "the only shop to ask couldn't be named, since its decision couldn't be read",
+      refresh: { results: [], saved: "none" },
+      unread: 1,
+      code: "failed",
+    },
+  ])("gives $code when $why", ({ refresh, unread, code }) => {
+    expect(refreshCodeOf(refresh, unread)).toBe(code);
   });
 
   it("gives partial for the Rossmann products past the cap", async () => {

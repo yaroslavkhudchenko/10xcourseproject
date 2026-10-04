@@ -1,19 +1,19 @@
 ---
 // The list's rows in the list's order, those the filter holds, or what stands in their place: that the list couldn't be
 // read, that it's empty, or that the filter holds none of its products. Above the rows, an alert for each read that
-// failed, as each row then says its price couldn't be read (listRowsOf), never that it has none. On the list the rows
-// take their name from "Moja lista", the page's heading, which the search's results stand between; beside a product
-// the list's landmark carries that name, so its rows need none.
+// failed, as each row then says its price or its decisions couldn't be read (listRowsOf), never that it has none. On
+// the list the rows take their name from "Moja lista", the page's heading, which the search's results stand between;
+// beside a product the list's landmark carries that name, so its rows need none.
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import WatchlistRow from "@/components/watchlist/WatchlistRow.astro";
-import { inFilter, type ListFilter, type ListRow } from "@/lib/services/watchlist-rows";
+import { inFilter, matchesFailedText, type ListFilter, type ListRow } from "@/lib/services/watchlist-rows";
 
 interface Props {
   /** Every product's row, in the list's order, or null when the list couldn't be read. */
   rows: ListRow[] | null;
   /** The filter the rows are shown with. */
   filter: ListFilter;
-  /** Whether the Natura decisions couldn't be read at all. */
+  /** Whether the decisions couldn't be read at all: the alert names the matched shops, whose decisions one read holds. */
   matchesFailed: boolean;
   /** Whether the prices couldn't be read at all. */
   pricesFailed: boolean;
@@ -37,7 +37,7 @@ const shown = rows?.filter((row) => inFilter(row, filter)) ?? [];
   <div class="flex flex-col gap-2.5 lg:gap-3">
     {matchesFailed && (
       <Alert variant="destructive">
-        <AlertDescription>Nie udało się wczytać dopasowań w Naturze. Odśwież stronę.</AlertDescription>
+        <AlertDescription>{matchesFailedText()}</AlertDescription>
       </Alert>
     )}
     {pricesFailed && (

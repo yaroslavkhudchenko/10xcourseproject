@@ -1,0 +1,16 @@
+{
+  "results": {
+    "query": "",
+    "corrected_query": null,
+    "filters": ["type:item", "ID:000000000000999999", "searchable:true"],
+    "filters_negative": [],
+    "accepted_filters": [],
+    "hits": [],
+    "quicksearch_hits": [],
+    "facets": [],
+    "suggested_facet": "null",
+    "total_hits": 0
+  },
+  "next_page": null,
+  "guid": "45994be3-5a7f-4ab8-8c6d-7b4cc1621fcb"
+}

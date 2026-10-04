@@ -7,30 +7,30 @@
 
 ## 1. Summary
 
-| Shop            | How prices can be fetched                                                 | Size / EAN available                                            | Auth                             | Verdict                                                               |
-| --------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------- |
-| Rossmann        | internal JSON API `www.rossmann.pl/products/v4/api/Products`              | `unit` string, `eanNumber[]`                                    | none                             | **open, verified**                                                    |
-| Hebe            | Luigi's Box search API (`live.luigisbox.com`)                             | `Pojemność` (litres), `EAN[]`                                   | tracker id from page             | **open, verified**                                                    |
-| Super-Pharm     | Algolia index `spprod_drugstore_pl_simple_products`                       | `capacity`, `farmax_capacity`; EAN only in product page JSON-LD | public search-only key from page | **open, verified**                                                    |
-| dm              | `product-search.services.dmtech.com/pl/search`                            | size inside `title`, `gtin`                                     | none                             | **open from a normal connection; 403 from Cloudflare Workers** (§9)   |
-| Drogerie Natura | Luigi's Box search API                                                    | `size` + `size_unit`, `ean[]`                                   | tracker id from page             | **open, verified**                                                    |
-| Ziko Dermo      | plain server-rendered HTML (AptusShop)                                    | in HTML                                                         | none                             | scrapable                                                             |
-| Sephora.pl      | Akamai Bot Manager, HTTP 403 "Access Denied" on every URL                 | –                                                               | –                                | **blocked** for plain HTTP                                            |
-| Douglas.pl      | Akamai, returns fake `400 Request Too Long` to non-browsers               | –                                                               | –                                | **blocked** for plain HTTP                                            |
-| Notino.pl       | Cloudflare managed challenge (`Cf-Mitigated: challenge`)                  | –                                                               | –                                | **blocked**; official affiliate XML feed exists                       |
-| Ceneo.pl        | HTML search + product pages fetchable; Partner API has no per-shop offers | offers have `data-shop`, `data-price`                           | none (HTML)                      | fallback for Douglas / Notino / Sephora; Rossmann is **not** on Ceneo |
-| Skąpiec.pl      | HTML, results dominated by Amazon.pl                                      | –                                                               | none                             | low value                                                             |
-| Kontigo         | `kontigo.com.pl` no longer resolves                                       | –                                                               | –                                | chain is gone                                                         |
+| Shop            | How prices can be fetched                                                 | Size / EAN available                                                      | Auth                             | Verdict                                                               |
+| --------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------- |
+| Rossmann        | internal JSON API `www.rossmann.pl/products/v4/api/Products`              | `unit` string, `eanNumber[]`                                              | none                             | **open, verified**                                                    |
+| Hebe            | Luigi's Box search API (`live.luigisbox.com`)                             | size at the end of the legal name (`Pojemność` unreliable, §2.2), `EAN[]` | tracker id from page             | **open, verified**                                                    |
+| Super-Pharm     | Algolia index `spprod_drugstore_pl_simple_products`                       | `capacity`, `farmax_capacity`; EAN only in product page JSON-LD           | public search-only key from page | **open, verified**                                                    |
+| dm              | `product-search.services.dmtech.com/pl/search`                            | size inside `title`, `gtin`                                               | none                             | **open from a normal connection; 403 from Cloudflare Workers** (§9)   |
+| Drogerie Natura | Luigi's Box search API                                                    | `size` + `size_unit`, `ean[]`                                             | tracker id from page             | **open, verified**                                                    |
+| Ziko Dermo      | plain server-rendered HTML (AptusShop)                                    | in HTML                                                                   | none                             | scrapable                                                             |
+| Sephora.pl      | Akamai Bot Manager, HTTP 403 "Access Denied" on every URL                 | –                                                                         | –                                | **blocked** for plain HTTP                                            |
+| Douglas.pl      | Akamai, returns fake `400 Request Too Long` to non-browsers               | –                                                                         | –                                | **blocked** for plain HTTP                                            |
+| Notino.pl       | Cloudflare managed challenge (`Cf-Mitigated: challenge`)                  | –                                                                         | –                                | **blocked**; official affiliate XML feed exists                       |
+| Ceneo.pl        | HTML search + product pages fetchable; Partner API has no per-shop offers | offers have `data-shop`, `data-price`                                     | none (HTML)                      | fallback for Douglas / Notino / Sephora; Rossmann is **not** on Ceneo |
+| Skąpiec.pl      | HTML, results dominated by Amazon.pl                                      | –                                                                         | none                             | low value                                                             |
+| Kontigo         | `kontigo.com.pl` no longer resolves                                       | –                                                                         | –                                | chain is gone                                                         |
 
 Proof on one product, **Nivea Soft 300 ml, EAN 4005900009319** (prices on 2026-09-17):
 
-| Shop            | Price        | Notes                                                                                                          |
-| --------------- | ------------ | -------------------------------------------------------------------------------------------------------------- |
-| dm              | 18,95 zł     | unit price 63,17 zł / l                                                                                        |
-| Drogerie Natura | 22,99 zł     | Omnibus lowest 30-day: 23,99 zł                                                                                |
-| Rossmann        | 26,99 zł     | `pricePerUnit: "100 ml = 9,00 zł"`, `differentPricesInShop: true`                                              |
-| Super-Pharm     | 36,99 zł     | product page JSON-LD confirms `gtin13: 4005900009319`                                                          |
-| Hebe            | 24,99 zł (?) | EAN query returned an item with `Pojemność: 0.237` (237 ml) → Hebe's EAN mapping is not clean for this product |
+| Shop            | Price        | Notes                                                                                                                                                                   |
+| --------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| dm              | 18,95 zł     | unit price 63,17 zł / l                                                                                                                                                 |
+| Drogerie Natura | 22,99 zł     | Omnibus lowest 30-day: 23,99 zł                                                                                                                                         |
+| Rossmann        | 26,99 zł     | `pricePerUnit: "100 ml = 9,00 zł"`, `differentPricesInShop: true`                                                                                                       |
+| Super-Pharm     | 36,99 zł     | product page JSON-LD confirms `gtin13: 4005900009319`                                                                                                                   |
+| Hebe            | 24,99 zł (?) | EAN query returned the 300 ml item with `Pojemność: 0.237` (237 ml): a wrong size field, not a wrong EAN, and Hebe doesn't sell it online (re-checked 2026-10-02, §2.2) |
 
 ## 2. Working sources in detail
 
@@ -87,10 +87,10 @@ GET https://live.luigisbox.com/search?tracker_id=421168-505233&q=nivea%20soft&si
 GET https://live.luigisbox.com/search?tracker_id=421168-505233&q=4005900009319      # EAN query works
 ```
 
-- Response: `results.{ query, total_hits, hits[], facets[] }`. Each hit: `url` (Hebe product id, e.g. `000000000000218807`), `attributes{...}`.
-- Useful attributes: `title, name[], brand[], ShortDescription[] (contains size text), price, price_amount, price_sale, price_sale_amount, price_omnibus, price_omnibus_amount, AttrOmnibusPrice[], EAN[], Pojemność[] (litres as string, "0.200" = 200 ml), availability, availability_rank, web_url, image_link, ShortProductID[], SupplierCode[], CurrentProductPromotions[], Promocje[], TrustmateAverageGrade, currency`.
-- Quirks: the hit list can include a query-suggestion pseudo-hit (`"url":"nivea soft"` with empty attributes) → keep only hits that have `attributes.price`. Prices are strings (`"15.99"`); `price_sale` is the current promo price, `price` the regular one.
-- Sample hit (trimmed):
+- Response: `results.{ query, total_hits, hits[], facets[] }`. Each hit: `url` (Hebe product id, e.g. `000000000000218807`), `type`, `attributes{...}`. An item's hit has `type: "item"`, and its `url` is the 18-digit id, equal to `attributes.ID[0]` (2026-10-02).
+- Useful attributes: `title, name[], brand[], ShortDescription[] (contains size text), Nazwa wymagana przez prawo[] (the legal name, which ends with the size), price, price_amount, price_sale, price_sale_amount, price_omnibus, price_omnibus_amount, AttrOmnibusPrice[], EAN[], Pojemność[] (litres as string, "0.200" = 200 ml; unreliable, see below), availability, availability_rank, online_flag[], invAllocation[], searchable[], ID[], web_url, image_link, ShortProductID[], SupplierCode[], CurrentProductPromotions[], Promocje[], TrustmateAverageGrade, currency`.
+- Quirks: the hit list can include a query-suggestion pseudo-hit (`"url":"nivea soft"`, `type: "query"`, no price among its attributes) → keep only `type: "item"` hits with a price. Prices are strings (`"15.99"`), each beside a numeric twin (see below); `price_sale` is the current promo price, `price` the regular one.
+- Sample hit (trimmed, 2026-09-17; on 2026-10-02 the same item had no sale, with `price` "15.99" and `price_omnibus` "10.89"):
 
 ```json
 {
@@ -111,6 +111,27 @@ GET https://live.luigisbox.com/search?tracker_id=421168-505233&q=4005900009319  
 }
 ```
 
+- Re-checked on 2026-10-02: 7 requests from the developer machine, one at a time and at least 2.5 s apart, with the gate's User-Agent and the owner's approval, none of them to `www.hebe.pl`. One more EAN search, for an item Hebe sells online, followed on 2026-10-04, also approved. The answers became the `hebe-*.json` fixtures, which `src/lib/services/shops/hebe.test.ts` lists.
+- Sizes: `Pojemność` is litres with 3 decimals and no unit, and it can be wrong. The legal name (`Nazwa wymagana przez prawo`) and `ShortDescription` end with the size and its unit in all 5 inspected items, so the app reads the legal name's, else the description's:
+
+| Item   | `Pojemność` | Legal name and description end with |
+| ------ | ----------- | ----------------------------------- |
+| 251798 | `0.237`     | 300 ml                              |
+| 218807 | `0.200`     | 200 ml                              |
+| 255134 | `0.750`     | 750 ml                              |
+| 742817 | `0.005`     | 5,5 ml                              |
+| 218607 | `0.100`     | 100 g                               |
+
+- The EAN example, corrected: the EAN query for 4005900009319 (Nivea Soft 300 ml) returns item 251798, whose legal name, description and URL all say 300 ml, with the EAN Rossmann lists for the product. Only its `Pojemność` is wrong, so §1's "not clean" mapping was a wrong size field, not a wrong EAN. A shared EAN can still come with another size: the lip balm 742817 ("5,5 ml") carries EAN 9005800362939, which Rossmann lists for its 4,8 g Soft Rose lip balm (11790). Sizes in different units don't compare, so the matching rule flags the candidate instead of accepting it.
+- Prices: `price`, `price_sale` and `price_omnibus` are strings, and `price_amount`, `price_sale_amount` and `price_omnibus_amount` their numbers. `price_sale*` is there only during a sale, while `price_omnibus*` can come without one: 4 of the 5 items carry it, 218807 with no sale. No field carries a sale's end: `CurrentProductPromotions` lists campaign codes, not dates. `currency` is `["PLN"]`.
+- Orderable online: `availability` is 1 on all 5 items, including 251798, which Hebe lists but doesn't sell online. `online_flag` (`[true]` or `[false]`) tells them apart, as do `invAllocation` (stock, `[0]` for 251798) and `searchable` (`[false]` for 251798).
+- Pinned items by `ID`: without `q`, `f[]=type:item` and one repeated `f[]=ID:<id>` per item return those items, and `hit_fields` trims each hit to the attributes it names (the probe's one-hit answer was 756 bytes). An id Hebe doesn't have gives a 200 JSON answer with 0 hits. Verified with the two ids below, sent with a longer `hit_fields` list; the app asks for these four fields, verified with one id through the app on 2026-10-04, and larger batches are untested.
+
+```
+GET https://live.luigisbox.com/search?tracker_id=421168-505233&f[]=type:item&f[]=ID:000000000000218807&f[]=ID:000000000000251798&size=2&hit_fields=price_amount,price_sale_amount,price_omnibus_amount,online_flag
+```
+
+- The `searchable` limit: on a request without `q`, the tracker adds `searchable:true` to the filters, as the answer's echoed `filters` show, and drops an explicit `f[]=searchable:false`. So an item Hebe doesn't sell online returns 0 hits on the pinned path, exactly like an unknown id: of the two ids above, only 218807 came back. A request with `q` has no such filter and returns such items, so the app never offers them: a pinned one's price could never be refreshed.
 - Dead ends: SFCC `Search-UpdateGrid` returns HTTP 410 (disabled); no OCAPI/SCAPI `client_id` exposed in the page; robots.txt explicitly disallows AI crawlers (ClaudeBot, CCBot, Bytespider, Scrapy, …).
 
 ### 2.3 Super-Pharm (superpharm.pl)
@@ -260,8 +281,8 @@ GET https://live.luigisbox.com/search?tracker_id=703598-939363&f[]=type:product&
 2. Look up the EAN directly where supported: Hebe (Luigi's Box `q=<EAN>`), Natura (`q=<EAN>`), dm (`query=<GTIN>`).
 3. Rossmann: text search, then keep items whose `eanNumber` contains the EAN.
 4. Super-Pharm: Algolia text search, filter by brand + `farmax_capacity`, confirm via product page `gtin13` when ambiguous.
-5. Normalise sizes before comparing: Rossmann `"300 ml"`, Hebe litres `"0.300"`, Natura `size`+`size_unit`, Super-Pharm `"300 ml"` / `300`, dm text inside `title`. Convert to ml / g / pcs.
-6. Fallback matching when EAN data is missing or wrong (seen at Hebe): brand + normalised name tokens + size within ±5 %.
+5. Normalise sizes before comparing: Rossmann `"300 ml"`, Hebe the size its legal name ends with (`"300 ml"`; its `Pojemność` litres are unreliable, §2.2), Natura `size`+`size_unit`, Super-Pharm `"300 ml"` / `300`, dm text inside `title`. Convert to ml / g / pcs.
+6. Fallback matching when EAN data is missing (Super-Pharm) or wrong: brand + normalised name tokens + size within ±5 %. Hebe's one reported case was a wrong size field, not a wrong EAN (§2.2).
 7. Keep Omnibus / promo fields separately: Hebe `price_sale`, `price_omnibus`; Natura `price_old_amount`, `lowest_price`; Super-Pharm `default_historical_min_price_formated`; Rossmann `oldPrice`, `lastLowestPrice`, `promotionFrom` / `promotionTo` (not `promotion`, which tags a campaign; §2.1).
 
 ## 7. Caveats
@@ -270,7 +291,7 @@ GET https://live.luigisbox.com/search?tracker_id=703598-939363&f[]=type:product&
 - Terms of use of the shops generally prohibit automated access; low-volume personal use is common practice, a commercial product would need permission or official feeds (Notino affiliate feed, Ceneo partner API, Allegro API).
 - Be polite: cache results (prices change at most a few times per day), stay around 1 request/s or less per host, set a descriptive User-Agent, back off on 429/5xx.
 - Online price ≠ shelf price. Rossmann marks `differentPricesInShop: true`; Rossmann and Hebe have app-only / loyalty prices; Super-Pharm has club prices. `shopNumber` (Rossmann) allows store-level checks.
-- Hebe's EAN attribute was wrong for at least one product → never trust a single identifier blindly; cross-check size.
+- Hebe's size attribute (`Pojemność`) was wrong for at least one product, and one EAN can come with another size in another shop (§2.2, 2026-10-02) → never trust a single identifier blindly; cross-check size.
 
 ## 8. Recommendation for the MVP
 

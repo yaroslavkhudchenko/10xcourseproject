@@ -1,0 +1,39 @@
+{
+  "results": {
+    "query": "",
+    "corrected_query": null,
+    "filters": ["type:item", "ID:000000000000218807", "ID:000000000000251798", "searchable:true"],
+    "filters_negative": [],
+    "accepted_filters": [],
+    "hits": [
+      {
+        "url": "000000000000218807",
+        "identity_hash": null,
+        "attributes": {
+          "price_omnibus": "10.89",
+          "price": "15.99",
+          "price_amount": 15.99,
+          "availability": 1,
+          "title": "Nivea Soft",
+          "invAllocation": [4971],
+          "web_url": [
+            "https://www.hebe.pl/nivea-intensywnie-nawilzajacy-krem-do-twarzy-i-ciala-200-ml-000000000000218807.html"
+          ],
+          "online_flag": [true],
+          "price_omnibus_amount": 10.89
+        },
+        "nested": [],
+        "type": "item",
+        "highlight": {},
+        "exact": true,
+        "alternative": false
+      }
+    ],
+    "quicksearch_hits": [],
+    "facets": [],
+    "suggested_facet": "null",
+    "total_hits": 1
+  },
+  "next_page": null,
+  "guid": "6ae43b0e-6b42-4911-b2b5-049af7d8d273"
+}

@@ -411,9 +411,9 @@ describe("Natura search: why it's unavailable", () => {
   });
 });
 
-/** The price answer the given hits make, as JSON. */
+/** The price answer the given hits make, as JSON: whole, as every recorded one is, with no next page. */
 function priceBody(hits: unknown[]): string {
-  return JSON.stringify({ results: { hits } });
+  return JSON.stringify({ results: { hits, total_hits: hits.length }, next_page: null });
 }
 
 /** The one log line a test expects, parsed. */
@@ -626,6 +626,40 @@ describe("Natura prices: what they keep out", () => {
       event: "natura-prices",
       reason: "hits not asked for",
       detail: "1 of 1 product hits",
+    });
+  });
+
+  it.each<{ change: string; edit: (answer: typeof twoSkus) => unknown }>([
+    {
+      change: "a next page",
+      edit: (answer) => ({ ...answer, next_page: "https://live.luigisbox.com/search?tracker_id=703598-939363&page=2" }),
+    },
+    {
+      change: "more hits matched than it holds",
+      edit: (answer) => ({ ...answer, results: { ...answer.results, total_hits: 3 } }),
+    },
+    {
+      change: "no count of the hits matched",
+      edit: (answer) => ({ ...answer, results: { ...answer.results, total_hits: undefined } }),
+    },
+  ])("calls a SKU without a hit unavailable, never missing, when the answer has $change", async ({ edit }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // The recorded answer for Nivea Soft and Nivea MEN, edited, as if it had left out a third SKU's hit.
+    const skus = ["NV89063", "NV81063", "ZZ00000000"];
+    const url = priceUrl(skus);
+    const { gate } = setup([{ url, status: 200, body: JSON.stringify(edit(structuredClone(twoSkus))) }]);
+
+    expect(await fetchNaturaPrices(gate, skus)).toEqual(
+      new Map<string, PriceCheck>([
+        ["NV89063", { kind: "price", offer: SOFT_OFFER }],
+        ["NV81063", { kind: "price", offer: MEN_OFFER }],
+        ["ZZ00000000", FAILED],
+      ]),
+    );
+    expect(loggedLine(warn)).toEqual({
+      event: "natura-prices",
+      reason: "answer incomplete",
+      detail: "2 product hits for 3 SKUs",
     });
   });
 });

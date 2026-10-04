@@ -7,4 +7,5 @@ import type { PricedShop } from "@/lib/services/price-comparison";
 export const SHOP_FILLS: Record<PricedShop, string> = {
   rossmann: "bg-shop-rossmann",
   natura: "bg-shop-natura",
+  hebe: "bg-shop-hebe",
 };

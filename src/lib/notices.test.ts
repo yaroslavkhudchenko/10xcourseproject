@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DECISION_CODES,
+  DECISION_NOTICES,
   ERROR_PARAM,
   EXISTS_PARAM,
   LIST_NOTICE_PARAMS,
@@ -10,6 +11,7 @@ import {
   REMOVAL_PARAM,
   REMOVED_PARAM,
   REPIN_PARAM,
+  SHOP_PARAM,
   withoutNotices,
 } from "@/lib/notices";
 
@@ -33,10 +35,11 @@ describe("LIST_NOTICE_PARAMS, which the list's address bar forgets", () => {
 });
 
 describe("NOTICE_PARAMS, which the product page's address bar forgets", () => {
-  it("holds a decision's, an error's, both refreshes', a failed removal's and a re-pin's", () => {
+  it("holds a decision's with its shop's, an error's, both refreshes', a failed removal's and a re-pin's", () => {
     expect(NOTICE_PARAMS).toEqual(
       expect.arrayContaining([
         ...DECISION_CODES,
+        SHOP_PARAM,
         ERROR_PARAM,
         PRICES_PARAM,
         LIST_PRICES_PARAM,
@@ -48,6 +51,15 @@ describe("NOTICE_PARAMS, which the product page's address bar forgets", () => {
 
   it("keeps the list's filter", () => {
     expect(NOTICE_PARAMS).not.toContain("f");
+  });
+});
+
+describe("DECISION_NOTICES", () => {
+  it.each([
+    { shop: "natura", text: "Zapisano: brak w Naturze." },
+    { shop: "hebe", text: "Zapisano: brak w Hebe." },
+  ] as const)("names the shop the user declined, after w: $text", ({ shop, text }) => {
+    expect(DECISION_NOTICES.declined(shop)).toBe(text);
   });
 });
 
@@ -67,6 +79,9 @@ describe("withoutNotices, which both pages' address-bar scripts forget their not
     expect(withoutNotices(`${BASE}/watchlist/x?f=promo&matched=1&removal=failed#remove`, NOTICE_PARAMS)).toBe(
       `${BASE}/watchlist/x?f=promo#remove`,
     );
+    expect(withoutNotices(`${BASE}/watchlist/x?f=check&shop=natura&declined=1`, NOTICE_PARAMS)).toBe(
+      `${BASE}/watchlist/x?f=check`,
+    );
   });
 
   it("gives null for an address without any of them, which has nothing to forget", () => {
@@ -74,8 +89,10 @@ describe("withoutNotices, which both pages' address-bar scripts forget their not
     expect(withoutNotices(`${BASE}/watchlist/x?f=check`, NOTICE_PARAMS)).toBeNull();
   });
 
-  it("drops a re-pin's parameter and keeps the filter, so going back to its choice asks Natura nothing", () => {
-    expect(withoutNotices(`${BASE}/watchlist/x?f=check&repin=1`, NOTICE_PARAMS)).toBe(`${BASE}/watchlist/x?f=check`);
+  it("drops a re-pin's parameter and keeps the filter, so going back to its choice asks the shop nothing", () => {
+    expect(withoutNotices(`${BASE}/watchlist/x?f=check&repin=natura`, NOTICE_PARAMS)).toBe(
+      `${BASE}/watchlist/x?f=check`,
+    );
   });
 
   it("drops a parameter it names even when the address holds it more than once", () => {

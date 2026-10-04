@@ -42,7 +42,7 @@ const [search, items, matchRead, priceRead] = await Promise.all([
 const unavailableMessage =
   search?.kind === "unavailable" ? shopUnavailableText(SHOP_LABELS.rossmann.name, search.reason, search.until) : null;
 
-// Each product's row, judged now: a product whose price or Natura decision couldn't be read says so.
+// Each product's row, judged now: a product whose price or decision in a matched shop couldn't be read says so.
 const rows = items === null ? null : listRowsOf(items, matchRead, priceRead, Date.now());
 // The chips, and the filter they set, only when every read worked and the list has products (listChipsOf).
 const { counts, filter } = listChipsOf(rows, matchRead !== null && priceRead !== null, params.get("f"));
@@ -124,8 +124,8 @@ const LIST_HEADING_ID = "list-heading";
   />
   {counts !== null && <ListFooter slot="footer" />}
   <script>
-    // The parameters are the ones the frontmatter reads its notices by, from a module that imports nothing, so this
-    // script ships no server code.
+    // The parameters are the ones the frontmatter reads its notices by, from a module that imports nothing server-only,
+    // so this script ships no server code.
     import { LIST_NOTICE_PARAMS, withoutNotices } from "@/lib/notices";
 
     // A notice shows once: the address bar forgets the parameter that brought it, "Dodaj"'s (exists), an error's, the

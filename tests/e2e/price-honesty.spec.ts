@@ -7,7 +7,8 @@
 // current; a shop without a current price shows the gap and its last price with its age), and the S-03 decisions
 // (context/archive/2026-09-28-cheapest-shop-today: only fresh, at most 24 hours old, orderable prices can win; an ended
 // promotion is out of date, its last day still fresh). The texts are the running app's. None of it is read off the
-// comparison code.
+// comparison code. No product has a decision in Hebe, the third shop, yet: its row says so, and its page's lookup
+// there is refused by the stopped shop, which its card says in place of a price.
 // seed: tests/e2e/seed.spec.ts
 import { expect, test } from "@playwright/test";
 import {
@@ -19,6 +20,7 @@ import {
   priceOf,
   recordPriceCalls,
   rowOf,
+  searchStoppedNotice,
   stoppedNotice,
 } from "./support/pages";
 import {
@@ -63,11 +65,13 @@ test("#1: only a fresh price the shop sells online is marked cheapest, and every
   // action costs every shop"). The list asks none.
   const priceCalls = recordPriceCalls(page);
 
-  // The list: each row names the cheapest shop with its price and age, and the other shop's state; its tag shows
-  // the price's shop and age.
+  // The list: each row names the cheapest shop with its price and age, and the other shop's state, then Hebe's, still
+  // to match; its tag shows the price's shop and age.
   await page.goto("/watchlist");
   await expect(rowOf(page, p1)).toHaveAccessibleName(
-    new RegExp(String.raw`Najtaniej: Rossmann 19,99\szł · ${JUST_NOW} · Natura: niedostępny online\.`),
+    new RegExp(
+      String.raw`Najtaniej: Rossmann 19,99\szł · ${JUST_NOW} · Natura: niedostępny online\. Hebe: do dopasowania\.`,
+    ),
   );
   await expect(rowOf(page, p1).getByText(new RegExp(String.raw`^Rossmann · ${JUST_NOW}$`))).toBeVisible();
   for (const [product, price] of [
@@ -85,13 +89,16 @@ test("#1: only a fresh price the shop sells online is marked cheapest, and every
   await expect(rowOf(page, p4).getByText(new RegExp(String.raw`^Rossmann · ${JUST_NOW}$`))).toBeVisible();
   await expect(rowOf(page, p4)).not.toHaveAccessibleName(/Najtaniej/);
 
-  // P1's page: Rossmann's card is the cheapest; Natura's lower price says it can't be ordered online.
+  // P1's page: Rossmann's card is the cheapest; Natura's lower price says it can't be ordered online. Hebe's card has
+  // no price, and says why: the page's lookup there was refused.
   await openFromList(page, p1);
   await expect(marksOf(page)).toHaveCount(1);
   await expect(cardOf(page, "Rossmann").getByText("Najtaniej", { exact: true })).toBeVisible();
   await expect(cardOf(page, "Natura").getByText("niedostępny online", { exact: true })).toBeVisible();
   await expect(ageLine(cardOf(page, "Rossmann"), JUST_NOW)).toBeVisible();
   await expect(ageLine(cardOf(page, "Natura"), JUST_NOW)).toBeVisible();
+  await expect(cardOf(page, "Hebe").getByText(searchStoppedNotice("Hebe"), { exact: true })).toBeVisible();
+  await expect(cardOf(page, "Hebe").getByText(/zł/)).toHaveCount(0);
 
   // P2's page: Natura's card is the cheapest. The island asks Rossmann again on load, since its check is old, and the
   // stopped shop refuses; Rossmann's card keeps its old price, marked out of date, with its age.

@@ -1,9 +1,8 @@
 ---
-// Where the list's prices come from, under the rows: online prices, from the sites the priced shops name (FR-010). The
-// shell's footer places it: at the foot of the list's column from lg, after the rows on a phone.
-import { PRICED_SHOPS, SHOP_LABELS } from "@/lib/services/price-comparison";
-
-const sites = PRICED_SHOPS.map((shop) => SHOP_LABELS[shop].site).join(" i ");
+// Where the list's prices come from, under the rows: online prices, from the sites the priced shops name (FR-010),
+// listed the Polish way (priceSourcesText). The shell's footer places it: at the foot of the list's column from lg,
+// after the rows on a phone.
+import { priceSourcesText } from "@/lib/services/watchlist-rows";
 ---
 
-<p class="font-mono text-meta tracking-meta text-muted-foreground uppercase">Ceny online z {sites}</p>
+<p class="font-mono text-meta tracking-meta text-muted-foreground uppercase">{priceSourcesText()}</p>

@@ -8,8 +8,8 @@ import {
   productTargets,
   shopItemFor,
   type PriceRequest,
+  type RefreshTargets,
 } from "@/lib/services/price-targets";
-import type { PriceKey } from "@/types";
 
 // The user's Nivea Soft, picked in Rossmann and matched to Natura's NV89063, and two more products on the list.
 const SOFT_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
@@ -62,6 +62,19 @@ const undecidedRow = (state: "unmatched" | "not_found") => ({
   decided_by: state === "unmatched" ? "user" : "auto",
   checked_at: "2026-09-27T12:05:00+00:00",
 });
+
+// The product's decision in Hebe, the other matched shop: matched to Hebe's Nivea Soft 200 ml, by its 18-digit id.
+const HEBE_SOFT_ID = "000000000000218807";
+const hebeMatchedRow = {
+  ...matchedRow,
+  shop_id: "hebe",
+  shop_item_id: HEBE_SOFT_ID,
+  name: "Nivea Soft Lekki Krem Nawilżający, 200 ml",
+  brand: "Nivea",
+  size_text: "200 ml",
+  size_value: 200,
+  eans: ["4005900008299"],
+};
 
 /** One builder call a query made, such as `["eq", "id", SOFT_ID]`. */
 type Call = [method: string, ...args: unknown[]];
@@ -139,9 +152,17 @@ describe("priceRequestSchema", () => {
     ).toStrictEqual({ itemId: SOFT_ID, shop: "natura", shopItemId: "NV89063" });
   });
 
+  it("reads a request for Hebe's item, whose prices are fetched like every matched shop's", () => {
+    expect(priceRequestSchema.parse({ itemId: SOFT_ID, shop: "hebe", shopItemId: HEBE_SOFT_ID })).toStrictEqual({
+      itemId: SOFT_ID,
+      shop: "hebe",
+      shopItemId: HEBE_SOFT_ID,
+    });
+  });
+
   it.each([
     { why: "a product id that isn't a UUID", body: { itemId: "26900", shop: "rossmann", shopItemId: "26900" } },
-    { why: "a shop whose prices aren't fetched", body: { itemId: SOFT_ID, shop: "hebe", shopItemId: "218807" } },
+    { why: "a shop whose prices aren't fetched", body: { itemId: SOFT_ID, shop: "super-pharm", shopItemId: "39477" } },
     { why: "no shop", body: { itemId: SOFT_ID, shopItemId: "NV89063" } },
     { why: "no shop item", body: { itemId: SOFT_ID, shop: "natura" } },
     {
@@ -161,8 +182,12 @@ describe("priceTargetFor", () => {
   it.each<{ shop: PricedShop; shopItemId: string }>([
     { shop: "rossmann", shopItemId: "26900" },
     { shop: "natura", shopItemId: "NV89063" },
+    { shop: "hebe", shopItemId: HEBE_SOFT_ID },
   ])("gives the user's own item in $shop when the page shows that item", async ({ shop, shopItemId }) => {
-    const { client } = stubClient({ watchlist_items: { data: softRow }, watchlist_matches: { data: [matchedRow] } });
+    const { client } = stubClient({
+      watchlist_items: { data: softRow },
+      watchlist_matches: { data: [matchedRow, hebeMatchedRow] },
+    });
 
     expect(await priceTargetFor(client, request(shop, shopItemId))).toEqual({ shop, shopItemId });
   });
@@ -193,21 +218,38 @@ describe("priceTargetFor", () => {
       shopItemId: "NV89063",
       answers: { watchlist_items: { data: null }, watchlist_matches: { data: [matchedRow] } },
     },
-    {
-      why: "the product has no match in the shop",
-      shop: "natura",
-      shopItemId: "NV89063",
-      answers: { watchlist_items: { data: softRow }, watchlist_matches: { data: [undecidedRow("unmatched")] } },
-    },
   ])("gives gone in $shop when $why", async ({ shop, shopItemId, answers }) => {
     const { client } = stubClient(answers);
 
     expect(await priceTargetFor(client, request(shop, shopItemId))).toBe("gone");
   });
 
+  it.each<{ shop: PricedShop; shopItemId: string; decision: Record<string, unknown> }>([
+    { shop: "natura", shopItemId: "NV89063", decision: undecidedRow("unmatched") },
+    { shop: "hebe", shopItemId: HEBE_SOFT_ID, decision: { ...undecidedRow("unmatched"), shop_id: "hebe" } },
+  ])(
+    "gives changed, never gone, when the product is still listed but its match in $shop was declined elsewhere",
+    async ({ shop, shopItemId, decision }) => {
+      // A page left open still shows the declined item's price, which mustn't stay eligible: its reload alert shows.
+      const { client } = stubClient({ watchlist_items: { data: softRow }, watchlist_matches: { data: [decision] } });
+
+      expect(await priceTargetFor(client, request(shop, shopItemId))).toBe("changed");
+    },
+  );
+
   it("gives failed when the rows can't be read", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { client } = stubClient({ watchlist_items: { data: softRow }, watchlist_matches: readFailure });
+
+    expect(await priceTargetFor(client, request("natura", "NV89063"))).toBe("failed");
+  });
+
+  it("gives failed, never gone, when the product's Natura decision came back odd, since it may be the page's match", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({
+      watchlist_items: { data: softRow },
+      watchlist_matches: { data: [{ ...matchedRow, shop_item_id: null }] },
+    });
 
     expect(await priceTargetFor(client, request("natura", "NV89063"))).toBe("failed");
   });
@@ -277,11 +319,43 @@ describe("shopItemFor", () => {
       shop: "natura",
       answers: { watchlist_items: { data: softRow }, watchlist_matches: readFailure },
     },
+    {
+      // A state a later migration might add before the code knows it: the row may hide a match.
+      why: "its Natura decision's row",
+      shop: "natura",
+      answers: {
+        watchlist_items: { data: softRow },
+        watchlist_matches: { data: [{ ...matchedRow, state: "repinned" }] },
+      },
+    },
   ])("gives failed in $shop when $why can't be read", async ({ shop, answers }) => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { client } = stubClient(answers);
 
     expect(await shopItemFor(client, SOFT_ID, shop)).toBe("failed");
+  });
+
+  it("gives the id of the product's matched Hebe item, from the user's decision there", async () => {
+    const { client } = stubClient({
+      watchlist_items: { data: softRow },
+      watchlist_matches: { data: [matchedRow, hebeMatchedRow] },
+    });
+
+    expect(await shopItemFor(client, SOFT_ID, "hebe")).toEqual({ shop: "hebe", shopItemId: HEBE_SOFT_ID });
+  });
+
+  it("gives Natura's matched item beside the rows of a shop that isn't switched on, readable or odd", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const superPharmRows = [
+      { ...undecidedRow("unmatched"), shop_id: "super-pharm" },
+      { ...matchedRow, shop_id: "super-pharm", state: "repinned" },
+    ];
+    const { client } = stubClient({
+      watchlist_items: { data: softRow },
+      watchlist_matches: { data: [...superPharmRows, matchedRow] },
+    });
+
+    expect(await shopItemFor(client, SOFT_ID, "natura")).toEqual({ shop: "natura", shopItemId: "NV89063" });
   });
 });
 
@@ -289,10 +363,13 @@ describe("productTargets", () => {
   it("gives the product's Rossmann item and its Natura match", async () => {
     const { client } = stubClient({ watchlist_items: { data: softRow }, watchlist_matches: { data: [matchedRow] } });
 
-    expect(await productTargets(client, SOFT_ID)).toEqual([
-      { shop: "rossmann", shopItemId: "26900" },
-      { shop: "natura", shopItemId: "NV89063" },
-    ]);
+    expect(await productTargets(client, SOFT_ID)).toEqual<RefreshTargets>({
+      keys: [
+        { shop: "rossmann", shopItemId: "26900" },
+        { shop: "natura", shopItemId: "NV89063" },
+      ],
+      unread: [],
+    });
   });
 
   it("gives only the Rossmann item when the product has no match in Natura", async () => {
@@ -301,23 +378,81 @@ describe("productTargets", () => {
       watchlist_matches: { data: [undecidedRow("not_found")] },
     });
 
-    expect(await productTargets(client, SOFT_ID)).toEqual([{ shop: "rossmann", shopItemId: "26900" }]);
+    expect(await productTargets(client, SOFT_ID)).toEqual<RefreshTargets>({
+      keys: [{ shop: "rossmann", shopItemId: "26900" }],
+      unread: [],
+    });
   });
 
   it("gives nothing for a product that isn't on the user's list", async () => {
     const { client } = stubClient({ watchlist_items: { data: null }, watchlist_matches: { data: [] } });
 
-    expect(await productTargets(client, SOFT_ID)).toEqual([]);
+    expect(await productTargets(client, SOFT_ID)).toEqual<RefreshTargets>({ keys: [], unread: [] });
   });
 
   it.each([
     { why: "the product", answers: { watchlist_items: readFailure, watchlist_matches: { data: [] } } },
     { why: "its decisions", answers: { watchlist_items: { data: softRow }, watchlist_matches: readFailure } },
-  ])("gives failed when $why can't be read", async ({ answers }) => {
+  ])("gives failed when $why can't be read at all", async ({ answers }) => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { client } = stubClient(answers);
 
     expect(await productTargets(client, SOFT_ID)).toBe("failed");
+  });
+
+  it("gives the product's Rossmann item and its match in each matched shop, Hebe's too, in the shops' order", async () => {
+    const { client } = stubClient({
+      watchlist_items: { data: softRow },
+      watchlist_matches: { data: [hebeMatchedRow, matchedRow] },
+    });
+
+    expect(await productTargets(client, SOFT_ID)).toEqual<RefreshTargets>({
+      keys: [
+        { shop: "rossmann", shopItemId: "26900" },
+        { shop: "natura", shopItemId: "NV89063" },
+        { shop: "hebe", shopItemId: HEBE_SOFT_ID },
+      ],
+      unread: [],
+    });
+  });
+
+  it("leaves out a matched shop the product has no match in, and keeps the other shop's", async () => {
+    const { client } = stubClient({
+      watchlist_items: { data: softRow },
+      watchlist_matches: { data: [undecidedRow("unmatched"), hebeMatchedRow] },
+    });
+
+    expect(await productTargets(client, SOFT_ID)).toEqual<RefreshTargets>({
+      keys: [
+        { shop: "rossmann", shopItemId: "26900" },
+        { shop: "hebe", shopItemId: HEBE_SOFT_ID },
+      ],
+      unread: [],
+    });
+  });
+
+  it.each<{ why: string; decisions: Record<string, unknown>[]; targets: RefreshTargets }>([
+    {
+      why: "its Natura decision's row can't be read",
+      decisions: [{ ...matchedRow, shop_item_id: 7 }],
+      targets: { keys: [{ shop: "rossmann", shopItemId: "26900" }], unread: ["natura"] },
+    },
+    {
+      why: "its Hebe decision can't be read, though its Natura match was",
+      decisions: [matchedRow, { ...hebeMatchedRow, state: "repinned" }],
+      targets: {
+        keys: [
+          { shop: "rossmann", shopItemId: "26900" },
+          { shop: "natura", shopItemId: "NV89063" },
+        ],
+        unread: ["hebe"],
+      },
+    },
+  ])("still gives the other shops' items and names the shop unread when $why", async ({ decisions, targets }) => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({ watchlist_items: { data: softRow }, watchlist_matches: { data: decisions } });
+
+    expect(await productTargets(client, SOFT_ID)).toEqual(targets);
   });
 });
 
@@ -381,11 +516,14 @@ describe("listTargets", () => {
   it("gives the items checked more than 15 minutes ago, those never checked first, then the oldest check first", async () => {
     const { client } = stubClient(listAnswers);
 
-    expect(await listTargets(client)).toEqual<PriceKey[]>([
-      { shop: "rossmann", shopItemId: "11790" },
-      { shop: "natura", shopItemId: "NV89063" },
-      { shop: "rossmann", shopItemId: "26900" },
-    ]);
+    expect(await listTargets(client)).toEqual<RefreshTargets>({
+      keys: [
+        { shop: "rossmann", shopItemId: "11790" },
+        { shop: "natura", shopItemId: "NV89063" },
+        { shop: "rossmann", shopItemId: "26900" },
+      ],
+      unread: [],
+    });
   });
 
   it("refetches an item whose price row couldn't be read, as one never checked", async () => {
@@ -402,12 +540,15 @@ describe("listTargets", () => {
       },
     });
 
-    expect(await listTargets(client)).toEqual<PriceKey[]>([
-      { shop: "rossmann", shopItemId: "131225" },
-      { shop: "rossmann", shopItemId: "11790" },
-      { shop: "natura", shopItemId: "NV89063" },
-      { shop: "rossmann", shopItemId: "26900" },
-    ]);
+    expect(await listTargets(client)).toEqual<RefreshTargets>({
+      keys: [
+        { shop: "rossmann", shopItemId: "131225" },
+        { shop: "rossmann", shopItemId: "11790" },
+        { shop: "natura", shopItemId: "NV89063" },
+        { shop: "rossmann", shopItemId: "26900" },
+      ],
+      unread: [],
+    });
   });
 
   it("doesn't refetch the Natura item of a product whose match row couldn't be read", async () => {
@@ -419,10 +560,13 @@ describe("listTargets", () => {
       },
     });
 
-    expect(await listTargets(client)).toEqual<PriceKey[]>([
-      { shop: "rossmann", shopItemId: "11790" },
-      { shop: "rossmann", shopItemId: "26900" },
-    ]);
+    expect(await listTargets(client)).toEqual<RefreshTargets>({
+      keys: [
+        { shop: "rossmann", shopItemId: "11790" },
+        { shop: "rossmann", shopItemId: "26900" },
+      ],
+      unread: [],
+    });
   });
 
   it.each(["watchlist_items", "watchlist_matches", "latest_price_observations"] as const)(
@@ -450,12 +594,15 @@ describe("listTargets", () => {
       },
     });
 
-    expect(await listTargets(client)).toEqual<PriceKey[]>([
-      { shop: "rossmann", shopItemId: "131225" },
-      { shop: "rossmann", shopItemId: "11790" },
-      { shop: "natura", shopItemId: "NV89063" },
-      { shop: "rossmann", shopItemId: "26900" },
-    ]);
+    expect(await listTargets(client)).toEqual<RefreshTargets>({
+      keys: [
+        { shop: "rossmann", shopItemId: "131225" },
+        { shop: "rossmann", shopItemId: "11790" },
+        { shop: "natura", shopItemId: "NV89063" },
+        { shop: "rossmann", shopItemId: "26900" },
+      ],
+      unread: [],
+    });
   });
 
   it.each<{ why: string; table: "watchlist_matches" | "latest_price_observations"; row: unknown }>([
@@ -474,10 +621,75 @@ describe("listTargets", () => {
     const { client } = stubClient({ ...listAnswers, [table]: { data: [...listAnswers[table].data, row] } });
 
     // Nivea Soft's Natura match was read, so its SKU is fetched as before.
-    expect(await listTargets(client)).toEqual<PriceKey[]>([
-      { shop: "rossmann", shopItemId: "11790" },
-      { shop: "natura", shopItemId: "NV89063" },
-      { shop: "rossmann", shopItemId: "26900" },
-    ]);
+    expect(await listTargets(client)).toEqual<RefreshTargets>({
+      keys: [
+        { shop: "rossmann", shopItemId: "11790" },
+        { shop: "natura", shopItemId: "NV89063" },
+        { shop: "rossmann", shopItemId: "26900" },
+      ],
+      unread: [],
+    });
+  });
+
+  /** A product's match in Hebe, as the list reads it. */
+  const hebeListRow = (watchlistItemId: string, shopItemId: string) => ({
+    watchlist_item_id: watchlistItemId,
+    shop_id: "hebe",
+    state: "matched",
+    shop_item_id: shopItemId,
+    brand: "Nivea",
+    size_value: 200,
+    size_unit: "ml",
+    decided_by: "auto",
+  });
+  // Felix's item in Hebe, made up: Hebe's ids are 18 digits.
+  const HEBE_FELIX_ID = "000000000000131225";
+
+  it("gives the stale items of every matched shop, Hebe's too, those never checked first, then the oldest check first", async () => {
+    // Nivea Soft's Hebe match was checked 3 hours ago, and Felix's never.
+    const { client } = stubClient({
+      ...listAnswers,
+      watchlist_matches: {
+        data: [
+          ...listAnswers.watchlist_matches.data,
+          hebeListRow(SOFT_ID, HEBE_SOFT_ID),
+          hebeListRow(FELIX_ID, HEBE_FELIX_ID),
+        ],
+      },
+      latest_price_observations: {
+        data: [...listAnswers.latest_price_observations.data, latestRow("hebe", HEBE_SOFT_ID, 3 * 60 * MINUTE)],
+      },
+    });
+
+    expect(await listTargets(client)).toEqual<RefreshTargets>({
+      keys: [
+        { shop: "hebe", shopItemId: HEBE_FELIX_ID },
+        { shop: "rossmann", shopItemId: "11790" },
+        { shop: "natura", shopItemId: "NV89063" },
+        { shop: "hebe", shopItemId: HEBE_SOFT_ID },
+        { shop: "rossmann", shopItemId: "26900" },
+      ],
+      unread: [],
+    });
+  });
+
+  it("leaves out only the item of the matched shop whose decision couldn't be read, and keeps the other shop's", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // Nivea Soft's Hebe decision came back in a state the code doesn't know; its Natura match was read.
+    const { client } = stubClient({
+      ...listAnswers,
+      watchlist_matches: {
+        data: [...listAnswers.watchlist_matches.data, { ...hebeListRow(SOFT_ID, HEBE_SOFT_ID), state: "repinned" }],
+      },
+    });
+
+    expect(await listTargets(client)).toEqual<RefreshTargets>({
+      keys: [
+        { shop: "rossmann", shopItemId: "11790" },
+        { shop: "natura", shopItemId: "NV89063" },
+        { shop: "rossmann", shopItemId: "26900" },
+      ],
+      unread: [],
+    });
   });
 });

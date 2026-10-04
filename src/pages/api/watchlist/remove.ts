@@ -3,8 +3,8 @@ import { parseWatchlistItemId, removalBackTo, removeFromWatchlist } from "@/lib/
 import { parseListFilter } from "@/lib/services/watchlist-rows";
 
 // "Usuń z listy" at the foot of a product's page. It deletes the signed-in user's own row, and with it, through the
-// foreign key's cascade, their own Natura decision for the product; no price observation references a product, so
-// every watcher keeps the item's prices (FR-005). It's a plain form post, so Astro's checkOrigin refuses one from
+// foreign key's cascade, their own decisions in the shops for the product; no price observation references a product,
+// so every watcher keeps the item's prices (FR-005). It's a plain form post, so Astro's checkOrigin refuses one from
 // another site. It makes no shop request, and neither does the list it goes back to, which says once what the removal
 // came to, keeping the list's filter (removalBackTo).
 export const POST: APIRoute = async (context) => {

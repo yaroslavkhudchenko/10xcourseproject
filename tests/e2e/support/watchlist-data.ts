@@ -1,13 +1,14 @@
 // What a spec seeds and removes (test-plan Phase 1, context/changes/testing-critical-browser-flows/plan.md): its own
-// products, a Natura match and exact price states, written as the run's user through supabase-js on the local stack, as
-// the database checks do, and deleted again after the test. Two reads and writes act as the local superuser
-// (scripts/e2e-local-db.mjs): the check that every shop is stopped, since no API role may read the shops, and backdating
-// a check, since the database stamps each check's time. Every product gets fresh shop ids: price checks are shared and
-// never deleted, so an id an earlier run used would bring that run's prices along.
+// products, their matches in Natura and Hebe and exact price states, written as the run's user through supabase-js on
+// the local stack, as the database checks do, and deleted again after the test. Two reads and writes act as the local
+// superuser (scripts/e2e-local-db.mjs): the check that every shop is stopped, since no API role may read the shops, and
+// backdating a check, since the database stamps each check's time. Every product gets fresh shop ids: price checks are
+// shared and never deleted, so an id an earlier run used would bring that run's prices along.
 import { randomBytes, randomInt } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { backdateChecks as backdateLocalChecks, enabledShops } from "../../../scripts/e2e-local-db.mjs";
+import type { MatchedShop } from "@/lib/services/price-comparison";
 import type { ShopId } from "@/types";
 import { readRun } from "./run";
 
@@ -80,6 +81,16 @@ function freshNaturaSku(): string {
   return `E2E-${randomBytes(6).toString("hex").toUpperCase()}`;
 }
 
+/** A Hebe item id no run has used: 18 digits, as Hebe's are, starting with 9, unlike Hebe's real ids' twelve zeros. */
+function freshHebeId(): string {
+  const high = String(randomInt(0, 100_000_000)).padStart(8, "0");
+  const low = String(randomInt(0, 1_000_000_000)).padStart(9, "0");
+  return `9${high}${low}`;
+}
+
+/** A fresh item id in each matched shop, in the shape its ids take. */
+const FRESH_IDS: Record<MatchedShop, () => string> = { natura: freshNaturaSku, hebe: freshHebeId };
+
 function idOf(row: unknown): string {
   if (typeof row === "object" && row !== null && "id" in row && typeof row.id === "string") return row.id;
   throw new Error(`the insert returned no row id: ${JSON.stringify(row)}`);
@@ -114,27 +125,34 @@ export async function addRossmannProduct({ name }: { name: string }): Promise<Se
   return { productId, itemId, name: fullName };
 }
 
-/** Adds a product from Rossmann matched in Natura, the shape every spec compares: its name, ids and Natura's SKU. */
+/**
+ * Adds a product from Rossmann matched in Natura, the shape every spec compares: its name, ids and Natura's SKU. It has
+ * no decision in Hebe, so its page, opened by the user, looks it up there, which the stopped shop refuses; a spec that
+ * needs Hebe settled matches it there too (matchShop).
+ */
 export async function addMatchedProduct(name: string): Promise<SeededProduct & { sku: string }> {
   const product = await addRossmannProduct({ name });
-  return { ...product, sku: await matchNatura(product.productId, { name: `Natura ${name}` }) };
+  return { ...product, sku: await matchShop("natura", product.productId, { name: `Natura ${name}` }) };
 }
 
-/** Stores an automatic Natura match for the product, so its page doesn't look Natura up. Returns the matched SKU. */
-export async function matchNatura(productId: string, { name }: { name: string }): Promise<string> {
+/**
+ * Stores an automatic match in a matched shop for the product, to a fresh item id there (Natura's `E2E-` SKU, Hebe's 18
+ * digits), so its page doesn't look the product up in that shop. Returns the matched item's id.
+ */
+export async function matchShop(shop: MatchedShop, productId: string, { name }: { name: string }): Promise<string> {
   const client = await asRunUser();
-  const sku = freshNaturaSku();
+  const shopItemId = FRESH_IDS[shop]();
   const { error } = await client.from("watchlist_matches").insert({
     watchlist_item_id: productId,
-    shop_id: "natura",
+    shop_id: shop,
     state: "matched",
     decided_by: "auto",
-    shop_item_id: sku,
+    shop_item_id: shopItemId,
     name: `${name} ${runToken()}`,
   });
-  expect(error, `the product ${productId} is matched with Natura ${sku}`).toBeNull();
-  await expectNoChecks(client, "natura", sku);
-  return sku;
+  expect(error, `the product ${productId} is matched with ${shop} ${shopItemId}`).toBeNull();
+  await expectNoChecks(client, shop, shopItemId);
+  return shopItemId;
 }
 
 // One check per call, as the app stores them: the database sets its time, source and recording user, and the user may
@@ -197,8 +215,8 @@ export function warsawDate(offsetDays: number): string {
 }
 
 /**
- * Deletes the spec's products from the run user's list, and fails unless none is left. Their Natura decisions go with
- * them (the cascade); their price checks stay, by design, under ids no one else watches.
+ * Deletes the spec's products from the run user's list, and fails unless none is left. Their decisions in the shops go
+ * with them (the cascade); their price checks stay, by design, under ids no one else watches.
  */
 export async function removeProducts(productIds: string[]): Promise<void> {
   if (productIds.length === 0) return;

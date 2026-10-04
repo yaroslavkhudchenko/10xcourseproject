@@ -1,23 +1,34 @@
+import { SHOP_LABELS, type MatchableShop } from "@/lib/services/price-comparison";
 import type { PriceRefreshCode } from "@/lib/services/price-refresh";
 
 // The parameters a page's address bar brings a notice with, and the notices' texts, defined once for the routes that
-// send them, the pages' frontmatter, the list's head, the product page's Natura section and both pages' address-bar
-// scripts: a saved Natura decision's, what each "Odśwież ceny" came to, "Dodaj"'s and a removal's, with the one that
-// opens a re-pin's choice, which the product page's address bar forgets too. The scripts run in the browser, so this
-// module imports nothing but a type, which the bundle drops.
+// send them, the pages' frontmatter, the list's head, the product page's shop cards and both pages' address-bar
+// scripts: a saved decision's, with the shop it was for, what each "Odśwież ceny" came to, "Dodaj"'s and a removal's,
+// with the ones that open a shop's re-pin choice or look a shop up again. The scripts run in the browser, so this
+// module imports nothing server-only: besides a type, which the bundle drops, only the shops' labels, from the
+// browser-safe comparison rules.
 
-/** The parameters a saved Natura decision comes back with (/api/watchlist/matches), in the order the page reads them. */
+/** The parameters a saved decision comes back with (/api/watchlist/matches), in the order the page reads them. */
 export const DECISION_CODES = ["matched", "declined", "decided"] as const;
 
-/** The parameter of one saved Natura decision. */
+/** The parameter of one saved decision. */
 export type DecisionCode = (typeof DECISION_CODES)[number];
 
-/** What the page says for each: a saved match, a saved decline, or a decision that was already stored. */
-export const DECISION_NOTICES: Record<DecisionCode, string> = {
+/**
+ * What the page says for each: a saved match, a saved decline, which names the shop the user declined ("Zapisano: brak
+ * w Naturze."), or a decision that was already stored.
+ */
+export const DECISION_NOTICES = {
   matched: "Zapisano dopasowanie.",
-  declined: "Zapisano: brak w Naturze.",
+  declined: (shop: MatchableShop): string => `Zapisano: brak ${SHOP_LABELS[shop].in}.`,
   decided: "Ten produkt ma już zapisaną decyzję.",
-};
+} satisfies Record<DecisionCode, string | ((shop: MatchableShop) => string)>;
+
+/**
+ * The parameter a saved decision, or a decision that wasn't saved, comes back with beside its code: the shop it was
+ * for (`?shop=natura&declined=1`), so the page shows it on that shop's card.
+ */
+export const SHOP_PARAM = "shop";
 
 /**
  * The parameter an error's code comes back with, which each page turns into its own text: on the product's page a
@@ -91,19 +102,26 @@ export const PRICES_PARAM = "prices";
 export const LIST_PRICES_PARAM = "list-prices";
 
 /**
- * The parameter that opens a stored decision's choice on its product's page (`?repin=1`), from "Zmień" or "Dopasuj
- * ponownie". The page's address bar forgets it once the choice has rendered, so going back to it or reloading lands on
- * the plain page and asks Natura nothing.
+ * The parameter that opens a shop's stored decision's choice on its product's page, holding the shop
+ * (`?repin=natura`), from "Zmień" or "Dopasuj ponownie". The page's address bar forgets it once the choice has
+ * rendered, so going back to it or reloading lands on the plain page and asks the shop nothing.
  */
 export const REPIN_PARAM = "repin";
 
 /**
- * Every parameter the product page's address bar forgets: a notice's, once the notice has shown (a decision's, a
- * decision's error, the product's no-JavaScript refresh's, the list's refresh's and a failed removal's), and the
- * re-pin's, once its choice has rendered.
+ * The parameter that looks a shop's stored "not found" up again on its product's page, holding the shop
+ * (`?retry=natura`), from "Szukaj ponownie". A retry that stored its outcome goes back to the plain page.
+ */
+export const RETRY_PARAM = "retry";
+
+/**
+ * Every parameter the product page's address bar forgets: a notice's, once the notice has shown (a decision's, its
+ * shop's, a decision's error, the product's no-JavaScript refresh's, the list's refresh's and a failed removal's), and
+ * the re-pin's, once its choice has rendered.
  */
 export const NOTICE_PARAMS = [
   ...DECISION_CODES,
+  SHOP_PARAM,
   ERROR_PARAM,
   PRICES_PARAM,
   LIST_PRICES_PARAM,

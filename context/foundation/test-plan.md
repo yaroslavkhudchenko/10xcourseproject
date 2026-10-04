@@ -120,15 +120,16 @@ How to add new tests in this project. Each sub-section is filled in once the rel
 - **Location and naming**: `tests/e2e/<risk-facet>.spec.ts`, one test per file, titled after its risk (`"#7: on a phone, …"`). A provenance header names the risk, the facet the test protects and the seed. A spec that judges prices also names where its expected values come from (the PRD and the decision records, never the code under test).
 - **The run user**: the `setup` project (`tests/e2e/auth.setup.ts`) signs up one throwaway local user per run and signs it in once through the form. Every spec starts with that session and never signs in itself. The seeding helpers take over the sign-up's session, so a run costs the local auth limit (30 per 5 minutes) two calls at any worker count.
 - **Seeding**: the helpers in `tests/e2e/support/watchlist-data.ts` act as the run user.
-  - `addMatchedProduct` gives each product fresh ids (a 12-digit Rossmann id, within the app's 1–12 rule, and an `E2E-` Natura SKU) and checks that no earlier run's prices come with them.
+  - `addMatchedProduct` gives each product fresh ids (a 12-digit Rossmann id, within the app's 1–12 rule, and an `E2E-` Natura SKU) and checks that no earlier run's prices come with them. It leaves Hebe undecided, so the product's page looks it up there, which the stopped shop refuses.
+  - `matchShop(shop, productId, …)` settles another matched shop where a story needs it, with a fresh id in that shop's shape: Natura's `E2E-` SKU, or Hebe's 18 digits starting with 9, unlike Hebe's real ids' twelve zeros.
   - Each check is one insert (`recordPrice`, `recordMissing`), and a promotion's end is a Warsaw date (`warsawDate`). A check older than 24 hours needs `backdateChecks`, seeding's one superuser write (`scripts/e2e-local-db.mjs`).
   - Every product registers itself as it's added: `test.afterEach(removeSeededProducts)` deletes them and fails unless none is left.
 - **Shops**: no spec reaches a shop.
-  - The setup holds every enabled shop in the local `public.shops` under the run's name, and refuses to start while another run or a manual `stop` holds them.
+  - The setup holds every enabled shop in the local `public.shops` under the run's name, refuses to start while another run or a manual `stop` holds them, and checks that every priced shop (`PRICED_SHOPS`) then answers `stopped`.
   - The teardown switches back on exactly the run's own shops, then fails the run if any shop request was reserved. A `globalTeardown` switches them back on after Ctrl+C too.
-  - A refetch gets the stopped notice, so the refused refresh is the only refresh outcome a spec can reach. `recordPriceCalls` pins what a page view or a tap would have asked the shops.
+  - A refetch gets the stopped notice, so the refused refresh is the only refresh outcome a spec can reach, and a matched shop's lookup gets the stopped search notice. `recordPriceCalls` pins what a page view or a tap would have asked the shops.
   - Never run with `--no-deps`: it skips the stop, and the helpers then refuse to seed.
-- **Locators and waits**: roles and texts from `tests/e2e/support/pages.ts` (`rowOf`, `cardOf`, `priceOf`, `ageLine`, `stoppedNotice`, `JUST_NOW`, `recordPriceCalls`).
+- **Locators and waits**: roles and texts from `tests/e2e/support/pages.ts` (`rowOf`, `cardOf`, `marksOf`, `priceOf`, `ageLine`, `stoppedNotice`, `searchStoppedNotice`, `JUST_NOW`, `recordPriceCalls`). `cardOf(page, shop)`, `stoppedNotice(shop)` and `searchStoppedNotice(shop)` take any shop's name.
   - On a product page, wait for the price island (`openFromList`, `waitForIsland`), never for every island.
   - Assert inside `main`, since a phone keeps the list beside the product hidden in the page.
   - A spec without JavaScript sets `test.use({ javaScriptEnabled: false })`.
@@ -137,13 +138,31 @@ How to add new tests in this project. Each sub-section is filled in once the rel
   - the spec is green from a cold server, with nothing listening on 4321;
   - it goes red under a deliberate break of the behaviour it protects, on the risk's own assertion;
   - the run user's list is empty after both runs.
-- **Reference specs**: `tests/e2e/seed.spec.ts` (the shape) and `tests/e2e/price-honesty.spec.ts` (seeded price states on both pages).
+- **Reference specs**: `tests/e2e/seed.spec.ts` (the shape), `tests/e2e/price-honesty.spec.ts` (seeded price states on both pages) and `tests/e2e/phone-three-shops.spec.ts` (three matched prices, then one matched shop declined).
 - **Run locally**: `npx playwright test tests/e2e/<name>.spec.ts`, or the suite with `npx playwright test`, with a timeout of several minutes, since it builds first. It needs Docker, `npx supabase start` and a local `.env` and `.dev.vars`, and refuses any other Supabase. It also refuses a port that another server already holds.
 - **CI**: the `e2e` job runs the suite on every push and PR to `main`, with its own local Supabase and no secrets. When it fails it uploads the report.
 
 ### 6.4 Adding a test for a shop adapter
 
-- TBD — see §3 Phase 3 (a changed or refused answer becoming a visible gap; the pattern for the Hebe and Super-Pharm adapters).
+- **Location and naming**: the adapter is `src/lib/services/shops/<shop>.ts` and its test `<shop>.test.ts` beside it. Its recordings are `src/lib/services/shops/fixtures/<shop>-<case>.json`, such as `hebe-ean-online.json`. A shop on Luigi's Box maps only its own attributes onto the shared client (`luigis-box.ts`). Its test covers that mapping and the shop binding, while `natura.test.ts` pins the client's batching, refusal and missing-versus-failed rules.
+- **Recording a fixture**: a real answer, never an invented one, recorded only with the owner's OK.
+  - From the developer machine, never from CI: `curl` with the gate's User-Agent (`DrogeriaRadar/0.1 (+https://github.com/yaroslavkhudchenko/10xcourseproject)`) and `Accept: application/json`, following no redirect.
+  - One request at a time, at least 2 s apart, to the shop's API host only, never to a page whose robots.txt refuses AI crawlers.
+  - Keep the answer as it came, cut at most to its first 5 hits, with no personal data. Keep every number as written: a plain `JSON.parse` and `JSON.stringify` round Luigi's Box's `identity_hash`, so trim with a reviver that keeps each number's source text (`JSON.rawJSON`).
+  - The test's header names each fixture's request and date, as `hebe.test.ts` does.
+- **The cases**:
+  - the mapping on the recordings: every field a candidate or an offer carries, and each size as text that `parseSize` reads back as the same size;
+  - the matching rule's outcomes (`pickMatch`) on the real candidates, against watched products taken from recordings wherever one exists;
+  - pinned batches: an id the shop answers without is `missing`, a hit nobody asked for leaves every unanswered id `failed`, never `missing`, 51 ids make 2 requests, and a refusal stops the rest;
+  - the shop binding: every `gate.fetch` call and every reservation names the shop, and every URL carries its tracker.
+- **Broken copies** (risk #5): each changes one thing in a deep copy of a recording (`structuredClone`), or puts a page where the JSON was.
+  - The changes: a field removed, a string where a number belongs, HTML instead of JSON, an answer without its hits list, and the 404 text/plain answer to an unknown tracker (`natura-unknown-tracker.json`, which names no shop).
+  - Each gives `unavailable/failed` and its one log line, never a price, "not found" or `missing`. A real empty answer (`hits: []`) still means nothing found.
+  - Change a copy the way the shop could plausibly change, not towards what the parser already tolerates.
+- **Asserting the replay's URLs**: build a real gate (`createShopGate`) over `vi.fn(createReplayFetch(entries))` and assert every URL it served (`requestedUrls`). Spell each URL out in the test, with the tracker, the parameter order and the encoding, rather than building it with the adapter's code. A URL the replay doesn't know rejects, which the gate reports as `failed/network`, so a test that checks only the outcome can pass on the wrong request.
+- **Done means**: a deliberate break of each rule the adapter adds turns a named test red, such as offering an item the shop doesn't sell online, pricing from the regular price during a sale, or reading the size from the wrong attribute.
+- **Reference test**: `src/lib/services/shops/hebe.test.ts`.
+- **Run locally**: `npx vitest run src/lib/services/shops/<shop>.test.ts`, or the whole suite with `npm run test`.
 
 ### 6.5 Adding a production check
 
@@ -152,6 +171,11 @@ How to add new tests in this project. Each sub-section is filled in once the rel
 ### 6.6 Per-rollout-phase notes
 
 - **Phase 1, critical flows in a real browser (`testing-critical-browser-flows`, 2026-10-02):** "no live shops" is a state of the environment, not a mock: it is the deployment's own stop switch in the local database. Recorded answers can't reach the production build, whose shops are called from the Worker. A phone-width page never hydrates every island and keeps the wide-screen list hidden in its DOM, so wait for the island a step needs and assert inside the visible pane.
+- **S-05, Hebe in the comparison (`hebe-in-comparison`, 2026-10-04; a roadmap slice, not a rollout phase):**
+  - **The adapter pattern (§6.4):** a shop on Luigi's Box maps only its own attributes onto the shared client, and its test runs every case through a real gate over the replay, on real recordings and on broken copies of them. `hebe.test.ts` is the reference. `natura.test.ts`, unchanged by the split into the shared client, pins the client's batching, refusal and missing-versus-failed rules. Broken copies for Rossmann's and Natura's recordings are left to rollout Phase 3.
+  - **The three-shop spec** (`tests/e2e/phone-three-shops.spec.ts`, risks #7 and #1): three fresh, orderable prices, the cheapest marked on the list and the product page, then Hebe's match declined through "Zmień" and "Żaden z nich" while Hebe's search is stopped, after which Natura is the cheapest and its match is untouched. Besides the teardown's run-wide check, the spec compares the shop request log before and after itself (`requestLogMark`).
+  - **Follow-up for `/10x-test-plan --refresh`:** risk #6's evidence and "Must challenge" (§2) rest on the old reading of the research note's Hebe example ("Hebe's EAN query gave a 237 ml item", "Hebe returns wrong EANs"). That item is the 300 ml product with a wrong size field (`Pojemność`), and its EAN is right (research note §2.2, re-checked 2026-10-02). The real case is a shared EAN with another size: Hebe's 5,5 ml lip balm (742817) carries EAN 9005800362939, which Rossmann lists for its 4,8 g lip balm (11790). `hebe.test.ts` shows that the rule flags it and never accepts it on its own. This slice's notes also moved two of §2's line citations: `prd.md:146` (polite to the shops) is now `prd.md:150`, and `polish-drugstore-price-apis.md:269` (endpoints change without notice) is now `:290`.
+  - **Follow-up for rollout Phase 3:** a Luigi's Box hit with neither a `type` nor attributes reads as a query suggestion, so an answer whose hits all lost both would read as "found nothing" instead of a gap, for Natura and Hebe alike. `natura.test.ts` pins that reading ("finds nothing, and logs no drop, when the only hit is a query suggestion").
 
 ## 7. What We Deliberately Don't Test
 

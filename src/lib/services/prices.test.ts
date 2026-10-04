@@ -349,12 +349,29 @@ describe("listLatestPrices", () => {
       why: "a shop the app doesn't know, with an item id that isn't text",
       row: { ...felixRow, shop_id: "dm", shop_item_id: 131225 },
     },
-    { why: "a shop whose prices the list doesn't compare", row: { ...felixRow, shop_id: "hebe", price: "5.99" } },
+    {
+      why: "a shop whose prices the list doesn't compare",
+      row: { ...felixRow, shop_id: "super-pharm", price: "5.99" },
+    },
   ])("leaves out an odd row of $why, which can't be any product's price, and logs it", async ({ row }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { client } = stubClient({ data: [row, softRow, otherRow] });
 
     expect(await listLatestPrices(client)).toEqual({ prices: [soft, other], unread: [], unattributed: 0 });
+    expect(loggedLine(warn)).toMatchObject({ reason: "unexpected rows dropped", detail: "1" });
+  });
+
+  it("reports an odd row of Hebe's, whose prices the list compares, as its item's unread price, and logs it", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const hebeRow = { ...felixRow, shop_id: "hebe", shop_item_id: "000000000000218807", price: "15.99" };
+    const { client } = stubClient({ data: [hebeRow, softRow, otherRow] });
+
+    // The list then says that item's price couldn't be read, never that it was never checked.
+    expect(await listLatestPrices(client)).toEqual({
+      prices: [soft, other],
+      unread: [{ shop: "hebe", shopItemId: "000000000000218807" }],
+      unattributed: 0,
+    });
     expect(loggedLine(warn)).toMatchObject({ reason: "unexpected rows dropped", detail: "1" });
   });
 

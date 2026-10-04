@@ -1,6 +1,7 @@
 // risk: #7 (context/foundation/test-plan.md): a browser-only regression breaks the phone flow at the shelf, here a
 // removal that one tap fires without its confirm, or that doesn't last.
-// facet: on the production build at 390 px, the first tap on "Usuń z listy" only opens the confirm and removes nothing.
+// facet: on the production build at 390 px, the first tap on "Usuń z listy" only opens the confirm, which says what goes
+// and what stays, and removes nothing.
 // The confirm removes the product for good: the list says so, and the row is gone, after a reload too.
 // seed: tests/e2e/seed.spec.ts
 import { expect, test } from "@playwright/test";
@@ -28,6 +29,11 @@ test("#7: on a phone, removing a product takes its confirm, and the removal last
   await expect(confirm).toBeHidden();
   await removal.getByText("Usuń z listy", { exact: true }).filter({ visible: true }).tap();
   await expect(confirm).toBeVisible();
+  // The confirm says what goes and what stays: the button is described by that line.
+  await expect(confirm).toHaveAccessibleDescription(
+    "Produkt zniknie z Twojej listy razem z Twoimi wyborami w sklepach. Zapisane ceny zostają, a ponowne dodanie " +
+      "zacznie dopasowanie od nowa.",
+  );
   await expect(page.getByRole("heading", { level: 1, name: product.name })).toBeVisible();
   expect(page.url(), "the first tap removes nothing: the product's page stays").toBe(productPage);
 

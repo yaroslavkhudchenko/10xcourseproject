@@ -1,18 +1,18 @@
 import { useId } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  naturaCardOf,
-  naturaUndecided,
-  naturaUnreadable,
-  type NaturaCard as NaturaCardModel,
-  type NaturaCardInput,
-} from "@/components/watchlist/natura-card";
-import NaturaCard from "@/components/watchlist/NaturaCard";
+  matchCardOf,
+  undecidedShopsOf,
+  type MatchCard as MatchCardModel,
+  type MatchedShopView,
+} from "@/components/watchlist/match-card";
+import MatchCard from "@/components/watchlist/MatchCard";
 import {
   checkedAge,
   checkedCaption,
   comparisonOf,
   heroOf,
+  matchChangedText,
   trackHint,
   trackOf,
   verdictOfState,
@@ -33,15 +33,17 @@ interface Props {
   listFilter: ListFilter;
   /** The product the title names. */
   product: TitleProduct;
-  /** The island's state: its rows, whether each refetch runs, and what the last answers said. */
+  /**
+   * The island's state: its rows, whether each refetch runs, what the last answers said, and the matched shops whose
+   * decision couldn't be read, which keep every shop from being named, as a price that couldn't be read does.
+   */
   state: PriceComparisonState;
   /**
-   * Natura as the page read it: its view, a decision's notice and error, and whether the lookup's outcome went
-   * unsaved; null when there's nothing to say about Natura. Its card stands among the shops' cards, the hero and the
-   * track's hint say when it's still to be matched, and a decision that couldn't be read keeps every shop from being
-   * named, as a price that couldn't be read does.
+   * The matched shops as the page read them, in its order: each one's view, a decision's notice and error, and whether
+   * the lookup's outcome went unsaved. Each one's card stands among the shops' cards, and the hero and the track's hint
+   * name the ones still to be matched.
    */
-  natura: NaturaCardInput | null;
+  matched: readonly MatchedShopView[];
   /**
    * Refetches every shop in place of the forms' post. Absent when the view is rendered without the island, as in the
    * kitchen sink: the forms then post, as they do without JavaScript.
@@ -51,16 +53,16 @@ interface Props {
 
 // A product's page from its title down, as the island's state has it: the title row with "Odśwież ceny" and when the
 // prices were checked, the verdict's hero, the price track or its hint, one card per shop, in the comparison's order
-// with the cheapest marked and Natura's card among them, and a phone's bottom bar. What each part says comes from the
-// tested rules (price-comparison-state.ts, natura-card.ts); this only maps it. It keeps no state and runs no effect,
-// so every state the reducer can reach renders the same in the island and in the kitchen sink, and a view rendered
-// without the island fetches nothing.
-export default function PriceComparisonView({ itemId, listFilter, product, state, natura, onRefresh }: Props) {
-  const view = natura?.view ?? null;
-  // The rows' order and marks, withheld while a stored price is unread, and the verdict judged on the same rows.
+// with the cheapest marked and each matched shop's card among them, and a phone's bottom bar. What each part says comes
+// from the tested rules (price-comparison-state.ts, match-card.ts); this only maps it. It keeps no state and runs no
+// effect, so every state the reducer can reach renders the same in the island and in the kitchen sink, and a view
+// rendered without the island fetches nothing.
+export default function PriceComparisonView({ itemId, listFilter, product, state, matched, onRefresh }: Props) {
+  // The rows' order and marks, withheld while a stored price or a matched shop's decision is unread, and the verdict
+  // judged on the same rows.
   const { rows } = comparisonOf(state);
-  const verdict = verdictOfState(state, { naturaUnreadable: naturaUnreadable(view) });
-  const context = { naturaUndecided: naturaUndecided(view) };
+  const verdict = verdictOfState(state);
+  const context = { undecided: undecidedShopsOf(matched) };
   const track = trackOf(rows, verdict);
   const hint = trackHint(verdict, context);
   const caption = checkedCaption(state.rows, state.now);
@@ -83,11 +85,11 @@ export default function PriceComparisonView({ itemId, listFilter, product, state
           </AlertDescription>
         </Alert>
       )}
-      {state.matchChanged && (
+      {state.matchChanged.length > 0 && (
         <Alert variant="warning">
           <AlertDescription>
             <p>
-              Dopasowanie w Naturze się zmieniło.{" "}
+              {matchChangedText(state.matchChanged)}{" "}
               {/* The product's page anew, with the list's filter: it shows the match as it stands now. */}
               <a
                 href={filterHref(`/watchlist/${itemId}`, listFilter)}
@@ -110,7 +112,7 @@ export default function PriceComparisonView({ itemId, listFilter, product, state
       />
       <VerdictHero hero={heroOf(verdict, context)} />
       <PriceTrack track={track} hint={hint} />
-      <ShopGrid rows={rows} now={state.now} natura={natura === null ? null : naturaCardOf(natura)} />
+      <ShopGrid rows={rows} now={state.now} cards={matched.map((shop) => matchCardOf(shop))} />
       {/* Screen readers hear each shop's answer here, outside the cards, so nothing live moves when they re-sort. */}
       <p role="status" aria-live="polite" className="sr-only">
         {state.announcements.join(" ")}
@@ -132,42 +134,43 @@ interface GridProps {
   rows: readonly ComparedRow[];
   /** The time the prices' ages are read at, in milliseconds. */
   now: number;
-  /** What Natura's card says (naturaCardOf), its links included, or null for no card of its own. */
-  natura: NaturaCardModel | null;
+  /** What each matched shop's card says (matchCardOf), its links included, in the pages' order. */
+  cards: readonly MatchCardModel[];
 }
 
 /**
  * The shops' cards, two columns from xl (1280 px) and one below it, where a card of half the pane beside the list
- * would squeeze its shop's name and site: each priced shop's card in the comparison's order, Natura's price card with
- * its match's footer, and, while Natura has no price row, its card without a price after them. The kitchen sink draws
- * it on its own, with every state of Natura.
+ * would squeeze its shop's name and site: each priced shop's card in the comparison's order, a matched shop's price
+ * card with its match's footer, and, for each matched shop without a price row, its card without a price after them,
+ * in the pages' order. The kitchen sink draws it on its own, with every state of Natura and of Hebe.
  */
-export function ShopGrid({ rows, now, natura }: GridProps) {
+export function ShopGrid({ rows, now, cards }: GridProps) {
   const headingId = useId();
-  const naturaPriced = rows.some((row) => row.shop === "natura");
-  if (rows.length === 0 && natura === null) {
+  if (rows.length === 0 && cards.length === 0) {
     return null;
   }
+  const priced = new Set(rows.map((row) => row.shop));
   return (
     <section aria-labelledby={headingId}>
       <h2 id={headingId} className="sr-only">
         Ceny
       </h2>
       <ul className="grid gap-6 lg:gap-5 lg:pt-1.5 xl:grid-cols-2">
-        {rows.map((row) => (
-          <li key={row.shop}>
-            {row.shop === "natura" && natura !== null ? (
-              <NaturaCard card={natura} row={row} now={now} />
-            ) : (
-              <ShopCard row={row} now={now} />
-            )}
-          </li>
-        ))}
-        {natura !== null && !naturaPriced && (
-          <li key="natura">
-            <NaturaCard card={natura} row={null} now={now} />
-          </li>
-        )}
+        {rows.map((row) => {
+          const card = cards.find((each) => each.shop === row.shop);
+          return (
+            <li key={row.shop}>
+              {card === undefined ? <ShopCard row={row} now={now} /> : <MatchCard card={card} row={row} now={now} />}
+            </li>
+          );
+        })}
+        {cards
+          .filter((card) => !priced.has(card.shop))
+          .map((card) => (
+            <li key={card.shop}>
+              <MatchCard card={card} row={null} now={now} />
+            </li>
+          ))}
       </ul>
     </section>
   );

@@ -8,9 +8,23 @@ import type { SeededProduct } from "./watchlist-data";
 /** How long ago a check made during the test was, as a page says it: "przed chwilą" for a minute, then "N min temu". */
 export const JUST_NOW = String.raw`(?:przed chwilą|\d+ min temu)`;
 
+/** A shop as the pages name it on its card and in its choice. */
+export type ShopName = "Rossmann" | "Natura" | "Hebe";
+
 /** What a shop's card says once the island asked the shop again and it was refused: the setup stops every shop. */
-export function stoppedNotice(shop: string): string {
+export function stoppedNotice(shop: ShopName): string {
   return `Odświeżanie cen w sklepie ${shop} jest wyłączone, bo sklep zablokował zapytania.`;
+}
+
+/**
+ * What a matched shop's card or choice says once the page looked the product up there and the shop was refused, as the
+ * setup's stopped shops refuse every search.
+ */
+export function searchStoppedNotice(shop: ShopName): string {
+  return (
+    `Wyszukiwanie w sklepie ${shop} jest wyłączone, bo sklep zablokował zapytania. ` +
+    "Właściciel musi je ponownie włączyć."
+  );
 }
 
 /** The product's row on the list: a link whose name is what a screen reader hears, its whole comparison. */
@@ -18,8 +32,8 @@ export function rowOf(page: Page, product: SeededProduct): Locator {
   return page.getByRole("list", { name: "Moja lista" }).getByRole("link", { name: product.name });
 }
 
-/** A shop's card among the product's prices. */
-export function cardOf(page: Page, shop: "Rossmann" | "Natura"): Locator {
+/** A shop's card among the product's prices, found by the shop's name on it. */
+export function cardOf(page: Page, shop: ShopName): Locator {
   return page
     .getByRole("region", { name: "Ceny" })
     .getByRole("listitem")

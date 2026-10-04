@@ -4,23 +4,23 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type {
-  NaturaCardAction,
-  NaturaCardAlert,
-  NaturaCardLink,
-  NaturaCard as NaturaCardModel,
-} from "@/components/watchlist/natura-card";
+  MatchCardAction,
+  MatchCardAlert,
+  MatchCardLink,
+  MatchCard as MatchCardModel,
+} from "@/components/watchlist/match-card";
 import type { ComparedRow } from "@/components/watchlist/price-comparison-state";
 import ProductThumb from "@/components/watchlist/ProductThumb";
 import ShopCard, { SHOP_CARD, ShopHeader } from "@/components/watchlist/ShopCard";
 import ShopLink from "@/components/watchlist/ShopLink";
-import type { NaturaItemSummary } from "@/lib/services/natura-view";
+import type { MatchItemSummary } from "@/lib/services/match-view";
 import { rowProductOf } from "@/lib/services/watchlist-rows";
 import { cn } from "@/lib/utils";
 
 interface Props {
-  /** What the card says of Natura, from the page's view of it (naturaCardOf), with its links. */
-  card: NaturaCardModel;
-  /** Natura's price row, as the comparison marks it, while the product has a saved match; null without one. */
+  /** What the card says of its shop, from the page's view of it (matchCardOf), with its links. */
+  card: MatchCardModel;
+  /** The shop's price row, as the comparison marks it, while the product has a saved match there; null without one. */
   row: ComparedRow | null;
   /** The time the price's age is read at, in milliseconds. */
   now: number;
@@ -34,22 +34,22 @@ const LINE = "text-sm leading-normal lg:text-body";
 // with the compact size's 44 px hit area around it.
 const ACTION = "ml-auto h-9 shrink-0 border-foreground bg-transparent lg:h-8.5";
 
-// Natura's card among the shops' cards, so each shop appears once on the page. A saved match is Natura's price card,
-// with a footer under a dashed line: the matched item's brand and size above its name, how the match was decided, with
-// "Zmień" beside it, and a warning for each thing that differs from the product, its size or its brand. Without one,
-// the card has no price and says where Natura stands instead: not matched yet, with the link that looks the product
-// up; found nothing, with the link that looks again; declined, as a dashed ghost on the paper, with "Dopasuj ponownie"
-// in its footer; a decision another tab saved meanwhile, with the link that shows it; Natura busy or a decision that
-// couldn't be read, in the warning colour, as a price that couldn't be read; or candidates to choose from, which the
-// section below the cards holds with their forms. "Zmień" and "Dopasuj ponownie" open the choice of Natura's
-// candidates below the cards; while it's open, the card says so and offers "Anuluj" instead. A match the page couldn't
-// save has no price row, so its item, with its photo and its page, stands in the price's place, and it has no action
-// yet. The notices of a decision just made, and a lookup's outcome that couldn't be stored, close the card. Every
-// action here is a plain link, which works without JavaScript; the decisions themselves are the section's forms. It
-// keeps no state, so it renders the same in the island and in the kitchen sink.
-export default function NaturaCard({ card, row, now }: Props) {
+// A matched shop's card among the shops' cards, so each shop appears once on the page. A saved match is the shop's
+// price card, with a footer under a dashed line: the matched item's brand and size above its name, how the match was
+// decided, with "Zmień" beside it, and a warning for each thing that differs from the product, its size or its brand.
+// Without one, the card has no price and says where the shop stands instead: not matched yet, with the link that looks
+// the product up; found nothing, with the link that looks again; declined, as a dashed ghost on the paper, with
+// "Dopasuj ponownie" in its footer; a decision another tab saved meanwhile, with the link that shows it; the shop busy
+// or a decision that couldn't be read, in the warning colour, as a price that couldn't be read; or candidates to choose
+// from, which the shop's section below the cards holds with their forms. "Zmień" and "Dopasuj ponownie" open the choice
+// of the shop's candidates below the cards; while it's open, the card says so and offers "Anuluj" instead. A match the
+// page couldn't save has no price row, so its item, with its photo and its page, stands in the price's place, and it
+// has no action yet. The notices of a decision just made, and a lookup's outcome that couldn't be stored, close the
+// card. Every action here is a plain link, which works without JavaScript; the decisions themselves are the section's
+// forms. It keeps no state, so it renders the same in the island and in the kitchen sink.
+export default function MatchCard({ card, row, now }: Props) {
   const nameId = useId();
-  const body = <NaturaBody card={card} />;
+  const body = <CardBody card={card} />;
   if (row !== null) {
     return (
       <ShopCard row={row} now={now}>
@@ -62,30 +62,30 @@ export default function NaturaCard({ card, row, now }: Props) {
       className={cn(
         SHOP_CARD,
         "border-border",
-        // The user declined Natura: a ghost of a card, dashed on the paper.
+        // The user declined the shop: a ghost of a card, dashed on the paper.
         card.kind === "unmatched" && "border-dashed bg-transparent",
       )}
     >
-      <ShopHeader shop="natura" nameId={nameId} />
+      <ShopHeader shop={card.shop} nameId={nameId} />
       {body}
     </Card>
   );
 }
 
-/** The card's own part: where Natura stands, then the alerts. */
-function NaturaBody({ card }: { card: NaturaCardModel }) {
+/** The card's own part: where the shop stands, then the alerts. */
+function CardBody({ card }: { card: MatchCardModel }) {
   return (
     <>
-      <NaturaState card={card} />
+      <Standing card={card} />
       {card.alerts.map((alert) => (
-        <NaturaAlert key={alert.tone} alert={alert} />
+        <CardAlert key={alert.tone} alert={alert} />
       ))}
     </>
   );
 }
 
-/** Where Natura stands, by the card's kind. A kind this misses fails to compile instead of rendering nothing. */
-function NaturaState({ card }: { card: NaturaCardModel }): ReactElement {
+/** Where the shop stands, by the card's kind. A kind this misses fails to compile instead of rendering nothing. */
+function Standing({ card }: { card: MatchCardModel }): ReactElement {
   switch (card.kind) {
     case "matched":
       return (
@@ -162,9 +162,9 @@ function MatchFooter({
 }: {
   note: string;
   warnings: string[];
-  item: NaturaItemSummary;
+  item: MatchItemSummary;
   unsaved: boolean;
-  action: NaturaCardAction | null;
+  action: MatchCardAction | null;
 }) {
   const hint = action?.hint ?? null;
   return (
@@ -191,7 +191,7 @@ function MatchFooter({
  * The footer of the user's decline, under a dashed line, as the handoff draws its ghost card: "Dopasuj ponownie" at
  * its end, and, while the choice is open below the cards, the line that points there beside "Anuluj".
  */
-function DeclineFooter({ action }: { action: NaturaCardAction }) {
+function DeclineFooter({ action }: { action: MatchCardAction }) {
   return (
     <div className="border-t-hairline mt-auto flex items-center gap-2.5 border-dashed pt-2.5 lg:pt-3">
       {action.hint !== null && <p className={cn(LINE, "text-muted-foreground min-w-0")}>{action.hint}</p>}
@@ -201,7 +201,7 @@ function DeclineFooter({ action }: { action: NaturaCardAction }) {
 }
 
 /** A stored decision's action: a plain link to the product's page, which opens or closes the choice. */
-function ActionLink({ link }: { link: NaturaCardLink }) {
+function ActionLink({ link }: { link: MatchCardLink }) {
   return (
     <a href={link.href} className={cn(buttonVariants({ variant: "outline", size: "compact" }), ACTION)}>
       {link.label}
@@ -213,7 +213,7 @@ function ActionLink({ link }: { link: NaturaCardLink }) {
  * The item of a match the page couldn't save, which has no price row: its thumbnail, its brand and size above its
  * name, as a list row draws a product, and its page in the shop.
  */
-function MatchedItem({ item }: { item: NaturaItemSummary }) {
+function MatchedItem({ item }: { item: MatchItemSummary }) {
   // The item's name describes its "Zobacz w sklepie"; the id is this item's own.
   const textId = useId();
   return (
@@ -228,7 +228,7 @@ function MatchedItem({ item }: { item: NaturaItemSummary }) {
 }
 
 /** A matched item's brand and size above its name, as a list row draws a product (rowProductOf). */
-function ItemText({ item, id }: { item: NaturaItemSummary; id?: string }) {
+function ItemText({ item, id }: { item: MatchItemSummary; id?: string }) {
   const { eyebrow, name } = rowProductOf({ ...item, caption: null });
   return (
     <p id={id} className="flex min-w-0 flex-col gap-0.75">
@@ -243,7 +243,7 @@ function ItemText({ item, id }: { item: NaturaItemSummary; id?: string }) {
 }
 
 /** A notice in the card: a decision saved, a decision that wasn't, or a lookup's outcome that couldn't be stored. */
-function NaturaAlert({ alert }: { alert: NaturaCardAlert }) {
+function CardAlert({ alert }: { alert: MatchCardAlert }) {
   // A saved decision is news, told politely; the other two are problems, told at once.
   return (
     <Alert variant={alert.tone} role={alert.tone === "success" ? "status" : "alert"}>
