@@ -3,14 +3,17 @@ import { z } from "astro/zod";
 import { listMatches, listMatchStates, shopItemIdSchema } from "@/lib/services/matches";
 import {
   listPricedItems,
+  MATCHED_SHOPS,
   PRICED_SHOPS,
   productPriceKeys,
   staleTargets,
+  type MatchableShop,
+  type PriceDecision,
   type PricedShop,
 } from "@/lib/services/price-comparison";
 import { listLatestPrices } from "@/lib/services/prices";
 import { getWatchlistProduct, listWatchlist, watchlistItemIdSchema } from "@/lib/services/watchlist";
-import type { PriceKey } from "@/types";
+import type { PriceKey, ShopMatch } from "@/types";
 
 // Which shop items a price refresh fetches, for the product page's island (/api/watchlist/prices) and for "Odśwież
 // ceny" (/api/watchlist/refresh). They come from the user's own rows, read through the user's own client, never from
@@ -79,38 +82,55 @@ export async function priceTargetFor(
 
 /**
  * What the list's "Odśwież ceny" fetches: every shop item of the user's list whose last check is more than 15 minutes
- * old, as the stored prices tell, the oldest first. Odd rows never stop the refresh: an item without a readable price
- * row, whether its row came back odd or an odd row couldn't say whose it is, counts as never checked, so it's fetched,
- * which also repairs its latest row; and a product whose Natura decision couldn't be read has no Natura item to fetch.
- * `failed` when the list, its Natura decisions or its prices couldn't be read at all, since then the refresh can't
- * tell what's out of date.
+ * old, as the stored prices tell, the oldest first: each product's own Rossmann item and its match in each of `shops`,
+ * the matched shops unless a test names others. Odd rows never stop the refresh: an item without a readable price row,
+ * whether its row came back odd or an odd row couldn't say whose it is, counts as never checked, so it's fetched, which
+ * also repairs its latest row; and a product whose decision in a shop couldn't be read has no item there to fetch.
+ * `failed` when the list, its decisions or its prices couldn't be read at all, since then the refresh can't tell what's
+ * out of date.
  */
-export async function listTargets(supabase: SupabaseClient): Promise<PriceKey[] | "failed"> {
+export async function listTargets(
+  supabase: SupabaseClient,
+  shops: readonly MatchableShop[] = MATCHED_SHOPS,
+): Promise<PriceKey[] | "failed"> {
   const [items, matches, prices] = await Promise.all([
     listWatchlist(supabase),
-    listMatchStates(supabase),
+    listMatchStates(supabase, shops),
     listLatestPrices(supabase),
   ]);
   if (items === null || matches === null || prices === null) {
     return "failed";
   }
-  return staleTargets([...listPricedItems(items, matches.states, prices.prices).values()].flat(), Date.now());
+  return staleTargets([...listPricedItems(items, matches.states, prices.prices, shops).values()].flat(), Date.now());
 }
 
 /**
  * What a product page's "Odśwież ceny" fetches without JavaScript: every shop item of the user's product, however
- * recently it was checked, as the island's button does. None for a product that isn't on the user's list (RLS answers
- * another user's product the same way); `failed` when the product or any of its matched shops' decisions couldn't be
- * read.
+ * recently it was checked, as the island's button does: its own Rossmann item and its match in each of `shops`, the
+ * matched shops unless a test names others. None for a product that isn't on the user's list (RLS answers another
+ * user's product the same way); `failed` when the product or any of those shops' decisions couldn't be read.
  */
-export async function productTargets(supabase: SupabaseClient, itemId: string): Promise<PriceKey[] | "failed"> {
-  const [product, read] = await Promise.all([getWatchlistProduct(supabase, itemId), listMatches(supabase, itemId)]);
+export async function productTargets(
+  supabase: SupabaseClient,
+  itemId: string,
+  shops: readonly MatchableShop[] = MATCHED_SHOPS,
+): Promise<PriceKey[] | "failed"> {
+  const [product, read] = await Promise.all([
+    getWatchlistProduct(supabase, itemId),
+    listMatches(supabase, itemId, shops),
+  ]);
   if (product === "failed" || read === null || read.unreadable.length > 0) {
     return "failed";
   }
   if (product === null) {
     return [];
   }
-  const natura = read.matches.find((match) => match.shop === "natura");
-  return productPriceKeys(product, natura?.state === "matched" ? natura.item.shopItemId : null);
+  return productPriceKeys(product, read.matches.map(priceDecisionOf), shops);
+}
+
+/** A product's stored decision in a shop as its prices read it: a match names its item there, any other none. */
+function priceDecisionOf(match: ShopMatch): PriceDecision {
+  return match.state === "matched"
+    ? { shop: match.shop, state: match.state, shopItemId: match.item.shopItemId }
+    : { shop: match.shop, state: match.state };
 }

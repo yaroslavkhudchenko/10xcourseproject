@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { PricedShop } from "@/lib/services/price-comparison";
+import type { MatchableShop, PricedShop } from "@/lib/services/price-comparison";
 import {
   listTargets,
   priceRequestSchema,
@@ -62,6 +62,21 @@ const undecidedRow = (state: "unmatched" | "not_found") => ({
   decided_by: state === "unmatched" ? "user" : "auto",
   checked_at: "2026-09-27T12:05:00+00:00",
 });
+
+// Two matched shops, as a test passes them before Hebe is switched on, and the product's decision in Hebe: matched to
+// Hebe's Nivea Soft 200 ml, by its 18-digit id.
+const BOTH_SHOPS: readonly MatchableShop[] = ["natura", "hebe"];
+const HEBE_SOFT_ID = "000000000000218807";
+const hebeMatchedRow = {
+  ...matchedRow,
+  shop_id: "hebe",
+  shop_item_id: HEBE_SOFT_ID,
+  name: "Nivea Soft Lekki Krem Nawilżający, 200 ml",
+  brand: "Nivea",
+  size_text: "200 ml",
+  size_value: 200,
+  eans: ["4005900008299"],
+};
 
 /** One builder call a query made, such as `["eq", "id", SOFT_ID]`. */
 type Call = [method: string, ...args: unknown[]];
@@ -359,6 +374,41 @@ describe("productTargets", () => {
 
     expect(await productTargets(client, SOFT_ID)).toBe("failed");
   });
+
+  it("gives the product's Rossmann item and its match in each listed shop, in the shops' order", async () => {
+    const { client } = stubClient({
+      watchlist_items: { data: softRow },
+      watchlist_matches: { data: [hebeMatchedRow, matchedRow] },
+    });
+
+    expect(await productTargets(client, SOFT_ID, BOTH_SHOPS)).toEqual([
+      { shop: "rossmann", shopItemId: "26900" },
+      { shop: "natura", shopItemId: "NV89063" },
+      { shop: "hebe", shopItemId: HEBE_SOFT_ID },
+    ]);
+  });
+
+  it("leaves out a listed shop the product has no match in, and keeps the other shop's", async () => {
+    const { client } = stubClient({
+      watchlist_items: { data: softRow },
+      watchlist_matches: { data: [undecidedRow("unmatched"), hebeMatchedRow] },
+    });
+
+    expect(await productTargets(client, SOFT_ID, BOTH_SHOPS)).toEqual([
+      { shop: "rossmann", shopItemId: "26900" },
+      { shop: "hebe", shopItemId: HEBE_SOFT_ID },
+    ]);
+  });
+
+  it("gives failed when one listed shop's decision can't be read, though the other shop's was", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({
+      watchlist_items: { data: softRow },
+      watchlist_matches: { data: [matchedRow, { ...hebeMatchedRow, state: "repinned" }] },
+    });
+
+    expect(await productTargets(client, SOFT_ID, BOTH_SHOPS)).toBe("failed");
+  });
 });
 
 describe("listTargets", () => {
@@ -515,6 +565,62 @@ describe("listTargets", () => {
 
     // Nivea Soft's Natura match was read, so its SKU is fetched as before.
     expect(await listTargets(client)).toEqual<PriceKey[]>([
+      { shop: "rossmann", shopItemId: "11790" },
+      { shop: "natura", shopItemId: "NV89063" },
+      { shop: "rossmann", shopItemId: "26900" },
+    ]);
+  });
+
+  /** A product's match in Hebe, as the list reads it. */
+  const hebeListRow = (watchlistItemId: string, shopItemId: string) => ({
+    watchlist_item_id: watchlistItemId,
+    shop_id: "hebe",
+    state: "matched",
+    shop_item_id: shopItemId,
+    brand: "Nivea",
+    size_value: 200,
+    size_unit: "ml",
+    decided_by: "auto",
+  });
+  // Felix's item in Hebe, made up: Hebe's ids are 18 digits.
+  const HEBE_FELIX_ID = "000000000000131225";
+
+  it("gives the stale items of every listed shop, those never checked first, then the oldest check first", async () => {
+    // Nivea Soft's Hebe match was checked 3 hours ago, and Felix's never.
+    const { client } = stubClient({
+      ...listAnswers,
+      watchlist_matches: {
+        data: [
+          ...listAnswers.watchlist_matches.data,
+          hebeListRow(SOFT_ID, HEBE_SOFT_ID),
+          hebeListRow(FELIX_ID, HEBE_FELIX_ID),
+        ],
+      },
+      latest_price_observations: {
+        data: [...listAnswers.latest_price_observations.data, latestRow("hebe", HEBE_SOFT_ID, 3 * 60 * MINUTE)],
+      },
+    });
+
+    expect(await listTargets(client, BOTH_SHOPS)).toEqual<PriceKey[]>([
+      { shop: "hebe", shopItemId: HEBE_FELIX_ID },
+      { shop: "rossmann", shopItemId: "11790" },
+      { shop: "natura", shopItemId: "NV89063" },
+      { shop: "hebe", shopItemId: HEBE_SOFT_ID },
+      { shop: "rossmann", shopItemId: "26900" },
+    ]);
+  });
+
+  it("leaves out only the item of the listed shop whose decision couldn't be read, and keeps the other shop's", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // Nivea Soft's Hebe decision came back in a state the code doesn't know; its Natura match was read.
+    const { client } = stubClient({
+      ...listAnswers,
+      watchlist_matches: {
+        data: [...listAnswers.watchlist_matches.data, { ...hebeListRow(SOFT_ID, HEBE_SOFT_ID), state: "repinned" }],
+      },
+    });
+
+    expect(await listTargets(client, BOTH_SHOPS)).toEqual<PriceKey[]>([
       { shop: "rossmann", shopItemId: "11790" },
       { shop: "natura", shopItemId: "NV89063" },
       { shop: "rossmann", shopItemId: "26900" },

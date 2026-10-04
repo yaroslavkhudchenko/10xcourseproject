@@ -1,9 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { LIST_PRICES_PARAM, PRICES_PARAM } from "@/lib/notices";
-import { keyText } from "@/lib/services/price-comparison";
+import {
+  keyText,
+  MATCHABLE_SHOPS,
+  PRICED_SHOPS,
+  type KnownShop,
+  type MatchableShop,
+} from "@/lib/services/price-comparison";
 import { recordPriceChecks, type PriceRecordResult } from "@/lib/services/prices";
 import type { ShopGate } from "@/lib/services/shop-gate";
-import { fetchNaturaPrices } from "@/lib/services/shops/natura";
+import { SHOP_ADAPTERS } from "@/lib/services/shops/registry";
 import { fetchRossmannPrice } from "@/lib/services/shops/rossmann";
 import { isRefusal } from "@/lib/services/shops/shop-outcome";
 import { parseWatchlistItemId } from "@/lib/services/watchlist";
@@ -21,39 +27,58 @@ export interface PriceRefresh {
 
 /** One shop's part of a refresh: its checks by its own id for each item, and how storing them went. */
 interface ShopRefresh {
+  shop: KnownShop;
   checks: Map<string, PriceCheck>;
   saved: PriceRecordResult;
 }
 
 /**
- * Fetches the current offer of each shop item through the gate. Each shop's prices and missing items are stored with
- * an insert of their own as soon as that shop is done, so a refresh cut short keeps what the shops have already
- * answered; an item the shop gave no answer for stores nothing and keeps its last price with its age. `saved` is
- * `failed` when an insert failed, `saved` when every insert sent was stored, and `none` when there was nothing to store.
+ * Fetches a shop's pinned items by its own ids through the gate, one request at a time: a check for every id given.
+ * Once the shop refuses, its remaining ids get that same answer with no request and no reservation. It never throws.
+ */
+export type PriceFetcher = (gate: ShopGate, ids: string[]) => Promise<Map<string, PriceCheck>>;
+
+// Each matchable shop's adapter's fetcher, 50 ids per request, taken from the registry (registry.ts), so a shop the
+// registry gains needs no line here. Object.fromEntries can't say which keys it gives; they're every matchable shop's,
+// so the cast holds.
+const MATCHABLE_FETCHERS = Object.fromEntries(
+  MATCHABLE_SHOPS.map((shop) => [shop, SHOP_ADAPTERS[shop].fetchPrices] as const),
+) as Record<MatchableShop, PriceFetcher>;
+
+/** Each shop's price fetcher: Rossmann's, one product per request (fetchRossmannPrices), and each matchable shop's. */
+export const PRICE_FETCHERS: Record<KnownShop, PriceFetcher> = { rossmann: fetchRossmannPrices, ...MATCHABLE_FETCHERS };
+
+/**
+ * Fetches the current offer of each shop item through the gate, asking every shop of `shops` at once, each through
+ * its own fetcher (PRICE_FETCHERS): the priced shops unless a test names others. Each shop's prices and missing items
+ * are stored with an insert of their own as soon as that shop is done, so a refresh cut short keeps what the shops
+ * have already answered; an item the shop gave no answer for stores nothing and keeps its last price with its age.
+ * `saved` is `failed` when an insert failed, `saved` when every insert sent was stored, and `none` when there was
+ * nothing to store.
  *
- * Rossmann has no batch route, so it's asked one product per request, one at a time in the order given: callers pass
- * the oldest check first, and the cap cuts off the newest. Natura's SKUs are asked for together, 50 per request,
- * alongside Rossmann's. Once a shop refuses, busy under the cap, paused or stopped, its remaining items get that same
- * answer with no request and no reservation. Each item is checked once, however often it's given, and an item in a
- * shop S-03 doesn't fetch yet is `unavailable`.
+ * Within a shop the requests go one at a time. Rossmann has no batch route, so it's asked one product per request in
+ * the order given: callers pass the oldest check first, and the cap cuts off the newest. A matched shop's items are
+ * asked for together, 50 per request. Once a shop refuses, busy under the cap, paused or stopped, its remaining items
+ * get that same answer with no request and no reservation, while the other shops go on. Each item is checked once,
+ * however often it's given, and an item in a shop outside `shops` is `unavailable` with no request.
  */
 export async function refreshPrices(
   gate: ShopGate,
   supabase: SupabaseClient,
   targets: PriceKey[],
+  shops: readonly KnownShop[] = PRICED_SHOPS,
 ): Promise<PriceRefresh> {
   const keys = distinct(targets);
   const idsIn = (shop: ShopId) => keys.filter((key) => key.shop === shop).map((key) => key.shopItemId);
-  const [rossmann, natura] = await Promise.all([
-    fetchRossmannPrices(gate, idsIn("rossmann")).then((checks) => stored(supabase, "rossmann", checks)),
-    fetchNaturaPrices(gate, idsIn("natura")).then((checks) => stored(supabase, "natura", checks)),
-  ]);
-  const fetched: Partial<Record<ShopId, Map<string, PriceCheck>>> = {
-    rossmann: rossmann.checks,
-    natura: natura.checks,
-  };
-  const results = keys.map((key) => ({ key, check: fetched[key.shop]?.get(key.shopItemId) ?? notFetched() }));
-  return { results, saved: overall([rossmann.saved, natura.saved]) };
+  // Each shop once, so no shop is ever asked twice at the same time.
+  const refreshed = await Promise.all(
+    [...new Set(shops)].map((shop) =>
+      PRICE_FETCHERS[shop](gate, idsIn(shop)).then((checks) => stored(supabase, shop, checks)),
+    ),
+  );
+  const fetched = new Map<ShopId, Map<string, PriceCheck>>(refreshed.map(({ shop, checks }) => [shop, checks]));
+  const results = keys.map((key) => ({ key, check: fetched.get(key.shop)?.get(key.shopItemId) ?? notFetched() }));
+  return { results, saved: overall(refreshed.map(({ saved }) => saved)) };
 }
 
 /**
@@ -79,9 +104,13 @@ async function fetchRossmannPrices(gate: ShopGate, ids: string[]): Promise<Map<s
 }
 
 /** One shop's checks, stored once the shop is done: recordPriceChecks leaves out the items it gave no answer for. */
-async function stored(supabase: SupabaseClient, shop: ShopId, checks: Map<string, PriceCheck>): Promise<ShopRefresh> {
+async function stored(
+  supabase: SupabaseClient,
+  shop: KnownShop,
+  checks: Map<string, PriceCheck>,
+): Promise<ShopRefresh> {
   const rows = [...checks].map(([shopItemId, check]) => ({ key: { shop, shopItemId }, check }));
-  return { checks, saved: await recordPriceChecks(supabase, rows) };
+  return { shop, checks, saved: await recordPriceChecks(supabase, rows) };
 }
 
 /** How storing went for the refresh as a whole, from each shop's insert. */
@@ -106,7 +135,7 @@ function distinct(targets: PriceKey[]): PriceKey[] {
   });
 }
 
-/** The check of an item in a shop whose prices S-03 doesn't fetch. */
+/** The check of an item in a shop the refresh doesn't fetch: one outside its list of shops. */
 function notFetched(): PriceCheck {
   return { kind: "unavailable", reason: "failed" };
 }

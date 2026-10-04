@@ -1002,6 +1002,20 @@ Each adaptation made during implementation gets one line here, naming the contra
 - §6 cost, measured on the production build: the list page's address-bar script now loads the price-comparison chunk through `notices.ts`, 3.8 KB, or 1.7 KB gzipped. That's negligible, so nothing was changed.
 - 2.6 was verified by the agent at the owner's request (2026-10-04). Both kitchen sinks were captured under `astro dev` at Phase 1's commit and at this phase's tree, with headless Chromium at 1400 px. `/dev/product-page`: its visible text (5,558 lines) and 446 headings are identical, its full-page screenshot is byte-identical, and exactly 60 link targets changed (54 × `?repin=1` → `?repin=natura`, 6 × `?retry=1` → `?retry=natura`). `/dev/watchlist`: text, headings, all 182 links and the screenshot are byte-identical. Each sink draws every section in light and again in a `.dark` wrapper, so both themes are covered.
 
+### Phase 3
+
+- §1: `productPriceKeys(product, decisions, shops = MATCHED_SHOPS)` takes the shop list as an optional third argument, following Phase 2 §1's rule for shop lists. The plan's two-argument call still works.
+- §1: the keys read a new browser-safe `PriceDecision` type, `{ shop } & ({ state: "matched"; shopItemId } | { state: "unmatched" | "not_found" })`. `ShopMatchState` fits it, and `productTargets` converts each `ShopMatch` with a private `priceDecisionOf`.
+- §1: `productPriceKeys` and `listPricedItems` are generic over `Shop extends MatchableShop = MatchedShop`. The list is typed `readonly Shop[] | typeof MATCHED_SHOPS`, and the results `PricedShop | NoInfer<Shop>`, so the default result can't widen to Hebe. `PricedKey<Shop>` and `PricedItem<Shop>` became generic, with the old shapes as defaults, and `staleTargets` takes `PricedItem<KnownShop>[]`.
+- §1: `listPricedItems(products, matches, prices, shops = MATCHED_SHOPS)` keeps `matches: ShopMatchState[]`, so `watchlist-rows.ts` needed no change.
+- §2: `productTargets(supabase, itemId, shops = MATCHED_SHOPS)` and `listTargets(supabase, shops = MATCHED_SHOPS)` take the list and pass it to `listMatches` and `listMatchStates`. `productTargets` keeps today's all-or-nothing `failed` when any listed shop's decision can't be read, which is no regression; a per-shop product refresh isn't in this plan.
+- §3: `refreshPrices(gate, supabase, targets, shops = PRICED_SHOPS)` asks each listed shop once, even when the list repeats it, and has a test for that.
+- §3: `PRICE_FETCHERS` maps `MATCHABLE_SHOPS` to the registry adapters' `fetchPrices` (`Object.fromEntries`, with a commented cast) and adds Rossmann's. `PriceFetcher` is exported.
+- §4: the page reads its keys from `productPriceKeys`, and takes a matched shop's "Zobacz w sklepie" link from a `Map<MatchedShop, MatchedItem>` of its stored or just-stored match.
+- §5: `prices.test.ts` is unchanged, since `prices.ts`'s signatures didn't change; its Hebe case stays for Phase 6. `price-refresh.test.ts` splits `priceUrl` into `naturaPriceUrl` and `hebePriceUrl`. `slowReplay` counts in-flight requests per shop by tracker id. The Hebe cases reuse `hebe-ids.json` and `hebe-id-unknown.json`, so nothing was recorded. The phase adds 16 tests.
+- Unchanged for Natura and Rossmann: the same fetchers, order and keys, and at most 2 shop requests in flight. The e2e price-call pins pass unedited.
+- Left for Phases 4–5: `ShopPrice`, `RowShop` and similar rendered types stay keyed by `PricedShop`, and `listLatestPrices` still decides odd rows by `PRICED_SHOPS` (Phase 5's list rules).
+
 ## References
 
 - Research: `context/changes/hebe-in-comparison/research.md`
@@ -1039,25 +1053,25 @@ Each adaptation made during implementation gets one line here, naming the contra
 
 #### Automated
 
-- [x] 2.1 `npm run test` passes, with Natura's text assertions unchanged and the new two-shop cases green
-- [x] 2.2 `npm run lint` and `npx astro check` are clean
-- [x] 2.3 `npx playwright test` passes all six existing specs unedited from a cold server
-- [x] 2.4 `npm run smoke` passes against the production preview
-- [x] 2.5 Break-checks turn a unit test red: failing every shop on one odd row, counting a row of a shop outside the list, re-pinning every shop on `repin=hebe`, looking up an undecided other shop on a `repin=` view, and accepting a Hebe decision with a Natura URL
+- [x] 2.1 `npm run test` passes, with Natura's text assertions unchanged and the new two-shop cases green — 68758c8
+- [x] 2.2 `npm run lint` and `npx astro check` are clean — 68758c8
+- [x] 2.3 `npx playwright test` passes all six existing specs unedited from a cold server — 68758c8
+- [x] 2.4 `npm run smoke` passes against the production preview — 68758c8
+- [x] 2.5 Break-checks turn a unit test red: failing every shop on one odd row, counting a row of a shop outside the list, re-pinning every shop on `repin=hebe`, looking up an undecided other shop on a `repin=` view, and accepting a Hebe decision with a Natura URL — 68758c8
 
 #### Manual
 
-- [x] 2.6 `/dev/product-page` and `/dev/watchlist` render every section as before, in both themes
+- [x] 2.6 `/dev/product-page` and `/dev/watchlist` render every section as before, in both themes — 68758c8
 
 ### Phase 3: Prices for every matched shop (Natura only)
 
 #### Automated
 
-- [ ] 3.1 `npm run test` passes, with the new two-shop refresh cases green
-- [ ] 3.2 `npm run lint` and `npx astro check` are clean
-- [ ] 3.3 `npx playwright test` passes the six existing specs unedited, with their exact price-call pins
-- [ ] 3.4 `npm run smoke` passes
-- [ ] 3.5 Break-checks turn a unit test red: refreshing the shops one after the other, letting a refusal from one shop stop the other, and dropping a matched shop's key
+- [x] 3.1 `npm run test` passes, with the new two-shop refresh cases green
+- [x] 3.2 `npm run lint` and `npx astro check` are clean
+- [x] 3.3 `npx playwright test` passes the six existing specs unedited, with their exact price-call pins
+- [x] 3.4 `npm run smoke` passes
+- [x] 3.5 Break-checks turn a unit test red: refreshing the shops one after the other, letting a refusal from one shop stop the other, and dropping a matched shop's key
 
 ### Phase 4: The product page and the island for every matched shop (Natura only)
 

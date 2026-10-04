@@ -39,7 +39,13 @@ import {
   type MatchesRead,
   type MatchStatesRead,
 } from "@/lib/services/matches";
-import { keyText, SHOP_LABELS, type PricedShop } from "@/lib/services/price-comparison";
+import {
+  keyText,
+  productPriceKeys,
+  SHOP_LABELS,
+  type MatchedShop,
+  type PriceDecision,
+} from "@/lib/services/price-comparison";
 import { parsePriceRefreshCode } from "@/lib/services/price-refresh";
 import { listLatestPrices, readLatestPrices, recordPriceChecks, type ListPricesRead } from "@/lib/services/prices";
 import { isOwnNavigation } from "@/lib/services/search-query";
@@ -170,29 +176,28 @@ if (supabase && product !== null && product !== "failed") {
   }
 }
 
-// The prices of the product's matched shops: its own Rossmann item, where it was picked, and its Natura match. They're
-// read after the Natura step, so a match it has just stored comes with the price it was found with.
+// The prices of the product's matched shops: its own Rossmann item, where it was picked, and its Natura match, as
+// productPriceKeys gives them. They're read after the Natura step, so a match it has just stored comes with the price
+// it was found with.
 let priceShops: PriceComparisonShop[] = [];
 let pricesFailed = false;
 if (supabase && product !== null && product !== "failed") {
-  const matched: { shop: PricedShop; shopItemId: string; productUrl: string | null }[] = [];
-  if (product.source === "rossmann") {
-    matched.push({ shop: "rossmann", shopItemId: product.sourceItemId, productUrl: product.productUrl });
-  }
-  if (naturaItem !== null) {
-    matched.push({ shop: "natura", shopItemId: naturaItem.shopItemId, productUrl: naturaItem.productUrl });
-  }
-  const read = await readLatestPrices(
-    supabase,
-    matched.map(({ shop, shopItemId }) => ({ shop, shopItemId })),
+  // Each matched shop's item: Natura's stored match, or the one this render just stored.
+  const matchedItems = new Map<MatchedShop, MatchedItem>(naturaItem === null ? [] : [["natura", naturaItem]]);
+  const keys = productPriceKeys(
+    product,
+    [...matchedItems].map(([shop, item]): PriceDecision => ({ shop, state: "matched", shopItemId: item.shopItemId })),
   );
+  const read = await readLatestPrices(supabase, keys);
   // Without the stored prices the island still shows every shop, each saying its price couldn't be read until its
   // shop answers; a shop whose own row couldn't be read says so too. Either way no shop is named cheapest meanwhile.
   pricesFailed = read === null;
   const latest = new Map((read?.prices ?? []).map((price) => [keyText(price), price] as const));
   const unread = new Set((read?.unread ?? []).map(keyText));
-  priceShops = matched.map(({ shop, shopItemId, productUrl }) => {
+  priceShops = keys.map(({ shop, shopItemId }) => {
     const key = keyText({ shop, shopItemId });
+    // "Zobacz w sklepie" goes to the product's own page where it was picked, and to its matched item's elsewhere.
+    const productUrl = shop === "rossmann" ? product.productUrl : (matchedItems.get(shop)?.productUrl ?? null);
     return { shop, shopItemId, productUrl, latest: latest.get(key) ?? null, readFailed: unread.has(key) };
   });
 }
