@@ -3,7 +3,7 @@ project: Drogeria Radar
 version: 1
 status: draft # draft | active | locked
 created: 2026-09-25
-updated: 2026-10-04
+updated: 2026-10-05
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -199,17 +199,22 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **Parallel with:** F-01, S-01, S-02, S-03, S-04, S-05, S-06, S-08
 - **Blockers:** —
 - **Unknowns:**
-  - What does an unauthenticated visitor see when opening a gated page? (PRD Open Question 1) — Owner: user. Block: no. Today gated pages send visitors to sign-in.
+  - What does an unauthenticated visitor see when opening a gated page? (PRD Open Question 1) — Owner: user. Block: no. Today gated pages send visitors to sign-in. Answered 2026-10-05: a sign-in redirect that returns them to the list or the product they were opening, with only the list's filter kept (the owner's call, 2026-10-04).
 - **Risk:** Low. Sign-in already works and the auth service already refuses self-registration; the work is replacing the starter's sign-up and demo pages so the front door matches the invite-only rule.
-- **Carry-over from `product-page-ui` (charge C5):** the return path after sign-in, and the sign-in page's language.
+- **Carry-over from `product-page-ui` (charge C5):** the return path after sign-in, and the sign-in page's language. Done in this slice (2026-10-05): the sign-in page is Polish, with no sign-up link, and a sign-in from the middleware's redirect or from the island's "Zaloguj się ponownie" returns to the list or the product (`returnPathOf`, `signInHref`).
   - A signed-out or expired visit to a product loses the product: sign-in always sends the user to `/watchlist` (`src/middleware.ts`, `src/pages/api/auth/signin.ts`), and the price island's session link (`src/components/watchlist/PriceComparisonView.tsx`) has no return path.
   - The sign-in page is still the starter's English page, with a "Sign up" link.
-- **Carry-over from `etykiety-redesign`:** restyle the pages still pinned to the dark theme on the new tokens, and drop the pin.
+- **Carry-over from `etykiety-redesign`:** restyle the pages still pinned to the dark theme on the new tokens, and drop the pin. Done in this slice (2026-10-05): `/` only redirects and `/dashboard` is gone, and the auth pages stand on `AuthShell`, on the paper in the user's theme with the safe-area padding. The dark pin and `bg-cosmic` are gone, and the auth files joined the token lint.
   - `/`, `/dashboard` and `/auth/*` pass `theme="dark"` to `Layout` and keep `bg-cosmic` and their literal colours, which work only on a dark canvas.
   - They don't pad the safe-area insets yet. `Layout.astro`'s viewport has `viewport-fit=cover` on every page, so on a phone with a notch their content can reach under it; `WatchlistShell.astro` shows the padding.
-- **Carry-over from `testing-critical-browser-flows`:** the e2e setup (`tests/e2e/auth.setup.ts`) signs its run user up with supabase-js on the local stack and signs in through the starter's English form ("Email", "Password", "Sign in").
+- **Carry-over from `testing-critical-browser-flows`:** the e2e setup (`tests/e2e/auth.setup.ts`) signs its run user up with supabase-js on the local stack and signs in through the starter's English form ("Email", "Password", "Sign in"). Done in this slice (2026-10-05): local sign-up stays on (the owner's call, 2026-10-04), so the e2e setup and the database checks still sign their users up through Auth, smoke now does too (`/auth/v1/signup`, on the local stack only), and the setup signs in through the Polish form ("E-mail", "Hasło", "Zaloguj się").
   - The Polish sign-in page must update the setup's labels.
   - Removing sign-up must keep local sign-up, which the e2e and the database checks need, or move both to another local way of creating users.
+- **Built (2026-10-05):**
+  - Nobody can register: the sign-up page and route, the "check your email" page and `/dashboard` answer 404, and a read-only settings check after each deploy shows that production still refuses sign-up (`context/deployment/deploy-plan.md`, "Accounts and links (S-07)").
+  - The owner adds a person as a dashboard account, or with an invite or recovery link that `scripts/owner-link.mjs` prints, run on the owner's machine with a secret key made for that use; no email is sent. A link works once, for 24 hours: `/auth/confirm` uses it only when "Ustaw hasło" is pressed, and `/auth/set-password`, open only to a session a link opened in the last hour, ends on the list with "Hasło zapisane.".
+  - Sign-out ends the session on this device only, and the sign-in page says "Wylogowano.".
+  - Not built: a page to change a password while signed in (a recovery link sets a new one), any email, and an e2e spec for the links, which would need a secret key in tests; smoke pins the link pages' contracts instead.
 - **Status:** in-progress
 
 ### S-08: Fix a wrong match and remove a product
@@ -244,7 +249,7 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 
 ## Open Roadmap Questions
 
-1. **What does an unauthenticated visitor see when opening a gated page?** — Owner: user. Block: none (S-07 plans a default: sign-in redirect, today's behaviour).
+1. **What does an unauthenticated visitor see when opening a gated page?** — Owner: user. Block: none (S-07 plans a default: sign-in redirect, today's behaviour). Answered 2026-10-05 by S-07: a sign-in redirect that returns to the list or the product (PRD Open Question 1).
 2. **Which of the five shops does the owner actually buy from, and in which order should they be added?** dm is out of the MVP; see FR-013. — Owner: user. Block: none (S-02 defaults to Rossmann and Drogerie Natura; S-05 and S-06 follow).
 3. **How are misspelled product names handled, and does search run live as you type or on submit?** Rossmann's search returns a spelling hint; its suggestion feature is untested. — Owner: user. Block: none (S-01 plans a default).
 4. **How much history and which threshold define a good price (FR-012)?** — Owner: user. Block: S-04.

@@ -82,6 +82,7 @@ A few people the owner knows, using the same deployment with their own private w
 - FR-001: Owner can create an account for a person or hand them an invite link; no email is sent by the app. Priority: must-have
   > Socrates: Counter-argument accepted: email sending is an integration before the first flow.
   > Resolution: reworded from email invites to owner-created accounts or invite links; email invites are out of the MVP.
+  > Update 2026-10-05: S-07 (`invite-only-access`) delivers both ways, with no email (the owner's call, 2026-10-04). The owner creates an account in the Supabase dashboard, or runs a script on their own machine that makes a link: an invite link for a new person, who picks their own password, or a recovery link for someone who needs a new one. The script needs a secret key, which the owner makes for that use and deletes after it, and which never reaches the app. The owner hands the link over; it opens the app's own page, which uses it only when the person presses "Ustaw hasło", then asks for their password and opens their list. A link works once, for 24 hours, and a newer one of the same type for the same email replaces it. The app has no sign-up page, and a read-only check after each deploy shows that production still refuses sign-up (`context/deployment/deploy-plan.md`, "Accounts and links (S-07)"). There is no page to change a password while signed in: a recovery link sets a new one.
 - FR-002: User can sign in with email and password. Priority: must-have
   > Socrates: Counter-arguments considered: passwords bring reset flows and hashing; prices could be readable without sign-in.
   > Resolution: stands as written; email and password kept.
@@ -170,6 +171,7 @@ The shopper meets the rule by opening a watched product: progress appears per sh
 - Data separation: watchlists are private per user; price observations are shared by all users of the deployment.
   > Update 2026-09-28: S-03 (`cheapest-shop-today`) narrows the sharing to each shop item's watchers. A user reads and adds the observations of an item only while they watch it, either as their product's own item or through a confirmed match. The users watching the same item share its prices, and no one can list what others watch. Accepted risk: people watching the same item see each other's check times, which can show that someone else watches it.
 - Unauthenticated visitors: behaviour on a gated page not yet decided (Open Questions 1).
+  > Update 2026-10-05: S-07 (`invite-only-access`) decides it: a sign-in redirect that returns to the list or the product (Open Questions 1).
 
 ## Non-Goals
 
@@ -190,6 +192,7 @@ No non-functional non-goals were chosen.
 ## Open Questions
 
 1. **What does an unauthenticated visitor see when opening a gated page?** — Owner: user.
+   > Update 2026-10-05: answered by S-07 (`invite-only-access`, the owner's call, 2026-10-04): the Polish sign-in page. A visitor who opened the list or a product is sent back there after signing in, with the list's filter kept and nothing else, so a crafted link can't make the page ask a shop; from any other gated address they land on the list. `/` sends a visitor to sign-in and a signed-in user to the list, and there is no landing page.
 2. **Which of the five shops does the owner actually buy from, and in which order should they be added?** — Owner: user. (dm is out of the MVP; see FR-013.)
 3. **How are misspelled product names handled, and does search run live as you type or on submit?** Rossmann's search returns a spelling hint; its suggestion feature is untested. — Owner: user.
 4. **How much history and which threshold define a good price (FR-012)?** — Owner: user.

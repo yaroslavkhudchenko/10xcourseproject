@@ -866,6 +866,33 @@ The "Deferred" item "Sign-up page" is marked done. The end-to-end verification i
     - The show/hide button kept its 44 × 44 px hit area and stayed hidden without JavaScript. "Przejdź do logowania" is 44 px tall.
     - Ids are unique in the page; the dev toolbar's shadow roots repeat their own, which don't collide.
 
+### Phase 4
+
+- **§3 `test-stack.md` is unchanged.** Its `## E2E` section is written only by `/10x-e2e-setup` (its header comment, and the skill's `test-stack-e2e-schema.md`: readers never edit it). Its setup line stays accurate, since local sign-up stays on and the setup still signs in once through the form. The Polish labels went into test-plan §6.3 instead.
+- **§3 test-plan: risk #4's evidence is in a new §6.6 note, not in §2's row**, because §1–§5 are frozen. This follows S-05's precedent for risk #6. The note also says:
+  - why the links have no e2e spec (it would need a secret key in tests);
+  - the rollout Phase 4 follow-up from Phase 1: smoke refuses any Supabase but the local one, so the signed-out production smoke needs its own entry point;
+  - a follow-up for `/10x-test-plan --refresh`: this phase's insertions moved three of §2's line citations (`prd.md:95`→`:96`, `prd.md:150`→`:151`, `deploy-plan.md:216-219`→`:217-220`).
+- **§3 `prd.md`:** besides the Open Question 1 and FR-001 notes, a dated note under Access Control's "Unauthenticated visitors … not yet decided", which would otherwise still read as undecided.
+- **§3 `roadmap.md`:**
+  - S-07 got an "Answered 2026-10-05" note in its Unknowns, a "Done in this slice" note on each of its three carry-overs, and a "Built (2026-10-05)" bullet.
+  - "Open Roadmap Questions" #1 got the same answer, and the frontmatter `updated` became 2026-10-05.
+  - S-07's status stays `in-progress` for `/10x-archive`.
+- **§2 `deploy-plan.md`:**
+  - Besides the new section, the Deferred item and the end-to-end items, two pointers lead to the read-only check: a bullet under "Decided after the deploy" and a sentence in "Operations → Deploy".
+  - The how-to adds that the link keeps working once its key is deleted. That follows from the design: the app verifies the link with its publishable key, and the token lives in Auth. It wasn't run, since the local stack's key can't be deleted.
+  - It also says to hand the link over privately, since whoever presses its button first sets the password.
+  - The subagent's "the dashboard can't set a new password for an existing user" wasn't verified. I reworded it in the deploy plan ("make them a recovery link") and dropped it from the PRD note.
+- **§1 `CLAUDE.md`:**
+  - The return path, sign-out's scope and the confirm and set-password flow went into one new Architecture bullet, "Sign-in and links", since no existing sentence covered them.
+  - `owner-link.mjs`'s usage is a new Commands bullet.
+  - Everything else was edited in place: the Project paragraph, the Non-negotiables' sign-up bullet, smoke, the db-reset account, the e2e setup, Request lifecycle, Null-client contract, API routes, and the UI bullet (the auth shell and views, no dark pin, the ring on every page, `input` among the shadcn components, `tokenConfig`'s files, `/dev/auth` among the kitchen sinks).
+  - The course block is byte-identical (sha256 `bb541ab6…` before, after and at HEAD), now at lines 70–128.
+- **Seen, not changed (outside the contract):**
+  - `README.md` still says "No database tables or migrations are required", its "## CI" names two jobs (there are three), and "Email confirmation in local development" still describes a cloud project's sign-up.
+  - test-plan §4 ("e2e | none yet") and §7 (the kitchen sinks named without `/dev/auth`) are frozen or interview records.
+- **4.4's grep** leaves only dated history: the roadmap's Baseline (as of 2026-09-25), S-07's carry-over text under its "Done" notes, a roadmap line saying those pages answer 404, and the deploy plan's checked records 3.2 and 5.1–5.3.
+
 ## References
 
 - Research: `context/changes/invite-only-access/research.md`
@@ -919,29 +946,29 @@ The "Deferred" item "Sign-up page" is marked done. The end-to-end verification i
 
 #### Automated
 
-- [x] 3.1 The auth service and notices unit tests pass
-- [x] 3.2 All unit tests, lint, types and contrast pass
-- [x] 3.3 The build passes
-- [x] 3.4 Smoke passes with the confirm and set-password steps
-- [x] 3.5 The e2e suite passes
-- [x] 3.6 The owner script refuses each bad input without a request
-- [x] 3.7 Break-checks: verifying a malformed token, and skipping the link-session check, turn their smoke steps red
+- [x] 3.1 The auth service and notices unit tests pass — 1133f35
+- [x] 3.2 All unit tests, lint, types and contrast pass — 1133f35
+- [x] 3.3 The build passes — 1133f35
+- [x] 3.4 Smoke passes with the confirm and set-password steps — 1133f35
+- [x] 3.5 The e2e suite passes — 1133f35
+- [x] 3.6 The owner script refuses each bad input without a request — 1133f35
+- [x] 3.7 Break-checks: verifying a malformed token, and skipping the link-session check, turn their smoke steps red — 1133f35
 
 #### Manual
 
-- [x] 3.8 After the local restart, the auth container shows the 24-hour, 10-digit OTP settings
-- [x] 3.9 The local invite flow end to end at 390 px, the link surviving GETs
-- [x] 3.10 The local recovery flow, the Polish error for a used or unknown link, and a password session kept off set-password
-- [x] 3.11 `/dev/auth` confirm and set-password states in light and dark at 390 px and 1280 px
+- [x] 3.8 After the local restart, the auth container shows the 24-hour, 10-digit OTP settings — 1133f35
+- [x] 3.9 The local invite flow end to end at 390 px, the link surviving GETs — 1133f35
+- [x] 3.10 The local recovery flow, the Polish error for a used or unknown link, and a password session kept off set-password — 1133f35
+- [x] 3.11 `/dev/auth` confirm and set-password states in light and dark at 390 px and 1280 px — 1133f35
 
 ### Phase 4: Docs and rollout
 
 #### Automated
 
-- [ ] 4.1 Prettier passes on every changed Markdown file, and `npm run lint` is clean
-- [ ] 4.2 CLAUDE.md's course block is byte-identical (sha256 before and after)
+- [x] 4.1 Prettier passes on every changed Markdown file, and `npm run lint` is clean
+- [x] 4.2 CLAUDE.md's course block is byte-identical (sha256 before and after)
 - [ ] 4.3 CI (`ci`, `smoke`, `e2e`) is green on the final commit
-- [ ] 4.4 No current doc still describes `/auth/signup`, `/auth/confirm-email` or `/dashboard` as live
+- [x] 4.4 No current doc still describes `/auth/signup`, `/auth/confirm-email` or `/dashboard` as live
 
 #### Manual
 
