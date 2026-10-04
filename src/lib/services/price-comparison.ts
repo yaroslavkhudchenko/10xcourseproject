@@ -628,14 +628,21 @@ export function savingsText(savings: { amount: number; than: PricedShop }): stri
 }
 
 /**
- * Shops as a line lists them, by their names or after "w": "Natura", "Rossmann i Natura", "Rossmann, Hebe i Natura",
- * or "w Rossmannie i w Naturze". Any shop the code knows has a label, so a rule can name a matched shop that isn't
- * priced yet.
+ * Parts as a line lists them, joined the Polish way: "a", "a i b" and "a, b i c", and nothing for none. The shops'
+ * names (namesOf) and the sites under the list (watchlist-rows.ts) are joined by it.
+ */
+export function listJoin(parts: readonly string[]): string {
+  const last = parts.at(-1) ?? "";
+  return parts.length < 2 ? last : `${parts.slice(0, -1).join(", ")} i ${last}`;
+}
+
+/**
+ * Shops as a line lists them (listJoin), by their names or after "w": "Natura", "Rossmann i Natura", "Rossmann, Hebe i
+ * Natura", or "w Rossmannie i w Naturze". Any shop the code knows has a label, so a rule can name a matched shop that
+ * isn't priced yet.
  */
 export function namesOf(shops: readonly KnownShop[], label: "name" | "in" = "name"): string {
-  const names = shops.map((shop) => SHOP_LABELS[shop][label]);
-  const last = names.pop() ?? "";
-  return names.length === 0 ? last : `${names.join(", ")} i ${last}`;
+  return listJoin(shops.map((shop) => SHOP_LABELS[shop][label]));
 }
 
 /**

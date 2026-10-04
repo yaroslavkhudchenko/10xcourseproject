@@ -10,8 +10,9 @@ import {
   listRowOf,
   listRowsOf,
   type ListFilter,
+  type ListMatchState,
+  type ListMatchStates,
   type ListRow,
-  type NaturaListState,
   type RowShop,
 } from "@/lib/services/watchlist-rows";
 import type { LatestPrice, ProductCandidate, ShopMatchState, WatchlistItem } from "@/types";
@@ -95,9 +96,16 @@ const NIVEA_SHOPS = [
   shop("natura", checked(5 * MINUTE, 22.99, { regularPrice: 27.99 })),
 ];
 
+/** A product's state in every matched shop, Natura alone, by its name there: a match agrees with the product. */
+function inNatura(natura: ListMatchState["state"]): ListMatchStates {
+  return {
+    natura: natura === "matched" ? { state: natura, mismatch: { size: false, brand: false } } : { state: natura },
+  };
+}
+
 /** The row of `item` with these shops and this Natura state, at the page's time. */
-const rowOf = (item: WatchlistItem, shops: RowShop[], natura: NaturaListState): ListRow =>
-  listRowOf(item, shops, natura, NOW_MS);
+const rowOf = (item: WatchlistItem, shops: RowShop[], natura: ListMatchState["state"]): ListRow =>
+  listRowOf(item, shops, inNatura(natura), NOW_MS);
 
 // A shampoo matched in Natura to an item of another brand in its size, which a lookup accepted on its own before the
 // brand rule. Nobody has seen it differ, so the list counts the product in "Do sprawdzenia", and the row's line for

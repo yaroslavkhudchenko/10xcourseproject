@@ -5,6 +5,7 @@ import {
   formatDay,
   formatDayOf,
   formatPrice,
+  listJoin,
   listPricedItems,
   listSummaryText,
   namesOf,
@@ -501,6 +502,27 @@ describe("namesOf", () => {
     expect(namesOf(["rossmann", "natura"])).toBe("Rossmann i Natura");
     expect(namesOf(["rossmann", "natura"], "in")).toBe("w Rossmannie i w Naturze");
     expect(namesOf([])).toBe("");
+  });
+
+  it('lists three shops with commas, the last after "i", a matched shop not yet priced included', () => {
+    expect(namesOf(["rossmann", "natura", "hebe"])).toBe("Rossmann, Natura i Hebe");
+    expect(namesOf(["natura", "hebe"], "in")).toBe("w Naturze i w Hebe");
+  });
+});
+
+describe("listJoin", () => {
+  it('joins parts the Polish way: commas between them, and the last after "i"', () => {
+    expect(listJoin([])).toBe("");
+    expect(listJoin(["rossmann.pl"])).toBe("rossmann.pl");
+    expect(listJoin(["rossmann.pl", "drogerienatura.pl"])).toBe("rossmann.pl i drogerienatura.pl");
+    expect(listJoin(["rossmann.pl", "drogerienatura.pl", "hebe.pl"])).toBe("rossmann.pl, drogerienatura.pl i hebe.pl");
+  });
+
+  it("leaves the parts it joins as they were", () => {
+    const parts = ["a", "b", "c"] as const;
+
+    expect(listJoin(parts)).toBe("a, b i c");
+    expect(parts).toEqual(["a", "b", "c"]);
   });
 });
 

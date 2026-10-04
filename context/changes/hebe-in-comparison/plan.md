@@ -1037,6 +1037,24 @@ Each adaptation made during implementation gets one line here, naming the contra
   - Compared in 4,096 px slices (a single canvas can't hold the 90,369 px page): 19 of 23 slices are pixel-identical, and the other 4 differ only around those texts. At 1400 px and at a 390 px viewport, the rewritten texts wrap cleanly in light and dark, and the page has no horizontal scroll at 390 px.
   - `/dev/watchlist` is byte-identical.
 
+### Phase 5
+
+- §1: `ListMatchState` is `{ state: "matched"; mismatch: ListMismatch } | { state: "unmatched" | "not_found" | "none" | "unreadable" }`. A match carries what it differs in unseen, so `listRowOf(item, shops, matchStates, now)` needs no mismatch argument. `NaturaMismatch` is renamed `ListMismatch`.
+- §1: `matchStatesOf(item, read, shops = MATCHED_SHOPS)` takes the list's whole `DecisionsRead | null` (the contract's `states`), because the unread and unattributed rows decide `unreadable`. It is generic over `Shop extends MatchableShop = MatchedShop` and returns `Record<Shop, ListMatchState>`, with one commented cast, as `PRICE_FETCHERS` has.
+- §1: `listRowOf` takes `ListMatchStates`, in which every matched shop is required and a test may add Hebe. The status lines follow `MATCHABLE_SHOPS` order.
+- §1: `listRowsOf` keeps its signature and uses the `MATCHED_SHOPS` defaults. A Hebe price row can't reach `RowShop`, which is keyed by `PricedShop`, before Phase 6, so the two-shop cases go through `matchStatesOf(…, ["natura", "hebe"])` and `listRowOf`.
+- §2: the list-join helper is `listJoin(parts)` beside `namesOf`, which now joins through it. Its tests, with a three-shop `namesOf` case, are in `price-comparison.test.ts`.
+- §2: the alert and footer texts are tested helpers in `watchlist-rows.ts`: `matchesFailedText(shops = MATCHED_SHOPS)` and `priceSourcesText(shops = PRICED_SHOPS)`. `ListRows`' `matchesFailed` stays a boolean, since one read holds every matched shop's decisions. The alert shows when that whole read fails and names every matched shop; a per-shop odd row marks only the rows, as before.
+- §3: `src/dev/watchlist.astro` needed no change. `watchlist-fixtures.ts` builds `{ natura }` through a new `inNatura` helper.
+- §4: "leaves out a decline whatever mismatch comes with it" became "leaves out a decline: only a match can differ from the product". It is built through `matchStatesOf`, since the new type can't give a decline a mismatch, and its expected line is unchanged. The `naturaStateOf` and `naturaMismatchOf` describe blocks became two `matchStatesOf` blocks with the same cases.
+- Beyond §1–§4: a comment in `src/pages/watchlist.astro`, and `rowTagOf`'s doc comment, now name any matched shop.
+- For Phase 6: once Hebe joins `MATCHED_SHOPS`, `ListMatchStates` requires `hebe`, so the sink's `inNatura` and the tests' `{ natura }` literals stop compiling until they give Hebe's state. That is deliberate.
+- For Phase 7: `CLAUDE.md:52` still cites `naturaMismatchOf`, which this phase replaced with `matchStatesOf`.
+- 5.6 was verified by the agent at the owner's request (2026-10-04). Both sinks were captured under `astro dev` at Phase 4's commit (50fb7c6) and at this phase's tree.
+  - `/dev/watchlist` and `/dev/product-page`: text, headings, links and full-page screenshots are all byte-identical.
+  - No CSS changed and the rendered output is identical, so the 390 px and 1280 px renderings are identical too.
+  - The subagent also built the list sink's fixtures from HEAD's code and from this tree. Every row, tag, summary, chip count, the alert and the footer are identical.
+
 ## References
 
 - Research: `context/changes/hebe-in-comparison/research.md`
@@ -1098,30 +1116,30 @@ Each adaptation made during implementation gets one line here, naming the contra
 
 #### Automated
 
-- [x] 4.1 `npm run test` passes, with the new two-shop island cases green
-- [x] 4.2 `npm run lint`, `npx astro check` and `node scripts/check-token-contrast.mjs` are clean
-- [x] 4.3 `npm run build` ships its fonts
-- [x] 4.4 `npx playwright test` passes the six existing specs unedited
-- [x] 4.5 `npm run smoke` passes
-- [x] 4.6 Break-checks turn a unit test red: ignoring an unreadable decision in `compareRows`, a `match-changed` without its shop, and letting one shop's throw reject the others
+- [x] 4.1 `npm run test` passes, with the new two-shop island cases green — 50fb7c6
+- [x] 4.2 `npm run lint`, `npx astro check` and `node scripts/check-token-contrast.mjs` are clean — 50fb7c6
+- [x] 4.3 `npm run build` ships its fonts — 50fb7c6
+- [x] 4.4 `npx playwright test` passes the six existing specs unedited — 50fb7c6
+- [x] 4.5 `npm run smoke` passes — 50fb7c6
+- [x] 4.6 Break-checks turn a unit test red: ignoring an unreadable decision in `compareRows`, a `match-changed` without its shop, and letting one shop's throw reject the others — 50fb7c6
 
 #### Manual
 
-- [x] 4.7 `/dev/product-page` shows every state as before, apart from the two rewritten texts, in light and dark, at 390 px and at 1280 px
+- [x] 4.7 `/dev/product-page` shows every state as before, apart from the two rewritten texts, in light and dark, at 390 px and at 1280 px — 50fb7c6
 
 ### Phase 5: The list for every matched shop (Natura only)
 
 #### Automated
 
-- [ ] 5.1 `npm run test` passes, with the new two-shop list cases green
-- [ ] 5.2 `npm run lint` and `npx astro check` are clean
-- [ ] 5.3 `npx playwright test` passes the six existing specs unedited
-- [ ] 5.4 `npm run smoke` passes
-- [ ] 5.5 Break-checks turn a unit test red: one shop's unreadable decision hiding another's state, and an undecided second shop left out of "Do sprawdzenia"
+- [x] 5.1 `npm run test` passes, with the new two-shop list cases green
+- [x] 5.2 `npm run lint` and `npx astro check` are clean
+- [x] 5.3 `npx playwright test` passes the six existing specs unedited
+- [x] 5.4 `npm run smoke` passes
+- [x] 5.5 Break-checks turn a unit test red: one shop's unreadable decision hiding another's state, and an undecided second shop left out of "Do sprawdzenia"
 
 #### Manual
 
-- [ ] 5.6 `/dev/watchlist` shows every row and state as before, in light and dark, at 390 px and at 1280 px
+- [x] 5.6 `/dev/watchlist` shows every row and state as before, in light and dark, at 390 px and at 1280 px
 
 ### Phase 6: Hebe switched on
 
