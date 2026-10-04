@@ -2,13 +2,14 @@
 // The product page's kitchen sink: the view in every state it can show, and the pieces it's built from in each variant,
 // from the fixtures in fixtures.ts, for review and screenshots. Only `astro dev` serves it (astro.config.mjs). The page
 // is pinned to the light theme, and draws every section twice: in the light theme, then in a `dark` wrapper, whose
-// class switches the tokens for all it holds. The product area's states, every price state with Natura in every kind,
-// and Natura's in the shops' cards, stand in frames as wide as the product's pane beside the list at 1280 px (860 px),
+// class switches the tokens for all it holds. The product area's states, every price state with Natura in every kind
+// beside a declined Hebe, then the three shops' states, and Natura's and Hebe's cards in each of their kinds among the
+// shops' cards, stand in frames as wide as the product's pane beside the list at 1280 px (860 px),
 // each frame the containing block of its phone's bottom bar, which it otherwise fixes to the screen. The view lays
 // itself out by the screen's width, not the frame's, so from 1024 to 1279 px the frames show the layout the narrower
 // pane gets there. The other sections' copies stand side by side on a wide screen. It hydrates nothing, so no island
 // effect runs, and nothing it calls reaches Supabase or a shop; its only scripts are the forms' SubmitOnce, for the
-// Natura choice and the removal, and the theme switch's. Tailwind doesn't scan this folder (global.css), so its markup
+// shops' choices and the removal, and the theme switch's. Tailwind doesn't scan this folder (global.css), so its markup
 // uses only classes the app itself uses, and the frames' and columns' widths and the frames' containing block are
 // inline styles.
 import { RefreshCw } from "lucide-react";
@@ -39,13 +40,16 @@ import {
   ALONE_FIXTURES,
   GONE_ERROR,
   HANDOFF_FIXTURES,
+  HEBE_FIXTURES,
   HERE,
+  NATURA_BESIDE_HEBE,
   NATURA_FIXTURES,
   PRICE_FIXTURES,
   PRICE_SAMPLES,
   PRODUCT_ID,
   REMOVAL_GONE_NOTICE,
   REMOVE_FIXTURES,
+  THREE_SHOP_FIXTURES,
   THUMB_FIXTURES,
 } from "@/dev/fixtures";
 import Layout from "@/layouts/Layout.astro";
@@ -59,11 +63,13 @@ const COPIES = [
   { theme: DARK_THEME, label: "Ciemny motyw", wrapper: "dark bg-paper text-foreground" },
 ] as const;
 
-// Every state of the product area, in three groups: with Natura's price, which a saved match brings; with Rossmann's
-// price alone, beside each other kind of Natura; and the handoff's samples.
+// Every state of the product area, in four groups: with Natura's price, which a saved match brings; with Rossmann's
+// price alone, beside each other kind of Natura; the three shops, Hebe matched or waiting beside Natura; and the
+// handoff's samples. Hebe stands declined beside every state of the first two groups and the samples.
 const AREA_GROUPS = [
   { id: "area-matched", heading: "Z ceną Natury: zapisane dopasowanie", fixtures: PRICE_FIXTURES },
   { id: "area-alone", heading: "Sama cena Rossmanna: Natura w każdym innym rodzaju", fixtures: ALONE_FIXTURES },
+  { id: "area-three", heading: "Trzy sklepy: Natura i Hebe", fixtures: THREE_SHOP_FIXTURES },
   { id: "area-handoff", heading: "Próbki z projektu", fixtures: HANDOFF_FIXTURES },
 ];
 // A column of text, or a section's copy in one theme: 32rem, so the two copies stand side by side on a wide screen.
@@ -162,8 +168,10 @@ const LINK_BUTTONS = [
               decyzję, z obecnym dopasowaniem oznaczonym, a automatycznym także z „To ten produkt”, i kartą z „Anuluj”:
               Natura › <code>matched + repin</code>, z dopasowaniem potwierdzonym przez Ciebie, tylko oznaczonym: Natura
               › <code>confirmed + repin</code>, a dla odrzuconej Natury, bez „Żaden z nich”: Natura ›{" "}
-              <code>unmatched + repin</code>. „Usuń z listy” na dole strony, zamknięte i otwarte: Usuń z listy ›{" "}
-              <code>closed</code> i <code>open</code>.
+              <code>unmatched + repin</code>. Karta Hebe w każdym rodzaju, obok cen Rossmanna i Natury: sekcja Hebe.
+              Trzy sklepy z Hebe najtańszą: Obszar produktu › <code>three-cheapest</code>, przycisk Hebe obok otwartego
+              wyboru Natury: <code>three-natura-repin</code>, a dwa wybory naraz: <code>three-two-choices</code>. „Usuń
+              z listy” na dole strony, zamknięte i otwarte: Usuń z listy › <code>closed</code> i <code>open</code>.
             </dd>
           </div>
           <div class="flex flex-col gap-1">
@@ -210,12 +218,12 @@ const LINK_BUTTONS = [
               Destrukcyjny Alert w karcie Natury: Natura › <code>choose + error</code>. „Nie udało się wczytać cen” w
               hero i „Nie udało się wczytać ceny.” na karcie sklepu: Obszar produktu › <code>read-failed</code>,{" "}
               <code>read-failed-one-answered</code> i <code>read-failed-one-shop</code>, a przy nieodczytanej decyzji
-              Natury Obszar produktu › <code>natura-read-failed</code>. Komunikaty kart: Obszar produktu ›{" "}
-              <code>notice-busy-paused</code> i <code>notice-stopped-failed</code>. Do tego Natura ›{" "}
-              <code>read-failed</code> i Gałęzie strony › <code>not-found + error</code>. Wybór, który zmienia decyzję,
-              przy zablokowanej Naturze i bez wyszukiwania po nazwie: Natura › <code>repin + unavailable</code> i{" "}
-              <code>repin + incomplete</code>. Destrukcyjny Alert w otwartym potwierdzeniu po nieudanym usunięciu: Usuń
-              z listy › <code>failed</code>.
+              Natury Obszar produktu › <code>natura-read-failed</code>, a Hebe <code>three-hebe-read-failed</code> i
+              Hebe › <code>read-failed</code>. Komunikaty kart: Obszar produktu › <code>notice-busy-paused</code> i{" "}
+              <code>notice-stopped-failed</code>. Do tego Natura › <code>read-failed</code> i Gałęzie strony ›{" "}
+              <code>not-found + error</code>. Wybór, który zmienia decyzję, przy zablokowanej Naturze i bez wyszukiwania
+              po nazwie: Natura › <code>repin + unavailable</code> i <code>repin + incomplete</code>. Destrukcyjny Alert
+              w otwartym potwierdzeniu po nieudanym usunięciu: Usuń z listy › <code>failed</code>.
             </dd>
           </div>
           <div class="flex flex-col gap-1">
@@ -224,7 +232,8 @@ const LINK_BUTTONS = [
             </dt>
             <dd class="text-sm text-muted-foreground">
               „Jeszcze bez ceny”: Obszar produktu › <code>never-checked</code>. Odrzucona decyzja: Natura ›{" "}
-              <code>unmatched</code>. Nieznaleziony produkt: Gałęzie strony › <code>not-found</code>, a po usunięciu,
+              <code>unmatched</code> i Hebe › <code>unmatched + notice</code>, a nieznaleziona w Hebe: Hebe ›{" "}
+              <code>not-found</code>. Nieznaleziony produkt: Gałęzie strony › <code>not-found</code>, a po usunięciu,
               które mimo braku odpowiedzi się udało: <code>not-found + removal</code>. Wybór, w którym nic nie
               znaleziono: Natura › <code>repin + not found</code>.
             </dd>
@@ -252,13 +261,15 @@ const LINK_BUTTONS = [
           jasnym motywie i w ciemnym.
         </p>
         <p class="text-sm text-muted-foreground" style={COLUMN_STYLE}>
-          Każdy stan ceny z Naturą w każdym rodzaju. Cenę Natury daje tylko zapisane dopasowanie, więc stany z nią stoją
-          w pierwszej grupie; bez niego Natura nie ma wiersza ceny, więc w drugiej grupie stoi sama cena Rossmanna, w
-          każdym stanie, obok każdego innego rodzaju Natury. Hero i pasek rozróżniają te rodzaje tylko jako: czeka na
-          dopasowanie (<code>prompt</code>, <code>choose</code>, <code>unavailable</code>), zdecydowana (
-          <code>unmatched</code>, <code>not-found</code>, <code>decided</code>, niezapisane dopasowanie) i nieodczytana
-          (<code>read-failed</code>), a kartę Natury w każdym rodzaju pokazuje sekcja Natura. Na końcu próbki z
-          projektu.
+          Każdy stan ceny z Naturą w każdym rodzaju, obok Hebe odrzuconej przez Ciebie, której karta stoi na końcu bez
+          ceny. Cenę Natury daje tylko zapisane dopasowanie, więc stany z nią stoją w pierwszej grupie; bez niego Natura
+          nie ma wiersza ceny, więc w drugiej grupie stoi sama cena Rossmanna, w każdym stanie, obok każdego innego
+          rodzaju Natury. Hero i pasek rozróżniają te rodzaje tylko jako: czeka na dopasowanie (<code>prompt</code>,{" "}
+          <code>choose</code>, <code>unavailable</code>), zdecydowana (<code>unmatched</code>, <code>not-found</code>,{" "}
+          <code>decided</code>, niezapisane dopasowanie) i nieodczytana (<code>read-failed</code>), a kartę Natury w
+          każdym rodzaju pokazuje sekcja Natura, a kartę Hebe sekcja Hebe. Trzecia grupa to trzy sklepy: najtańsza z
+          trzech cen, cena Hebe, która nie może wygrać, nieodczytana decyzja Hebe, oba sklepy czekające na dopasowanie,
+          przycisk Hebe obok otwartego wyboru Natury i dwa wybory naraz. Na końcu próbki z projektu.
         </p>
         <p class="text-sm text-muted-foreground" style={COLUMN_STYLE}>
           Układ zależy od szerokości okna, nie ramki: od 1280 px jak w projekcie, z ceną obok tekstu w hero i kartami w
@@ -271,7 +282,7 @@ const LINK_BUTTONS = [
               <h3 id={id} class="text-base font-semibold">
                 {heading}
               </h3>
-              {fixtures.map(({ code, text, state, product, matched, choice }) => (
+              {fixtures.map(({ code, text, state, product, matched, choices }) => (
                 <div class="flex flex-col gap-1">
                   <p class="text-xs text-muted-foreground">
                     <code>{code}</code> · {text}
@@ -279,7 +290,7 @@ const LINK_BUTTONS = [
                   <div class="flex flex-wrap items-start gap-6">
                     {COPIES.map(({ theme, wrapper }) => (
                       <div class:list={[FRAME, wrapper]} style={FRAME_STYLE}>
-                        {/* As the page stands them: the island, then the choice of Natura's candidates below it. */}
+                        {/* As the page stands them: the island, then each shop's choice of candidates below it. */}
                         <div class="flex flex-col gap-6 lg:gap-6.5">
                           <PriceComparisonView
                             itemId={PRODUCT_ID}
@@ -288,15 +299,15 @@ const LINK_BUTTONS = [
                             state={state}
                             matched={matched}
                           />
-                          {choice && (
+                          {choices.map(({ shop, view }) => (
                             <MatchChoice
-                              shop="natura"
-                              view={choice}
+                              shop={shop}
+                              view={view}
                               productId={PRODUCT_ID}
                               filter="all"
-                              idPrefix={`${theme}-area-${code}`}
+                              idPrefix={`${theme}-area-${code}-${shop}`}
                             />
-                          )}
+                          ))}
                         </div>
                       </div>
                     ))}
@@ -362,6 +373,61 @@ const LINK_BUTTONS = [
                             </div>
                           </div>
                         </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section aria-labelledby="hebe-heading" class="flex flex-col gap-3">
+        <h2 id="hebe-heading" class="text-lg font-semibold">
+          Hebe
+        </h2>
+        <p class="text-sm text-muted-foreground" style={COLUMN_STYLE}>
+          Karta Hebe wśród kart sklepów (<code>ShopGrid</code>, <code>matchCardOf</code>) w każdym rodzaju widoku, obok
+          cen Rossmanna i Natury i karty Natury: z ceną Hebe, gdy jej dopasowanie jest zapisane, a bez niej w każdym
+          innym rodzaju, z komunikatem o zapisie. Przy wyborze kandydatów, także przy wyborze, który zmienia zapisane
+          dopasowanie, pod kartami stoi sekcja wyboru Hebe (<code>MatchChoice</code>). Różowa kropka Hebe stoi obok
+          niebieskiej Rossmanna i miętowej Natury, na kartach i na pasku cen. Każdy stan jest dwa razy: w jasnym motywie
+          i w ciemnym.
+        </p>
+        <div class="flex flex-col gap-6">
+          {HEBE_FIXTURES.map(({ code, text, idPrefix, hebe, state, repin }) => (
+            <div class="flex flex-col gap-1">
+              <p class="text-xs text-muted-foreground">
+                <code>{code}</code> · {text}
+              </p>
+              <div class="flex flex-wrap items-start gap-6">
+                {COPIES.map(({ theme, wrapper }) => (
+                  <div class:list={[CARDS_FRAME, wrapper]} style={FRAME_STYLE}>
+                    <div class="flex flex-col gap-6 lg:gap-6.5">
+                      <ShopGrid
+                        rows={comparisonOf(state).rows}
+                        now={state.now}
+                        cards={[matchCardOf(NATURA_BESIDE_HEBE), matchCardOf(hebe)]}
+                      />
+                      {/* Hebe's choice below the cards, as the page stands it: a re-pin's, or its first candidates. */}
+                      {repin && (
+                        <MatchChoice
+                          shop="hebe"
+                          view={repin}
+                          productId={PRODUCT_ID}
+                          filter="all"
+                          idPrefix={`${theme}-${idPrefix}`}
+                        />
+                      )}
+                      {hebe.view.kind === "choose" && (
+                        <MatchChoice
+                          shop="hebe"
+                          view={hebe.view}
+                          productId={PRODUCT_ID}
+                          filter="all"
+                          idPrefix={`${theme}-${idPrefix}`}
+                        />
                       )}
                     </div>
                   </div>

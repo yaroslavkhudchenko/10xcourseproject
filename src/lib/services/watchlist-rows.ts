@@ -147,11 +147,13 @@ type ShopListState = ListMatchState & { shop: MatchableShop };
 
 /**
  * Each shop's state among `states`, with its shop, in the order of the shops the code knows (MATCHABLE_SHOPS), which
- * the matched shops keep, so a row names its shops in the pages' order however its states were put together.
+ * the matched shops keep, so a row names its shops in the pages' order however its states were put together. A shop
+ * the code knows that isn't switched on may have no state, so `states` is read as one that may leave any shop out.
  */
 function shopStatesOf(states: ListMatchStates): ShopListState[] {
+  const known: Readonly<Partial<Record<MatchableShop, ListMatchState>>> = states;
   return MATCHABLE_SHOPS.flatMap((shop) => {
-    const state = states[shop];
+    const state = known[shop];
     return state === undefined ? [] : [{ ...state, shop }];
   });
 }

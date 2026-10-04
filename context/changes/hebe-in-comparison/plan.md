@@ -1055,6 +1055,48 @@ Each adaptation made during implementation gets one line here, naming the contra
   - No CSS changed and the rendered output is identical, so the 390 px and 1280 px renderings are identical too.
   - The subagent also built the list sink's fixtures from HEAD's code and from this tree. Every row, tag, summary, chip count, the alert and the footer are identical.
 
+### Phase 6
+
+- §1: `shopStatesOf` in `watchlist-rows.ts` reads `ListMatchStates` through a `Readonly<Partial<Record<MatchableShop, ListMatchState>>>` view. Once `MATCHED_SHOPS` equals `MATCHABLE_SHOPS`, typescript-eslint flagged its `=== undefined` guard as unnecessary. The guard stays for a matchable shop that isn't switched on (S-06).
+- §2: `scripts/check-token-contrast.mjs` needed no edit. `--shop-hebe` parses as oklch in both blocks, and no text pair draws on it (136 pairs pass).
+- §3: tests that passed `["natura", "hebe"]` explicitly now use the defaults, so they state the switched-on behaviour. Explicit lists remain only where a test is about the list parameter.
+- §3: Super-Pharm, a known shop outside `MATCHABLE_SHOPS`, replaces Hebe as the "not fetched, not matched" example. The defaults of `matchesFailedText()` and `priceSourcesText()` give the three-shop texts, and the single-shop texts go through explicit lists.
+- §3: the list tests about Natura sit beside a Hebe the user declined, so each summary ends "Hebe: brak (Twój wybór).". A decline adds no price and no "Do sprawdzenia". The two-shop describe block builds rows through `listRowsOf`, and a Hebe match brings its item's price (24,99 zł).
+- §3: new cases beyond the listed flips:
+  - three-shop `compareShops`: Hebe is cheapest, but never when its price is stale, its promotion ended, its item is missing or it can't be ordered online;
+  - list rows, and a three-shop permutation in the island;
+  - Hebe cases for odd price rows, `priceTargetFor`/`shopItemFor`, `decisionNotice`/`decisionError` and `repinShopOf`/`retryShopOf`;
+  - `parseMatchForm` refusing hebe when a test's list leaves it out.
+- §4: the product sink's existing area states now stand beside a declined Hebe, since the page always hands over both matched shops, so each frame ends with a ghost Hebe card.
+  - New: an area group "Trzy sklepy: Natura i Hebe" with 6 states (three-cheapest, three-hebe-stale, three-hebe-read-failed, three-waiting, three-natura-repin for F2, three-two-choices), and a "Hebe" card section with 9 states.
+  - `PriceFixture.choice` became `choices: ShopChoice[]`, and `islandBeside` takes the matched shops. Hebe's made-up ids are 18 digits starting "99".
+- §4: in the list sink, `inNatura` became `statesOf(natura, hebe = "unmatched")`.
+  - JOANNA's suspicious row gets a Hebe decline.
+  - There are 5 new Hebe rows: hebe-cheapest, hebe-none, hebe-not-found, hebe-suspicious (built through `listRowsOf`) and hebe-unread.
+  - The list-read fixtures leave Hebe undecided, as on the switch-on day.
+  - The hebe-suspicious row, an automatic match of another size, can't come from today's rule, which requires the same size. It stands for a stored row and claims no cause.
+- §5: `addMatchedProduct` keeps its shape: matched in Natura, undecided in Hebe. `matchShop("hebe", …)` settles Hebe where a story needs it. `cardOf` takes `ShopName`, and a new `searchStoppedNotice(shop)` helper gives the stopped-search text. `auth.setup.ts` imports `PRICED_SHOPS` through the `@/` alias.
+- §5: the spec texts that changed:
+  - price-honesty: P1's row line adds "Hebe: do dopasowania.", and its page checks Hebe's stopped-search card.
+  - phone-refresh: it seeds a Hebe match at 21,99 zł and checks three shops. Its refresh pin became `[hebe, natura, rossmann]`.
+  - phone-refresh-no-js: it seeds Hebe too.
+  - phone-decline-match: it checks Hebe's stopped card on the plain view. On `?repin=natura` it checks "Produkt nie jest jeszcze dopasowany w Hebe." with "Dopasuj w Hebe" and no stopped text, which proves F2 in a browser. Its list line ends "Hebe: do dopasowania.".
+  - seed and phone-remove-product are unchanged.
+- §6: the three-shop spec also compares the request log before and after itself, on top of the teardown's run-wide check, and checks the hero by aria snapshot.
+- Outside §1–§7: four comments that named Natura as the only matched shop now name any matched shop: in `price-targets.ts`, `PriceComparisonView.tsx`, `api/watchlist.ts` and `api/watchlist/remove.ts`.
+- For Phase 7: test-plan §6.3's helper list could name `matchShop` and `searchStoppedNotice`, and Hebe's 18-digit e2e ids.
+- 6.7 was verified by the agent at the owner's request (2026-10-04).
+  - Setup: live Hebe through the app's gate on the production preview, with a throwaway local user. Natura and Rossmann were switched off locally for the duration. The product was a seeded Nivea Soft 200 ml (EAN 4005900008299).
+  - Opening the product cost 1 Hebe request: the EAN search, then an automatic match to item 218807 with its offer stored.
+  - "Zmień" cost 2: the EAN and name searches. The choice opened with the current item marked "Obecne dopasowanie".
+  - "Anuluj" cost 0.
+  - The list's "Odśwież ceny", after Hebe's price was backdated 25 h, cost 1: the pinned batch, storing 15,99 zł again.
+  - Total: 4 of the approved 10, with 0 to Natura and 0 to Rossmann (request-log ids after 126). This matches the cost table. The shops were switched back on and the seeded product deleted.
+- 6.8 was verified by the agent at the owner's request (2026-10-04).
+  - Both sinks render with no page errors. The product sink shows all 6 three-shop states and all 9 states of the Hebe card; the list sink shows the 5 Hebe rows, in light and dark.
+  - Samples at 1280 and 390 px (three-cheapest, the list's Hebe rows) read right in both themes. Hebe's pink (#FEC7E0) reads apart from Natura's mint and Rossmann's blue on the price track and the cards.
+  - Neither sink scrolls sideways at 390 px.
+
 ## References
 
 - Research: `context/changes/hebe-in-comparison/research.md`
@@ -1131,31 +1173,31 @@ Each adaptation made during implementation gets one line here, naming the contra
 
 #### Automated
 
-- [x] 5.1 `npm run test` passes, with the new two-shop list cases green
-- [x] 5.2 `npm run lint` and `npx astro check` are clean
-- [x] 5.3 `npx playwright test` passes the six existing specs unedited
-- [x] 5.4 `npm run smoke` passes
-- [x] 5.5 Break-checks turn a unit test red: one shop's unreadable decision hiding another's state, and an undecided second shop left out of "Do sprawdzenia"
+- [x] 5.1 `npm run test` passes, with the new two-shop list cases green — 0644716
+- [x] 5.2 `npm run lint` and `npx astro check` are clean — 0644716
+- [x] 5.3 `npx playwright test` passes the six existing specs unedited — 0644716
+- [x] 5.4 `npm run smoke` passes — 0644716
+- [x] 5.5 Break-checks turn a unit test red: one shop's unreadable decision hiding another's state, and an undecided second shop left out of "Do sprawdzenia" — 0644716
 
 #### Manual
 
-- [x] 5.6 `/dev/watchlist` shows every row and state as before, in light and dark, at 390 px and at 1280 px
+- [x] 5.6 `/dev/watchlist` shows every row and state as before, in light and dark, at 390 px and at 1280 px — 0644716
 
 ### Phase 6: Hebe switched on
 
 #### Automated
 
-- [ ] 6.1 `npm run test` passes with Hebe matched and priced, and the flipped tests state Hebe's behaviour
-- [ ] 6.2 `npm run lint`, `npx astro check` and `node scripts/check-token-contrast.mjs` are clean, and `npm run build` ships its fonts
-- [ ] 6.3 `npx playwright test` passes the updated six specs and the new three-shop spec from a cold server, with no products left and the request log unmoved
-- [ ] 6.4 `npm run smoke` passes
-- [ ] 6.5 Break-checks turn something red: dropping Hebe from `listPricedItems` (the new spec or a unit test), and marking a stale Hebe price cheapest (a unit test)
+- [x] 6.1 `npm run test` passes with Hebe matched and priced, and the flipped tests state Hebe's behaviour
+- [x] 6.2 `npm run lint`, `npx astro check` and `node scripts/check-token-contrast.mjs` are clean, and `npm run build` ships its fonts
+- [x] 6.3 `npx playwright test` passes the updated six specs and the new three-shop spec from a cold server, with no products left and the request log unmoved
+- [x] 6.4 `npm run smoke` passes
+- [x] 6.5 Break-checks turn something red: dropping Hebe from `listPricedItems` (the new spec or a unit test), and marking a stale Hebe price cheapest (a unit test)
 - [ ] 6.6 CI (`ci`, `smoke`, `e2e`) is green on the phase's commit
 
 #### Manual
 
-- [ ] 6.7 A local check against live Hebe, within a budget the owner approves first (at most 10 Hebe requests), matches the cost table
-- [ ] 6.8 `/dev/product-page` and `/dev/watchlist` show every Hebe state, in light and dark, at 390 px and at 1280 px, and Hebe's pink reads apart from blue and mint
+- [x] 6.7 A local check against live Hebe, within a budget the owner approves first (at most 10 Hebe requests), matches the cost table
+- [x] 6.8 `/dev/product-page` and `/dev/watchlist` show every Hebe state, in light and dark, at 390 px and at 1280 px, and Hebe's pink reads apart from blue and mint
 
 ### Phase 7: Docs and rollout
 

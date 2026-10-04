@@ -288,6 +288,9 @@ describe("repinShopOf and retryShopOf: the shop a page was opened for", () => {
     { query: "repin=natura", repin: "natura", retry: null },
     { query: "retry=natura", repin: null, retry: "natura" },
     { query: "f=check&repin=natura&retry=natura", repin: "natura", retry: "natura" },
+    { query: "repin=hebe", repin: "hebe", retry: null },
+    { query: "retry=hebe", repin: null, retry: "hebe" },
+    { query: "repin=hebe&retry=natura", repin: "hebe", retry: "natura" },
   ])("reads ?$query", ({ query, repin, retry }) => {
     const params = new URLSearchParams(query);
 
@@ -295,15 +298,19 @@ describe("repinShopOf and retryShopOf: the shop a page was opened for", () => {
     expect(retryShopOf(params)).toBe(retry);
   });
 
-  it.each(["", "repin=1&retry=1", "repin=&retry=", "repin=rossmann&retry=rossmann", "repin=NATURA&retry=Natura"])(
-    "ignores ?%s, which names no matched shop, the old ?repin=1 and ?retry=1 included",
-    (query) => {
-      const params = new URLSearchParams(query);
+  it.each([
+    "",
+    "repin=1&retry=1",
+    "repin=&retry=",
+    "repin=rossmann&retry=rossmann",
+    "repin=super-pharm&retry=super-pharm",
+    "repin=NATURA&retry=Hebe",
+  ])("ignores ?%s, which names no matched shop, the old ?repin=1 and ?retry=1 included", (query) => {
+    const params = new URLSearchParams(query);
 
-      expect(repinShopOf(params)).toBeNull();
-      expect(retryShopOf(params)).toBeNull();
-    },
-  );
+    expect(repinShopOf(params)).toBeNull();
+    expect(retryShopOf(params)).toBeNull();
+  });
 });
 
 describe("autoRefreshOf: whether opening the page refetches its prices on its own", () => {

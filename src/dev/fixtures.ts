@@ -1,12 +1,14 @@
-// The dev kitchen sink's fixtures (src/dev/product-page.astro): one made-up product in Rossmann and Natura, its stored
-// prices and its Natura decisions, on a fixed clock, the design handoff's three sample products, and the prices and
-// brands its primitives are shown with. Every state is built by the product page's own code, the price island's
-// reducer, the Natura view builders and the matching rule, so the kitchen sink shows only states the page can reach.
-// The product area's states pair every price state with Natura in every kind: the states with Natura's price need a
-// saved match, and the rest stand with Rossmann's price alone, each beside another of Natura's kinds. Natura's own
-// states include the choice that changes a stored decision, in each of the outcomes its searches can have, and the
-// product's removal at the page's foot is drawn closed, open and after a failure. Nothing here is real user data, and
-// nothing here asks Supabase or a shop.
+// The dev kitchen sink's fixtures (src/dev/product-page.astro): one made-up product in Rossmann, Natura and Hebe, its
+// stored prices and its decisions in the two matched shops, on a fixed clock, the design handoff's three sample
+// products, and the prices and brands its primitives are shown with. Every state is built by the product page's own
+// code, the price island's reducer, the match view builders and the matching rule, so the kitchen sink shows only
+// states the page can reach. The product area's states pair every price state with Natura in every kind, beside a
+// Hebe the user declined: the states with Natura's price need a saved match, and the rest stand with Rossmann's price
+// alone, each beside another of Natura's kinds. Three shops' states follow: the cheapest of three, Hebe's price that
+// can't win, Hebe's decision that couldn't be read, both shops still to match, Hebe's button beside Natura's open
+// choice, and two choices at once. Natura's own states and Hebe's include the choice that changes a stored decision,
+// Natura's in each of the outcomes its searches can have, and the product's removal at the page's foot is drawn closed,
+// open and after a failure. Nothing here is real user data, and nothing here asks Supabase or a shop.
 import { unreadableShopsOf, type MatchedShopView } from "@/components/watchlist/match-card";
 import type { PriceSize } from "@/components/watchlist/Price";
 import type { TitleProduct } from "@/components/watchlist/ProductTitle";
@@ -35,7 +37,7 @@ import {
 } from "@/lib/services/match-view";
 import { matchErrorMessage } from "@/lib/services/matches";
 import { judge, pickMatch } from "@/lib/services/matching";
-import { SHOP_LABELS, STALE_AFTER_MS, type PricedShop } from "@/lib/services/price-comparison";
+import { SHOP_LABELS, STALE_AFTER_MS, type MatchedShop, type PricedShop } from "@/lib/services/price-comparison";
 import { parseSize } from "@/lib/services/size";
 import { removalErrorMessage, removalGoneNotice } from "@/lib/services/watchlist";
 import { shopUnavailableText } from "@/lib/shop-messages";
@@ -102,10 +104,19 @@ function offer(price: number, extra: Partial<ShopOffer> = {}): ShopOffer {
 // Natura's promotion: its price, the regular one, its last day, and the lowest price of 30 days that Natura reports.
 const NATURA_PROMO = offer(22.99, { regularPrice: 27.99, lowestPrice30d: 23.99, promoEndsOn: "2026-10-05" });
 const NATURA_SKU = "NV10000";
+// The product's made-up item in Hebe, whose ids are 18 digits; Hebe's real ones start with twelve zeros.
+const HEBE_ITEM_ID = "990000000000000001";
 
-/** The item the page shows in a shop: the product's own in Rossmann, and its match in Natura. */
+/** The item the page shows in a shop: the product's own in Rossmann, and its match in Natura and in Hebe. */
 function itemIn(shop: PricedShop): string {
-  return shop === "rossmann" ? PRODUCT.sourceItemId : NATURA_SKU;
+  switch (shop) {
+    case "rossmann":
+      return PRODUCT.sourceItemId;
+    case "natura":
+      return NATURA_SKU;
+    case "hebe":
+      return HEBE_ITEM_ID;
+  }
 }
 
 /** A shop's row as the page hands it to the island: its item, the item's page, and its stored price or none. */
@@ -182,23 +193,70 @@ const NOT_FOUND: ShopMatch = { ...DECISION, decidedBy: "auto", state: "not_found
 const LINKS = { filter: "all" } as const;
 const REPINNING = { filter: "all", repinning: true } as const;
 
+/** What a matched shop's view comes with, as a test sets it: a decision's notice and error, and an unsaved outcome. */
+type ViewExtra = Partial<Omit<MatchedShopView, "shop" | "view">>;
+
 /** Natura as the page hands it to the island, with this view and, unless `extra` adds them, no notices. */
-function naturaOf(view: MatchView, extra: Partial<Omit<MatchedShopView, "shop" | "view">> = {}): MatchedShopView {
+function naturaOf(view: MatchView, extra: ViewExtra = {}): MatchedShopView {
   return { shop: "natura", view, notice: null, error: null, unsaved: false, ...extra };
 }
 
+/** Hebe as the page hands it to the island, with this view and, unless `extra` adds them, no notices. */
+function hebeOf(view: MatchView, extra: ViewExtra = {}): MatchedShopView {
+  return { shop: "hebe", view, notice: null, error: null, unsaved: false, ...extra };
+}
+
 /**
- * The island's state for `shops` beside Natura's view, as the island starts it from the page's props, at NOW: a
- * decision that couldn't be read keeps every shop from being named cheapest.
+ * The island's state for `shops` beside the matched shops' views, as the island starts it from the page's props, at
+ * NOW: a decision that couldn't be read keeps every shop from being named cheapest.
  */
-function islandBeside(natura: MatchedShopView, shops: PriceComparisonShop[]): PriceComparisonState {
-  return initialState({ shops, now: NOW, unreadable: unreadableShopsOf([natura]) });
+function islandBeside(matched: MatchedShopView[], shops: PriceComparisonShop[]): PriceComparisonState {
+  return initialState({ shops, now: NOW, unreadable: unreadableShopsOf(matched) });
 }
 
 // The product's stored match, found by its EAN and size, which every price state of the product area has but one.
 const MATCHED = naturaOf(matchedView("natura", NATURA_ITEM, "auto", PRODUCT, LINKS));
 // A Natura decision that couldn't be read.
 const NATURA_UNREAD = naturaOf({ kind: "read-failed" });
+
+/** The product's item in Hebe: the same EAN and size, its brand as Hebe writes it, and its legal name with the size. */
+const HEBE_ITEM: MatchedItem = {
+  shopItemId: HEBE_ITEM_ID,
+  brand: "Przykład",
+  name: "Przykład Krem nawilżający do twarzy i ciała, 300 ml",
+  ...sized("300 ml"),
+  eans: [EAN],
+  productUrl: HERE,
+  imageUrl: null,
+};
+
+// A decision stored for the product in Hebe, at the same time as Natura's.
+const HEBE_DECISION = { ...DECISION, shop: "hebe" } as const;
+
+// The product's match in Hebe, found by its EAN and size, as it's stored; its re-pin's state opens its choice.
+const HEBE_AUTO_MATCHED: RepinnableMatch = { ...HEBE_DECISION, decidedBy: "auto", state: "matched", item: HEBE_ITEM };
+// The user confirmed Hebe's item in another size (the first of HEBE_CANDIDATES), so the match's size is flagged.
+const HEBE_CONFIRMED: RepinnableMatch = {
+  ...HEBE_DECISION,
+  decidedBy: "user",
+  state: "matched",
+  item: { ...HEBE_ITEM, shopItemId: "990000000000000002", ...sized("200 ml") },
+};
+const HEBE_DECLINED: RepinnableMatch = { ...HEBE_DECISION, decidedBy: "user", state: "unmatched", item: null };
+const HEBE_NOT_FOUND: ShopMatch = { ...HEBE_DECISION, decidedBy: "auto", state: "not_found", item: null };
+
+// Hebe's stored match, beside which the three shops' prices stand.
+const HEBE_MATCHED = hebeOf(matchedView("hebe", HEBE_ITEM, "auto", PRODUCT, LINKS));
+// Hebe declined by the user: the Hebe every state of Natura stands beside, with no price row and no wait.
+const HEBE_DECLINED_VIEW = hebeOf(storedView("hebe", HEBE_DECLINED, PRODUCT, LINKS));
+// A Hebe decision that couldn't be read.
+const HEBE_UNREAD = hebeOf({ kind: "read-failed" });
+
+/** A matched shop's choice below the island: its first candidates, or the ones that change its stored decision. */
+export interface ShopChoice {
+  shop: MatchedShop;
+  view: Extract<MatchView, { kind: "choose" }> | MatchRepin;
+}
 
 /** One state of the product area, with the kitchen sink's label for it: the island's state and the product it's for. */
 export interface PriceFixture {
@@ -208,23 +266,35 @@ export interface PriceFixture {
   /** The product the title names. */
   product: TitleProduct;
   /**
-   * The matched shops as the page read them, Natura alone: each one's card among the shops', and, still to match, what
-   * the hero and the hint say.
+   * The matched shops as the page read them, Natura and Hebe: each one's card among the shops', and, still to match,
+   * what the hero and the hint say.
    */
   matched: MatchedShopView[];
-  /** Natura's candidates, which the page's choice below the island holds while the island's card points to it. */
-  choice?: Extract<MatchView, { kind: "choose" }>;
+  /** The choices the page's sections below the island hold, in the shops' order, while each card points to its own. */
+  choices: ShopChoice[];
 }
 
 /**
- * One state of the product area as the fixtures below write it: Natura, the only matched shop, as the page read it,
- * and the product, the made-up one unless the state names another.
+ * One state of the product area as the fixtures below write it: Natura and Hebe as the page read them, Hebe declined
+ * unless the state gives it, the choices below the island, none unless the state gives them, and the product, the
+ * made-up one unless the state names another.
  */
-type AreaState = Omit<PriceFixture, "product" | "matched"> & { natura: MatchedShopView; product?: TitleProduct };
+type AreaState = Omit<PriceFixture, "product" | "matched" | "choices"> & {
+  natura: MatchedShopView;
+  hebe?: MatchedShopView;
+  choices?: ShopChoice[];
+  product?: TitleProduct;
+};
 
-/** The product area's fixture for one written state: Natura as the matched shops, and the state's product. */
-function areaFixture({ natura, product = PRODUCT, ...fixture }: AreaState): PriceFixture {
-  return { ...fixture, product, matched: [natura] };
+/** The product area's fixture for one written state: Natura and Hebe as the matched shops, and the state's product. */
+function areaFixture({
+  natura,
+  hebe = HEBE_DECLINED_VIEW,
+  choices = [],
+  product = PRODUCT,
+  ...fixture
+}: AreaState): PriceFixture {
+  return { ...fixture, product, matched: [natura, hebe], choices };
 }
 
 // The island's states for the made-up product, whose Natura match is stored, so Natura has its price row.
@@ -645,7 +715,7 @@ export const NATURA_FIXTURES: NaturaFixture[] = [
     text: "nie udało się wczytać zapisanej decyzji",
     idPrefix: "natura-read-failed",
     natura: NATURA_UNREAD,
-    state: islandBeside(NATURA_UNREAD, [ROSSMANN_CHECKED]),
+    state: islandBeside([NATURA_UNREAD], [ROSSMANN_CHECKED]),
   },
   {
     code: "not-found + unsaved",
@@ -659,7 +729,7 @@ export const NATURA_FIXTURES: NaturaFixture[] = [
 /** The view of candidates left to the user, which is a choice among them. */
 function choiceOf(view: MatchView): Extract<MatchView, { kind: "choose" }> {
   if (view.kind !== "choose") {
-    throw new Error(`The kitchen sink's Natura candidates must make a choice; the view is ${view.kind}.`);
+    throw new Error(`The kitchen sink's candidates must make a choice; the view is ${view.kind}.`);
   }
   return view;
 }
@@ -713,7 +783,7 @@ const ALONE_STATES: AreaState[] = [
     text: "świeżo dodany: Rossmann jeszcze niesprawdzony, a kandydaci Natury czekają na wybór pod kartami",
     state: island([row("rossmann", null)]),
     natura: naturaOf({ ...CHOICE, options: [] }),
-    choice: CHOICE,
+    choices: [{ shop: "natura", view: CHOICE }],
   },
   {
     code: "lone-refreshing",
@@ -749,12 +819,212 @@ const ALONE_STATES: AreaState[] = [
     code: "natura-read-failed",
     text: "nie udało się wczytać decyzji Natury: świeża cena Rossmanna, ale żaden sklep nie jest nazwany",
     // Without the decision there's no Natura row, and a match it hides could name a lower price.
-    state: islandBeside(NATURA_UNREAD, [ROSSMANN_CHECKED]),
+    state: islandBeside([NATURA_UNREAD], [ROSSMANN_CHECKED]),
     natura: NATURA_UNREAD,
   },
 ];
 
 export const ALONE_FIXTURES: PriceFixture[] = ALONE_STATES.map(areaFixture);
+
+// What Hebe's search by the product's name returned besides its item. None shares both the EAN and the size without a
+// brand that differs, so the matching rule leaves the choice to the user.
+const HEBE_CANDIDATES: ShopCandidate[] = [
+  // The same EAN in another size.
+  {
+    ...HEBE_ITEM,
+    shop: "hebe",
+    shopItemId: "990000000000000002",
+    name: "Przykład Krem nawilżający do twarzy i ciała, 200 ml",
+    ...sized("200 ml"),
+    imageUrl: "/favicon.png",
+    offer: offer(18.49),
+  },
+  // Another EAN, in the product's size, on promotion.
+  {
+    ...HEBE_ITEM,
+    shop: "hebe",
+    shopItemId: "990000000000000003",
+    name: "Przykład Krem nawilżający z witaminą E, 300 ml",
+    eans: ["2000000000025"],
+    offer: offer(24.99, { regularPrice: 29.99 }),
+  },
+  // The same EAN and size, of another brand, which Hebe doesn't sell online just now.
+  {
+    ...HEBE_ITEM,
+    shop: "hebe",
+    shopItemId: "990000000000000004",
+    brand: "Wzór",
+    name: "Wzór Krem nawilżający, 300 ml",
+    offer: offer(21.99, { available: false }),
+  },
+];
+
+// Hebe's candidates to choose from, found by the product's name, as the page's view holds them for Hebe's choice below
+// the island; Hebe's card gets the view without them.
+const HEBE_CHOICE = choiceOf(chooseView("hebe", leftToUser(HEBE_CANDIDATES), "name", new Date(NOW), PRODUCT));
+
+// What Hebe's two searches found again when the user opened the choice to change its match: its item, then the rest.
+const HEBE_FOUND_BY_BOTH: ShopChoices = {
+  kind: "choices",
+  options: judged([{ ...HEBE_ITEM, shop: "hebe", offer: offer(24.99) }, ...HEBE_CANDIDATES]),
+  via: "both",
+  incomplete: null,
+};
+
+// Rossmann's and Natura's prices beside Hebe's 24,99 zł, all three checked in the last 15 minutes: Natura is cheapest.
+const CHECKED_WITH_HEBE = [...CHECKED, priced("hebe", offer(24.99), 5 * MINUTE)];
+
+/**
+ * The three shops' states: every one beside Natura's stored match and its price, except where both matched shops wait
+ * for their match, and the choices below the island, a re-pin's beside Hebe's button, and two first choices at once.
+ */
+const THREE_SHOP_STATES: AreaState[] = [
+  {
+    code: "three-cheapest",
+    text: "trzy sklepy, Hebe najtańsza: „Najtaniej” tylko na jej karcie, a hero mówi „w Hebe”",
+    state: island([
+      priced("rossmann", offer(19.99), 10 * MINUTE),
+      priced("natura", offer(17.49), 5 * MINUTE),
+      priced("hebe", offer(16.99), 5 * MINUTE),
+    ]),
+    natura: MATCHED,
+    hebe: HEBE_MATCHED,
+  },
+  {
+    code: "three-hebe-stale",
+    text: "cena Hebe sprzed 2 dni: najniższa, ale nieaktualna, więc wygrywa Natura",
+    state: island([
+      priced("rossmann", offer(19.99), 10 * MINUTE),
+      priced("natura", offer(17.49), 5 * MINUTE),
+      priced("hebe", offer(15.99), 2 * DAY),
+    ]),
+    natura: MATCHED,
+    hebe: HEBE_MATCHED,
+  },
+  {
+    code: "three-hebe-read-failed",
+    text: "nie udało się wczytać decyzji Hebe: świeże ceny Rossmanna i Natury, ale żaden sklep nie jest nazwany",
+    // Without the decision there's no Hebe row, and a match it hides could name a lower price.
+    state: islandBeside([MATCHED, HEBE_UNREAD], CHECKED),
+    natura: MATCHED,
+    hebe: HEBE_UNREAD,
+  },
+  {
+    code: "three-waiting",
+    text: "jedna cena, w Rossmannie, a Natura i Hebe czekają na dopasowanie: hero i podpowiedź nazywają oba sklepy",
+    state: island([ROSSMANN_CHECKED]),
+    natura: naturaOf(promptView("natura", PRODUCT, false, "all")),
+    hebe: hebeOf(promptView("hebe", PRODUCT, false, "all")),
+  },
+  {
+    code: "three-natura-repin",
+    text: "po „Zmień” w Naturze: wybór Natury otwarty, a Hebe bez decyzji ma tylko przycisk, bo strona jej nie szuka",
+    state: island(CHECKED),
+    natura: MATCHED_REPINNING,
+    hebe: hebeOf(promptView("hebe", PRODUCT, false, "all")),
+    choices: [{ shop: "natura", view: repinOf(FOUND_BY_BOTH, AUTO_MATCHED) }],
+  },
+  {
+    code: "three-two-choices",
+    text: "świeżo dodany: kandydaci Natury i Hebe czekają na wybór, dwie sekcje pod kartami",
+    state: island([row("rossmann", null)]),
+    natura: naturaOf({ ...CHOICE, options: [] }),
+    hebe: hebeOf({ ...HEBE_CHOICE, options: [] }),
+    choices: [
+      { shop: "natura", view: CHOICE },
+      { shop: "hebe", view: HEBE_CHOICE },
+    ],
+  },
+];
+
+export const THREE_SHOP_FIXTURES: PriceFixture[] = THREE_SHOP_STATES.map(areaFixture);
+
+/**
+ * Natura's stored match, as Hebe's states show it among the shops' cards: every one of Hebe's kinds stands beside
+ * Rossmann's and Natura's prices.
+ */
+export const NATURA_BESIDE_HEBE = MATCHED;
+
+/**
+ * One state of Hebe, with the kitchen sink's label, the prefix that keeps its choice's ids its own, Hebe as the page
+ * hands it to the island, the island's state beside it, Rossmann's and Natura's prices, with Hebe's while its match is
+ * saved, and, while the user changes Hebe's stored decision, the choice below the cards.
+ */
+export interface HebeFixture {
+  code: string;
+  text: string;
+  idPrefix: string;
+  hebe: MatchedShopView;
+  state: PriceComparisonState;
+  repin?: MatchRepin;
+}
+
+export const HEBE_FIXTURES: HebeFixture[] = [
+  {
+    code: "matched",
+    text: "dopasowane automatycznie: karta z ceną Hebe, a stopka nazywa pozycję z Hebe, bez ostrzeżeń, z „Zmień”",
+    idPrefix: "hebe-auto",
+    hebe: HEBE_MATCHED,
+    state: island(CHECKED_WITH_HEBE),
+  },
+  {
+    code: "matched + notice",
+    text: "potwierdzone przez Ciebie w innym rozmiarze, zaraz po zapisie: stopka ostrzega o rozmiarze",
+    idPrefix: "hebe-confirmed",
+    hebe: hebeOf(storedView("hebe", HEBE_CONFIRMED, PRODUCT, LINKS), { notice: DECISION_NOTICES.matched }),
+    state: island([...CHECKED, priced("hebe", offer(18.49), 5 * MINUTE)]),
+  },
+  {
+    code: "matched + repin",
+    text: "po „Zmień”: karta ma „Anuluj”, a wybór z obu wyszukiwań w Hebe oznacza obecne, automatyczne dopasowanie",
+    idPrefix: "hebe-repin",
+    hebe: hebeOf(storedView("hebe", HEBE_AUTO_MATCHED, PRODUCT, REPINNING)),
+    state: island(CHECKED_WITH_HEBE),
+    repin: repinView("hebe", HEBE_FOUND_BY_BOTH, HEBE_AUTO_MATCHED, new Date(NOW), PRODUCT, "all"),
+  },
+  {
+    code: "unmatched + notice",
+    text: "odrzucone przez Ciebie, zaraz po „Żaden z nich”: duch karty z „Dopasuj ponownie”, a Natura najtańsza",
+    idPrefix: "hebe-declined",
+    hebe: hebeOf(storedView("hebe", HEBE_DECLINED, PRODUCT, LINKS), { notice: DECISION_NOTICES.declined("hebe") }),
+    state: island(CHECKED),
+  },
+  {
+    code: "prompt",
+    text: "bez decyzji, strona otwarta z linku albo przy wyborze w Naturze: przycisk zamiast wyszukiwania",
+    idPrefix: "hebe-prompt",
+    hebe: hebeOf(promptView("hebe", PRODUCT, false, "all")),
+    state: island(CHECKED),
+  },
+  {
+    code: "choose",
+    text: "kandydaci z Hebe znalezieni po nazwie: karta wskazuje wybór poniżej",
+    idPrefix: "hebe-choose",
+    hebe: hebeOf(HEBE_CHOICE),
+    state: island(CHECKED),
+  },
+  {
+    code: "not-found",
+    text: "zapisane „nie znaleziono” w Hebe, z „Szukaj ponownie”",
+    idPrefix: "hebe-not-found",
+    hebe: hebeOf(storedView("hebe", HEBE_NOT_FOUND, PRODUCT, LINKS)),
+    state: island(CHECKED),
+  },
+  {
+    code: "unavailable",
+    text: "Hebe zablokowała zapytania: wyszukiwanie wyłączone, dopóki właściciel go nie włączy",
+    idPrefix: "hebe-unavailable",
+    hebe: hebeOf({ kind: "unavailable", message: shopUnavailableText(SHOP_LABELS.hebe.name, "stopped") }),
+    state: island(CHECKED),
+  },
+  {
+    code: "read-failed",
+    text: "nie udało się wczytać zapisanej decyzji Hebe: ceny Rossmanna i Natury bez „Najtaniej”",
+    idPrefix: "hebe-read-failed",
+    hebe: HEBE_UNREAD,
+    state: islandBeside([MATCHED, HEBE_UNREAD], CHECKED),
+  },
+];
 
 /** The page's text for `?error=gone`, which its not-found branch shows: a decision posted for a product not listed. */
 export const GONE_ERROR = matchErrorMessage("gone");

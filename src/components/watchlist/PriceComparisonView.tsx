@@ -142,7 +142,7 @@ interface GridProps {
  * The shops' cards, two columns from xl (1280 px) and one below it, where a card of half the pane beside the list
  * would squeeze its shop's name and site: each priced shop's card in the comparison's order, a matched shop's price
  * card with its match's footer, and, for each matched shop without a price row, its card without a price after them,
- * in the pages' order. The kitchen sink draws it on its own, with every state of Natura.
+ * in the pages' order. The kitchen sink draws it on its own, with every state of Natura and of Hebe.
  */
 export function ShopGrid({ rows, now, cards }: GridProps) {
   const headingId = useId();

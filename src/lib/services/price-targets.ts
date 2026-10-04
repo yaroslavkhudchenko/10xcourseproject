@@ -36,9 +36,9 @@ export type PriceRequest = z.infer<typeof priceRequestSchema>;
 
 /**
  * The shop item a refresh of the user's product fetches: the product's own item for Rossmann, where it was picked, and
- * its matched item for Natura. Null when the product isn't on the user's list (RLS answers another user's product the
- * same way) or has no matched item in that shop; `failed` when the rows couldn't be read, the shop's decision among
- * them, which may hide a match.
+ * its matched item for a matched shop. Null when the product isn't on the user's list (RLS answers another user's
+ * product the same way) or has no matched item in that shop; `failed` when the rows couldn't be read, the shop's
+ * decision among them, which may hide a match.
  */
 export async function shopItemFor(
   supabase: SupabaseClient,

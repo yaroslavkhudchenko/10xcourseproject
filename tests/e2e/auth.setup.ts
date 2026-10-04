@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import { expect, test as setup } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { e2eHolds, requestLogMark, stopShops } from "../../scripts/e2e-local-db.mjs";
+import { PRICED_SHOPS } from "@/lib/services/price-comparison";
 import { waitForIsland } from "./support/islands";
 import { clearRun, runId, SESSION_FILE, writeRun } from "./support/run";
 
@@ -41,8 +42,9 @@ setup("stop every shop for this run, then sign the run's user up and in", async 
   if (!session)
     throw new Error("local sign-up returned no session (is email confirmation off in supabase/config.toml?)");
 
-  // The gate's own view: the shops the app calls answer "stopped" before any request is counted or sent.
-  for (const shop of ["rossmann", "natura"]) {
+  // The gate's own view: every shop the app prices (PRICED_SHOPS: Rossmann and each matched shop) answers "stopped"
+  // before any request is counted or sent.
+  for (const shop of PRICED_SHOPS) {
     const reservation = await client.rpc("reserve_shop_request", { p_shop_id: shop });
     expect(reservation.error).toBeNull();
     expect(reservation.data, `${shop} is stopped for the run`).toEqual({ outcome: "stopped" });

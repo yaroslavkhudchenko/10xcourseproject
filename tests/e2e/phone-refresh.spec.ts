@@ -1,9 +1,9 @@
 // risk: #7 (context/foundation/test-plan.md): a browser-only regression breaks the phone flow at the shelf: an island
 // that doesn't hydrate, a live per-shop refresh that stops, a layout that overflows or focus that disappears.
-// facet: on the production build at 390 px, a shopper opens a product from the list and taps "Odśwież ceny" while every
-// shop is stopped. Each card keeps its price and age and says why its shop wasn't asked, the cheapest mark stays, the
-// page doesn't scroll sideways, and keyboard focus is drawn, in forced colours too. The refresh goes through the app's
-// own JSON route on workerd; nothing in the browser answers it.
+// facet: on the production build at 390 px, a shopper opens a product priced in Rossmann, Natura and Hebe from the list
+// and taps "Odśwież ceny" while every shop is stopped. Each card keeps its price and age and says why its shop wasn't
+// asked, the cheapest mark stays, the page doesn't scroll sideways, and keyboard focus is drawn, in forced colours too.
+// The refresh goes through the app's own JSON route on workerd; nothing in the browser answers it.
 // seed: tests/e2e/seed.spec.ts
 import { expect, test, type Page } from "@playwright/test";
 import {
@@ -18,7 +18,7 @@ import {
   sidewaysScroll,
   stoppedNotice,
 } from "./support/pages";
-import { addMatchedProduct, recordPrice, removeSeededProducts } from "./support/watchlist-data";
+import { addMatchedProduct, matchShop, recordPrice, removeSeededProducts } from "./support/watchlist-data";
 
 test.afterEach(async () => {
   await removeSeededProducts();
@@ -69,20 +69,23 @@ async function expectDrawnFocus(page: Page, when: string): Promise<void> {
 test("#7: on a phone, a refresh with every shop stopped keeps each price and age, says why, and shows focus", async ({
   page,
 }) => {
-  // One product whose two prices were both checked just now, so its page asks no shop on load.
+  // One product whose three prices were all checked just now, so its page asks no shop on load. Hebe's is the dearest.
   const product = await addMatchedProduct("Krem do odświeżenia");
+  const hebeId = await matchShop("hebe", product.productId, { name: "Hebe Krem do odświeżenia" });
   await recordPrice("rossmann", product.itemId, { price: 19.99, available: true });
   await recordPrice("natura", product.sku, { price: 14.49, available: true });
+  await recordPrice("hebe", hebeId, { price: 21.99, available: true });
   const shops = [
     ["Rossmann", "19,99"],
     ["Natura", "14,49"],
+    ["Hebe", "21,99"],
   ] as const;
   // What the page asks the shops for, through the island's price requests (lessons: "Bound what each page view and
   // action costs every shop").
   const priceCalls = recordPriceCalls(page);
 
-  // 1. On the list, the row names Natura as cheapest with its price, how much cheaper it is and its age, and the page
-  // doesn't scroll sideways.
+  // 1. On the list, the row names Natura as cheapest with its price, how much cheaper it is than the next shop,
+  // Rossmann, and its age, and the page doesn't scroll sideways.
   await page.goto("/watchlist");
   await expect(rowOf(page, product)).toHaveAccessibleName(
     new RegExp(String.raw`Najtaniej: Natura 14,49\szł, o 5,50\szł taniej niż Rossmann · ${JUST_NOW}\.`),
@@ -98,7 +101,7 @@ test("#7: on a phone, a refresh with every shop stopped keeps each price and age
     await expect(ageLine(cardOf(page, shop), JUST_NOW)).toBeVisible();
   }
   await expect(cardOf(page, "Natura").getByText("Najtaniej", { exact: true })).toBeVisible();
-  // Both prices are fresh, so opening the product asks no shop.
+  // Every price is fresh, so opening the product asks no shop.
   expect(priceCalls, "opening a product whose prices are fresh asks no shop").toEqual([]);
 
   // 4. Tap the bottom bar's "Odśwież ceny".
@@ -118,6 +121,7 @@ test("#7: on a phone, a refresh with every shop stopped keeps each price and age
     [...priceCalls].sort((a, b) => a.shop.localeCompare(b.shop)),
     "the refresh asks each shop once, for this product's item",
   ).toEqual([
+    { shop: "hebe", shopItemId: hebeId },
     { shop: "natura", shopItemId: product.sku },
     { shop: "rossmann", shopItemId: product.itemId },
   ]);

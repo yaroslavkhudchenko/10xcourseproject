@@ -2,11 +2,13 @@
 // the declined shop's old price is still compared.
 // facet: on the production build at 390 px, while Natura refuses every lookup, a matched Natura item is removed through
 // its "Zmień": "Anuluj" changes nothing, and "Żaden z nich" stores the decline, after which Natura's old price drops
-// out of the comparison on the product's page and on the list.
+// out of the comparison on the product's page and on the list. Hebe, the third shop, has no decision: while Natura's
+// choice is open its card offers only its button, since that page asks no other shop, and the list says Hebe is still
+// to match.
 // seed: tests/e2e/seed.spec.ts
 import { expect, test } from "@playwright/test";
 import { waitForIsland } from "./support/islands";
-import { cardOf, JUST_NOW, openFromList, priceOf, rowOf } from "./support/pages";
+import { cardOf, JUST_NOW, openFromList, priceOf, rowOf, searchStoppedNotice } from "./support/pages";
 import { addMatchedProduct, recordPrice, removeSeededProducts } from "./support/watchlist-data";
 
 test.afterEach(async () => {
@@ -23,21 +25,23 @@ test("#7: on a phone, a wrong Natura match is removed through its re-pin choice,
   await page.goto("/watchlist");
   await openFromList(page, product);
   const natura = cardOf(page, "Natura");
+  const hebe = cardOf(page, "Hebe");
   const choice = page.getByRole("region", { name: "Drogerie Natura" });
 
-  // 1. Natura's card names the matched item and offers "Zmień". Tap it.
+  // 1. Natura's card names the matched item and offers "Zmień". Hebe's card says its lookup, which the page asked on
+  // its own, was refused. Tap "Zmień".
   await expect(natura.getByText(`Natura ${product.name}`, { exact: true })).toBeVisible();
+  await expect(hebe.getByText(searchStoppedNotice("Hebe"), { exact: true })).toBeVisible();
   await natura.getByRole("link", { name: "Zmień" }).tap();
 
   // 2. The choice says Natura's search is stopped and offers "Żaden z nich" and "Anuluj", with no candidate to pick.
-  await expect(
-    choice.getByText(
-      "Wyszukiwanie w sklepie Natura jest wyłączone, bo sklep zablokował zapytania. Właściciel musi je ponownie włączyć.",
-      { exact: true },
-    ),
-  ).toBeVisible();
+  // Hebe, still undecided, gets only its button: the page opened to change Natura's match asks no other shop.
+  await expect(choice.getByText(searchStoppedNotice("Natura"), { exact: true })).toBeVisible();
   await expect(choice.getByRole("button", { name: "Żaden z nich" })).toBeVisible();
   await expect(choice.getByRole("button", { name: "To ten produkt" })).toHaveCount(0);
+  await expect(hebe.getByText("Produkt nie jest jeszcze dopasowany w Hebe.", { exact: true })).toBeVisible();
+  await expect(hebe.getByRole("link", { name: "Dopasuj w Hebe" })).toBeVisible();
+  await expect(hebe.getByText(searchStoppedNotice("Hebe"), { exact: true })).toHaveCount(0);
 
   // 3. Tap "Anuluj": the page is back without the choice, and Natura is still matched, cheapest at its price.
   await choice.getByRole("link", { name: "Anuluj" }).tap();
@@ -66,9 +70,12 @@ test("#7: on a phone, a wrong Natura match is removed through its re-pin choice,
     - paragraph: w Rossmannie
   `);
 
-  // 7. On the list, the row names Rossmann's price as the only one, and Natura as declined by the user.
+  // 7. On the list, the row names Rossmann's price as the only one, Natura as declined by the user, and Hebe as still
+  // to match.
   await page.goto("/watchlist");
   await expect(rowOf(page, product)).toHaveAccessibleName(
-    new RegExp(String.raw`Tylko w Rossmannie: 19,99\szł · ${JUST_NOW}\. Natura: brak \(Twój wybór\)\.`),
+    new RegExp(
+      String.raw`Tylko w Rossmannie: 19,99\szł · ${JUST_NOW}\. Natura: brak \(Twój wybór\)\. Hebe: do dopasowania\.`,
+    ),
   );
 });

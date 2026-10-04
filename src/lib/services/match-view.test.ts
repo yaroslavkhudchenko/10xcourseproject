@@ -521,12 +521,27 @@ describe("decisionNotice", () => {
     expect(decisionNotice(new URLSearchParams("shop=natura&error=failed&prices=done&retry=natura"))).toBeNull();
   });
 
-  it.each(["declined=1", "shop=&declined=1", "shop=rossmann&declined=1", "shop=NATURA&matched=1", "shop=1&decided=1"])(
-    "gives none for ?%s, whose code names no matched shop",
-    (query) => {
-      expect(decisionNotice(new URLSearchParams(query))).toBeNull();
-    },
-  );
+  it("gives Hebe's notice, now that Hebe is a matched shop", () => {
+    expect(decisionNotice(new URLSearchParams("shop=hebe&declined=1"))).toEqual({
+      shop: "hebe",
+      text: "Zapisano: brak w Hebe.",
+    });
+    expect(decisionNotice(new URLSearchParams("shop=hebe&matched=1"))).toEqual({
+      shop: "hebe",
+      text: "Zapisano dopasowanie.",
+    });
+  });
+
+  it.each([
+    "declined=1",
+    "shop=&declined=1",
+    "shop=rossmann&declined=1",
+    "shop=super-pharm&declined=1",
+    "shop=NATURA&matched=1",
+    "shop=1&decided=1",
+  ])("gives none for ?%s, whose code names no matched shop", (query) => {
+    expect(decisionNotice(new URLSearchParams(query))).toBeNull();
+  });
 });
 
 describe("decisionError", () => {
@@ -541,6 +556,13 @@ describe("decisionError", () => {
     expect(decisionError(new URLSearchParams(query))).toEqual({ shop: "natura", text });
   });
 
+  it("gives Hebe's error for its card, now that Hebe is a matched shop", () => {
+    expect(decisionError(new URLSearchParams("shop=hebe&error=failed"))).toEqual({
+      shop: "hebe",
+      text: "Nie udało się zapisać wyboru. Spróbuj ponownie.",
+    });
+  });
+
   it.each([
     "",
     "shop=natura&matched=1",
@@ -548,7 +570,7 @@ describe("decisionError", () => {
     "shop=natura&error=Twoje+konto+wygasło",
     "error=failed",
     "shop=rossmann&error=failed",
-    "shop=hebe&error=failed",
+    "shop=super-pharm&error=failed",
   ])("gives none for ?%s: no error the app sent, or no matched shop to show it", (query) => {
     expect(decisionError(new URLSearchParams(query))).toBeNull();
   });

@@ -80,6 +80,14 @@ const natura = (latest: LatestPrice | null = stored("natura", "NV89063", 29.99))
   productUrl: "https://www.drogerienatura.pl/nivea-soft",
   latest,
 });
+// Hebe's Nivea Soft 200 ml, by its 18-digit id.
+const HEBE_SOFT_ID = "000000000000218807";
+const hebe = (latest: LatestPrice | null = stored("hebe", HEBE_SOFT_ID, 24.99)): PriceComparisonShop => ({
+  shop: "hebe",
+  shopItemId: HEBE_SOFT_ID,
+  productUrl: "https://www.hebe.pl/nivea-intensywnie-nawilzajacy-krem-do-twarzy-i-ciala-200-ml-000000000000218807.html",
+  latest,
+});
 
 const priceAnswer = (price: number): PriceRefreshAnswer => ({
   kind: "price",
@@ -115,24 +123,34 @@ describe("price comparison state", () => {
     ]);
   });
 
-  it.each<[PricedShop, PricedShop]>([
-    ["rossmann", "natura"],
-    ["natura", "rossmann"],
-  ])("applies both shops' answers whichever comes first (%s first)", (first, second) => {
-    const answers: Record<PricedShop, RefreshResult> = { rossmann: priceAnswer(26.49), natura: priceAnswer(16.99) };
+  it.each<[PricedShop, PricedShop, PricedShop]>([
+    ["rossmann", "natura", "hebe"],
+    ["hebe", "natura", "rossmann"],
+    ["natura", "hebe", "rossmann"],
+  ])("applies every shop's answer whichever comes first (%s, then %s, then %s)", (first, second, third) => {
+    const answers: Record<PricedShop, RefreshResult> = {
+      rossmann: priceAnswer(26.49),
+      natura: priceAnswer(16.99),
+      hebe: priceAnswer(17.49),
+    };
     let state = run(
-      initialState({ shops: [rossmann(null), natura(null)], now: RENDERED }),
+      initialState({ shops: [rossmann(null), natura(null), hebe(null)], now: RENDERED }),
       start("rossmann"),
       start("natura"),
+      start("hebe"),
     );
-    expect(state.rows.map((row) => row.pending)).toEqual([true, true]);
+    expect(state.rows.map((row) => row.pending)).toEqual([true, true, true]);
 
     state = run(state, done(first, answers[first], ANSWERED_AT));
     expect(rowOf(state, first)?.pending).toBe(false);
-    expect(rowOf(state, second)?.pending).toBe(true);
+    expect([rowOf(state, second)?.pending, rowOf(state, third)?.pending]).toEqual([true, true]);
 
     state = run(state, done(second, answers[second], ANSWERED_AT + 1));
-    expect(state.rows.map((row) => row.pending)).toEqual([false, false]);
+    expect(rowOf(state, second)?.pending).toBe(false);
+    expect(rowOf(state, third)?.pending).toBe(true);
+
+    state = run(state, done(third, answers[third], ANSWERED_AT + 2));
+    expect(state.rows.map((row) => row.pending)).toEqual([false, false, false]);
     expect(rowOf(state, "natura")?.latest).toEqual({
       lastCheckedAt: CHECKED_AT,
       lastStatus: "price",
@@ -140,10 +158,37 @@ describe("price comparison state", () => {
     });
     expect(marks(state)).toEqual([
       ["natura", true],
+      ["hebe", false],
       ["rossmann", false],
     ]);
     // The answer's time moves the clock.
-    expect(state.now).toBe(ANSWERED_AT + 1);
+    expect(state.now).toBe(ANSWERED_AT + 2);
+  });
+
+  it("names Hebe cheapest once its answer is the lowest of three, and never its stale stored price", () => {
+    // Hebe's stored 9,99 zł is two days old, so it can't win, until Hebe answers with a fresh 15,99 zł.
+    const before = initialState({
+      shops: [
+        rossmann(),
+        natura(stored("natura", "NV89063", 16.99)),
+        hebe(stored("hebe", HEBE_SOFT_ID, 9.99, 2 * DAY)),
+      ],
+      now: RENDERED,
+    });
+    expect(marks(before)).toEqual([
+      ["natura", true],
+      ["rossmann", false],
+      ["hebe", false],
+    ]);
+
+    const state = run(before, start("hebe"), done("hebe", priceAnswer(15.99), ANSWERED_AT));
+
+    expect(marks(state)).toEqual([
+      ["hebe", true],
+      ["natura", false],
+      ["rossmann", false],
+    ]);
+    expect(state.announcements).toEqual([`Hebe: 15,99${NO_BREAK_SPACE}zł, najtaniej`]);
   });
 
   it("re-sorts and re-marks the shops when an answer changes the cheapest", () => {

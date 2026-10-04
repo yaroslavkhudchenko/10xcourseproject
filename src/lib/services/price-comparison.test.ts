@@ -20,7 +20,6 @@ import {
   staleTargets,
   verdictOf,
   type LatestCheck,
-  type MatchableShop,
   type PriceDecision,
   type PricedItem,
   type PricedShop,
@@ -308,6 +307,51 @@ describe("compareShops", () => {
     ]);
     expect(compareShops([], NOW).summary).toEqual({ kind: "none" });
     expect(compareShops([row("rossmann", null), row("natura", neverPriced)], NOW).summary).toEqual({ kind: "none" });
+  });
+
+  // Hebe, matched beside Natura, is compared like any priced shop. The verdicts come from FR-011 and the S-03 rule
+  // that only a fresh price the shop sells online can win, never from the comparison's code.
+  it("marks Hebe cheapest when its fresh price is the lowest of three, with the savings against the next shop", () => {
+    const { rows, summary } = compareShops(
+      [
+        row("rossmann", check({ price: 19.99 })),
+        row("natura", check({ price: 17.49 })),
+        row("hebe", check({ price: 16.99, checkedAgo: HOUR })),
+      ],
+      NOW,
+    );
+
+    expect(marks(rows)).toEqual([
+      ["hebe", true],
+      ["natura", false],
+      ["rossmann", false],
+    ]);
+    expect(summary).toEqual({
+      kind: "cheapest",
+      shops: ["hebe"],
+      price: 16.99,
+      ageFrom: ago(HOUR),
+      savings: { amount: 0.5, than: "natura" },
+    });
+  });
+
+  it.each<{ why: string; hebe: LatestCheck }>([
+    { why: "1 ms past 24 hours old", hebe: check({ price: 9.99, checkedAgo: STALE_AFTER_MS + 1 }) },
+    { why: "from a promotion that ended yesterday", hebe: check({ price: 9.99, promoEndsOn: ENDED_YESTERDAY }) },
+    { why: "for an item Hebe no longer returns", hebe: check({ price: 9.99, status: "missing", pricedAgo: HOUR }) },
+    { why: "for an item Hebe doesn't sell online", hebe: check({ price: 9.99, available: false }) },
+  ])("never names Hebe's lowest price of three cheapest when it's $why", ({ hebe }) => {
+    const { rows, summary } = compareShops(
+      [row("rossmann", check({ price: 19.99 })), row("natura", check({ price: 17.49 })), row("hebe", hebe)],
+      NOW,
+    );
+
+    expect(marks(rows)).toEqual([
+      ["natura", true],
+      ["rossmann", false],
+      ["hebe", false],
+    ]);
+    expect(summary).toMatchObject({ kind: "cheapest", shops: ["natura"], price: 17.49, savings: { than: "rossmann" } });
   });
 
   it("orders eligible rows first, then the other rows with a price, then the rows without one", () => {
@@ -628,8 +672,6 @@ describe("priceParts", () => {
   );
 });
 
-// Two matched shops, as a test passes them before Hebe is switched on.
-const BOTH_SHOPS: readonly MatchableShop[] = ["natura", "hebe"];
 // Hebe's Nivea Soft 200 ml, as its 18-digit id.
 const HEBE_SOFT_ID = "000000000000218807";
 
@@ -652,27 +694,31 @@ describe("productPriceKeys", () => {
   });
 
   it("leaves out a product's own item in a shop whose prices aren't fetched", () => {
-    expect(productPriceKeys({ source: "hebe", sourceItemId: HEBE_SOFT_ID }, [matchIn("natura", "NV89063")])).toEqual([
+    expect(productPriceKeys({ source: "super-pharm", sourceItemId: "39477" }, [matchIn("natura", "NV89063")])).toEqual([
       { shop: "natura", shopItemId: "NV89063" },
     ]);
   });
 
-  it("gives the match of each listed shop in the shops' order, whatever the decisions' order", () => {
+  it("gives the match of each matched shop, Hebe's too, in the shops' order, whatever the decisions' order", () => {
     const decisions = [matchIn("hebe", HEBE_SOFT_ID), matchIn("natura", "NV89063")];
 
-    expect(productPriceKeys(soft, decisions, BOTH_SHOPS)).toEqual([
+    expect(productPriceKeys(soft, decisions)).toEqual([
       { shop: "rossmann", shopItemId: "26900" },
       { shop: "natura", shopItemId: "NV89063" },
       { shop: "hebe", shopItemId: HEBE_SOFT_ID },
     ]);
   });
 
-  it("adds nothing for a listed shop without a match, nor for a match in a shop outside the list", () => {
+  it("adds nothing for a matched shop without a match, nor for a match in a shop outside the list", () => {
     const declinedInNatura: PriceDecision = { shop: "natura", state: "unmatched" };
 
-    expect(productPriceKeys(soft, [declinedInNatura, matchIn("hebe", HEBE_SOFT_ID)], BOTH_SHOPS)).toEqual([
+    expect(productPriceKeys(soft, [declinedInNatura, matchIn("hebe", HEBE_SOFT_ID)])).toEqual([
       { shop: "rossmann", shopItemId: "26900" },
       { shop: "hebe", shopItemId: HEBE_SOFT_ID },
+    ]);
+    expect(productPriceKeys(soft, [matchIn("natura", "NV89063"), matchIn("super-pharm", "39477")])).toEqual([
+      { shop: "rossmann", shopItemId: "26900" },
+      { shop: "natura", shopItemId: "NV89063" },
     ]);
     expect(productPriceKeys(soft, [matchIn("natura", "NV89063"), matchIn("hebe", HEBE_SOFT_ID)], ["hebe"])).toEqual([
       { shop: "rossmann", shopItemId: "26900" },
@@ -682,11 +728,12 @@ describe("productPriceKeys", () => {
 });
 
 describe("listPricedItems", () => {
-  it("gives each product its own item and its Natura match, each with its latest price", () => {
+  it("gives each product its own item and its matches in Natura and Hebe, each with its latest price", () => {
     const soft = { id: "soft", source: "rossmann", sourceItemId: "26900" } as const;
     const felix = { id: "felix", source: "rossmann", sourceItemId: "131225" } as const;
     const softInRossmann: LatestPrice = { shop: "rossmann", shopItemId: "26900", ...check({ price: 26.99 }) };
     const softInNatura: LatestPrice = { shop: "natura", shopItemId: "NV89063", ...check({ price: 16.99 }) };
+    const softInHebe: LatestPrice = { shop: "hebe", shopItemId: HEBE_SOFT_ID, ...check({ price: 15.99 }) };
     // Another shop's item with Felix's id: it isn't Felix's price.
     const lookalike: LatestPrice = { shop: "natura", shopItemId: "131225", ...check({ price: 1.99 }) };
     const matches: ShopMatchState[] = [
@@ -699,20 +746,29 @@ describe("listPricedItems", () => {
         size: { value: 300, unit: "ml" },
         decidedBy: "auto",
       },
-      { watchlistItemId: "felix", shop: "natura", state: "not_found", shopItemId: null },
-      // A match in a shop whose prices aren't fetched yet adds nothing.
       {
-        watchlistItemId: "felix",
+        watchlistItemId: "soft",
         shop: "hebe",
         state: "matched",
-        shopItemId: "000000000000218807",
+        shopItemId: HEBE_SOFT_ID,
+        brand: "Nivea",
+        size: { value: 200, unit: "ml" },
+        decidedBy: "user",
+      },
+      { watchlistItemId: "felix", shop: "natura", state: "not_found", shopItemId: null },
+      // A match in a shop whose prices aren't fetched adds nothing.
+      {
+        watchlistItemId: "felix",
+        shop: "super-pharm",
+        state: "matched",
+        shopItemId: "39477",
         brand: "Felix",
         size: null,
         decidedBy: "user",
       },
     ];
 
-    const items = listPricedItems([soft, felix], matches, [softInRossmann, softInNatura, lookalike]);
+    const items = listPricedItems([soft, felix], matches, [softInRossmann, softInNatura, softInHebe, lookalike]);
 
     expect([...items]).toEqual([
       [
@@ -720,6 +776,7 @@ describe("listPricedItems", () => {
         [
           { shop: "rossmann", shopItemId: "26900", latest: softInRossmann },
           { shop: "natura", shopItemId: "NV89063", latest: softInNatura },
+          { shop: "hebe", shopItemId: HEBE_SOFT_ID, latest: softInHebe },
         ],
       ],
       // Never checked yet.
@@ -727,7 +784,7 @@ describe("listPricedItems", () => {
     ]);
   });
 
-  it("gives each product its match in every listed shop, in the shops' order, each with its latest price", () => {
+  it("gives each product its match in every matched shop, in the shops' order, each with its latest price", () => {
     const soft = { id: "soft", source: "rossmann", sourceItemId: "26900" } as const;
     const felix = { id: "felix", source: "rossmann", sourceItemId: "131225" } as const;
     // Felix's item in Hebe, made up: Hebe's ids are 18 digits.
@@ -767,7 +824,7 @@ describe("listPricedItems", () => {
       },
     ];
 
-    const items = listPricedItems([soft, felix], matches, [softInHebe, softInNatura, felixInRossmann], BOTH_SHOPS);
+    const items = listPricedItems([soft, felix], matches, [softInHebe, softInNatura, felixInRossmann]);
 
     expect([...items]).toEqual([
       [

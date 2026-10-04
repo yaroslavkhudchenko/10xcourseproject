@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { MatchableShop, PricedShop } from "@/lib/services/price-comparison";
+import type { PricedShop } from "@/lib/services/price-comparison";
 import {
   listTargets,
   priceRequestSchema,
@@ -63,9 +63,7 @@ const undecidedRow = (state: "unmatched" | "not_found") => ({
   checked_at: "2026-09-27T12:05:00+00:00",
 });
 
-// Two matched shops, as a test passes them before Hebe is switched on, and the product's decision in Hebe: matched to
-// Hebe's Nivea Soft 200 ml, by its 18-digit id.
-const BOTH_SHOPS: readonly MatchableShop[] = ["natura", "hebe"];
+// The product's decision in Hebe, the other matched shop: matched to Hebe's Nivea Soft 200 ml, by its 18-digit id.
 const HEBE_SOFT_ID = "000000000000218807";
 const hebeMatchedRow = {
   ...matchedRow,
@@ -154,9 +152,17 @@ describe("priceRequestSchema", () => {
     ).toStrictEqual({ itemId: SOFT_ID, shop: "natura", shopItemId: "NV89063" });
   });
 
+  it("reads a request for Hebe's item, whose prices are fetched like every matched shop's", () => {
+    expect(priceRequestSchema.parse({ itemId: SOFT_ID, shop: "hebe", shopItemId: HEBE_SOFT_ID })).toStrictEqual({
+      itemId: SOFT_ID,
+      shop: "hebe",
+      shopItemId: HEBE_SOFT_ID,
+    });
+  });
+
   it.each([
     { why: "a product id that isn't a UUID", body: { itemId: "26900", shop: "rossmann", shopItemId: "26900" } },
-    { why: "a shop whose prices aren't fetched", body: { itemId: SOFT_ID, shop: "hebe", shopItemId: "218807" } },
+    { why: "a shop whose prices aren't fetched", body: { itemId: SOFT_ID, shop: "super-pharm", shopItemId: "39477" } },
     { why: "no shop", body: { itemId: SOFT_ID, shopItemId: "NV89063" } },
     { why: "no shop item", body: { itemId: SOFT_ID, shop: "natura" } },
     {
@@ -176,8 +182,12 @@ describe("priceTargetFor", () => {
   it.each<{ shop: PricedShop; shopItemId: string }>([
     { shop: "rossmann", shopItemId: "26900" },
     { shop: "natura", shopItemId: "NV89063" },
+    { shop: "hebe", shopItemId: HEBE_SOFT_ID },
   ])("gives the user's own item in $shop when the page shows that item", async ({ shop, shopItemId }) => {
-    const { client } = stubClient({ watchlist_items: { data: softRow }, watchlist_matches: { data: [matchedRow] } });
+    const { client } = stubClient({
+      watchlist_items: { data: softRow },
+      watchlist_matches: { data: [matchedRow, hebeMatchedRow] },
+    });
 
     expect(await priceTargetFor(client, request(shop, shopItemId))).toEqual({ shop, shopItemId });
   });
@@ -318,15 +328,24 @@ describe("shopItemFor", () => {
     expect(await shopItemFor(client, SOFT_ID, shop)).toBe("failed");
   });
 
+  it("gives the id of the product's matched Hebe item, from the user's decision there", async () => {
+    const { client } = stubClient({
+      watchlist_items: { data: softRow },
+      watchlist_matches: { data: [matchedRow, hebeMatchedRow] },
+    });
+
+    expect(await shopItemFor(client, SOFT_ID, "hebe")).toEqual({ shop: "hebe", shopItemId: HEBE_SOFT_ID });
+  });
+
   it("gives Natura's matched item beside the rows of a shop that isn't switched on, readable or odd", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const hebeRows = [
-      { ...undecidedRow("unmatched"), shop_id: "hebe" },
-      { ...matchedRow, shop_id: "hebe", state: "repinned" },
+    const superPharmRows = [
+      { ...undecidedRow("unmatched"), shop_id: "super-pharm" },
+      { ...matchedRow, shop_id: "super-pharm", state: "repinned" },
     ];
     const { client } = stubClient({
       watchlist_items: { data: softRow },
-      watchlist_matches: { data: [...hebeRows, matchedRow] },
+      watchlist_matches: { data: [...superPharmRows, matchedRow] },
     });
 
     expect(await shopItemFor(client, SOFT_ID, "natura")).toEqual({ shop: "natura", shopItemId: "NV89063" });
@@ -375,39 +394,39 @@ describe("productTargets", () => {
     expect(await productTargets(client, SOFT_ID)).toBe("failed");
   });
 
-  it("gives the product's Rossmann item and its match in each listed shop, in the shops' order", async () => {
+  it("gives the product's Rossmann item and its match in each matched shop, Hebe's too, in the shops' order", async () => {
     const { client } = stubClient({
       watchlist_items: { data: softRow },
       watchlist_matches: { data: [hebeMatchedRow, matchedRow] },
     });
 
-    expect(await productTargets(client, SOFT_ID, BOTH_SHOPS)).toEqual([
+    expect(await productTargets(client, SOFT_ID)).toEqual([
       { shop: "rossmann", shopItemId: "26900" },
       { shop: "natura", shopItemId: "NV89063" },
       { shop: "hebe", shopItemId: HEBE_SOFT_ID },
     ]);
   });
 
-  it("leaves out a listed shop the product has no match in, and keeps the other shop's", async () => {
+  it("leaves out a matched shop the product has no match in, and keeps the other shop's", async () => {
     const { client } = stubClient({
       watchlist_items: { data: softRow },
       watchlist_matches: { data: [undecidedRow("unmatched"), hebeMatchedRow] },
     });
 
-    expect(await productTargets(client, SOFT_ID, BOTH_SHOPS)).toEqual([
+    expect(await productTargets(client, SOFT_ID)).toEqual([
       { shop: "rossmann", shopItemId: "26900" },
       { shop: "hebe", shopItemId: HEBE_SOFT_ID },
     ]);
   });
 
-  it("gives failed when one listed shop's decision can't be read, though the other shop's was", async () => {
+  it("gives failed when one matched shop's decision can't be read, though the other shop's was", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { client } = stubClient({
       watchlist_items: { data: softRow },
       watchlist_matches: { data: [matchedRow, { ...hebeMatchedRow, state: "repinned" }] },
     });
 
-    expect(await productTargets(client, SOFT_ID, BOTH_SHOPS)).toBe("failed");
+    expect(await productTargets(client, SOFT_ID)).toBe("failed");
   });
 });
 
@@ -585,7 +604,7 @@ describe("listTargets", () => {
   // Felix's item in Hebe, made up: Hebe's ids are 18 digits.
   const HEBE_FELIX_ID = "000000000000131225";
 
-  it("gives the stale items of every listed shop, those never checked first, then the oldest check first", async () => {
+  it("gives the stale items of every matched shop, Hebe's too, those never checked first, then the oldest check first", async () => {
     // Nivea Soft's Hebe match was checked 3 hours ago, and Felix's never.
     const { client } = stubClient({
       ...listAnswers,
@@ -601,7 +620,7 @@ describe("listTargets", () => {
       },
     });
 
-    expect(await listTargets(client, BOTH_SHOPS)).toEqual<PriceKey[]>([
+    expect(await listTargets(client)).toEqual<PriceKey[]>([
       { shop: "hebe", shopItemId: HEBE_FELIX_ID },
       { shop: "rossmann", shopItemId: "11790" },
       { shop: "natura", shopItemId: "NV89063" },
@@ -610,7 +629,7 @@ describe("listTargets", () => {
     ]);
   });
 
-  it("leaves out only the item of the listed shop whose decision couldn't be read, and keeps the other shop's", async () => {
+  it("leaves out only the item of the matched shop whose decision couldn't be read, and keeps the other shop's", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     // Nivea Soft's Hebe decision came back in a state the code doesn't know; its Natura match was read.
     const { client } = stubClient({
@@ -620,7 +639,7 @@ describe("listTargets", () => {
       },
     });
 
-    expect(await listTargets(client, BOTH_SHOPS)).toEqual<PriceKey[]>([
+    expect(await listTargets(client)).toEqual<PriceKey[]>([
       { shop: "rossmann", shopItemId: "11790" },
       { shop: "natura", shopItemId: "NV89063" },
       { shop: "rossmann", shopItemId: "26900" },

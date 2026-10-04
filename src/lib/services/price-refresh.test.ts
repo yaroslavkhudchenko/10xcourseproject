@@ -413,11 +413,11 @@ describe("refreshPrices: storing", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { gate, fetchMock } = setup([answers.felix, answers.gone, answers.unknownSku]);
     const { client, queries } = stubClient();
-    // A stored id that isn't Rossmann's, and a shop whose prices S-03 doesn't fetch.
+    // A stored id that isn't Rossmann's, and a shop whose prices aren't fetched.
     const odd: PriceKey = { shop: "rossmann", shopItemId: ".." };
-    const hebe: PriceKey = { shop: "hebe", shopItemId: "000000000000218807" };
+    const superPharm: PriceKey = { shop: "super-pharm", shopItemId: "39477" };
 
-    const refresh = await refreshPrices(gate, client, [FELIX, odd, GONE, hebe, UNKNOWN_SKU]);
+    const refresh = await refreshPrices(gate, client, [FELIX, odd, GONE, superPharm, UNKNOWN_SKU]);
 
     expect(requestedUrls(fetchMock)).toHaveLength(3);
     expect(new Set(requestedUrls(fetchMock))).toEqual(
@@ -428,7 +428,7 @@ describe("refreshPrices: storing", () => {
         { key: FELIX, check: { kind: "price", offer: felixOffer } },
         { key: odd, check: FAILED },
         { key: GONE, check: { kind: "missing" } },
-        { key: hebe, check: FAILED },
+        { key: superPharm, check: FAILED },
         { key: UNKNOWN_SKU, check: { kind: "missing" } },
       ],
       saved: "saved",
@@ -537,9 +537,7 @@ describe("refreshPrices: storing", () => {
   });
 });
 
-describe("refreshPrices: every listed shop", () => {
-  // Every shop the code can price, as a test lists them before Hebe is switched on.
-  const ALL_SHOPS = ["rossmann", "natura", "hebe"] as const;
+describe("refreshPrices: every priced shop, Hebe's too", () => {
   // Two requests' worth in each matched shop: Nivea Soft, which each shop's first recorded answer holds, then 50 ids the
   // shop answers without.
   const naturaSkus = [SOFT.shopItemId, ...Array.from({ length: 50 }, (_, i) => `ZZ${String(i).padStart(8, "0")}`)];
@@ -587,7 +585,7 @@ describe("refreshPrices: every listed shop", () => {
     const { gate } = gateOver(fetchMock);
     const { client, queries } = stubClient();
 
-    const refresh = await refreshPrices(gate, client, [FELIX, SOFT, HEBE_SOFT], ALL_SHOPS);
+    const refresh = await refreshPrices(gate, client, [FELIX, SOFT, HEBE_SOFT]);
 
     expect(requestedUrls(fetchMock)).toHaveLength(3);
     expect(new Set(requestedUrls(fetchMock))).toEqual(
@@ -618,7 +616,7 @@ describe("refreshPrices: every listed shop", () => {
     const { gate } = gateOver(fetchMock);
     const { client, queries } = stubClient();
 
-    const refresh = await refreshPrices(gate, client, targets, ALL_SHOPS);
+    const refresh = await refreshPrices(gate, client, targets);
 
     expect(urlsTo(fetchMock, "rossmann")).toEqual([answers.felix.url, answers.nivea.url]);
     expect(urlsTo(fetchMock, "natura")).toEqual(naturaBatches);
@@ -647,7 +645,7 @@ describe("refreshPrices: every listed shop", () => {
     ]);
     const { client, queries } = stubClient();
 
-    const refresh = await refreshPrices(gate, client, targets, ALL_SHOPS);
+    const refresh = await refreshPrices(gate, client, targets);
 
     expect(urlsTo(fetchMock, "hebe")).toEqual([hebeBatches[0]]);
     expect(reservations.filter((shop) => shop === "hebe")).toHaveLength(1);
@@ -668,7 +666,7 @@ describe("refreshPrices: every listed shop", () => {
     );
     const { client, queries } = stubClient();
 
-    const refresh = await refreshPrices(gate, client, targets, ALL_SHOPS);
+    const refresh = await refreshPrices(gate, client, targets);
 
     // Natura's second request isn't even reserved.
     expect(urlsTo(fetchMock, "natura")).toEqual([]);

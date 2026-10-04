@@ -10,7 +10,6 @@ import {
 } from "@/components/watchlist/match-card";
 import { DECISION_NOTICES } from "@/lib/notices";
 import type { MatchItemSummary, MatchView } from "@/lib/services/match-view";
-import type { MatchableShop } from "@/lib/services/price-comparison";
 
 const ITEM_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
 // The product's page, as the views link it for a product opened from the list's "Do sprawdzenia" chip, and its
@@ -58,13 +57,8 @@ type Extra = Partial<Pick<MatchedShopView, "notice" | "error" | "unsaved">>;
 /** Natura as the page hands it to the island: this view, and no notices unless `extra` adds them. */
 const natura = (view: MatchView, extra: Extra = {}): MatchedShopView => ({ shop: "natura", view, ...quiet, ...extra });
 
-/** Hebe in the same place, before it's switched on: a rule takes any shop the code can match. */
-const hebe = (view: MatchView, extra: Extra = {}): MatchedShopView<MatchableShop> => ({
-  shop: "hebe",
-  view,
-  ...quiet,
-  ...extra,
-});
+/** Hebe in the same place, the other matched shop. */
+const hebe = (view: MatchView, extra: Extra = {}): MatchedShopView => ({ shop: "hebe", view, ...quiet, ...extra });
 
 describe("undecided", () => {
   it.each(["prompt", "choose", "unavailable"] as const)("is true for %s, which has no stored decision", (kind) => {

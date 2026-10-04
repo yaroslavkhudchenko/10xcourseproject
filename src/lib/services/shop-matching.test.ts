@@ -478,8 +478,7 @@ describe("lookups in Hebe, through Hebe's own adapter", () => {
 });
 
 // The product page's steps for its matched shops (runMatchSteps), on Natura's and Hebe's recordings together, through
-// the real gate. Hebe isn't switched on yet, so each test names both shops.
-const BOTH_SHOPS: readonly MatchableShop[] = ["natura", "hebe"];
+// the real gate. Both are switched on, so each test runs the page's own list of shops, Natura's step first.
 const PRODUCT_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
 const PLAIN_PAGE = `/watchlist/${PRODUCT_ID}`;
 // What a shop's card says when its step threw: the shop gave no answer.
@@ -632,9 +631,7 @@ const throwingFor = (shop: MatchableShop, gate: ShopGate): ShopGate => ({
 });
 
 /** The page opened plainly, by the user's own navigation, for the product without decisions, in both shops. */
-function opened(
-  fields: Pick<MatchStepsInput<MatchableShop>, "supabase" | "gate"> & Partial<MatchStepsInput<MatchableShop>>,
-): MatchStepsInput<MatchableShop> {
+function opened(fields: Pick<MatchStepsInput, "supabase" | "gate"> & Partial<MatchStepsInput>): MatchStepsInput {
   return {
     product: softInBoth,
     matches: stored(),
@@ -642,7 +639,6 @@ function opened(
     repinShop: null,
     ownNavigation: true,
     filter: "all",
-    shops: BOTH_SHOPS,
     ...fields,
   };
 }
@@ -862,7 +858,7 @@ describe("runMatchSteps: each matched shop's step on the product's page", () => 
     ]);
   });
 
-  it.each<{ why: string; input: Partial<MatchStepsInput<MatchableShop>>; views: string[] }>([
+  it.each<{ why: string; input: Partial<MatchStepsInput>; views: string[] }>([
     { why: "decisions that couldn't be read", input: { matches: null }, views: ["read-failed", "read-failed"] },
     {
       why: "a decision of one shop that came back odd, beside the other's",
