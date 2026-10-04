@@ -13,7 +13,7 @@ import type { ComparedRow } from "@/components/watchlist/price-comparison-state"
 import ProductThumb from "@/components/watchlist/ProductThumb";
 import ShopCard, { SHOP_CARD, ShopHeader } from "@/components/watchlist/ShopCard";
 import ShopLink from "@/components/watchlist/ShopLink";
-import type { NaturaItemSummary } from "@/lib/services/natura-view";
+import type { MatchItemSummary } from "@/lib/services/match-view";
 import { rowProductOf } from "@/lib/services/watchlist-rows";
 import { cn } from "@/lib/utils";
 
@@ -162,7 +162,7 @@ function MatchFooter({
 }: {
   note: string;
   warnings: string[];
-  item: NaturaItemSummary;
+  item: MatchItemSummary;
   unsaved: boolean;
   action: NaturaCardAction | null;
 }) {
@@ -213,7 +213,7 @@ function ActionLink({ link }: { link: NaturaCardLink }) {
  * The item of a match the page couldn't save, which has no price row: its thumbnail, its brand and size above its
  * name, as a list row draws a product, and its page in the shop.
  */
-function MatchedItem({ item }: { item: NaturaItemSummary }) {
+function MatchedItem({ item }: { item: MatchItemSummary }) {
   // The item's name describes its "Zobacz w sklepie"; the id is this item's own.
   const textId = useId();
   return (
@@ -228,7 +228,7 @@ function MatchedItem({ item }: { item: NaturaItemSummary }) {
 }
 
 /** A matched item's brand and size above its name, as a list row draws a product (rowProductOf). */
-function ItemText({ item, id }: { item: NaturaItemSummary; id?: string }) {
+function ItemText({ item, id }: { item: MatchItemSummary; id?: string }) {
   const { eyebrow, name } = rowProductOf({ ...item, caption: null });
   return (
     <p id={id} className="flex min-w-0 flex-col gap-0.75">

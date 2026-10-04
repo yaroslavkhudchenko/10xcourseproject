@@ -978,6 +978,30 @@ Each adaptation made during implementation gets one line here, naming the contra
 - For Phase 7 (risk #6): Hebe's lip balm 742817 "5,5 ml" carries EAN 9005800362939, the same EAN as Rossmann's 11790 "4,8 g". That is a real shared EAN with a different size, and `hebe.test.ts` shows it is flagged and never accepted automatically.
 - Open, pre-existing for both shops and pinned by `natura.test.ts`: a hit with neither `type` nor attributes counts as a query suggestion, so an answer that lost both would read as "found nothing". It is a candidate for test-plan rollout Phase 3.
 
+### Phase 2
+
+- §1: a named `KnownShop = "rossmann" | MatchableShop` (the plan's "known shops"), and `SHOP_LABELS: Record<KnownShop, ShopLabel>`.
+- §1, §5–§8: one browser-safe `parseMatchedShop(raw)` sits beside `MATCHED_SHOPS`. `repinShopOf`, `retryShopOf`, `decisionNotice` and the decision route all read a shop parameter through it.
+- §2: `registry.ts` also exports `ShopAdapter`, the type of each `SHOP_ADAPTERS` entry.
+- §4: `decisionFieldsFor(shops)` is private, and the default sits on `parseMatchForm(form, shops = MATCHED_SHOPS)`. A confirm's links are checked by a refinement through `SHOP_ADAPTERS[shop]` (`linksOfShop`), so the URL fields parse as optional text. `MatchForm.shop` is `MatchableShop`.
+- §4: `listMatches(supabase, itemId, shops)` requires the item id. The whole-list mode had no caller (the list reads `listMatchStates`) and is gone. It returns `MatchesRead { matches, unreadable }`, or null when the query fails or the answer isn't a list.
+- §4: `listMatchStates(supabase, shops = MATCHED_SHOPS)` takes the list too, since rule 1 needs it. `unread` is `UnreadDecision[]` (`{ watchlistItemId, shop }`), and `unattributed` is a list of shops instead of a count.
+- §4: a decision that was read stands beside an odd row of its shop, since a product has one decision per shop. So `listMatches` leaves a shop with a readable decision out of `unreadable`, and `naturaStateOf` applies the same precedence, as it did before.
+- §4: odd rows of shops outside the list are still counted in the "unexpected rows dropped" log, as an unknown shop's were. Readable ones are dropped without a log line.
+- §4: `decisionBackTo(itemId, shop, outcome, filter)` puts `shop=` before the code. A crafted post whose shop can't be read goes back without it.
+- §5: `MatchStepInput.matches` takes `MatchesRead | null`, and a shop in `unreadable` gets `read-failed`. `shop`, `retryShop` and `repinShop` are typed `MatchableShop`, so tests can pass Hebe.
+- §6: `DECISION_NOTICES.declined` takes a `MatchableShop`. `notices.ts` now imports `SHOP_LABELS` from the browser-safe price-comparison module, which `islandConfig` allows, so both pages' address-bar scripts load that module.
+- §7: `decidedView(own, filter)` takes no shop: its link is the plain page and its text names no shop. Every other builder takes the shop first, `matchedView` and `storedView` included.
+- §7: the module's other Natura-named types are renamed too: `NaturaItemSummary` → `MatchItemSummary`, `NaturaAction` → `MatchAction` and `NaturaMessage` → `MatchMessage`. `MatchProduct` now names two types, matching.ts's rule input and match-view.ts's view input, as the plan's rename specified, so Phase 4 may need an import alias.
+- §8: `src/dev/product-page.astro` needed no change, and `src/pages/watchlist.astro` changed only in a comment.
+- §8: `[id].astro` shows a decision's notice only on the card of the shop it names. A decision's `?error=` still shows on Natura's card, whatever its shop, until Phase 4 routes errors per shop.
+- §8: `shopItemFor` fails only when the asked shop's decision is unreadable, and `productTargets` when any listed shop's is. Both give `failed`, never `gone` or none; Phase 3 revisits `productTargets`.
+- §9: `shop-matching.test.ts` runs three Hebe cases on Hebe's recordings through the registry: a lookup on Hebe's own tracker, charged to Hebe; the choice from both of Hebe's searches; and the `shop-lookup` log line naming Hebe.
+- What Natura's users can see: no text changed. `?repin=natura`, `?retry=natura` and `?shop=natura&<code>` replace `?repin=1`, `?retry=1` and the bare codes. An old `?repin=1` or `?retry=1` opens the plain view, and a notice code without a valid `shop=` shows nothing. The log event `natura-lookup` became `shop-lookup`, with the shop.
+- Gate 2.1 ("Natura's text assertions unchanged"): every one of the 128 Polish or Natura literals in the old tests survives verbatim, except 10 test titles (the renamed `lookupInNatura` describe blocks and four rule titles).
+- §6 cost, measured on the production build: the list page's address-bar script now loads the price-comparison chunk through `notices.ts`, 3.8 KB, or 1.7 KB gzipped. That's negligible, so nothing was changed.
+- 2.6 was verified by the agent at the owner's request (2026-10-04). Both kitchen sinks were captured under `astro dev` at Phase 1's commit and at this phase's tree, with headless Chromium at 1400 px. `/dev/product-page`: its visible text (5,558 lines) and 446 headings are identical, its full-page screenshot is byte-identical, and exactly 60 link targets changed (54 × `?repin=1` → `?repin=natura`, 6 × `?retry=1` → `?retry=natura`). `/dev/watchlist`: text, headings, all 182 links and the screenshot are byte-identical. Each sink draws every section in light and again in a `.dark` wrapper, so both themes are covered.
+
 ## References
 
 - Research: `context/changes/hebe-in-comparison/research.md`
@@ -1001,29 +1025,29 @@ Each adaptation made during implementation gets one line here, naming the contra
 
 #### Automated
 
-- [x] 1.1 Natura's adapter passes `natura.test.ts` unchanged on the shared client (the test file has no diff)
-- [x] 1.2 `hebe.test.ts` passes with the mapping, the `pickMatch` outcomes, the batches, the broken copies and the shop binding
-- [x] 1.3 `npm run test`, `npm run lint` and `npx astro sync && npx astro check` are clean
-- [x] 1.4 Break-checks turn `hebe.test.ts` red: offering a `searchable: [false]` hit, pricing from `price_amount` while a sale price exists, and reading the size from `Pojemność`
-- [x] 1.5 Test-plan §6.4 has no "TBD" left and Prettier passes on it
+- [x] 1.1 Natura's adapter passes `natura.test.ts` unchanged on the shared client (the test file has no diff) — 560d9d7
+- [x] 1.2 `hebe.test.ts` passes with the mapping, the `pickMatch` outcomes, the batches, the broken copies and the shop binding — 560d9d7
+- [x] 1.3 `npm run test`, `npm run lint` and `npx astro sync && npx astro check` are clean — 560d9d7
+- [x] 1.4 Break-checks turn `hebe.test.ts` red: offering a `searchable: [false]` hit, pricing from `price_amount` while a sale price exists, and reading the size from `Pojemność` — 560d9d7
+- [x] 1.5 Test-plan §6.4 has no "TBD" left and Prettier passes on it — 560d9d7
 
 #### Manual
 
-- [x] 1.6 The owner approves any new Hebe recording before it is made, or no new recording was needed
+- [x] 1.6 The owner approves any new Hebe recording before it is made, or no new recording was needed — 560d9d7
 
 ### Phase 2: Matching services for every matched shop (Natura only)
 
 #### Automated
 
-- [ ] 2.1 `npm run test` passes, with Natura's text assertions unchanged and the new two-shop cases green
-- [ ] 2.2 `npm run lint` and `npx astro check` are clean
-- [ ] 2.3 `npx playwright test` passes all six existing specs unedited from a cold server
-- [ ] 2.4 `npm run smoke` passes against the production preview
-- [ ] 2.5 Break-checks turn a unit test red: failing every shop on one odd row, counting a row of a shop outside the list, re-pinning every shop on `repin=hebe`, looking up an undecided other shop on a `repin=` view, and accepting a Hebe decision with a Natura URL
+- [x] 2.1 `npm run test` passes, with Natura's text assertions unchanged and the new two-shop cases green
+- [x] 2.2 `npm run lint` and `npx astro check` are clean
+- [x] 2.3 `npx playwright test` passes all six existing specs unedited from a cold server
+- [x] 2.4 `npm run smoke` passes against the production preview
+- [x] 2.5 Break-checks turn a unit test red: failing every shop on one odd row, counting a row of a shop outside the list, re-pinning every shop on `repin=hebe`, looking up an undecided other shop on a `repin=` view, and accepting a Hebe decision with a Natura URL
 
 #### Manual
 
-- [ ] 2.6 `/dev/product-page` and `/dev/watchlist` render every section as before, in both themes
+- [x] 2.6 `/dev/product-page` and `/dev/watchlist` render every section as before, in both themes
 
 ### Phase 3: Prices for every matched shop (Natura only)
 

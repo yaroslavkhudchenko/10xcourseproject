@@ -116,7 +116,7 @@ const OTHER_BRAND_MATCH: ShopMatchState = {
 };
 const [OTHER_BRAND_ROW] = listRowsOf(
   [JOANNA],
-  { states: [OTHER_BRAND_MATCH], unread: [], unattributed: 0 },
+  { states: [OTHER_BRAND_MATCH], unread: [], unattributed: [] },
   {
     prices: [
       { shop: "rossmann", shopItemId: JOANNA.sourceItemId, ...checked(15 * MINUTE, 8.99) },
@@ -289,7 +289,7 @@ const LIST_PRICES: LatestPrice[] = [
   { shop: "rossmann", shopItemId: ZIAJA.sourceItemId, ...checked(20 * HOUR, 12.99) },
   { shop: "rossmann", shopItemId: COLGATE.sourceItemId, ...checked(2 * DAY, 11.49) },
 ];
-const MATCH_READ = { states: LIST_STATES, unread: [], unattributed: 0 };
+const MATCH_READ = { states: LIST_STATES, unread: [], unattributed: [] };
 const PRICE_READ = { prices: LIST_PRICES, unread: [], unattributed: 0 };
 
 /** One state of the list's rows, with the kitchen sink's label for it. */

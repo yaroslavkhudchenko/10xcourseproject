@@ -34,7 +34,8 @@ export type PriceRequest = z.infer<typeof priceRequestSchema>;
 /**
  * The shop item a refresh of the user's product fetches: the product's own item for Rossmann, where it was picked, and
  * its matched item for Natura. Null when the product isn't on the user's list (RLS answers another user's product the
- * same way) or has no matched item in that shop; `failed` when the rows couldn't be read.
+ * same way) or has no matched item in that shop; `failed` when the rows couldn't be read, the shop's decision among
+ * them, which may hide a match.
  */
 export async function shopItemFor(
   supabase: SupabaseClient,
@@ -48,11 +49,11 @@ export async function shopItemFor(
     }
     return product?.source === "rossmann" ? { shop, shopItemId: product.sourceItemId } : null;
   }
-  const [product, matches] = await Promise.all([getWatchlistProduct(supabase, itemId), listMatches(supabase, itemId)]);
-  if (product === "failed" || matches === null) {
+  const [product, read] = await Promise.all([getWatchlistProduct(supabase, itemId), listMatches(supabase, itemId)]);
+  if (product === "failed" || read === null || read.unreadable.includes(shop)) {
     return "failed";
   }
-  const match = matches.find((decision) => decision.shop === shop);
+  const match = read.matches.find((decision) => decision.shop === shop);
   return product !== null && match?.state === "matched" ? { shop, shopItemId: match.item.shopItemId } : null;
 }
 
@@ -99,16 +100,17 @@ export async function listTargets(supabase: SupabaseClient): Promise<PriceKey[] 
 /**
  * What a product page's "Odśwież ceny" fetches without JavaScript: every shop item of the user's product, however
  * recently it was checked, as the island's button does. None for a product that isn't on the user's list (RLS answers
- * another user's product the same way); `failed` when the product or its decisions couldn't be read.
+ * another user's product the same way); `failed` when the product or any of its matched shops' decisions couldn't be
+ * read.
  */
 export async function productTargets(supabase: SupabaseClient, itemId: string): Promise<PriceKey[] | "failed"> {
-  const [product, matches] = await Promise.all([getWatchlistProduct(supabase, itemId), listMatches(supabase, itemId)]);
-  if (product === "failed" || matches === null) {
+  const [product, read] = await Promise.all([getWatchlistProduct(supabase, itemId), listMatches(supabase, itemId)]);
+  if (product === "failed" || read === null || read.unreadable.length > 0) {
     return "failed";
   }
   if (product === null) {
     return [];
   }
-  const natura = matches.find((match) => match.shop === "natura");
+  const natura = read.matches.find((match) => match.shop === "natura");
   return productPriceKeys(product, natura?.state === "matched" ? natura.item.shopItemId : null);
 }

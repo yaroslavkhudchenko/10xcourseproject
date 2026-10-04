@@ -11,18 +11,18 @@ import {
   sizeLabel,
   storedView,
   type CandidateFlag,
-  type NaturaItemSummary,
-  type NaturaProduct,
-  type NaturaView,
-} from "@/lib/services/natura-view";
+  type MatchItemSummary,
+  type MatchProduct,
+  type MatchView,
+} from "@/lib/services/match-view";
 import { parseSize } from "@/lib/services/size";
 import type {
   CandidateOption,
   CandidateVerdict,
   MatchedItem,
-  NaturaChoices,
   RepinnableMatch,
   ShopCandidate,
+  ShopChoices,
   ShopMatch,
   ShopUnavailable,
   Size,
@@ -30,14 +30,14 @@ import type {
 
 const ITEM_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
 // The product's page, which every link of the views leads to, and the action that opens the choice that changes a
-// stored decision, as the views give them for a product opened from the whole list.
+// stored decision in Natura, as the views give them for a product opened from the whole list.
 const PAGE = `/watchlist/${ITEM_ID}`;
-const REPIN = { kind: "repin", href: `${PAGE}?repin=1` } as const;
+const REPIN = { kind: "repin", href: `${PAGE}?repin=natura` } as const;
 // How the page was opened: from the whole list, or from its "Do sprawdzenia" chip.
 const ALL = { filter: "all" } as const;
 const CHECK = { filter: "check" } as const;
 // Rossmann's Nivea Soft 300 ml, as the page hands it to the builders.
-const product: NaturaProduct = { id: ITEM_ID, brand: "NIVEA", sizeText: "300 ml", size: parseSize("300 ml") };
+const product: MatchProduct = { id: ITEM_ID, brand: "NIVEA", sizeText: "300 ml", size: parseSize("300 ml") };
 // 12:00 UTC is 14:00 in Poland (summer time).
 const FETCHED_AT = new Date("2026-09-28T12:00:00.000Z");
 // Intl writes Polish prices with a no-break space before "zł".
@@ -76,7 +76,7 @@ const option = (verdict: CandidateVerdict, sizeText: string | null = "300 ml"): 
 });
 
 /** The summary a matched view carries of the item with the given size text and brand: what its card shows of it. */
-const summary = (sizeText: string | null, brand: string | null = "NIVEA"): NaturaItemSummary => ({
+const summary = (sizeText: string | null, brand: string | null = "NIVEA"): MatchItemSummary => ({
   brand,
   name: "NIVEA SOFT krem intensywnie nawilżający",
   sizeText,
@@ -95,7 +95,7 @@ describe("storedView", () => {
     const match: ShopMatch = { ...decision, decidedBy, state: "matched", item: item("300 ml") };
 
     // The match's price and its page are in its price row, so its card names the item without its photo or page.
-    expect(storedView(match, product, ALL)).toEqual({
+    expect(storedView("natura", match, product, ALL)).toEqual({
       kind: "matched",
       note,
       warnings: [],
@@ -108,7 +108,7 @@ describe("storedView", () => {
   it("shows a stored match's warnings, its size's and then its brand's", () => {
     const match: ShopMatch = { ...decision, decidedBy: "user", state: "matched", item: item("200 ml", "YOPE") };
 
-    expect(storedView(match, product, ALL)).toMatchObject({
+    expect(storedView("natura", match, product, ALL)).toMatchObject({
       kind: "matched",
       warnings: ["Inny rozmiar: 200 ml zamiast 300 ml", "Inna marka: YOPE zamiast NIVEA"],
       item: summary("200 ml", "YOPE"),
@@ -118,16 +118,16 @@ describe("storedView", () => {
   it("shows a shop the user declined as their choice, with the action that opens the choice again", () => {
     const match: ShopMatch = { ...decision, decidedBy: "user", state: "unmatched", item: null };
 
-    expect(storedView(match, product, ALL)).toEqual({ kind: "unmatched", action: REPIN });
+    expect(storedView("natura", match, product, ALL)).toEqual({ kind: "unmatched", action: REPIN });
   });
 
   it("shows a lookup that found nothing with when it ran, on the Polish clock, and a link to retry it", () => {
     const match: ShopMatch = { ...decision, decidedBy: "auto", state: "not_found", item: null };
 
-    expect(storedView(match, product, ALL)).toEqual({
+    expect(storedView("natura", match, product, ALL)).toEqual({
       kind: "not-found",
       text: "Nie znaleziono w Naturze (sprawdzono 27.09, 21:45).",
-      href: `${PAGE}?retry=1`,
+      href: `${PAGE}?retry=natura`,
     });
   });
 
@@ -135,7 +135,7 @@ describe("storedView", () => {
     { state: "matched", match: { ...decision, decidedBy: "auto", state: "matched", item: item("300 ml") } },
     { state: "unmatched", match: { ...decision, decidedBy: "user", state: "unmatched", item: null } },
   ])("closes a stored $state's open choice with its action, the plain page", ({ match }) => {
-    expect(storedView(match, product, { ...ALL, repinning: true })).toMatchObject({
+    expect(storedView("natura", match, product, { ...ALL, repinning: true })).toMatchObject({
       action: { kind: "cancel", href: PAGE },
     });
   });
@@ -143,26 +143,26 @@ describe("storedView", () => {
   it("keeps a retry's link for a lookup that found nothing, which has no choice to open", () => {
     const match: ShopMatch = { ...decision, decidedBy: "auto", state: "not_found", item: null };
 
-    expect(storedView(match, product, { ...ALL, repinning: true })).toMatchObject({
+    expect(storedView("natura", match, product, { ...ALL, repinning: true })).toMatchObject({
       kind: "not-found",
-      href: `${PAGE}?retry=1`,
+      href: `${PAGE}?retry=natura`,
     });
   });
 });
 
 describe("notFoundView", () => {
   it("shows the time it's given, on the Polish clock", () => {
-    expect(notFoundView(FETCHED_AT, product, "all")).toEqual({
+    expect(notFoundView("natura", FETCHED_AT, product, "all")).toEqual({
       kind: "not-found",
       text: "Nie znaleziono w Naturze (sprawdzono 28.09, 14:00).",
-      href: `${PAGE}?retry=1`,
+      href: `${PAGE}?retry=natura`,
     });
   });
 });
 
 describe("matchedView: the warnings", () => {
   it("names both sizes when they differ", () => {
-    expect(matchedView(item("200 ml"), "user", product, ALL)).toMatchObject({
+    expect(matchedView("natura", item("200 ml"), "user", product, ALL)).toMatchObject({
       kind: "matched",
       note: "Potwierdzone przez Ciebie.",
       warnings: ["Inny rozmiar: 200 ml zamiast 300 ml"],
@@ -170,19 +170,19 @@ describe("matchedView: the warnings", () => {
   });
 
   it("names both brands when they differ", () => {
-    expect(matchedView(item("300 ml", "YOPE"), "auto", product, ALL)).toMatchObject({
+    expect(matchedView("natura", item("300 ml", "YOPE"), "auto", product, ALL)).toMatchObject({
       kind: "matched",
       warnings: ["Inna marka: YOPE zamiast NIVEA"],
     });
   });
 
   it("gives the size's warning, then the brand's, when both differ", () => {
-    expect(matchedView(item("200 ml", "YOPE"), "user", product, ALL)).toMatchObject({
+    expect(matchedView("natura", item("200 ml", "YOPE"), "user", product, ALL)).toMatchObject({
       warnings: ["Inny rozmiar: 200 ml zamiast 300 ml", "Inna marka: YOPE zamiast NIVEA"],
     });
   });
 
-  it.each<{ why: string; own: NaturaProduct; itemSize: string | null; itemBrand?: string | null }>([
+  it.each<{ why: string; own: MatchProduct; itemSize: string | null; itemBrand?: string | null }>([
     { why: "the same size is written another way", own: product, itemSize: "0,3 l" },
     { why: "the item's size is unknown", own: product, itemSize: null },
     { why: "the item's size text doesn't parse", own: product, itemSize: "4x57 szt." },
@@ -191,14 +191,17 @@ describe("matchedView: the warnings", () => {
     { why: "the item's brand is unknown", own: product, itemSize: "300 ml", itemBrand: null },
     { why: "the product's brand is unknown", own: { ...product, brand: null }, itemSize: "300 ml", itemBrand: "YOPE" },
   ])("warns of nothing when $why", ({ own, itemSize, itemBrand = "NIVEA" }) => {
-    expect(matchedView(item(itemSize, itemBrand), "auto", own, ALL)).toMatchObject({ kind: "matched", warnings: [] });
+    expect(matchedView("natura", item(itemSize, itemBrand), "auto", own, ALL)).toMatchObject({
+      kind: "matched",
+      warnings: [],
+    });
   });
 });
 
 describe("matchedView: the item", () => {
   it("carries a saved match's item and its warnings, for its card to name, and nothing else of the candidate", () => {
     // The candidate, as the page hands over one it has just saved, with its offer and its EANs.
-    expect(matchedView({ ...candidate("200 ml"), brand: "YOPE" }, "user", product, ALL)).toEqual({
+    expect(matchedView("natura", { ...candidate("200 ml"), brand: "YOPE" }, "user", product, ALL)).toEqual({
       kind: "matched",
       note: "Potwierdzone przez Ciebie.",
       warnings: ["Inny rozmiar: 200 ml zamiast 300 ml", "Inna marka: YOPE zamiast NIVEA"],
@@ -206,14 +209,14 @@ describe("matchedView: the item", () => {
       unsaved: false,
       action: REPIN,
     });
-    expect(matchedView(candidate("300 ml"), "auto", product, { ...ALL, unsaved: false })).toMatchObject({
+    expect(matchedView("natura", candidate("300 ml"), "auto", product, { ...ALL, unsaved: false })).toMatchObject({
       item: summary("300 ml"),
       unsaved: false,
     });
   });
 
   it("marks a match the page couldn't save as unsaved, so its card shows the item's photo and page, and no action", () => {
-    expect(matchedView(candidate("300 ml"), "auto", product, { ...ALL, unsaved: true })).toEqual({
+    expect(matchedView("natura", candidate("300 ml"), "auto", product, { ...ALL, unsaved: true })).toEqual({
       kind: "matched",
       note: "Dopasowano automatycznie: ten sam EAN i rozmiar.",
       warnings: [],
@@ -229,56 +232,60 @@ describe("the views' links keep the list's filter", () => {
   const declinedDecision: RepinnableMatch = { ...decision, decidedBy: "user", state: "unmatched", item: null };
   const notFoundDecision: ShopMatch = { ...decision, decidedBy: "auto", state: "not_found", item: null };
 
-  it.each<{ view: string; built: NaturaView; href: string }>([
+  it.each<{ view: string; built: MatchView; href: string }>([
     {
       view: "Zmień on a match just saved",
-      built: matchedView(candidate("300 ml"), "auto", product, CHECK),
-      href: `${PAGE}?f=check&repin=1`,
+      built: matchedView("natura", candidate("300 ml"), "auto", product, CHECK),
+      href: `${PAGE}?f=check&repin=natura`,
     },
     {
       view: "Zmień on a stored match",
-      built: storedView(matchedDecision, product, CHECK),
-      href: `${PAGE}?f=check&repin=1`,
+      built: storedView("natura", matchedDecision, product, CHECK),
+      href: `${PAGE}?f=check&repin=natura`,
     },
     {
       view: "Anuluj on a stored match",
-      built: storedView(matchedDecision, product, { ...CHECK, repinning: true }),
+      built: storedView("natura", matchedDecision, product, { ...CHECK, repinning: true }),
       href: `${PAGE}?f=check`,
     },
     {
       view: "Dopasuj ponownie on a decline",
-      built: storedView(declinedDecision, product, CHECK),
-      href: `${PAGE}?f=check&repin=1`,
+      built: storedView("natura", declinedDecision, product, CHECK),
+      href: `${PAGE}?f=check&repin=natura`,
     },
     {
       view: "Anuluj on a decline",
-      built: storedView(declinedDecision, product, { ...CHECK, repinning: true }),
+      built: storedView("natura", declinedDecision, product, { ...CHECK, repinning: true }),
       href: `${PAGE}?f=check`,
     },
   ])("keeps it in $view", ({ built, href }) => {
     expect(built).toMatchObject({ action: { href } });
   });
 
-  it.each<{ view: string; built: NaturaView; href: string }>([
+  it.each<{ view: string; built: MatchView; href: string }>([
     {
       view: "the retry of a stored lookup",
-      built: storedView(notFoundDecision, product, CHECK),
-      href: `${PAGE}?f=check&retry=1`,
+      built: storedView("natura", notFoundDecision, product, CHECK),
+      href: `${PAGE}?f=check&retry=natura`,
     },
     {
       view: "the retry of a fresh lookup",
-      built: notFoundView(FETCHED_AT, product, "check"),
-      href: `${PAGE}?f=check&retry=1`,
+      built: notFoundView("natura", FETCHED_AT, product, "check"),
+      href: `${PAGE}?f=check&retry=natura`,
     },
-    { view: "the lookup's button", built: promptView(product, false, "check"), href: `${PAGE}?f=check` },
-    { view: "a retry's lookup button", built: promptView(product, true, "check"), href: `${PAGE}?f=check&retry=1` },
+    { view: "the lookup's button", built: promptView("natura", product, false, "check"), href: `${PAGE}?f=check` },
+    {
+      view: "a retry's lookup button",
+      built: promptView("natura", product, true, "check"),
+      href: `${PAGE}?f=check&retry=natura`,
+    },
     { view: "the link to a decision stored meanwhile", built: decidedView(product, "check"), href: `${PAGE}?f=check` },
   ])("keeps it in $view", ({ built, href }) => {
     expect(built).toMatchObject({ href });
   });
 
   it("keeps it in the choice's Anuluj", () => {
-    expect(repinView({ kind: "not-found" }, declinedDecision, FETCHED_AT, product, "check").cancelHref).toBe(
+    expect(repinView("natura", { kind: "not-found" }, declinedDecision, FETCHED_AT, product, "check").cancelHref).toBe(
       `${PAGE}?f=check`,
     );
   });
@@ -320,14 +327,14 @@ describe("optionView: the flags", () => {
       flags: [{ text: "Ten sam EAN", warning: false }],
     },
   ])("flags a candidate with $why", ({ verdict, sizeText, flags }) => {
-    expect(optionView(option(verdict, sizeText), FETCHED_AT, product).flags).toEqual(flags);
+    expect(optionView("natura", option(verdict, sizeText), FETCHED_AT, product).flags).toEqual(flags);
   });
 
   it("flags a candidate of another brand after its size, naming both brands", () => {
     const verdict: CandidateVerdict = { sharesEan: true, size: "differs", brand: "differs" };
     const otherBrand: CandidateOption = { candidate: { ...candidate("200 ml"), brand: "YOPE" }, verdict };
 
-    expect(optionView(otherBrand, FETCHED_AT, product).flags).toEqual([
+    expect(optionView("natura", otherBrand, FETCHED_AT, product).flags).toEqual([
       { text: "Ten sam EAN", warning: false },
       { text: "Inny rozmiar: 200 ml zamiast 300 ml", warning: true },
       { text: "Inna marka: YOPE zamiast NIVEA", warning: true },
@@ -339,14 +346,14 @@ describe("optionView: the price", () => {
   const verdict: CandidateVerdict = { sharesEan: true, size: "equal", brand: "agrees" };
 
   it("shows the candidate's price as Natura's online price, with when it was fetched", () => {
-    const view = optionView(option(verdict), FETCHED_AT, product);
+    const view = optionView("natura", option(verdict), FETCHED_AT, product);
 
     expect(view.price).toBe(`16,99${NO_BREAK_SPACE}zł · cena online w drogerienatura.pl, pobrano 14:00`);
     expect(view.candidate).toEqual(candidate("300 ml"));
   });
 
   it("says there's no online price when the shop sent none, never a blank or a zero", () => {
-    const view = optionView({ candidate: candidate("300 ml", null), verdict }, FETCHED_AT, product);
+    const view = optionView("natura", { candidate: candidate("300 ml", null), verdict }, FETCHED_AT, product);
 
     expect(view.price).toBe("Brak ceny online w drogerienatura.pl, pobrano 14:00");
   });
@@ -362,10 +369,10 @@ describe("chooseView", () => {
     { via: "ean", intro: "Znalezione w Naturze po kodzie EAN. Wybierz ten sam produkt albo „Żaden z nich”." },
     { via: "name", intro: "Znalezione w Naturze po nazwie. Wybierz ten sam produkt albo „Żaden z nich”." },
   ])("says the candidates were found by $via, and keeps the lookup's order", ({ via, intro }) => {
-    expect(chooseView(options, via, FETCHED_AT, product)).toEqual({
+    expect(chooseView("natura", options, via, FETCHED_AT, product)).toEqual({
       kind: "choose",
       intro,
-      options: options.map((each) => optionView(each, FETCHED_AT, product)),
+      options: options.map((each) => optionView("natura", each, FETCHED_AT, product)),
     });
   });
 });
@@ -379,7 +386,7 @@ describe("repinView", () => {
     candidate: { ...candidate("200 ml"), shopItemId: "NV89064" },
     verdict: { sharesEan: true, size: "differs", brand: "agrees" },
   };
-  const found = (via: "ean" | "name" | "both", incomplete: ShopUnavailable | null = null): NaturaChoices => ({
+  const found = (via: "ean" | "name" | "both", incomplete: ShopUnavailable | null = null): ShopChoices => ({
     kind: "choices",
     options: [matchedItem, otherSize],
     via,
@@ -388,12 +395,12 @@ describe("repinView", () => {
 
   it("offers an automatic match's choice with its item marked and offered, Żaden z nich, and the match it replaces", () => {
     // Confirming the item the rule matched on its own makes the match the user's.
-    expect(repinView(found("both"), matchedDecision, FETCHED_AT, product, "all")).toEqual({
+    expect(repinView("natura", found("both"), matchedDecision, FETCHED_AT, product, "all")).toEqual({
       kind: "repin",
       intro: "Znalezione w Naturze po kodzie EAN i po nazwie. Wybierz ten sam produkt albo „Żaden z nich”.",
       options: [
-        { ...optionView(matchedItem, FETCHED_AT, product), current: true, confirm: true },
-        { ...optionView(otherSize, FETCHED_AT, product), current: false, confirm: true },
+        { ...optionView("natura", matchedItem, FETCHED_AT, product), current: true, confirm: true },
+        { ...optionView("natura", otherSize, FETCHED_AT, product), current: false, confirm: true },
       ],
       message: null,
       decline: true,
@@ -405,19 +412,19 @@ describe("repinView", () => {
   it("marks the item of a match the user confirmed without offering it again, and offers every other candidate", () => {
     const confirmed: RepinnableMatch = { ...decision, decidedBy: "user", state: "matched", item: item("300 ml") };
 
-    expect(repinView(found("both"), confirmed, FETCHED_AT, product, "all").options).toEqual([
-      { ...optionView(matchedItem, FETCHED_AT, product), current: true, confirm: false },
-      { ...optionView(otherSize, FETCHED_AT, product), current: false, confirm: true },
+    expect(repinView("natura", found("both"), confirmed, FETCHED_AT, product, "all").options).toEqual([
+      { ...optionView("natura", matchedItem, FETCHED_AT, product), current: true, confirm: false },
+      { ...optionView("natura", otherSize, FETCHED_AT, product), current: false, confirm: true },
     ]);
   });
 
   it("offers a decline's choice with nothing marked, every candidate offered, and no Żaden z nich, only Anuluj", () => {
-    expect(repinView(found("both"), declinedDecision, FETCHED_AT, product, "all")).toEqual({
+    expect(repinView("natura", found("both"), declinedDecision, FETCHED_AT, product, "all")).toEqual({
       kind: "repin",
       intro: "Znalezione w Naturze po kodzie EAN i po nazwie. Wybierz ten sam produkt albo „Anuluj”.",
       options: [
-        { ...optionView(matchedItem, FETCHED_AT, product), current: false, confirm: true },
-        { ...optionView(otherSize, FETCHED_AT, product), current: false, confirm: true },
+        { ...optionView("natura", matchedItem, FETCHED_AT, product), current: false, confirm: true },
+        { ...optionView("natura", otherSize, FETCHED_AT, product), current: false, confirm: true },
       ],
       message: null,
       decline: false,
@@ -430,13 +437,13 @@ describe("repinView", () => {
     { via: "ean", intro: "Znalezione w Naturze po kodzie EAN. Wybierz ten sam produkt albo „Żaden z nich”." },
     { via: "name", intro: "Znalezione w Naturze po nazwie. Wybierz ten sam produkt albo „Żaden z nich”." },
   ])("says the candidates were found by $via alone", ({ via, intro }) => {
-    expect(repinView(found(via), matchedDecision, FETCHED_AT, product, "all").intro).toBe(intro);
+    expect(repinView("natura", found(via), matchedDecision, FETCHED_AT, product, "all").intro).toBe(intro);
   });
 
   it("says the choice may be incomplete when the name search got no answer", () => {
     const busy: ShopUnavailable = { kind: "unavailable", reason: "busy" };
 
-    expect(repinView(found("ean", busy), matchedDecision, FETCHED_AT, product, "all")).toMatchObject({
+    expect(repinView("natura", found("ean", busy), matchedDecision, FETCHED_AT, product, "all")).toMatchObject({
       options: [{ current: true }, { current: false }],
       message: {
         text:
@@ -448,7 +455,7 @@ describe("repinView", () => {
     });
   });
 
-  it.each<{ why: string; choices: NaturaChoices; message: { text: string; warning: boolean } }>([
+  it.each<{ why: string; choices: ShopChoices; message: { text: string; warning: boolean } }>([
     {
       why: "nothing was found",
       choices: { kind: "not-found" },
@@ -465,7 +472,7 @@ describe("repinView", () => {
       },
     },
   ])("says $why, with no candidate, and still lets a match be declined", ({ choices, message }) => {
-    expect(repinView(choices, matchedDecision, FETCHED_AT, product, "all")).toEqual({
+    expect(repinView("natura", choices, matchedDecision, FETCHED_AT, product, "all")).toEqual({
       kind: "repin",
       intro: null,
       options: [],
@@ -478,9 +485,9 @@ describe("repinView", () => {
 });
 
 describe("promptView", () => {
-  it("links to the product's page, keeping a retry", () => {
-    expect(promptView(product, false, "all")).toEqual({ kind: "prompt", href: PAGE });
-    expect(promptView(product, true, "all")).toEqual({ kind: "prompt", href: `${PAGE}?retry=1` });
+  it("links to the product's page, keeping a retry of its shop", () => {
+    expect(promptView("natura", product, false, "all")).toEqual({ kind: "prompt", href: PAGE });
+    expect(promptView("natura", product, true, "all")).toEqual({ kind: "prompt", href: `${PAGE}?retry=natura` });
   });
 });
 
@@ -492,22 +499,33 @@ describe("decidedView", () => {
 
 describe("decisionNotice", () => {
   it.each<{ query: string; notice: string }>([
-    { query: "matched=1", notice: "Zapisano dopasowanie." },
-    { query: "declined=1", notice: "Zapisano: brak w Naturze." },
-    { query: "decided=1", notice: "Ten produkt ma już zapisaną decyzję." },
-  ])("gives the page's notice for ?$query", ({ query, notice }) => {
-    expect(decisionNotice(new URLSearchParams(query))).toBe(notice);
+    { query: "shop=natura&matched=1", notice: "Zapisano dopasowanie." },
+    { query: "shop=natura&declined=1", notice: "Zapisano: brak w Naturze." },
+    { query: "shop=natura&decided=1", notice: "Ten produkt ma już zapisaną decyzję." },
+  ])("gives the page's notice for ?$query, with the shop it was for", ({ query, notice }) => {
+    expect(decisionNotice(new URLSearchParams(query))).toEqual({ shop: "natura", text: notice });
   });
 
   it("gives a match's notice first, then a decline's, when several come at once", () => {
-    expect(decisionNotice(new URLSearchParams("decided=1&declined=1&matched=1"))).toBe("Zapisano dopasowanie.");
-    expect(decisionNotice(new URLSearchParams("decided=1&declined=1"))).toBe("Zapisano: brak w Naturze.");
+    expect(decisionNotice(new URLSearchParams("shop=natura&decided=1&declined=1&matched=1"))?.text).toBe(
+      "Zapisano dopasowanie.",
+    );
+    expect(decisionNotice(new URLSearchParams("shop=natura&decided=1&declined=1"))?.text).toBe(
+      "Zapisano: brak w Naturze.",
+    );
   });
 
   it("gives none without a decision's code, whatever else the address holds", () => {
     expect(decisionNotice(new URLSearchParams())).toBeNull();
-    expect(decisionNotice(new URLSearchParams("error=failed&prices=done&retry=1"))).toBeNull();
+    expect(decisionNotice(new URLSearchParams("shop=natura&error=failed&prices=done&retry=natura"))).toBeNull();
   });
+
+  it.each(["declined=1", "shop=&declined=1", "shop=rossmann&declined=1", "shop=NATURA&matched=1", "shop=1&decided=1"])(
+    "gives none for ?%s, whose code names no matched shop",
+    (query) => {
+      expect(decisionNotice(new URLSearchParams(query))).toBeNull();
+    },
+  );
 });
 
 describe("sizeLabel", () => {

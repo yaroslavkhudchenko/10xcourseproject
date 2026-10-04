@@ -1,8 +1,8 @@
 import { DECISION_NOTICES } from "@/lib/notices";
-import type { NaturaAction, NaturaItemSummary, NaturaView } from "@/lib/services/natura-view";
+import type { MatchAction, MatchItemSummary, MatchView } from "@/lib/services/match-view";
 
 // Natura's card on the product's page, without React: what it says for each view the page builds of Natura
-// (src/lib/services/natura-view.ts), with the notices of a decision just made. The price island renders it, so this
+// (src/lib/services/match-view.ts), with the notices of a decision just made. The price island renders it, so this
 // module imports nothing server-only; the views come in as data, their links included, which keep the list's filter.
 
 /**
@@ -11,7 +11,7 @@ import type { NaturaAction, NaturaItemSummary, NaturaView } from "@/lib/services
  * a lookup that found nothing, and a decision that couldn't be read all count as decided, and so does no view at all.
  * A stored decision whose choice the user opened to change it is still decided until they pick.
  */
-export function naturaUndecided(view: NaturaView | null): boolean {
+export function naturaUndecided(view: MatchView | null): boolean {
   return view?.kind === "prompt" || view?.kind === "choose" || view?.kind === "unavailable";
 }
 
@@ -20,7 +20,7 @@ export function naturaUndecided(view: NaturaView | null): boolean {
  * product's prices then count as unread: the product area names no shop, and the list beside it says so, as the list's
  * own row does (listRowOf). No view at all is no such decision.
  */
-export function naturaUnreadable(view: NaturaView | null): boolean {
+export function naturaUnreadable(view: MatchView | null): boolean {
   return view?.kind === "read-failed";
 }
 
@@ -30,7 +30,7 @@ export function naturaUnreadable(view: NaturaView | null): boolean {
  * own outcome couldn't be stored, so the next visit looks the product up again.
  */
 export interface NaturaCardInput {
-  view: NaturaView;
+  view: MatchView;
   notice: string | null;
   error: string | null;
   unsaved: boolean;
@@ -71,7 +71,7 @@ export type NaturaCard = { alerts: NaturaCardAlert[] } & (
       kind: "matched";
       note: string;
       warnings: string[];
-      item: NaturaItemSummary;
+      item: MatchItemSummary;
       unsaved: boolean;
       action: NaturaCardAction | null;
     }
@@ -93,7 +93,7 @@ const REPIN_HINTS = {
 } as const;
 
 /** The card's action for a stored match's or decline's view action. */
-function cardActionOf(action: NaturaAction, decision: "matched" | "unmatched"): NaturaCardAction {
+function cardActionOf(action: MatchAction, decision: "matched" | "unmatched"): NaturaCardAction {
   return action.kind === "repin"
     ? { link: { label: REPIN_LABELS[decision], href: action.href }, hint: null }
     : { link: { label: "Anuluj", href: action.href }, hint: REPIN_HINTS[decision] };

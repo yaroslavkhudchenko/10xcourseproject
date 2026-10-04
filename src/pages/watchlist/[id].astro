@@ -17,22 +17,8 @@ import {
 import ProductUnavailable from "@/components/watchlist/ProductUnavailable.astro";
 import RemoveProduct from "@/components/watchlist/RemoveProduct.astro";
 import WatchlistShell from "@/layouts/WatchlistShell.astro";
-import {
-  ERROR_PARAM,
-  LIST_PRICES_PARAM,
-  PRICES_NOTICES,
-  PRICES_PARAM,
-  REMOVAL_PARAM,
-  REPIN_PARAM,
-} from "@/lib/notices";
-import { autoRefreshOf, decideMatchStep, type MatchStep } from "@/lib/services/match-step";
-import {
-  listMatches,
-  listMatchStates,
-  matchErrorMessage,
-  recordLookup,
-  type MatchStatesRead,
-} from "@/lib/services/matches";
+import { ERROR_PARAM, LIST_PRICES_PARAM, PRICES_NOTICES, PRICES_PARAM, REMOVAL_PARAM } from "@/lib/notices";
+import { autoRefreshOf, decideMatchStep, repinShopOf, retryShopOf, type MatchStep } from "@/lib/services/match-step";
 import {
   chooseView,
   decidedView,
@@ -42,15 +28,23 @@ import {
   promptView,
   repinView,
   storedView,
-  type NaturaRepin,
-  type NaturaView,
-} from "@/lib/services/natura-view";
+  type MatchRepin,
+  type MatchView,
+} from "@/lib/services/match-view";
+import {
+  listMatches,
+  listMatchStates,
+  matchErrorMessage,
+  recordLookup,
+  type MatchesRead,
+  type MatchStatesRead,
+} from "@/lib/services/matches";
 import { keyText, SHOP_LABELS, type PricedShop } from "@/lib/services/price-comparison";
 import { parsePriceRefreshCode } from "@/lib/services/price-refresh";
 import { listLatestPrices, readLatestPrices, recordPriceChecks, type ListPricesRead } from "@/lib/services/prices";
 import { isOwnNavigation } from "@/lib/services/search-query";
 import { shopGateFor } from "@/lib/services/shop-gate";
-import { lookupChoicesInNatura, lookupInNatura } from "@/lib/services/shop-matching";
+import { lookupChoicesInShop, lookupInShop } from "@/lib/services/shop-matching";
 import {
   getWatchlistProduct,
   listWatchlist,
@@ -69,7 +63,7 @@ import {
 } from "@/lib/services/watchlist-rows";
 import { shopUnavailableText } from "@/lib/shop-messages";
 import { cn } from "@/lib/utils";
-import type { MatchedItem, ShopMatch, WatchlistItem, WatchlistProduct } from "@/types";
+import type { MatchedItem, WatchlistItem, WatchlistProduct } from "@/types";
 
 const { user, supabase } = Astro.locals;
 const params = Astro.url.searchParams;
@@ -81,7 +75,7 @@ const ownNavigation = isOwnNavigation(Astro.request.headers);
 // call. The product and its stored decisions need only the id, so both are read at once; the decisions count only
 // once the product is there.
 const id = parseWatchlistItemId(Astro.params.id);
-type ProductReads = [WatchlistProduct | null | "failed", ShopMatch[] | null];
+type ProductReads = [WatchlistProduct | null | "failed", MatchesRead | null];
 const productReads: Promise<ProductReads> =
   id === null
     ? Promise.resolve<ProductReads>([null, null])
@@ -101,14 +95,16 @@ if (product === null) {
   Astro.response.status = 503;
 }
 
-const retrying = params.get("retry") === "1";
-const repinning = params.get(REPIN_PARAM) === "1";
+// The shop the page was opened to look up again (`?retry=natura`) or to change the stored decision of
+// (`?repin=natura`), if any.
+const retryShop = retryShopOf(params);
+const repinShop = repinShopOf(params);
 // The filter the list was shown with, which every link, form and redirect of the page keeps, so the list beside the
 // product keeps its chip; any other value of `f` is the whole list.
 const listFilter = parseListFilter(params.get("f"));
-let natura: NaturaView | null = null;
+let natura: MatchView | null = null;
 // The choice of Natura's candidates the user opened to change the stored decision ("Zmień", "Dopasuj ponownie").
-let repin: NaturaRepin | null = null;
+let repin: MatchRepin | null = null;
 // Set when the lookup's own outcome couldn't be stored: the next visit then looks the product up again.
 let unsaved = false;
 // The product's stored match in Natura, or the one this render just stored: its prices are shown next to Rossmann's.
@@ -116,25 +112,25 @@ let naturaItem: MatchedItem | null = null;
 // What the page does for Natura, which also tells whether the island may refetch prices on its own (autoRefreshOf).
 let step: MatchStep | null = null;
 if (supabase && product !== null && product !== "failed") {
-  step = decideMatchStep({ matches, shop: "natura", retrying, repinning, ownNavigation });
+  step = decideMatchStep({ matches, shop: "natura", retryShop, repinShop, ownNavigation });
   if (step.kind === "read-failed") {
     // Without the stored decision, a lookup could ask again about what the user has already settled.
     natura = { kind: "read-failed" };
   } else if (step.kind === "stored" || step.kind === "repin") {
     // The stored decision's card, which keeps its match's price row while the user chooses.
-    natura = storedView(step.match, product, { filter: listFilter, repinning: step.kind === "repin" });
+    natura = storedView("natura", step.match, product, { filter: listFilter, repinning: step.kind === "repin" });
     naturaItem = step.match.item;
     if (step.kind === "repin") {
       // The user's own navigation opened the choice: Natura's two searches, one after the other. Nothing is stored
       // here; the user's pick goes through the form.
-      const choices = await lookupChoicesInNatura(shopGateFor(supabase), product);
-      repin = repinView(choices, step.match, new Date(), product, listFilter);
+      const choices = await lookupChoicesInShop("natura", shopGateFor(supabase), product);
+      repin = repinView("natura", choices, step.match, new Date(), product, listFilter);
     }
   } else if (step.kind === "prompt") {
     // A link on another site or a prefetch only gets the button.
-    natura = promptView(product, retrying, listFilter);
+    natura = promptView("natura", product, retryShop === "natura", listFilter);
   } else {
-    const lookup = await lookupInNatura(shopGateFor(supabase), product);
+    const lookup = await lookupInShop("natura", shopGateFor(supabase), product);
     const fetchedAt = new Date();
     if (lookup.kind === "accepted" || lookup.kind === "not-found") {
       // What the rule settles on its own is stored during this render; the user's picks go through the form.
@@ -149,7 +145,7 @@ if (supabase && product !== null && product !== "failed") {
         }
       }
       if (step.retry && result === "saved") {
-        // The plain URL shows the stored outcome, so a `?retry=1` left in the address bar can't repeat the lookup.
+        // The plain URL shows the stored outcome, so a `?retry=natura` left in the address bar can't repeat the lookup.
         return Astro.redirect(filterHref(`/watchlist/${product.id}`, listFilter));
       }
       unsaved = result === "failed" || result === "gone";
@@ -158,12 +154,12 @@ if (supabase && product !== null && product !== "failed") {
         natura = decidedView(product, listFilter);
       } else if (lookup.kind === "accepted") {
         // A match that wasn't saved has no price row, so its card shows its item.
-        natura = matchedView(lookup.candidate, "auto", product, { filter: listFilter, unsaved });
+        natura = matchedView("natura", lookup.candidate, "auto", product, { filter: listFilter, unsaved });
       } else {
-        natura = notFoundView(fetchedAt, product, listFilter);
+        natura = notFoundView("natura", fetchedAt, product, listFilter);
       }
     } else if (lookup.kind === "choose") {
-      natura = chooseView(lookup.options, lookup.via, fetchedAt, product);
+      natura = chooseView("natura", lookup.options, lookup.via, fetchedAt, product);
     } else {
       // Nothing is stored: Natura can be asked again later.
       natura = {
@@ -202,7 +198,7 @@ if (supabase && product !== null && product !== "failed") {
 }
 // The server's time for the island's first render, so the ages it shows match this page's HTML.
 const renderedAt = new Date().toISOString();
-const autoRefresh = autoRefreshOf(step, ownNavigation);
+const autoRefresh = autoRefreshOf(step === null ? [] : [step], ownNavigation);
 
 const title =
   product === null
@@ -210,8 +206,9 @@ const title =
     : product === "failed"
       ? "Nie udało się wczytać produktu"
       : productFullName(product);
-// A decision's notice and error, which Natura's card shows.
-const notice = decisionNotice(params);
+// A decision's notice, which the card of the shop it was for shows, and a decision's error, which Natura's card shows.
+const decision = decisionNotice(params);
+const notice = decision?.shop === "natura" ? decision.text : null;
 const error = matchErrorMessage(params.get(ERROR_PARAM));
 // Natura for the island's card. A choice's candidates stay out of the island: the section below it holds their forms,
 // a first choice's or the one the user opened to change the stored decision.
@@ -345,15 +342,15 @@ const LIST_HEADING_ID = "list-heading";
   )}
   <SubmitOnce />
   <script>
-    // The codes are the ones the frontmatter reads its notices by, from a module that imports nothing, so this script
-    // ships no server code.
+    // The codes are the ones the frontmatter reads its notices by, from a module that imports nothing server-only, so
+    // this script ships no server code.
     import { NOTICE_PARAMS, withoutNotices } from "@/lib/notices";
 
     // A notice shows once: the address bar forgets the code that brought it, a decision's (matched, declined, decided,
-    // error), the product's no-JavaScript refresh's (prices), the list's refresh's (list-prices) or a failed removal's
-    // (removal), so a reload or a copied link doesn't show it again. It forgets a re-pin's (repin) too once its choice
-    // has rendered, so going back to the choice or reloading it asks Natura nothing. Every other parameter, the list's
-    // filter among them, and the hash stay (withoutNotices).
+    // error) with its shop (shop), the product's no-JavaScript refresh's (prices), the list's refresh's (list-prices) or
+    // a failed removal's (removal), so a reload or a copied link doesn't show it again. It forgets a re-pin's (repin)
+    // too once its choice has rendered, so going back to the choice or reloading it asks the shop nothing. Every other
+    // parameter, the list's filter among them, and the hash stay (withoutNotices).
     const forgotten = withoutNotices(window.location.href, NOTICE_PARAMS);
     if (forgotten !== null) {
       history.replaceState(history.state, "", forgotten);

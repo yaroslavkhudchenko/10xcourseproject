@@ -20,6 +20,7 @@ import {
   rowProductOf,
   rowShopsOf,
   rowTagOf,
+  type DecisionsRead,
   type ListRow,
   type NaturaListState,
   type NaturaMismatch,
@@ -540,33 +541,56 @@ describe("naturaStateOf", () => {
       : { watchlistItemId, shop: "natura", state: decision, shopItemId: null };
 
   it.each(["matched", "unmatched", "not_found"] as const)("gives a product's %s decision in Natura", (decision) => {
-    const read = { states: [state(OTHER_ID, "matched"), state(SOFT_ID, decision)], unread: [], unattributed: 0 };
+    const read = { states: [state(OTHER_ID, "matched"), state(SOFT_ID, decision)], unread: [], unattributed: [] };
 
     expect(naturaStateOf(SOFT_ID, read)).toBe(decision);
   });
 
   it("gives none for a product without a decision in Natura, whatever other products and shops have", () => {
     const hebe: ShopMatchState = { watchlistItemId: SOFT_ID, shop: "hebe", state: "unmatched", shopItemId: null };
+    const read: DecisionsRead = {
+      states: [state(OTHER_ID, "matched"), hebe],
+      unread: [{ watchlistItemId: OTHER_ID, shop: "natura" }],
+      unattributed: [],
+    };
 
-    expect(
-      naturaStateOf(SOFT_ID, { states: [state(OTHER_ID, "matched"), hebe], unread: [OTHER_ID], unattributed: 0 }),
-    ).toBe("none");
+    expect(naturaStateOf(SOFT_ID, read)).toBe("none");
+  });
+
+  it("gives none for a product whose only odd rows are another shop's, which say nothing about Natura", () => {
+    const read: DecisionsRead = {
+      states: [],
+      unread: [{ watchlistItemId: SOFT_ID, shop: "hebe" }],
+      unattributed: ["hebe"],
+    };
+
+    expect(naturaStateOf(SOFT_ID, read)).toBe("none");
   });
 
   it("gives unreadable for a product whose decision couldn't be read, never none", () => {
-    expect(naturaStateOf(SOFT_ID, { states: [], unread: [SOFT_ID], unattributed: 0 })).toBe("unreadable");
+    const read: DecisionsRead = {
+      states: [],
+      unread: [{ watchlistItemId: SOFT_ID, shop: "natura" }],
+      unattributed: [],
+    };
+
+    expect(naturaStateOf(SOFT_ID, read)).toBe("unreadable");
     expect(naturaStateOf(SOFT_ID, null)).toBe("unreadable");
   });
 
-  it("keeps a Natura decision that was read beside an odd row of the product, which can't be Natura's", () => {
-    // A product has one decision per shop, so the odd row is another shop's.
-    expect(naturaStateOf(SOFT_ID, { states: [state(SOFT_ID, "unmatched")], unread: [SOFT_ID], unattributed: 0 })).toBe(
-      "unmatched",
-    );
+  it("keeps a Natura decision that was read beside an odd row of the product that may be Natura's", () => {
+    // A product has one decision per shop: an odd row whose shop couldn't be read is another shop's beside this one.
+    const read: DecisionsRead = {
+      states: [state(SOFT_ID, "unmatched")],
+      unread: [{ watchlistItemId: SOFT_ID, shop: "natura" }],
+      unattributed: [],
+    };
+
+    expect(naturaStateOf(SOFT_ID, read)).toBe("unmatched");
   });
 
-  it("gives unreadable for a product without a readable Natura row when a row couldn't say whose it is", () => {
-    const read = { states: [state(OTHER_ID, "matched")], unread: [], unattributed: 1 };
+  it("gives unreadable for a product without a readable Natura row when a Natura row couldn't say whose it is", () => {
+    const read: DecisionsRead = { states: [state(OTHER_ID, "matched")], unread: [], unattributed: ["natura"] };
 
     // The odd row may be this product's Natura decision; the one that was read stands.
     expect(naturaStateOf(SOFT_ID, read)).toBe("unreadable");
@@ -576,7 +600,7 @@ describe("naturaStateOf", () => {
 
 describe("naturaMismatchOf", () => {
   /** The list's read of the decisions, holding only these. */
-  const readOf = (...states: ShopMatchState[]) => ({ states, unread: [], unattributed: 0 });
+  const readOf = (...states: ShopMatchState[]): DecisionsRead => ({ states, unread: [], unattributed: [] });
 
   it.each<{ why: string; fields: MatchFields; mismatch: NaturaMismatch }>([
     { why: "another size", fields: { size: { value: 200, unit: "ml" } }, mismatch: { size: true, brand: false } },
@@ -625,7 +649,9 @@ describe("naturaMismatchOf", () => {
     expect(naturaMismatchOf(soft, readOf(inHebe))).toEqual(NO_MISMATCH);
     expect(naturaMismatchOf(soft, readOf(naturaMatch(OTHER_ID, { brand: "YOPE" })))).toEqual(NO_MISMATCH);
     // Its product says its decision couldn't be read instead (naturaStateOf).
-    expect(naturaMismatchOf(soft, { states: [], unread: [SOFT_ID], unattributed: 0 })).toEqual(NO_MISMATCH);
+    expect(
+      naturaMismatchOf(soft, { states: [], unread: [{ watchlistItemId: SOFT_ID, shop: "natura" }], unattributed: [] }),
+    ).toEqual(NO_MISMATCH);
     expect(naturaMismatchOf(soft, null)).toEqual(NO_MISMATCH);
   });
 });
@@ -660,7 +686,7 @@ describe("the list beside a row that can't say whose it is", () => {
 
   /** Each product's tag, as the list page builds its rows from its two reads. */
   function tags(
-    matchRead: { states: ShopMatchState[]; unread: string[]; unattributed: number },
+    matchRead: DecisionsRead,
     priceRead: { prices: LatestPrice[]; unread: PriceKey[]; unattributed: number },
   ): PriceTag[] {
     const priced = listPricedItems(products, matchRead.states, priceRead.prices);
@@ -684,22 +710,22 @@ describe("the list beside a row that can't say whose it is", () => {
       unattributed: 1,
     };
 
-    expect(tags({ states, unread: [], unattributed: 0 }, priceRead)).toEqual([...intact, unreadTag]);
+    expect(tags({ states, unread: [], unattributed: [] }, priceRead)).toEqual([...intact, unreadTag]);
   });
 
   it("keeps the other products' Natura decisions when a match row can't say whose it is, marking only those without one", () => {
-    // Felix's decision came back without its product.
-    const matchRead = {
+    // Felix's Natura decision came back without its product.
+    const matchRead: DecisionsRead = {
       states: states.filter(({ watchlistItemId }) => watchlistItemId !== OTHER_ID),
       unread: [],
-      unattributed: 1,
+      unattributed: ["natura"],
     };
 
     expect(tags(matchRead, { prices, unread: [], unattributed: 0 })).toEqual([...intact, unreadTag]);
   });
 
   describe("listRowsOf, the list's rows from its three reads", () => {
-    const matchRead = { states, unread: [], unattributed: 0 };
+    const matchRead: DecisionsRead = { states, unread: [], unattributed: [] };
     const priceRead = { prices, unread: [], unattributed: 0 };
 
     it("builds each product's row in the list's order", () => {
@@ -713,10 +739,10 @@ describe("the list beside a row that can't say whose it is", () => {
     });
 
     it("builds the rows as listRowOf does for each product, odd rows included", () => {
-      const oddMatches = {
+      const oddMatches: DecisionsRead = {
         states: states.filter(({ watchlistItemId }) => watchlistItemId !== OTHER_ID),
         unread: [],
-        unattributed: 1,
+        unattributed: ["natura"],
       };
       const oddPrices = {
         prices: prices.filter(({ shopItemId }) => shopItemId !== "300200"),
@@ -768,7 +794,7 @@ describe("listRowsOf: a Natura match that differs from its product", () => {
 
   /** Nivea Soft's row, as the list builds it from its reads, with this match in Natura. */
   function rowWith(fields: MatchFields): ListRow {
-    const matchRead = { states: [naturaMatch(SOFT_ID, fields)], unread: [], unattributed: 0 };
+    const matchRead: DecisionsRead = { states: [naturaMatch(SOFT_ID, fields)], unread: [], unattributed: [] };
     return listRowsOf([soft], matchRead, { prices, unread: [], unattributed: 0 }, NOW)[0];
   }
 

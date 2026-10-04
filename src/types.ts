@@ -200,12 +200,12 @@ export type ShopLookup =
   | ShopUnavailable;
 
 /**
- * What looking a watched product up in Natura again came to, for the user to change its stored decision: the
+ * What looking a watched product up in a shop again came to, for the user to change its stored decision: the
  * candidates both searches found, never accepted on their own, with the searches that found them (`via`) and a name
  * search that got no answer after an EAN search that found some (`incomplete`); nothing found, only when every search
- * that ran answered with nothing; or why Natura gave no answer.
+ * that ran answered with nothing; or why the shop gave no answer.
  */
-export type NaturaChoices =
+export type ShopChoices =
   | { kind: "choices"; options: CandidateOption[]; via: "ean" | "name" | "both"; incomplete: ShopUnavailable | null }
   | { kind: "not-found" }
   | ShopUnavailable;

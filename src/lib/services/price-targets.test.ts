@@ -211,6 +211,16 @@ describe("priceTargetFor", () => {
 
     expect(await priceTargetFor(client, request("natura", "NV89063"))).toBe("failed");
   });
+
+  it("gives failed, never gone, when the product's Natura decision came back odd, since it may be the page's match", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({
+      watchlist_items: { data: softRow },
+      watchlist_matches: { data: [{ ...matchedRow, shop_item_id: null }] },
+    });
+
+    expect(await priceTargetFor(client, request("natura", "NV89063"))).toBe("failed");
+  });
 });
 
 describe("shopItemFor", () => {
@@ -277,11 +287,34 @@ describe("shopItemFor", () => {
       shop: "natura",
       answers: { watchlist_items: { data: softRow }, watchlist_matches: readFailure },
     },
+    {
+      // A state a later migration might add before the code knows it: the row may hide a match.
+      why: "its Natura decision's row",
+      shop: "natura",
+      answers: {
+        watchlist_items: { data: softRow },
+        watchlist_matches: { data: [{ ...matchedRow, state: "repinned" }] },
+      },
+    },
   ])("gives failed in $shop when $why can't be read", async ({ shop, answers }) => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { client } = stubClient(answers);
 
     expect(await shopItemFor(client, SOFT_ID, shop)).toBe("failed");
+  });
+
+  it("gives Natura's matched item beside the rows of a shop that isn't switched on, readable or odd", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const hebeRows = [
+      { ...undecidedRow("unmatched"), shop_id: "hebe" },
+      { ...matchedRow, shop_id: "hebe", state: "repinned" },
+    ];
+    const { client } = stubClient({
+      watchlist_items: { data: softRow },
+      watchlist_matches: { data: [...hebeRows, matchedRow] },
+    });
+
+    expect(await shopItemFor(client, SOFT_ID, "natura")).toEqual({ shop: "natura", shopItemId: "NV89063" });
   });
 });
 
@@ -313,6 +346,13 @@ describe("productTargets", () => {
   it.each([
     { why: "the product", answers: { watchlist_items: readFailure, watchlist_matches: { data: [] } } },
     { why: "its decisions", answers: { watchlist_items: { data: softRow }, watchlist_matches: readFailure } },
+    {
+      why: "its Natura decision's row",
+      answers: {
+        watchlist_items: { data: softRow },
+        watchlist_matches: { data: [{ ...matchedRow, shop_item_id: 7 }] },
+      },
+    },
   ])("gives failed when $why can't be read", async ({ answers }) => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { client } = stubClient(answers);

@@ -124,8 +124,8 @@ const LIST_HEADING_ID = "list-heading";
   />
   {counts !== null && <ListFooter slot="footer" />}
   <script>
-    // The parameters are the ones the frontmatter reads its notices by, from a module that imports nothing, so this
-    // script ships no server code.
+    // The parameters are the ones the frontmatter reads its notices by, from a module that imports nothing server-only,
+    // so this script ships no server code.
     import { LIST_NOTICE_PARAMS, withoutNotices } from "@/lib/notices";
 
     // A notice shows once: the address bar forgets the parameter that brought it, "Dodaj"'s (exists), an error's, the

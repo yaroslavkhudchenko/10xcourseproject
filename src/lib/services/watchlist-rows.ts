@@ -10,6 +10,7 @@ import {
   SHOP_LABELS,
   verdictOf,
   type LatestCheck,
+  type MatchableShop,
   type PricedItem,
   type PricedShop,
   type PriceVerdict,
@@ -50,6 +51,16 @@ export interface RowShop {
  * included), or `unreadable` when its decision couldn't be read.
  */
 export type NaturaListState = MatchState | "none" | "unreadable";
+
+/**
+ * The list's read of the decisions, as listMatchStates gives it: the decisions that were read, the ones that came back
+ * odd, by product and shop, and the shops some odd row of which couldn't say which product it's about.
+ */
+export interface DecisionsRead {
+  states: readonly ShopMatchState[];
+  unread: readonly { watchlistItemId: string; shop: MatchableShop }[];
+  unattributed: readonly MatchableShop[];
+}
 
 /**
  * What definitely differs between a listed product and its match in Natura that nobody has seen, as naturaMismatchOf
@@ -295,8 +306,8 @@ export function listChipsOf(
  * A link on the page at `path` that keeps the list's filter: the same page with the filter first, unless it's every
  * product's, then `params` in their order, so it drops the search, the notices and anything else the address held. A
  * chip's link is the page with its filter alone, and every product's chip is the bare page. The product page's own
- * links, forms' redirects and the list's refresh add what they carry after the filter, such as `retry=1`, `repin=1` or
- * a notice's code.
+ * links, forms' redirects and the list's refresh add what they carry after the filter, such as `retry=natura`,
+ * `repin=natura` or a notice's code.
  */
 export function filterHref(path: string, filter: ListFilter, params: Record<string, string> = {}): string {
   const page = path.split(/[?#]/, 1)[0];
@@ -330,12 +341,10 @@ export function rowShopsOf(
  * Where a product stands in Natura, from the list's read of the decisions, or null when they couldn't be read at all.
  * A Natura decision that was read stands even when another row of the product couldn't be, or a row couldn't say whose
  * it is: a product has one decision per shop, so that row is someone else's. Without one, a product counts as
- * unreadable when one of its rows couldn't be read, or when a row that couldn't say whose it is may be its decision.
+ * unreadable when its Natura row couldn't be read, or when a Natura row that couldn't say whose it is may be its
+ * decision. Another shop's odd row says nothing about Natura.
  */
-export function naturaStateOf(
-  itemId: string,
-  read: { states: readonly ShopMatchState[]; unread: readonly string[]; unattributed: number } | null,
-): NaturaListState {
+export function naturaStateOf(itemId: string, read: DecisionsRead | null): NaturaListState {
   if (read === null) {
     return "unreadable";
   }
@@ -343,7 +352,8 @@ export function naturaStateOf(
   if (decision !== undefined) {
     return decision.state;
   }
-  return read.unread.includes(itemId) || read.unattributed > 0 ? "unreadable" : "none";
+  const unread = read.unread.some((odd) => odd.watchlistItemId === itemId && odd.shop === "natura");
+  return unread || read.unattributed.includes("natura") ? "unreadable" : "none";
 }
 
 /**
@@ -355,7 +365,7 @@ export function naturaStateOf(
  */
 export function naturaMismatchOf(
   item: Pick<WatchlistItem, "id" | "brand" | "size">,
-  read: { states: readonly ShopMatchState[]; unread: readonly string[]; unattributed: number } | null,
+  read: DecisionsRead | null,
 ): NaturaMismatch {
   const decision = read === null ? undefined : naturaDecisionOf(item.id, read.states);
   if (decision?.state !== "matched" || decision.decidedBy !== "auto") {
@@ -378,7 +388,7 @@ function naturaDecisionOf(itemId: string, states: readonly ShopMatchState[]): Sh
  */
 export function listRowsOf(
   items: readonly (ListedProduct & Pick<WatchlistItem, "source" | "sourceItemId" | "size">)[],
-  matchRead: { states: readonly ShopMatchState[]; unread: readonly string[]; unattributed: number } | null,
+  matchRead: DecisionsRead | null,
   priceRead: { prices: readonly LatestPrice[]; unread: readonly PriceKey[]; unattributed: number } | null,
   now: number,
 ): ListRow[] {

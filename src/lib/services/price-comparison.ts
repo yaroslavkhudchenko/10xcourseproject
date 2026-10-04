@@ -22,22 +22,58 @@ const polishCalendar = new Intl.DateTimeFormat("pl-PL", {
   day: "2-digit",
 });
 
-/** The shops whose prices are fetched and compared. */
-export const PRICED_SHOPS = ["rossmann", "natura"] as const satisfies readonly ShopId[];
+/**
+ * Every shop the code can match a watched product in, each with its label here and its adapter in the registry
+ * (src/lib/services/shops/registry.ts), whether it's switched on or not.
+ */
+export const MATCHABLE_SHOPS = ["natura", "hebe"] as const satisfies readonly ShopId[];
+
+/** A shop the code can match a watched product in. */
+export type MatchableShop = (typeof MATCHABLE_SHOPS)[number];
+
+/**
+ * The matchable shops that are switched on, in the pages' order: the only switch. The pages, the routes, the decision
+ * and price-request schemas, the list and the island all read it, and the rules that take a list of shops default to
+ * it, so a test can pass shops that aren't switched on yet.
+ */
+export const MATCHED_SHOPS = ["natura"] as const satisfies readonly MatchableShop[];
+
+/** A matched shop that is switched on. */
+export type MatchedShop = (typeof MATCHED_SHOPS)[number];
+
+/** The shops whose prices are fetched and compared: Rossmann, where products are picked, and every matched shop. */
+export const PRICED_SHOPS = ["rossmann", ...MATCHED_SHOPS] as const satisfies readonly ShopId[];
 
 /** A shop whose prices are fetched and compared. */
 export type PricedShop = (typeof PRICED_SHOPS)[number];
 
-/** How the pages name a shop: on its own, after "w" as in "Tylko w Rossmannie", and the site its prices come from. */
+/** A shop the code knows, switched on or not: Rossmann and every matchable shop. The per-shop tables are keyed by it. */
+export type KnownShop = "rossmann" | MatchableShop;
+
+/**
+ * The matched shop a page's parameter or a form's field names, or null for anything else: a shop that isn't switched
+ * on, any other text, or a field that isn't text.
+ */
+export function parseMatchedShop(raw: FormDataEntryValue | null): MatchedShop | null {
+  return MATCHED_SHOPS.find((shop) => shop === raw) ?? null;
+}
+
+/**
+ * How the pages name a shop: on its own, after "w" as in "Tylko w Rossmannie", in the genitive as in "ceny Natury", as
+ * the heading of its choice of candidates, and the site its prices come from.
+ */
 export interface ShopLabel {
   name: string;
   in: string;
+  of: string;
+  title: string;
   site: string;
 }
 
-export const SHOP_LABELS: Record<PricedShop, ShopLabel> = {
-  rossmann: { name: "Rossmann", in: "w Rossmannie", site: "rossmann.pl" },
-  natura: { name: "Natura", in: "w Naturze", site: "drogerienatura.pl" },
+export const SHOP_LABELS: Record<KnownShop, ShopLabel> = {
+  rossmann: { name: "Rossmann", in: "w Rossmannie", of: "Rossmanna", title: "Rossmann", site: "rossmann.pl" },
+  natura: { name: "Natura", in: "w Naturze", of: "Natury", title: "Drogerie Natura", site: "drogerienatura.pl" },
+  hebe: { name: "Hebe", in: "w Hebe", of: "Hebe", title: "Hebe", site: "hebe.pl" },
 };
 
 /** What a shop item's last check found, and its latest price: a `LatestPrice` without the item it's about. */

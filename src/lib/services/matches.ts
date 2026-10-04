@@ -1,9 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "astro/zod";
-import { ERROR_PARAM, type DecisionCode } from "@/lib/notices";
-import { optionalText, optionalUrl } from "@/lib/services/form-fields";
+import { ERROR_PARAM, SHOP_PARAM, type DecisionCode } from "@/lib/notices";
+import { optionalText } from "@/lib/services/form-fields";
+import { MATCHED_SHOPS, type MatchableShop } from "@/lib/services/price-comparison";
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
-import { isNaturaImage, isNaturaProductUrl } from "@/lib/services/shops/natura";
+import { SHOP_ADAPTERS } from "@/lib/services/shops/registry";
 import { parseSize } from "@/lib/services/size";
 import { watchlistItemIdSchema } from "@/lib/services/watchlist";
 import { filterHref, type ListFilter } from "@/lib/services/watchlist-rows";
@@ -63,33 +64,60 @@ const replacesSchema = z.union([
     .transform((shopItemId): ExpectedDecision => ({ state: "matched", shopItemId })),
 ]);
 
-// Every decision names the user's product and the shop, and a re-pin's the decision it replaces. Only Natura asks the
-// user for now.
-const decisionFields = {
-  itemId: watchlistItemIdSchema,
-  shop: z.literal("natura"),
-  replaces: replacesSchema.optional(),
-};
+/**
+ * What every decision names, for one of `shops`: the user's product and the shop, and a re-pin's the decision it
+ * replaces. The route takes the matched shops (MATCHED_SHOPS), so a decision for a shop that isn't switched on fails.
+ */
+function decisionFieldsFor(shops: readonly MatchableShop[]) {
+  return {
+    itemId: watchlistItemIdSchema,
+    shop: z.enum(shops),
+    replaces: replacesSchema.optional(),
+  };
+}
+
+/** A confirmed candidate's shop and its links, null for none, as linksOfShop checks them. */
+interface LinkedFields {
+  shop: MatchableShop;
+  productUrl: string | null;
+  imageUrl: string | null;
+}
 
 /**
- * The "To ten produkt" and "Żaden z nich" forms from a product's page, from a first choice or a re-pin's. A confirmed
- * candidate's fields come back from the page and end up in the user's row, so they're checked against the same
- * PRODUCT_LIMITS and Natura URL rules the adapter applies, and the size is parsed again from its text.
+ * Whether a confirmed candidate's links, when it has them, are on the hosts its own shop's adapter accepts: its product
+ * page and its image. A candidate of one shop can't carry another shop's links into the user's row.
  */
-const matchFormSchema = z.discriminatedUnion("action", [
-  z.object({ ...decisionFields, action: z.literal("decline") }),
-  z.object({
-    ...decisionFields,
-    action: z.literal("confirm"),
-    shopItemId: shopItemIdSchema,
-    name: z.string().trim().min(1).max(PRODUCT_LIMITS.name),
-    brand: optionalText(PRODUCT_LIMITS.brand),
-    sizeText: optionalText(PRODUCT_LIMITS.sizeText),
-    eans: z.array(z.string().regex(/^\d{8,14}$/)).max(PRODUCT_LIMITS.eans),
-    productUrl: optionalUrl(PRODUCT_LIMITS.productUrl, isNaturaProductUrl),
-    imageUrl: optionalUrl(PRODUCT_LIMITS.imageUrl, isNaturaImage),
-  }),
-]);
+function linksOfShop({ shop, productUrl, imageUrl }: LinkedFields): boolean {
+  const { isProductUrl, isImage } = SHOP_ADAPTERS[shop];
+  return (productUrl === null || isProductUrl(productUrl)) && (imageUrl === null || isImage(imageUrl));
+}
+
+/**
+ * The "To ten produkt" and "Żaden z nich" forms from a product's page, from a first choice or a re-pin's, for one of
+ * `shops`. A confirmed candidate's fields come back from the page and end up in the user's row, so they're checked
+ * against the same PRODUCT_LIMITS and the URL rules its shop's adapter applies (SHOP_ADAPTERS), and the size is parsed
+ * again from its text.
+ */
+function matchFormSchemaFor(shops: readonly MatchableShop[]) {
+  const decisionFields = decisionFieldsFor(shops);
+  return z.discriminatedUnion("action", [
+    z.object({ ...decisionFields, action: z.literal("decline") }),
+    z
+      .object({
+        ...decisionFields,
+        action: z.literal("confirm"),
+        shopItemId: shopItemIdSchema,
+        name: z.string().trim().min(1).max(PRODUCT_LIMITS.name),
+        brand: optionalText(PRODUCT_LIMITS.brand),
+        sizeText: optionalText(PRODUCT_LIMITS.sizeText),
+        eans: z.array(z.string().regex(/^\d{8,14}$/)).max(PRODUCT_LIMITS.eans),
+        // Empty for none; the links that are there must be the decision's own shop's, which linksOfShop checks.
+        productUrl: optionalText(PRODUCT_LIMITS.productUrl),
+        imageUrl: optionalText(PRODUCT_LIMITS.imageUrl),
+      })
+      .refine(linksOfShop),
+  ]);
+}
 
 /** What the user decided for one shop: the candidate they confirmed, or "Żaden z nich". */
 export type MatchDecision = { action: "confirm"; item: MatchedItem } | { action: "decline" };
@@ -100,14 +128,17 @@ export type MatchDecision = { action: "confirm"; item: MatchedItem } | { action:
  */
 export interface MatchForm {
   itemId: string;
-  shop: ShopId;
+  shop: MatchableShop;
   decision: MatchDecision;
   replaces: ExpectedDecision | null;
 }
 
-/** Reads a posted decision form, or null when any field fails its check. */
-export function parseMatchForm(form: FormData): MatchForm | null {
-  const parsed = matchFormSchema.safeParse({
+/**
+ * Reads a posted decision form for one of `shops`, the matched shops unless a test names others, or null when any
+ * field fails its check, the shop included.
+ */
+export function parseMatchForm(form: FormData, shops: readonly MatchableShop[] = MATCHED_SHOPS): MatchForm | null {
+  const parsed = matchFormSchemaFor(shops).safeParse({
     itemId: form.get("itemId"),
     shop: form.get("shop"),
     // A first choice's forms post none.
@@ -166,17 +197,24 @@ export function matchErrorMessage(code: string | null): string | null {
 export type DecisionOutcome = DecisionCode | { error: MatchError };
 
 /**
- * Where a decision's post goes back to: its product's page with a notice (`?matched=1`, `?declined=1`, `?decided=1`)
- * or an error's code (`?error=failed`), which the page turns into its own text, keeping the list's filter. Without a
- * valid product id, which only a crafted post lacks, the list with its filter and no code: the list's codes belong to
- * "Dodaj".
+ * Where a decision's post goes back to: its product's page with the shop the decision was for and a notice
+ * (`?shop=natura&matched=1`, `declined=1`, `decided=1`) or an error's code (`?shop=natura&error=failed`), which the page
+ * turns into its own text on that shop's card, keeping the list's filter. A post whose shop can't be read, which only a
+ * crafted post sends, comes back without one. Without a valid product id, which only a crafted post lacks, the list
+ * with its filter and no code: the list's codes belong to "Dodaj".
  */
-export function decisionBackTo(itemId: string | null, outcome: DecisionOutcome, filter: ListFilter): string {
+export function decisionBackTo(
+  itemId: string | null,
+  shop: MatchableShop | null,
+  outcome: DecisionOutcome,
+  filter: ListFilter,
+): string {
   if (itemId === null) {
     return filterHref("/watchlist", filter);
   }
-  const params = typeof outcome === "string" ? { [outcome]: "1" } : { [ERROR_PARAM]: outcome.error };
-  return filterHref(`/watchlist/${itemId}`, filter, params);
+  const code: Record<string, string> =
+    typeof outcome === "string" ? { [outcome]: "1" } : { [ERROR_PARAM]: outcome.error };
+  return filterHref(`/watchlist/${itemId}`, filter, shop === null ? code : { [SHOP_PARAM]: shop, ...code });
 }
 
 /**
@@ -342,25 +380,84 @@ const rowSchema = z.discriminatedUnion("state", [
   z.object({ ...decisionColumns, state: z.enum(["unmatched", "not_found"]) }),
 ]);
 
+// Both reads take the shops whose decisions they read, the matched shops unless a test names others, and read each row
+// on its own, by four rules, so an odd row costs only the decisions it may be:
+// 1. A row of a shop outside the list, known to the app or not, readable or odd, is left out: it holds no decision the
+//    pages use, such as one stored while another shop was switched on.
+// 2. An odd row of a listed shop costs only that shop's decision of its product.
+// 3. An odd row whose shop can't be read may be any listed shop's, so it costs each of them, for its product.
+// 4. An odd row whose product can't be read may be any product's, so it costs its shop's decision, or each listed shop's
+//    when its shop can't be read either, of every product without a readable decision there.
+// A product has one decision per shop, so a decision that was read stands beside any odd row.
+
+/** A shop the reads use: one of `shops`, or undefined for any other value. */
+function listedShop(shop: unknown, shops: readonly MatchableShop[]): MatchableShop | undefined {
+  return shops.find((listed) => listed === shop);
+}
+
+// An odd row, read for its shop and its product alone, so it can still say whose decision couldn't be read.
+const oddShopSchema = z.object({ shop_id: z.string() });
+const oddProductSchema = z.object({ watchlist_item_id: z.string() });
+
 /**
- * The user's stored decisions: for one product, or for the whole list without `itemId`. Null when they couldn't be
- * read. For one product, an odd row fails the read too: its page would take the dropped decision for none and look the
- * product up in the shop again. The whole list keeps the rows that parse.
+ * Whose decision an odd row may be (the rules above): null for a row of a shop outside `shops`, which holds none the
+ * reads use; otherwise the product it names, null when that can't be read, and the listed shops it may be the decision
+ * of, its own or every one of `shops` when its shop can't be read.
  */
-export async function listMatches(supabase: SupabaseClient, itemId?: string): Promise<ShopMatch[] | null> {
-  const query = supabase.from(TABLE).select(COLUMNS);
-  const { data, error } = await (itemId === undefined ? query : query.eq("watchlist_item_id", itemId)).abortSignal(
-    AbortSignal.timeout(DATABASE_TIMEOUT_MS),
-  );
+function oddRowOf(
+  raw: unknown,
+  shops: readonly MatchableShop[],
+): { product: string | null; shops: readonly MatchableShop[] } | null {
+  const shop = oddShopSchema.safeParse(raw);
+  let hidden = shops;
+  if (shop.success) {
+    const listed = listedShop(shop.data.shop_id, shops);
+    if (listed === undefined) {
+      return null;
+    }
+    hidden = [listed];
+  }
+  const product = oddProductSchema.safeParse(raw);
+  return { product: product.success ? product.data.watchlist_item_id : null, shops: hidden };
+}
+
+/**
+ * What one product's stored decisions came to: the decisions that were read, and the shops whose decision couldn't be,
+ * each once. A listed shop in neither has no decision.
+ */
+export interface MatchesRead {
+  matches: ShopMatch[];
+  unreadable: MatchableShop[];
+}
+
+/**
+ * One product's stored decisions in `shops`, read row by row (the rules above). A shop whose decision couldn't be read
+ * is unreadable, never undecided: its page would take the dropped decision for none and look the product up there
+ * again. Every row the query gives is the product's, whether or not its product can be read. Null only when the
+ * decisions couldn't be read at all.
+ */
+export async function listMatches(
+  supabase: SupabaseClient,
+  itemId: string,
+  shops: readonly MatchableShop[] = MATCHED_SHOPS,
+): Promise<MatchesRead | null> {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select(COLUMNS)
+    .eq("watchlist_item_id", itemId)
+    .abortSignal(AbortSignal.timeout(DATABASE_TIMEOUT_MS));
   if (error) {
     logFailure("list failed", error.message);
     return null;
   }
   const read = parseRows(data, rowSchema);
-  if (read === null || (itemId !== undefined && read.odd.length > 0)) {
+  if (read === null) {
     return null;
   }
-  return read.rows.map(toMatch);
+  const matches = read.rows.filter((row) => listedShop(row.shop_id, shops) !== undefined).map(toMatch);
+  const decided = new Set<ShopId>(matches.map((match) => match.shop));
+  const hidden = new Set(read.odd.flatMap((raw) => oddRowOf(raw, shops)?.shops ?? []));
+  return { matches, unreadable: shops.filter((shop) => hidden.has(shop) && !decided.has(shop)) };
 }
 
 // Only the columns the list needs: which product, which shop, where the product stands there, and a match's item, whose
@@ -378,36 +475,41 @@ const stateRowSchema = z.discriminatedUnion("state", [
   }),
   z.object({ ...stateColumns, state: z.enum(["unmatched", "not_found"]) }),
 ]);
-// An odd row, read for its shop and its product alone, so it can still say whose decision couldn't be read. A shop the
-// app doesn't know holds no decision any page reads, whatever the row's product; a shop that can't be read may be any.
-const oddShopSchema = z.object({ shop_id: z.string() });
-const knownShopSchema = z.enum(SHOP_IDS);
-const stateProductSchema = z.object({ watchlist_item_id: stateColumns.watchlist_item_id });
 
-/**
- * Where the products on the list stand in each shop, the products some of whose decisions came back odd, so the list
- * never shows such a product as one still to be matched, nor its match as one that agrees with it, and how many odd
- * rows couldn't say which product they're about.
- */
-export interface MatchStatesRead {
-  states: ShopMatchState[];
-  /** The ids of the products with a decision that couldn't be read, each once. */
-  unread: string[];
-  /**
-   * How many odd rows couldn't say which product they're about. Such a row may be any product's decision, so the list
-   * counts every product without a readable decision as one whose decision couldn't be read.
-   */
-  unattributed: number;
+/** A product's decision in one shop that came back odd. */
+export interface UnreadDecision {
+  watchlistItemId: string;
+  shop: MatchableShop;
 }
 
 /**
- * Where each product on the user's list stands in each shop, with a match's item id, brand and size and who decided on
- * it, read with one query for the whole list and only the columns the list needs. Odd rows, such as a match without its
- * item or with a size it can't read, are logged, their products reported and those without one counted, which never
- * empties the list; an odd row of a shop the app doesn't know is left out. Null only when the decisions couldn't be
- * read at all.
+ * Where the products on the list stand in the listed shops, the decisions that came back odd, by product and shop, so
+ * the list never shows such a product as one still to be matched there, nor its match as one that agrees with it, and
+ * the shops some odd row of which couldn't say which product it's about.
  */
-export async function listMatchStates(supabase: SupabaseClient): Promise<MatchStatesRead | null> {
+export interface MatchStatesRead {
+  states: ShopMatchState[];
+  /** The decisions that couldn't be read, by product and shop, each once. */
+  unread: UnreadDecision[];
+  /**
+   * The shops some odd row of which couldn't say which product it's about, each once. Such a row may be any product's
+   * decision there, so the list counts every product without a readable decision there as one whose decision there
+   * couldn't be read.
+   */
+  unattributed: MatchableShop[];
+}
+
+/**
+ * Where each product on the user's list stands in `shops`, with a match's item id, brand and size and who decided on
+ * it, read with one query for the whole list and only the columns the list needs. Each row is read on its own (the
+ * rules above): odd rows, such as a match without its item or with a size it can't read, are logged, and the decisions
+ * they may be reported by product and shop, or by shop alone when their product can't be read, which never empties
+ * the list. Null only when the decisions couldn't be read at all.
+ */
+export async function listMatchStates(
+  supabase: SupabaseClient,
+  shops: readonly MatchableShop[] = MATCHED_SHOPS,
+): Promise<MatchStatesRead | null> {
   const { data, error } = await supabase
     .from(TABLE)
     .select("watchlist_item_id, shop_id, state, shop_item_id, brand, size_value, size_unit, decided_by")
@@ -420,21 +522,27 @@ export async function listMatchStates(supabase: SupabaseClient): Promise<MatchSt
   if (read === null) {
     return null;
   }
-  const unread = new Set<string>();
-  let unattributed = 0;
+  const unread: UnreadDecision[] = [];
+  const unattributed = new Set<MatchableShop>();
   for (const raw of read.odd) {
-    const shop = oddShopSchema.safeParse(raw);
-    if (shop.success && !knownShopSchema.safeParse(shop.data.shop_id).success) {
+    const odd = oddRowOf(raw, shops);
+    if (odd === null) {
       continue;
     }
-    const product = stateProductSchema.safeParse(raw);
-    if (product.success) {
-      unread.add(product.data.watchlist_item_id);
-    } else {
-      unattributed++;
+    const { product } = odd;
+    for (const shop of odd.shops) {
+      if (product === null) {
+        unattributed.add(shop);
+      } else if (!unread.some((each) => each.watchlistItemId === product && each.shop === shop)) {
+        unread.push({ watchlistItemId: product, shop });
+      }
     }
   }
-  return { states: read.rows.map(toMatchState), unread: [...unread], unattributed };
+  return {
+    states: read.rows.filter((row) => listedShop(row.shop_id, shops) !== undefined).map(toMatchState),
+    unread,
+    unattributed: shops.filter((shop) => unattributed.has(shop)),
+  };
 }
 
 function toMatchState(row: z.infer<typeof stateRowSchema>): ShopMatchState {

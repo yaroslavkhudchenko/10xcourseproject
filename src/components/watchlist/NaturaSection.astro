@@ -10,21 +10,21 @@
 // pills, the shared EAN in the promotion's success colour and a size or brand warning in the warning's, its price with
 // where and when it was fetched, and its buttons. Every form posts the list's filter, so the page it goes back to keeps
 // it, and a re-pin's forms post the decision they replace, so one from a stale tab changes nothing. The page and the
-// dev kitchen sink render it from the same views (src/lib/services/natura-view.ts). The decision forms are one
+// dev kitchen sink render it from the same views (src/lib/services/match-view.ts). The decision forms are one
 // submit-once group, so one tap sends one decision, whichever button it was.
 import SubmitOnce from "@/components/SubmitOnce.astro";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import ProductThumb from "@/components/watchlist/ProductThumb";
 import ShopLink from "@/components/watchlist/ShopLink";
-import type { NaturaRepin, NaturaView, RepinOption } from "@/lib/services/natura-view";
+import type { MatchRepin, MatchView, RepinOption } from "@/lib/services/match-view";
 import { productFullName } from "@/lib/services/watchlist";
 import { rowProductOf, type ListFilter } from "@/lib/services/watchlist-rows";
 import { cn } from "@/lib/utils";
 
 interface Props {
   /** The candidates to choose from: a first choice, as the page's view of Natura gives it, or a re-pin's (repinView). */
-  view: Extract<NaturaView, { kind: "choose" }> | NaturaRepin;
+  view: Extract<MatchView, { kind: "choose" }> | MatchRepin;
   /** The watched product's id, which the decision forms post. */
   productId: string;
   /** The filter the list is shown with, which every decision form posts, so the page it goes back to keeps it. */

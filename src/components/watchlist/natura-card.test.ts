@@ -6,16 +6,16 @@ import {
   type NaturaCardAlert,
 } from "@/components/watchlist/natura-card";
 import { DECISION_NOTICES } from "@/lib/notices";
-import type { NaturaItemSummary, NaturaView } from "@/lib/services/natura-view";
+import type { MatchItemSummary, MatchView } from "@/lib/services/match-view";
 
 const ITEM_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
 // The product's page, as the views link it for a product opened from the list's "Do sprawdzenia" chip, and its
-// address that opens the choice that changes a stored decision.
+// address that opens the choice that changes the stored decision in Natura.
 const PAGE = `/watchlist/${ITEM_ID}?f=check`;
-const REPIN_PAGE = `/watchlist/${ITEM_ID}?f=check&repin=1`;
+const REPIN_PAGE = `/watchlist/${ITEM_ID}?f=check&repin=natura`;
 
 // Natura's Nivea Soft 300 ml, as a match's card names it.
-const item: NaturaItemSummary = {
+const item: MatchItemSummary = {
   brand: "NIVEA",
   name: "NIVEA SOFT krem intensywnie nawilżający 300 ml",
   sizeText: "300 ml",
@@ -23,7 +23,7 @@ const item: NaturaItemSummary = {
   productUrl: "https://drogerienatura.pl/produkt/nivea-soft-krem-intensywnie-nawilzajacy-300-ml-4005900009319",
 };
 
-/** One of each view the product's page builds for Natura (src/lib/services/natura-view.ts). */
+/** One of each view the product's page builds for Natura (src/lib/services/match-view.ts). */
 const VIEWS = {
   matched: {
     kind: "matched",
@@ -37,14 +37,14 @@ const VIEWS = {
   "not-found": {
     kind: "not-found",
     text: "Nie znaleziono w Naturze (sprawdzono 28.09, 14:00).",
-    href: `/watchlist/${ITEM_ID}?f=check&retry=1`,
+    href: `/watchlist/${ITEM_ID}?f=check&retry=natura`,
   },
   choose: { kind: "choose", intro: "Znalezione w Naturze po nazwie.", options: [] },
   unavailable: { kind: "unavailable", message: "Sklep Natura poprosił o przerwę. Spróbuj później." },
   prompt: { kind: "prompt", href: PAGE },
   decided: { kind: "decided", href: PAGE },
   "read-failed": { kind: "read-failed" },
-} satisfies Record<NaturaView["kind"], NaturaView>;
+} satisfies Record<MatchView["kind"], MatchView>;
 
 const quiet = { notice: null, error: null, unsaved: false };
 
@@ -94,7 +94,7 @@ describe("naturaCardOf", () => {
 
   it("gives a saved suspicious match its item and each of its warnings, in the view's order", () => {
     const warnings = ["Inny rozmiar: 200 ml zamiast 300 ml", "Inna marka: YOPE zamiast NIVEA"];
-    const view: NaturaView = { ...VIEWS.matched, note: "Potwierdzone przez Ciebie.", warnings };
+    const view: MatchView = { ...VIEWS.matched, note: "Potwierdzone przez Ciebie.", warnings };
 
     expect(naturaCardOf({ view, ...quiet })).toEqual({
       kind: "matched",
@@ -108,7 +108,7 @@ describe("naturaCardOf", () => {
   });
 
   it("says a match the page couldn't save is unsaved, so the card shows its item's photo and page, and no action", () => {
-    const view: NaturaView = { ...VIEWS.matched, unsaved: true, action: null };
+    const view: MatchView = { ...VIEWS.matched, unsaved: true, action: null };
 
     expect(naturaCardOf({ view, ...quiet, unsaved: true })).toMatchObject({
       kind: "matched",
@@ -127,7 +127,7 @@ describe("naturaCardOf", () => {
     });
   });
 
-  it.each<{ view: NaturaView; hint: string }>([
+  it.each<{ view: MatchView; hint: string }>([
     {
       view: { ...VIEWS.matched, action: { kind: "cancel", href: PAGE } },
       hint: "Wybierz poniżej inny produkt albo „Żaden z nich”.",
@@ -162,7 +162,7 @@ describe("naturaCardOf", () => {
     expect(naturaCardOf({ view: VIEWS["not-found"], ...quiet })).toEqual({
       kind: "not-found",
       text: "Nie znaleziono w Naturze (sprawdzono 28.09, 14:00).",
-      link: { label: "Szukaj ponownie", href: `/watchlist/${ITEM_ID}?f=check&retry=1` },
+      link: { label: "Szukaj ponownie", href: `/watchlist/${ITEM_ID}?f=check&retry=natura` },
       alerts: [],
     });
   });

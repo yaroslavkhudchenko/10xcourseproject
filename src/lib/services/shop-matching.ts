@@ -1,10 +1,14 @@
 import { judge, pickMatch, type MatchPick, type MatchProduct } from "@/lib/services/matching";
+import type { MatchableShop } from "@/lib/services/price-comparison";
 import { toShopQuery } from "@/lib/services/search-query";
 import type { ShopGate } from "@/lib/services/shop-gate";
-import { searchNatura } from "@/lib/services/shops/natura";
-import type { CandidateOption, NaturaChoices, ShopCandidate, ShopLookup, ShopUnavailable } from "@/types";
+import { SHOP_ADAPTERS } from "@/lib/services/shops/registry";
+import type { CandidateOption, ShopCandidate, ShopChoices, ShopLookup, ShopUnavailable } from "@/types";
 
-// How many hits each Natura search asks for: an EAN names one product, while a name search brings look-alikes too.
+// Looking a watched product up in a matched shop, through that shop's own adapter (SHOP_ADAPTERS), so every search is
+// charged to the shop it asks. Within a shop the searches run one after the other.
+
+// How many hits each search asks for: an EAN names one product, while a name search brings look-alikes too.
 const EAN_HITS = 5;
 const NAME_HITS = 10;
 // Only an EAN of 8-14 digits, the form the watchlist stores, goes into a shop URL.
@@ -19,14 +23,15 @@ export interface LookupProduct extends MatchProduct {
 }
 
 /**
- * Looks a watched product up in Natura with as few requests as possible: by its EAN first, then with one search by its
- * brand, name and size only when the EAN finds nothing. When Natura can't be asked, it makes no further request and
+ * Looks a watched product up in a shop with as few requests as possible: by its EAN first, then with one search by its
+ * brand, name and size only when the EAN finds nothing. When the shop can't be asked, it makes no further request and
  * says why. It never throws.
  */
-export async function lookupInNatura(gate: ShopGate, product: LookupProduct): Promise<ShopLookup> {
+export async function lookupInShop(shop: MatchableShop, gate: ShopGate, product: LookupProduct): Promise<ShopLookup> {
+  const { search: searchShop } = SHOP_ADAPTERS[shop];
   const ean = lookupEan(product);
   if (ean !== null) {
-    const search = await searchNatura(gate, ean, EAN_HITS);
+    const search = await searchShop(gate, ean, EAN_HITS);
     if (search.kind === "unavailable") {
       return search;
     }
@@ -38,7 +43,7 @@ export async function lookupInNatura(gate: ShopGate, product: LookupProduct): Pr
 
   const query = nameQuery(product);
   if (query !== null) {
-    const search = await searchNatura(gate, query, NAME_HITS);
+    const search = await searchShop(gate, query, NAME_HITS);
     if (search.kind === "unavailable") {
       return search;
     }
@@ -48,12 +53,12 @@ export async function lookupInNatura(gate: ShopGate, product: LookupProduct): Pr
     }
   }
 
-  logNothingFound(ean !== null, query !== null);
+  logNothingFound(shop, ean !== null, query !== null);
   return { kind: "not-found" };
 }
 
 /**
- * Looks a watched product up in Natura again, for the user to change its stored decision: by its EAN, then by its
+ * Looks a watched product up in a shop again, for the user to change its stored decision: by its EAN, then by its
  * brand, name and size, one search after the other, since the EAN search can return another product than the one the
  * user meant. It never accepts a candidate on its own: every candidate is judged and offered, each item once, the EAN
  * search's first, at most six. When the EAN search gets no answer (busy, paused, stopped or failed), it asks nothing
@@ -61,11 +66,16 @@ export async function lookupInNatura(gate: ShopGate, product: LookupProduct): Pr
  * search that found none or didn't run, says why too: nothing found is only what every search that ran answered.
  * Without a usable EAN or name, that search is skipped, and without either nothing is asked. It never throws.
  */
-export async function lookupChoicesInNatura(gate: ShopGate, product: LookupProduct): Promise<NaturaChoices> {
+export async function lookupChoicesInShop(
+  shop: MatchableShop,
+  gate: ShopGate,
+  product: LookupProduct,
+): Promise<ShopChoices> {
+  const { search: searchShop } = SHOP_ADAPTERS[shop];
   const ean = lookupEan(product);
   let byEan: ShopCandidate[] = [];
   if (ean !== null) {
-    const search = await searchNatura(gate, ean, EAN_HITS);
+    const search = await searchShop(gate, ean, EAN_HITS);
     if (search.kind === "unavailable") {
       // A name search could only spend the cap again, or reach a shop that has just refused.
       return search;
@@ -77,7 +87,7 @@ export async function lookupChoicesInNatura(gate: ShopGate, product: LookupProdu
   let byName: ShopCandidate[] = [];
   let incomplete: ShopUnavailable | null = null;
   if (query !== null) {
-    const search = await searchNatura(gate, query, NAME_HITS);
+    const search = await searchShop(gate, query, NAME_HITS);
     if (search.kind === "unavailable") {
       // Without the EAN search's candidates there's nothing to offer, and a search without an answer never reads as
       // nothing found.
@@ -94,7 +104,7 @@ export async function lookupChoicesInNatura(gate: ShopGate, product: LookupProdu
     .slice(0, CHOICES)
     .map((candidate): CandidateOption => ({ candidate, verdict: judge(product, candidate) }));
   if (options.length === 0) {
-    logNothingFound(ean !== null, query !== null);
+    logNothingFound(shop, ean !== null, query !== null);
     return { kind: "not-found" };
   }
   return { kind: "choices", options, via: foundBy(byEan.length > 0, byName.length > 0), incomplete };
@@ -142,9 +152,15 @@ function foundBy(byEan: boolean, byName: boolean): "ean" | "name" | "both" {
   return byEan ? "ean" : "name";
 }
 
-function logNothingFound(searchedByEan: boolean, searchedByName: boolean): void {
-  // Which searches ran, never what they asked for: a watched product is its user's own data.
-  const entry = { event: "natura-lookup", reason: "nothing found for the EAN or name", searchedByEan, searchedByName };
+function logNothingFound(shop: MatchableShop, searchedByEan: boolean, searchedByName: boolean): void {
+  // Which shop and which searches ran, never what they asked for: a watched product is its user's own data.
+  const entry = {
+    event: "shop-lookup",
+    shop,
+    reason: "nothing found for the EAN or name",
+    searchedByEan,
+    searchedByName,
+  };
   // eslint-disable-next-line no-console -- one line per lookup that found nothing; Workers observability collects it.
   console.warn(JSON.stringify(entry));
 }
