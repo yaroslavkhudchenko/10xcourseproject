@@ -1,0 +1,78 @@
+{
+  "results": {
+    "query": "4005900009319",
+    "corrected_query": null,
+    "filters": [],
+    "filters_negative": [],
+    "accepted_filters": [],
+    "hits": [
+      {
+        "url": "000000000000251798",
+        "identity_hash": 12613253536435171979,
+        "attributes": {
+          "price_sorting_amount": 24.99,
+          "Promocje": [true],
+          "TrustmateReviewsCount": ["0"],
+          "ShortDescription": [
+            "krem intensywnie nawilżający z olejkiem jojoba i witaminą E do twarzy i ciała do codziennej pielęgnacji, 300 ml"
+          ],
+          "discount_price_sorting_percentage_amount": 0.0,
+          "offerSource": ["Hebe"],
+          "price": "24.99",
+          "ID": ["000000000000251798"],
+          "brand": ["Nivea"],
+          "image_link": "https://www.hebe.pl/dw/image/v2/BDDS_PRD/on/demandware.static/-/Sites-PL_Master_Catalog/pl_PL/v1790899575593/images/hi-res/251798__nivea_soft_krem_intensywnie_nawilzajacy_twarzy_i_ciala_do_codziennej_pielegnacji_1_z_1.png",
+          "SupplierCode": ["0000600110"],
+          "CurrentProductPromotions": ["salePromoBadge", "ostatnia_szansa", "HB03_52"],
+          "price_amount": 24.99,
+          "bool_tags": ["Promocje", "SearchableFlag"],
+          "searchable": [false],
+          "EAN": ["4005900009319"],
+          "discount_price_percentage_amount": 0.0,
+          "name": ["Nivea Soft"],
+          "image_link2": "https://www.hebe.pl/dw/image/v2/BDDS_PRD/on/demandware.static/-/Sites-PL_Master_Catalog/default/dw268224f5/images/hi-res/251798__NIVEA_Soft_Krem_intensywnie_nawilzajacy_300_ml__BB__5__p.png",
+          "boost": 0,
+          "discount_price_sorting_proportion_amount": 0.0,
+          "discount_price_sorting_absolute_amount": 0.0,
+          "boosted_via": [],
+          "Pojemność": ["0.237"],
+          "ShortProductID": ["251798"],
+          "availability": 1,
+          "SearchableFlag": [true],
+          "TabDescription": [
+            "Krem intensywnie nawilżający z olejkiem jojoba i witaminą E<br><br>NIVEA Soft to wysoce skuteczny krem nawilżający do codziennej pielęgnacji."
+          ],
+          "title": "Nivea Soft",
+          "currency": ["PLN"],
+          "discount_price_absolute_amount": 0.0,
+          "discount_price_proportion_amount": 0.0,
+          "invAllocation": [0],
+          "ShortDescriptionWithAutocorrection": [
+            "krem intensywnie nawilżający z olejkiem jojoba i witaminą E do twarzy i ciała do codziennej pielęgnacji, 300 ml"
+          ],
+          "TrustmateAverageGrade": ["0"],
+          "Działanie": ["Nawilzajace"],
+          "Nazwa wymagana przez prawo": ["NIVEA Soft Krem intensywnie nawilżający 300 ml"],
+          "web_url": [
+            "https://www.hebe.pl/nivea-krem-intensywnie-nawilzajacy-z-olejkiem-jojoba-300ml-000000000000251798.html"
+          ],
+          "original_url": "000000000000251798",
+          "online_flag": [false],
+          "availability_rank": 6
+        },
+        "nested": [],
+        "type": "item",
+        "highlight": {},
+        "exact": false,
+        "alternative": false,
+        "updated_at": "2026-10-02T09:18:59+00:00"
+      }
+    ],
+    "quicksearch_hits": [],
+    "facets": [],
+    "suggested_facet": "null",
+    "total_hits": 1
+  },
+  "next_page": null,
+  "guid": "f544e3ef-99ee-41a2-b4d2-a8354ca00b82"
+}

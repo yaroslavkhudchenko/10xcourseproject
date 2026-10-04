@@ -143,7 +143,25 @@ How to add new tests in this project. Each sub-section is filled in once the rel
 
 ### 6.4 Adding a test for a shop adapter
 
-- TBD — see §3 Phase 3 (a changed or refused answer becoming a visible gap; the pattern for the Hebe and Super-Pharm adapters).
+- **Location and naming**: the adapter is `src/lib/services/shops/<shop>.ts` and its test `<shop>.test.ts` beside it. Its recordings are `src/lib/services/shops/fixtures/<shop>-<case>.json`, such as `hebe-ean-online.json`. A shop on Luigi's Box maps only its own attributes onto the shared client (`luigis-box.ts`). Its test covers that mapping and the shop binding, while `natura.test.ts` pins the client's batching, refusal and missing-versus-failed rules.
+- **Recording a fixture**: a real answer, never an invented one, recorded only with the owner's OK.
+  - From the developer machine, never from CI: `curl` with the gate's User-Agent (`DrogeriaRadar/0.1 (+https://github.com/yaroslavkhudchenko/10xcourseproject)`) and `Accept: application/json`, following no redirect.
+  - One request at a time, at least 2 s apart, to the shop's API host only, never to a page whose robots.txt refuses AI crawlers.
+  - Keep the answer as it came, cut at most to its first 5 hits, with no personal data. Keep every number as written: a plain `JSON.parse` and `JSON.stringify` round Luigi's Box's `identity_hash`, so trim with a reviver that keeps each number's source text (`JSON.rawJSON`).
+  - The test's header names each fixture's request and date, as `hebe.test.ts` does.
+- **The cases**:
+  - the mapping on the recordings: every field a candidate or an offer carries, and each size as text that `parseSize` reads back as the same size;
+  - the matching rule's outcomes (`pickMatch`) on the real candidates, against watched products taken from recordings wherever one exists;
+  - pinned batches: an id the shop answers without is `missing`, a hit nobody asked for leaves every unanswered id `failed`, never `missing`, 51 ids make 2 requests, and a refusal stops the rest;
+  - the shop binding: every `gate.fetch` call and every reservation names the shop, and every URL carries its tracker.
+- **Broken copies** (risk #5): each changes one thing in a deep copy of a recording (`structuredClone`), or puts a page where the JSON was.
+  - The changes: a field removed, a string where a number belongs, HTML instead of JSON, an answer without its hits list, and the 404 text/plain answer to an unknown tracker (`natura-unknown-tracker.json`, which names no shop).
+  - Each gives `unavailable/failed` and its one log line, never a price, "not found" or `missing`. A real empty answer (`hits: []`) still means nothing found.
+  - Change a copy the way the shop could plausibly change, not towards what the parser already tolerates.
+- **Asserting the replay's URLs**: build a real gate (`createShopGate`) over `vi.fn(createReplayFetch(entries))` and assert every URL it served (`requestedUrls`). Spell each URL out in the test, with the tracker, the parameter order and the encoding, rather than building it with the adapter's code. A URL the replay doesn't know rejects, which the gate reports as `failed/network`, so a test that checks only the outcome can pass on the wrong request.
+- **Done means**: a deliberate break of each rule the adapter adds turns a named test red, such as offering an item the shop doesn't sell online, pricing from the regular price during a sale, or reading the size from the wrong attribute.
+- **Reference test**: `src/lib/services/shops/hebe.test.ts`.
+- **Run locally**: `npx vitest run src/lib/services/shops/<shop>.test.ts`, or the whole suite with `npm run test`.
 
 ### 6.5 Adding a production check
 
