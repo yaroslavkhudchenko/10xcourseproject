@@ -1,9 +1,9 @@
 ---
 change_id: invite-only-access
 title: Invite only access
-status: implementing
+status: implemented
 created: 2026-10-04
-updated: 2026-10-04
+updated: 2026-10-05
 archived_at: null
 ---
 

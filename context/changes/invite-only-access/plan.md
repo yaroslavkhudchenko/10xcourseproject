@@ -965,10 +965,10 @@ The "Deferred" item "Sign-up page" is marked done. The end-to-end verification i
 
 #### Automated
 
-- [x] 4.1 Prettier passes on every changed Markdown file, and `npm run lint` is clean
-- [x] 4.2 CLAUDE.md's course block is byte-identical (sha256 before and after)
-- [ ] 4.3 CI (`ci`, `smoke`, `e2e`) is green on the final commit
-- [x] 4.4 No current doc still describes `/auth/signup`, `/auth/confirm-email` or `/dashboard` as live
+- [x] 4.1 Prettier passes on every changed Markdown file, and `npm run lint` is clean — 34647a3
+- [x] 4.2 CLAUDE.md's course block is byte-identical (sha256 before and after) — 34647a3
+- [x] 4.3 CI (`ci`, `smoke`, `e2e`) is green on the final commit — 34647a3
+- [x] 4.4 No current doc still describes `/auth/signup`, `/auth/confirm-email` or `/dashboard` as live — 34647a3
 
 #### Manual
 
