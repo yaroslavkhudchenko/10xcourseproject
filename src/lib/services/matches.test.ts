@@ -430,6 +430,30 @@ describe("parseMatchForm: each shop's decision, checked by that shop's own adapt
     expect(parseMatchForm(formOf({ ...confirmFields(hebeSoft), shop: "hebe", ...fields }))).toBeNull();
   });
 
+  it("refuses a Hebe decision that pins an id Hebe's items can't have, such as a Natura SKU", async () => {
+    const [hebeSoft] = await hebeCandidates("4005900008299", 5, hebeEanOnline);
+
+    expect(parseMatchForm(confirmIn("hebe", hebeSoft))).not.toBeNull();
+    expect(parseMatchForm(formOf({ ...confirmFields(hebeSoft), shop: "hebe", shopItemId: "NV89063" }))).toBeNull();
+  });
+
+  it("refuses a Natura decision that pins a SKU without a letter or digit, which Natura's adapter never sends", () => {
+    expect(parseMatchForm(formOf({ ...confirmFields(soft), shopItemId: ".." }))).toBeNull();
+  });
+
+  it.each([
+    { shop: "hebe", replaces: "matched:NV89063" },
+    { shop: "natura", replaces: "matched:.." },
+  ])("refuses a re-pin in $shop whose replaced match is $replaces, an id the shop's items can't have", (fields) => {
+    expect(parseMatchForm(formOf({ ...declineFields, ...fields }))).toBeNull();
+  });
+
+  it("accepts a re-pin in Hebe that replaces a match to one of Hebe's items", () => {
+    expect(
+      parseMatchForm(formOf({ ...declineFields, shop: "hebe", replaces: "matched:000000000000218807" })),
+    ).toMatchObject({ shop: "hebe", replaces: { state: "matched", shopItemId: "000000000000218807" } });
+  });
+
   it("accepts a decline in any matched shop, Hebe included, and a re-pin's in it", () => {
     expect(parseMatchForm(formOf({ ...declineFields, shop: "hebe", replaces: "unmatched" }))).toEqual({
       itemId: ITEM_ID,

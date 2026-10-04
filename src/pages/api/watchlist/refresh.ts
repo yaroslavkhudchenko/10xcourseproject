@@ -50,11 +50,12 @@ export const POST: APIRoute = async (context) => {
     return context.redirect(backTo("failed"));
   }
 
-  // Read before any shop request: a list with nothing out of date, or a product that isn't the user's, costs none.
+  // Read before any shop request: a list with nothing out of date, or a product that isn't the user's, costs none. A
+  // product's shop whose decision couldn't be read is left out, and the others are still refreshed (productTargets).
   const targets = itemId === null ? await listTargets(supabase) : await productTargets(supabase, itemId);
   if (targets === "failed") {
     return context.redirect(backTo("failed"));
   }
-  const refresh = await refreshPrices(shopGateFor(supabase), supabase, targets);
-  return context.redirect(backTo(refreshCodeOf(refresh)));
+  const refresh = await refreshPrices(shopGateFor(supabase), supabase, targets.keys);
+  return context.redirect(backTo(refreshCodeOf(refresh, targets.unread.length)));
 };

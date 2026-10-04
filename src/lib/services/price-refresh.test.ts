@@ -714,7 +714,7 @@ describe("refreshPrices: every priced shop, Hebe's too", () => {
 describe("refreshCodeOf", () => {
   const felixPrice = { key: FELIX, check: { kind: "price", offer: felixOffer } } as const;
 
-  it.each<{ why: string; refresh: PriceRefresh; code: PriceRefreshCode }>([
+  it.each<{ why: string; refresh: PriceRefresh; unread?: number; code: PriceRefreshCode }>([
     { why: "no item needed refreshing", refresh: { results: [], saved: "none" }, code: "none" },
     {
       why: "every item got a price or a missing check, all stored",
@@ -742,8 +742,20 @@ describe("refreshCodeOf", () => {
       },
       code: "failed",
     },
-  ])("gives $code when $why", ({ refresh, code }) => {
-    expect(refreshCodeOf(refresh)).toBe(code);
+    {
+      why: "every item got an answer, all stored, but a shop's decision couldn't be read",
+      refresh: { results: [felixPrice, { key: GONE, check: { kind: "missing" } }], saved: "saved" },
+      unread: 1,
+      code: "partial",
+    },
+    {
+      why: "the only shop to ask couldn't be named, since its decision couldn't be read",
+      refresh: { results: [], saved: "none" },
+      unread: 1,
+      code: "failed",
+    },
+  ])("gives $code when $why", ({ refresh, unread, code }) => {
+    expect(refreshCodeOf(refresh, unread)).toBe(code);
   });
 
   it("gives partial for the Rossmann products past the cap", async () => {

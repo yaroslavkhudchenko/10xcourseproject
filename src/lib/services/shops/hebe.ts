@@ -71,8 +71,9 @@ const hebe = createLuigisBoxClient({
   log: { search: "hebe-search", prices: "hebe-prices", id: "ID", tracker: "HEBE_TRACKER_ID" },
   toCandidate,
   toOffer,
-  isItemId,
+  isItemId: isHebeItemId,
   isNotSoldOnline: (hit) => notSoldOnlineSchema.safeParse(hit).success,
+  hasOddAvailability: hasOddOnlineFlag,
 });
 
 /**
@@ -159,8 +160,20 @@ function offerOf(attributes: z.infer<typeof offerHitSchema>["attributes"]): Shop
   });
 }
 
-/** True for an id that can go into a filter: digits only, at most as many as the table allows in a shop item id. */
-function isItemId(value: string): boolean {
+/**
+ * True for an offer's hit whose `online_flag` isn't a yes or a no, such as one missing or sent as text: its offer reads
+ * that as not orderable online (offerOf), and the client counts such hits in a log line.
+ */
+function hasOddOnlineFlag(hit: unknown): boolean {
+  const parsed = offerHitSchema.safeParse(hit);
+  return parsed.success && typeof valuesOf(parsed.data.attributes.online_flag)[0] !== "boolean";
+}
+
+/**
+ * True for an id that can go into a filter, so the only kind a decision can pin: digits only, at most as many as the
+ * table allows in a shop item id.
+ */
+export function isHebeItemId(value: string): boolean {
   return value.length <= PRODUCT_LIMITS.shopItemId && ITEM_ID.test(value);
 }
 

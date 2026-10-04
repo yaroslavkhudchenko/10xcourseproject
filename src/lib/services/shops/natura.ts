@@ -50,7 +50,7 @@ const natura = createLuigisBoxClient({
   log: { search: "natura-search", prices: "natura-prices", id: "SKU", tracker: "NATURA_TRACKER_ID" },
   toCandidate,
   toOffer,
-  isItemId: isSku,
+  isItemId: isNaturaItemId,
 });
 
 /**
@@ -135,10 +135,10 @@ function offerOf(attributes: z.infer<typeof hitSchema>["attributes"]): ShopOffer
 }
 
 /**
- * True for a SKU that can go into a filter: the characters the table allows in a shop item id, at most 40, with a
- * letter or digit among them, so never a dot segment such as "..".
+ * True for a SKU that can go into a filter, so the only kind a decision can pin: the characters the table allows in a
+ * shop item id, at most 40, with a letter or digit among them, so never a dot segment such as "..".
  */
-function isSku(value: string): boolean {
+export function isNaturaItemId(value: string): boolean {
   return value.length <= PRODUCT_LIMITS.shopItemId && SHOP_ITEM_ID.test(value) && /[A-Za-z0-9]/.test(value);
 }
 

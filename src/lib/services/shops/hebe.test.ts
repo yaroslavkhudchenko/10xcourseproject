@@ -137,6 +137,11 @@ function searchBody(hits: unknown[]): string {
   return JSON.stringify({ results: { hits } });
 }
 
+/** The price answer the given hits make, as JSON: whole, as every recorded one is, with no next page. */
+function priceBody(hits: unknown[]): string {
+  return JSON.stringify({ results: { hits, total_hits: hits.length }, next_page: null });
+}
+
 /** Searches by name against a body built from the given hits, and returns the candidates. */
 async function candidatesFrom(hits: unknown[]): Promise<ShopCandidate[]> {
   const { gate } = setup([{ url: searchUrl(NAME_QUERY, 10), status: 200, body: searchBody(hits) }]);
@@ -364,16 +369,22 @@ describe("Hebe search: what it keeps out", () => {
   });
 
   it.each([
-    { flag: [true], available: true },
-    { flag: [false], available: false },
-    { flag: undefined, available: false },
-    { flag: ["true"], available: false },
+    { flag: [true], available: true, odd: false },
+    { flag: [false], available: false, odd: false },
+    { flag: undefined, available: false, odd: true },
+    { flag: ["true"], available: false, odd: true },
     // A single value where the recording has a list reads the same.
-    { flag: true, available: true },
-  ])("reads online_flag $flag as orderable online: $available", async ({ flag, available }) => {
+    { flag: true, available: true, odd: false },
+  ])("reads online_flag $flag as orderable online: $available", async ({ flag, available, odd }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const [candidate] = await candidatesFrom([soft200With({ online_flag: flag })]);
 
     expect(candidate.offer).toEqual({ ...SOFT_200_OFFER, available });
+    // A flag that isn't a yes or a no is counted, as dropped hits are, so a changed format shows.
+    const logged = warn.mock.calls.map(([line]) => JSON.parse(String(line)) as unknown);
+    expect(logged).toEqual(
+      odd ? [{ event: "hebe-search", reason: "availability unread", detail: "1 of 1 product hits" }] : [],
+    );
   });
 
   it("lets an odd value cost only itself: a numeric EAN, a product link off www.hebe.pl, an image over plain http", async () => {
@@ -685,18 +696,37 @@ describe("Hebe prices: what they keep out", () => {
     },
   ])("keeps the offer with $change", async ({ attributes, offer }) => {
     const [soft] = hitsOf(twoIds);
-    const body = searchBody([withAttributes(soft, attributes)]);
+    const body = priceBody([withAttributes(soft, attributes)]);
     const { gate } = setup([{ url: priceUrl([SOFT_200]), status: 200, body }]);
 
     expect(await fetchHebePrices(gate, [SOFT_200])).toEqual(new Map([[SOFT_200, { kind: "price", offer }]]));
   });
+
+  it.each([{ flag: undefined }, { flag: ["true"] }])(
+    "reads online_flag $flag as not orderable, and logs how many hits had a flag that isn't a yes or a no",
+    async ({ flag }) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const [soft] = hitsOf(twoIds);
+      const body = priceBody([withAttributes(soft, { online_flag: flag })]);
+      const { gate } = setup([{ url: priceUrl([SOFT_200]), status: 200, body }]);
+
+      expect(await fetchHebePrices(gate, [SOFT_200])).toEqual(
+        new Map([[SOFT_200, { kind: "price", offer: { ...SOFT_200_OFFER, available: false } }]]),
+      );
+      expect(loggedLine(warn)).toEqual({
+        event: "hebe-prices",
+        reason: "availability unread",
+        detail: "1 of 1 product hits",
+      });
+    },
+  );
 
   it("keeps the other id's price when one hit can't be read, and the unread one is unavailable", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const [soft] = hitsOf(twoIds);
     const unread = { ...withAttributes(soft, { price_amount: "24.99" }), url: SOFT_300 };
     const url = priceUrl([SOFT_200, SOFT_300]);
-    const { gate } = setup([{ url, status: 200, body: searchBody([soft, unread]) }]);
+    const { gate } = setup([{ url, status: 200, body: priceBody([soft, unread]) }]);
 
     expect(await fetchHebePrices(gate, [SOFT_200, SOFT_300])).toEqual(
       new Map<string, PriceCheck>([
@@ -716,7 +746,7 @@ describe("Hebe prices: what they keep out", () => {
   ])("calls every id unavailable, never missing, when the hit can't be read, as with $change", async ({ edit }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const url = priceUrl([SOFT_200, SOFT_300]);
-    const { gate, fetchMock } = setup([{ url, status: 200, body: searchBody(hitsOf(twoIds).map(edit)) }]);
+    const { gate, fetchMock } = setup([{ url, status: 200, body: priceBody(hitsOf(twoIds).map(edit)) }]);
 
     expect(await fetchHebePrices(gate, [SOFT_200, SOFT_300])).toEqual(
       new Map([
@@ -739,6 +769,38 @@ describe("Hebe prices: what they keep out", () => {
       event: "hebe-prices",
       reason: "hits not asked for",
       detail: "1 of 1 product hits",
+    });
+  });
+
+  it.each<{ change: string; edit: (answer: typeof twoIds) => unknown }>([
+    {
+      change: "a next page",
+      edit: (answer) => ({ ...answer, next_page: "https://live.luigisbox.com/search?tracker_id=421168-505233&page=2" }),
+    },
+    {
+      change: "more hits matched than it holds",
+      edit: (answer) => ({ ...answer, results: { ...answer.results, total_hits: 2 } }),
+    },
+    {
+      change: "no count of the hits matched",
+      edit: (answer) => ({ ...answer, results: { ...answer.results, total_hits: undefined } }),
+    },
+  ])("calls the id without a hit unavailable, never missing, when the answer has $change", async ({ edit }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // The recorded answer for 218807 and 251798, edited: 251798's hit may be the one it left out.
+    const url = priceUrl([SOFT_200, SOFT_300]);
+    const { gate } = setup([{ url, status: 200, body: JSON.stringify(edit(structuredClone(twoIds))) }]);
+
+    expect(await fetchHebePrices(gate, [SOFT_200, SOFT_300])).toEqual(
+      new Map<string, PriceCheck>([
+        [SOFT_200, { kind: "price", offer: SOFT_200_OFFER }],
+        [SOFT_300, FAILED],
+      ]),
+    );
+    expect(loggedLine(warn)).toEqual({
+      event: "hebe-prices",
+      reason: "answer incomplete",
+      detail: "1 product hits for 2 IDs",
     });
   });
 });

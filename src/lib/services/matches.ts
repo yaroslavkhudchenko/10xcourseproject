@@ -93,14 +93,25 @@ function linksOfShop({ shop, productUrl, imageUrl }: LinkedFields): boolean {
 }
 
 /**
+ * Whether the item ids a decision names, the candidate it confirms and the match a re-pin replaces, are ids its own
+ * shop's items can have, as that shop's adapter reads them (SHOP_ADAPTERS): a form can't pin one shop's id on another.
+ */
+function itemIdsOfShop(shop: MatchableShop, confirmed: string | null, replaces: ExpectedDecision | undefined): boolean {
+  const { isItemId } = SHOP_ADAPTERS[shop];
+  return (
+    (confirmed === null || isItemId(confirmed)) && (replaces?.state !== "matched" || isItemId(replaces.shopItemId))
+  );
+}
+
+/**
  * The "To ten produkt" and "Żaden z nich" forms from a product's page, from a first choice or a re-pin's, for one of
  * `shops`. A confirmed candidate's fields come back from the page and end up in the user's row, so they're checked
- * against the same PRODUCT_LIMITS and the URL rules its shop's adapter applies (SHOP_ADAPTERS), and the size is parsed
- * again from its text.
+ * against the same PRODUCT_LIMITS and the id and URL rules its shop's adapter applies (SHOP_ADAPTERS), and the size is
+ * parsed again from its text.
  */
 function matchFormSchemaFor(shops: readonly MatchableShop[]) {
   const decisionFields = decisionFieldsFor(shops);
-  return z.discriminatedUnion("action", [
+  const schema = z.discriminatedUnion("action", [
     z.object({ ...decisionFields, action: z.literal("decline") }),
     z
       .object({
@@ -117,6 +128,9 @@ function matchFormSchemaFor(shops: readonly MatchableShop[]) {
       })
       .refine(linksOfShop),
   ]);
+  return schema.refine((fields) =>
+    itemIdsOfShop(fields.shop, fields.action === "confirm" ? fields.shopItemId : null, fields.replaces),
+  );
 }
 
 /** What the user decided for one shop: the candidate they confirmed, or "Żaden z nich". */

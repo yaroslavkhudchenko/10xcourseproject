@@ -119,6 +119,7 @@ The lesson requires this table (`context/foundation/lessons.md:12-17`). The plan
 | The list's "Odśwież ceny"                                    | 1 per distinct stale item, one at a time | ⌈distinct stale ids / 50⌉ batches, one at a time                                                                                                                           |
 
 - **Across shops:** lookups and refreshes run concurrently; within a shop they run one at a time.
+- **What a tap leads to (implementation review F6):** a decision post and a successful `?retry=<shop>` redirect to the plain product page, and "Anuluj" links to it. That page is the user's own navigation, so it costs what the "Product view, own navigation" rows say: each other undecided shop is looked up there again, with 1–2 searches, since a choice the user hasn't made yet is never stored. The rows above count only the request itself.
 - **Worst case on a first open with both shops undecided:** 2–4 Luigi's Box requests, with a wait of at most about 8 s, since each search waits at most 4 s.
 - **Subrequests:** each render peaks at the 5 database reads, then runs at most 2 lookup subrequests at once. The heaviest render is 19.
 
@@ -1107,6 +1108,22 @@ Each adaptation made during implementation gets one line here, naming the contra
 - §2: FR-013's PRD note records the shop order (Hebe before Super-Pharm, the owner's call). Open Question 2 is unedited.
 - Beyond the docs (the orchestrator's change): the header comment of `src/lib/services/matching.ts` cited the old claim ("research note §7: Hebe's were wrong"). It now cites §2.2 ("one EAN can come with another size"). It's a comment-only code change in a docs phase.
 - Left as history: `context/foundation/shape-notes.md:155`, the record from before the PRD, still has the old reading.
+
+### Implementation review fixes
+
+- **The review** (`reviews/impl-review.md`, 2026-10-04): NEEDS ATTENTION, with 1 warning and 7 observations. The owner had all eight fixed, F1 through Fix A. The main session wrote the fixes, gated them and break-checked each one.
+- **F1, a decline in another tab (Phase 3 §1, the S-08 409 path):** `priceTargetFor` answers `gone` only when the product is off the user's list. When it's still listed and the shop's decision gives another item or none, as after a decline elsewhere, it answers `changed`. So the island shows its reload alert instead of keeping a declined shop's price eligible.
+- **F2, the product refresh without JavaScript (Phase 3 §2):** this replaces the all-or-nothing `failed` that Phase 3 kept.
+  - `productTargets` and `listTargets` give `RefreshTargets`, the keys to fetch and the shops left unread.
+  - A product's shop whose decision can't be read is left out and named unread, and the other shops are still fetched.
+  - `refreshCodeOf(refresh, unread)` counts each unread shop as an item without an answer. So the route answers `partial`, or `failed` when nothing else was asked.
+  - The list names no shop unread, because it asks only for what's out of date.
+- **F3, a price answer cut short (Phase 1, `luigis-box.ts`):** an id without a hit is `missing` only when the answer is whole: `next_page` is null and `total_hits` is no more than the hits it holds. Otherwise the id is `failed`, and the answer is logged as `answer incomplete`. Zod 4 refuses a missing `z.unknown()` key, so both fields are optional in the schema.
+- **F4, Hebe's availability flag (Phase 1, `hebe.ts`):** `hasOddAvailability`, which is `hasOddOnlineFlag` for Hebe, counts the kept hits whose `online_flag` isn't a yes or a no in an `availability unread` log line, in searches and price answers alike. The offer still reads as not orderable.
+- **F5, the decision form's item ids (Phase 2 §2):** `ShopAdapter.isItemId` takes each shop's existing filter check (`isNaturaItemId`, `isHebeItemId`). The form refuses a confirmed id, or a re-pin's replaced match, that isn't its shop's.
+- **F6, the cost table:** it gains a line saying a decision post, a successful retry and "Anuluj" lead to the plain view, which the own-navigation rows cost.
+- **F7, two doc sentences:** change.md's note and CLAUDE.md:51 are reworded to match research §2.2 and the code. CLAUDE.md's Shops bullet also follows F3, F4 and F5. The course block's sha256 is unchanged (`bb541ab6…`).
+- **F8, the removal confirm's text:** `phone-remove-product.spec.ts` asserts it as the confirm button's accessible description.
 
 ## References
 

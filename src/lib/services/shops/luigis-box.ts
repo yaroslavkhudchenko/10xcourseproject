@@ -17,7 +17,12 @@ const PRICE_TIMEOUT_MS = 4000;
 const IDS_PER_REQUEST = 50;
 const EAN = /^\d{8,14}$/;
 
-const responseSchema = z.object({ results: z.object({ hits: z.array(z.unknown()) }) });
+// An answer's hits, how many hits the request matched, and the address of its next page, null on the last. Only the hits
+// must be readable: the other two only tell whether the answer holds every hit (readHits).
+const responseSchema = z.object({
+  results: z.object({ hits: z.array(z.unknown()), total_hits: z.unknown().optional() }),
+  next_page: z.unknown().optional(),
+});
 
 /** A shop whose search runs on Luigi's Box: its tracker, how its hits read, and how its log lines name things. */
 export interface LuigisBoxShop {
@@ -52,6 +57,11 @@ export interface LuigisBoxShop {
    * never counted as a hit that can't be read. Without it, a search reads every item hit.
    */
   isNotSoldOnline?: (hit: unknown) => boolean;
+  /**
+   * True for an item hit whose offer couldn't read whether it's orderable online, and so takes it for not orderable.
+   * The client counts the kept hits it's true for in a log line, so a changed format shows. Without it, none is counted.
+   */
+  hasOddAvailability?: (hit: unknown) => boolean;
 }
 
 /** One shop's Luigi's Box search and price requests. Neither ever throws. */
@@ -67,8 +77,8 @@ export interface LuigisBoxClient {
    * Fetches the offers of pinned items by id through the gate: one request per 50 ids, each after the one before. Once
    * the shop refuses, busy under the cap, paused or stopped, the ids of the requests after it get that same answer with
    * no request and no reservation. Resolves to a check for every id given: its offer, `missing` when the shop answered
-   * without it, or `unavailable` when the id can't go into a filter, the gate skipped or refused its request, or the
-   * answer wasn't readable.
+   * without it in an answer that holds every hit it matched, or `unavailable` when the id can't go into a filter, the
+   * gate skipped or refused its request, or the answer wasn't readable or may have left its hit out.
    */
   fetchPrices: (gate: ShopGate, ids: string[]) => Promise<Map<string, PriceCheck>>;
 }
@@ -90,24 +100,31 @@ async function search(config: LuigisBoxShop, gate: ShopGate, query: string, size
   if (outcome.kind !== "ok") {
     return shopUnavailable(config, outcome, config.log.search);
   }
-  const hits = await readHits(outcome.response, config.log.search);
-  if (hits === null) {
+  const read = await readHits(outcome.response, config.log.search);
+  if (read === null) {
     return failed();
   }
 
   // Luigi's Box can send a query suggestion among the items (research note §2.2), and a shop can list an item it
   // doesn't sell online; only the other items become candidates.
-  const itemHits = hits.filter((hit) => isItemHit(hit, config.itemType) && config.isNotSoldOnline?.(hit) !== true);
+  const itemHits = read.hits.filter((hit) => isItemHit(hit, config.itemType) && config.isNotSoldOnline?.(hit) !== true);
   // Each hit is checked on its own, so one odd hit doesn't blank the whole search.
-  const candidates = itemHits.flatMap((hit) => {
+  const kept = itemHits.flatMap((hit) => {
     const candidate = config.toCandidate(hit);
-    return candidate ? [candidate] : [];
+    return candidate ? [{ hit, candidate }] : [];
   });
+  const candidates = kept.map(({ candidate }) => candidate);
   const dropped = itemHits.length - candidates.length;
   if (dropped > 0) {
     // How many, never which: a hit carries the product's name and EAN, which can echo the search.
     logFailure(config.log.search, "hits dropped", `${dropped} of ${itemHits.length} product hits`);
   }
+  logOddAvailability(
+    config,
+    config.log.search,
+    kept.map(({ hit }) => hit),
+    itemHits.length,
+  );
   // Items that all fail their check point to a changed format, not to a product the shop doesn't sell: a lookup would
   // store that as "not found".
   if (itemHits.length > 0 && candidates.length === 0) {
@@ -162,14 +179,15 @@ async function fetchPriceBatch(config: LuigisBoxShop, gate: ShopGate, ids: strin
     const unavailable = shopUnavailable(config, outcome, config.log.prices);
     return new Map(ids.map((id): [string, PriceCheck] => [id, { ...unavailable }]));
   }
-  const hits = await readHits(outcome.response, config.log.prices);
-  if (hits === null) {
+  const read = await readHits(outcome.response, config.log.prices);
+  if (read === null) {
     return new Map(ids.map((id): [string, PriceCheck] => [id, failed()]));
   }
 
   const asked = new Set(ids);
-  const itemHits = hits.filter((hit) => isItemHit(hit, config.itemType));
+  const itemHits = read.hits.filter((hit) => isItemHit(hit, config.itemType));
   const offers = new Map<string, ShopOffer>();
+  const kept: unknown[] = [];
   let dropped = 0;
   let notAsked = 0;
   for (const hit of itemHits) {
@@ -182,6 +200,7 @@ async function fetchPriceBatch(config: LuigisBoxShop, gate: ShopGate, ids: strin
     }
     if (asked.has(id)) {
       offers.set(id, offer);
+      kept.push(hit);
     } else {
       notAsked++;
     }
@@ -190,14 +209,23 @@ async function fetchPriceBatch(config: LuigisBoxShop, gate: ShopGate, ids: strin
   if (dropped > 0) {
     logFailure(config.log.prices, "hits dropped", `${dropped} of ${itemHits.length} product hits`);
   }
+  logOddAvailability(config, config.log.prices, kept, itemHits.length);
   if (notAsked > 0) {
     // Hits for ids nobody asked for mean the id filter wasn't applied.
     logFailure(config.log.prices, "hits not asked for", `${notAsked} of ${itemHits.length} product hits`);
   }
-  // An id without a hit is missing only when every hit was read and was one asked for. Otherwise an unread hit could
-  // be that id's, and a changed format would be stored as items the shop no longer sells: so, as in a search, hits
-  // that all fail their check make every id unavailable.
-  const clear = dropped === 0 && notAsked === 0;
+  if (!read.complete) {
+    // An answer cut short, or one that can't say it isn't, may have left out an asked-for item's hit.
+    logFailure(
+      config.log.prices,
+      "answer incomplete",
+      `${itemHits.length} product hits for ${ids.length} ${config.log.id}s`,
+    );
+  }
+  // An id without a hit is missing only when the answer holds every hit it matched and every hit was read and was one
+  // asked for. Otherwise the left-out or unread hit could be that id's, and a changed format would be stored as items
+  // the shop no longer sells: so, as in a search, hits that all fail their check make every id unavailable.
+  const clear = read.complete && dropped === 0 && notAsked === 0;
   return new Map(
     ids.map((id): [string, PriceCheck] => {
       const offer = offers.get(id);
@@ -266,8 +294,18 @@ function shopUnavailable(
   return gateUnavailable(outcome);
 }
 
-/** An `ok` answer's hits, or null when it isn't JSON with a list of hits. Either is logged without the answer. */
-async function readHits(response: Response, event: string): Promise<unknown[] | null> {
+/** An answer's hits, and whether they're every hit the request matched. */
+interface HitsRead {
+  hits: unknown[];
+  complete: boolean;
+}
+
+/**
+ * An `ok` answer's hits, or null when it isn't JSON with a list of hits. Either is logged without the answer. The hits
+ * are complete when the answer has no next page and matched no more hits than it holds; a count or a next page that
+ * can't be read can't say so.
+ */
+async function readHits(response: Response, event: string): Promise<HitsRead | null> {
   let body: unknown;
   try {
     // Read the body right away: the time limits cover it too.
@@ -284,7 +322,21 @@ async function readHits(response: Response, event: string): Promise<unknown[] | 
     logFailure(event, "unexpected response shape", issues.join("; "));
     return null;
   }
-  return parsed.data.results.hits;
+  const { hits, total_hits: totalHits } = parsed.data.results;
+  const complete = parsed.data.next_page === null && typeof totalHits === "number" && totalHits <= hits.length;
+  return { hits, complete };
+}
+
+/**
+ * Logs how many of the kept hits have an availability their offer couldn't read (hasOddAvailability): each reads as not
+ * orderable online, so it can't be named cheapest, and only this line shows a changed format.
+ */
+function logOddAvailability(config: LuigisBoxShop, event: string, kept: unknown[], itemHits: number): void {
+  const odd = kept.filter((hit) => config.hasOddAvailability?.(hit) === true).length;
+  if (odd > 0) {
+    // How many, never which, as with dropped hits.
+    logFailure(event, "availability unread", `${odd} of ${itemHits} product hits`);
+  }
 }
 
 /** A shop answer that couldn't be used, fresh for each id. */

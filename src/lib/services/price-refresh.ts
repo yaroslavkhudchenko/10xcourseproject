@@ -148,21 +148,26 @@ export const PRICE_REFRESH_CODES = ["done", "partial", "none", "failed"] as cons
 
 /**
  * What a refresh from the form came to: `done` when every item got a price or a missing check and all were stored,
- * `partial` when some got no answer or the answers couldn't be stored, `none` when nothing needed refreshing, and
- * `failed` when no item got an answer.
+ * `partial` when some got no answer, a shop's item couldn't be told or the answers couldn't be stored, `none` when
+ * nothing needed refreshing, and `failed` when no item got an answer.
  */
 export type PriceRefreshCode = (typeof PRICE_REFRESH_CODES)[number];
 
-/** The code for what a refresh came to. A refresh of no items asked no shop, so nothing needed refreshing. */
-export function refreshCodeOf({ results, saved }: PriceRefresh): PriceRefreshCode {
-  if (results.length === 0) {
+/**
+ * The code for what a refresh came to, where `unread` counts the shops it couldn't name an item in, since the product's
+ * decision there couldn't be read (productTargets): each counts as an item that got no answer. A refresh of no items,
+ * with none unread, asked no shop, so nothing needed refreshing.
+ */
+export function refreshCodeOf({ results, saved }: PriceRefresh, unread = 0): PriceRefreshCode {
+  const asked = results.length + unread;
+  if (asked === 0) {
     return "none";
   }
   const answered = results.filter(({ check }) => check.kind !== "unavailable").length;
   if (answered === 0) {
     return "failed";
   }
-  return answered === results.length && saved === "saved" ? "done" : "partial";
+  return answered === asked && saved === "saved" ? "done" : "partial";
 }
 
 /**
