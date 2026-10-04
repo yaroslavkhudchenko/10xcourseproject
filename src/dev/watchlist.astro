@@ -36,6 +36,7 @@ import {
   SEARCH_LISTED,
 } from "@/dev/watchlist-fixtures";
 import Layout from "@/layouts/Layout.astro";
+import { signOutErrorMessage } from "@/lib/notices";
 import type { PriceRefreshCode } from "@/lib/services/price-refresh";
 import { removedNotice } from "@/lib/services/watchlist";
 import { LIST_FILTERS, type ListFilter } from "@/lib/services/watchlist-rows";
@@ -53,8 +54,9 @@ const COLUMN_STYLE = "max-width: 32rem";
 const ASIDE_STYLE = "max-width: 420px";
 
 /**
- * The list's head in its states: each chip on, each refresh notice, the empty list, a failed read, and what a removal
- * from a product's page came to, which the page shows in the head's default slot.
+ * The list's head in its states: each chip on, each refresh notice, the empty list, a failed read, what a removal
+ * from a product's page came to, and a sign-out that didn't go through, which the page shows in the head's default
+ * slot.
  */
 const HEADS: {
   code: string;
@@ -64,6 +66,7 @@ const HEADS: {
   counts: Record<ListFilter, number> | null;
   refreshCode: PriceRefreshCode | null;
   notice: string | null;
+  error?: string | null;
 }[] = [
   {
     code: "all",
@@ -127,6 +130,16 @@ const HEADS: {
     counts: GALLERY_COUNTS,
     refreshCode: null,
     notice: removedNotice("gone"),
+  },
+  {
+    code: "sign-out failed",
+    text: "wylogowanie, którego Auth nie przyjął (?sign-out=failed): sesja mogła zostać, więc bez „Wylogowano.”",
+    count: GALLERY_ROWS.length,
+    filter: "all",
+    counts: GALLERY_COUNTS,
+    refreshCode: null,
+    notice: null,
+    error: signOutErrorMessage("failed"),
   },
 ];
 ---
@@ -238,20 +251,25 @@ const HEADS: {
               </h2>
               <p class="text-sm text-muted-foreground">
                 <code>ListHead</code>: tytuł z licznikiem, „Odśwież ceny”, komunikat odświeżenia, komunikat po usunięciu
-                produktu, wyszukiwarka telefonu (poniżej 1024 px) i filtry.
+                produktu, błąd nieudanego wylogowania, wyszukiwarka telefonu (poniżej 1024 px) i filtry.
               </p>
               <div class="flex flex-col gap-6">
-                {HEADS.map(({ code, text, count, filter, counts, refreshCode, notice }, index) => (
+                {HEADS.map(({ code, text, count, filter, counts, refreshCode, notice, error }, index) => (
                   <div class="flex flex-col gap-1">
                     <p class="text-xs text-muted-foreground">
                       <code>{code}</code> · {text}
                     </p>
                     <div inert>
                       <ListHead count={count} path={HERE} filter={filter} counts={counts} refreshCode={refreshCode}>
-                        {/* As the list shows a notice: a status Alert in the head's default slot. */}
+                        {/* As the list shows a notice and an error: a status Alert, then a destructive one. */}
                         {notice && (
                           <Alert variant="success" role="status">
                             <AlertDescription>{notice}</AlertDescription>
+                          </Alert>
+                        )}
+                        {error && (
+                          <Alert variant="destructive">
+                            <AlertDescription>{error}</AlertDescription>
                           </Alert>
                         )}
                         {index === 0 && (

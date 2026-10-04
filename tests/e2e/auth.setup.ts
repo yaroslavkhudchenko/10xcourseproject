@@ -8,7 +8,6 @@ import { expect, test as setup } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { e2eHolds, requestLogMark, stopShops } from "../../scripts/e2e-local-db.mjs";
 import { PRICED_SHOPS } from "@/lib/services/price-comparison";
-import { waitForIsland } from "./support/islands";
 import { clearRun, runId, SESSION_FILE, writeRun } from "./support/run";
 
 setup("stop every shop for this run, then sign the run's user up and in", async ({ page }) => {
@@ -50,22 +49,21 @@ setup("stop every shop for this run, then sign the run's user up and in", async 
     expect(reservation.data, `${shop} is stopped for the run`).toEqual({ outcome: "stopped" });
   }
 
-  // Sign in once through the real form. It's a React island, which drops input typed before it hydrates, so the setup
-  // waits for it to hydrate instead of retrying: every retry would be one more sign-in against the local limit of 30
-  // sign-ins and sign-ups per 5 minutes (supabase/config.toml).
+  // Sign in once through the real form, a plain form that works without JavaScript, so it's filled in as soon as the
+  // page has loaded. Once: every sign-in counts against the local limit of 30 sign-ins and sign-ups per 5 minutes
+  // (supabase/config.toml).
   // The route's own answer proves the sign-in: a 302 to /watchlist, which carries the session's cookies, read from the
   // redirect itself; a refused sign-in goes back to /auth/signin?error=…. Where the browser lands after it isn't the
   // setup's to judge: a middleware that doesn't attach the signed-in user must turn the seed red on its signed-in
   // assertion, not stop the run here.
   await page.goto("/auth/signin");
-  await waitForIsland(page, "SignInForm");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Hasło", { exact: true }).fill(password);
   const [answer] = await Promise.all([
     page.waitForResponse(
       (response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/auth/signin",
     ),
-    page.getByRole("button", { name: "Sign in" }).click(),
+    page.getByRole("button", { name: "Zaloguj się" }).click(),
   ]);
   expect(answer.status(), "the sign-in route answers with a redirect").toBe(302);
   expect(answer.headers().location, "the sign-in route sends a signed-in user to the list").toBe("/watchlist");

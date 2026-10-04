@@ -154,10 +154,10 @@ const islandConfig = defineConfig({
   },
 });
 
-// The watchlist's two pages, their shell, their components, the shadcn components and the kitchen sinks are built from
-// the design tokens in src/styles/global.css and the components in src/components/ui only, so a Tailwind palette class,
-// an arbitrary px/rem value or an arbitrary colour in any string there fails: a class, class:list or className value,
-// a cn() argument or a template literal.
+// The front door, the sign-in pages, the watchlist's two pages, their shells, their components, the shadcn components
+// and the kitchen sinks are built from the design tokens in src/styles/global.css and the components in
+// src/components/ui only, so a Tailwind palette class, an arbitrary px/rem value or an arbitrary colour in any string
+// there fails: a class, class:list or className value, a cn() argument or a template literal.
 // The patterns start from the /10x-ui scan's: its palette part, widened to every colour utility's prefix (a border's
 // side, ring-offset, decoration, caret, accent, placeholder) and to Tailwind 4.3's mauve, mist, olive and taupe; its
 // px/rem part; and its colour functions, plus oklab(), as arbitrary values such as bg-[#0a0e1a] or text-[oklch(…)].
@@ -172,9 +172,13 @@ const TOKEN_MESSAGE =
   "Use a design token from src/styles/global.css (for example bg-card or text-muted-foreground) or a component from src/components/ui, not a Tailwind palette class or an arbitrary value.";
 const tokenConfig = defineConfig({
   files: [
+    "src/pages/index.astro",
+    "src/pages/auth/**/*.astro",
     "src/pages/watchlist.astro",
     "src/pages/watchlist/\\[id\\].astro",
+    "src/layouts/AuthShell.astro",
     "src/layouts/WatchlistShell.astro",
+    "src/components/auth/**/*.astro",
     "src/components/shell/**/*.{astro,tsx}",
     "src/components/ui/**/*.{astro,tsx}",
     "src/components/watchlist/**/*.{astro,tsx}",

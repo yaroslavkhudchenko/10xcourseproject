@@ -1,17 +1,37 @@
 ---
-import Layout from "@/layouts/Layout.astro";
-import SignInForm from "@/components/auth/SignInForm";
+// The sign-in page, in Polish on the app's tokens, which works without JavaScript (AuthShell, SignInView). A signed-in
+// user isn't shown the form: they go on to the page the address says a sign-in goes back to, as a sign-in would take
+// them (returnPathOf), which is the list unless it's the list's or a product's page with at most the list's filter.
+// The page shows a refused sign-in's error, or "Wylogowano." after a sign-out, in its own words: a code the app didn't
+// send shows nothing (notices.ts). It reads only the user the middleware attached, so it asks no shop.
+import SignInView from "@/components/auth/SignInView.astro";
+import AuthShell from "@/layouts/AuthShell.astro";
+import { ERROR_PARAM, SIGNED_OUT_NOTICE, SIGNED_OUT_PARAM, signInErrorMessage } from "@/lib/notices";
+import { returnPathOf } from "@/lib/services/return-path";
+import { NEXT_PARAM } from "@/lib/services/watchlist-rows";
 
-const error = Astro.url.searchParams.get("error");
+const params = Astro.url.searchParams;
+const next = returnPathOf(params.get(NEXT_PARAM));
+if (Astro.locals.user) {
+  return Astro.redirect(next);
+}
+const error = signInErrorMessage(params.get(ERROR_PARAM));
+const notice = params.has(SIGNED_OUT_PARAM) ? SIGNED_OUT_NOTICE : null;
 ---
 
-<Layout title="Sign in" theme="dark">
-  <div class="bg-cosmic flex min-h-screen items-center justify-center p-4">
-    <div class="w-full max-w-sm rounded-2xl border border-white/10 bg-white/10 p-8 text-white backdrop-blur-xl">
-      <h1 class="mb-6 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-center text-2xl font-bold text-transparent">
-        Sign in
-      </h1>
-      <SignInForm serverError={error} client:load />
-    </div>
-  </div>
-</Layout>
+<AuthShell title="Logowanie">
+  <SignInView next={next} error={error} notice={notice} />
+  <script>
+    // The parameters are the ones the frontmatter reads its notices by, from a module that imports nothing server-only,
+    // so this script ships no server code.
+    import { SIGN_IN_NOTICE_PARAMS, withoutNotices } from "@/lib/notices";
+
+    // A notice shows once: the address bar forgets the parameter that brought it, a refused sign-in's (error) or a
+    // sign-out's (signed-out), so a reload or a copied link doesn't show it again. The page a sign-in goes back to
+    // (next) stays, as the form does, for the next try (withoutNotices).
+    const forgotten = withoutNotices(window.location.href, SIGN_IN_NOTICE_PARAMS);
+    if (forgotten !== null) {
+      history.replaceState(history.state, "", forgotten);
+    }
+  </script>
+</AuthShell>

@@ -25,8 +25,10 @@ import type { LatestPrice, MatchState, PriceKey, ShopMatchState, WatchlistItem }
 
 // The list's rows, without I/O: each product's price tag, whether its chips hold it, and the line screen readers hear,
 // from the list's three reads. The list page, the product page's list beside the product and the selected row's live
-// tag all build them here, so they never disagree. The live tag runs in the browser, so this module imports nothing
-// server-only: the comparison rules and the matching rule it uses run in the browser too.
+// tag all build them here, so they never disagree. It also writes the list's links, which keep its filter (filterHref),
+// and the sign-in link that comes back to one of them (signInHref). The live tag and the product's island run in the
+// browser, so this module imports nothing server-only: the comparison rules and the matching rule it uses run in the
+// browser too.
 
 /** The list's filters, as its chips link to them with `?f=`: every product, those on promotion, and those to check. */
 export const LIST_FILTERS = ["all", "promo", "check"] as const;
@@ -371,6 +373,24 @@ export function filterHref(path: string, filter: ListFilter, params: Record<stri
   }
   const text = query.toString();
   return text === "" ? page : `${page}?${text}`;
+}
+
+/** The sign-in page, which a signed-out request to the list, a product or their routes is sent to. */
+export const SIGN_IN_PATH = "/auth/signin";
+
+/** The parameter the sign-in page carries the page a sign-in goes back to in (`?next=`). */
+export const NEXT_PARAM = "next";
+
+/**
+ * The sign-in page's link: the plain page, or, with `next`, the page a sign-in goes back to, the list's or a product's
+ * with only the list's filter, as filterHref and returnPathFor write it. The middleware, the product's island and the
+ * pages link to sign-in through it; the sign-in page checks `next` again (returnPathOf), so a link crafted elsewhere
+ * can't send a sign-in anywhere else.
+ */
+export function signInHref(next?: string): string {
+  return next === undefined
+    ? SIGN_IN_PATH
+    : `${SIGN_IN_PATH}?${new URLSearchParams({ [NEXT_PARAM]: next }).toString()}`;
 }
 
 /**

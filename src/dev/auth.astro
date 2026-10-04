@@ -1,0 +1,134 @@
+---
+// The sign-in page's kitchen sink: the page's column, the logo above the card with the sign-in form, built by the
+// page's own components (AuthColumn, SignInView), in every state the page can show, for review and screenshots. Only
+// `astro dev` serves it (astro.config.mjs). The page is pinned to the light theme and draws every state twice, side by
+// side on a wide screen: in the light theme, then in a `dark` wrapper, whose class switches the tokens for all it
+// holds. Each copy stands on the paper with the page's gutter, in a frame as wide as a large phone, so the column takes
+// its full 384 px. The forms post to the real sign-in route, as the page's do: credentials typed here sign in for real,
+// and the browser sends no form with an empty field. The password field's show/hide button and the forms' SubmitOnce
+// run here as on the page, and every 44 px hit area is outlined. Tailwind doesn't scan this folder (global.css), so its
+// markup uses only classes the app itself uses, and the frames' widths are inline styles.
+import AuthColumn from "@/components/auth/AuthColumn.astro";
+import SignInView from "@/components/auth/SignInView.astro";
+import Layout from "@/layouts/Layout.astro";
+import { SIGN_IN_ERROR_CODES, SIGN_IN_ERRORS, SIGNED_OUT_NOTICE, type SignInErrorCode } from "@/lib/notices";
+import { DEFAULT_RETURN_PATH } from "@/lib/services/return-path";
+import { filterHref } from "@/lib/services/watchlist-rows";
+import { DARK_THEME, LIGHT_THEME } from "@/lib/theme";
+
+// Each state's two copies: the page's own light theme, then the dark one in a wrapper, which switches the tokens of
+// the frame and all it holds.
+const COPIES = [
+  { theme: LIGHT_THEME, wrapper: "" },
+  { theme: DARK_THEME, wrapper: "dark" },
+] as const;
+// A column of text: 32rem, as in the other kitchen sinks.
+const COLUMN_STYLE = "max-width: 32rem";
+// A frame stands for the page around the column, as AuthShell draws it: the paper, with the page's gutter and its room
+// above and below.
+const FRAME = "flex w-full flex-col items-center rounded-card bg-paper px-4.5 py-8 text-foreground";
+// As wide as a large phone's screen: the column's 384 px with the gutter on either side, so the two copies of a state
+// stand side by side on a wide screen.
+const FRAME_STYLE = "max-width: 430px";
+
+// A product no one has, whose page answers 404 before any lookup: the page a sign-in from its product goes back to.
+const PRODUCT_PAGE = filterHref("/watchlist/00000000-0000-4000-8000-000000000000", "check");
+
+// What brings each error, as the route sends its code. The wrong password's comes from a product's page, so its form
+// keeps the way back there in its hidden next.
+const ERROR_CAUSES: Record<SignInErrorCode, string> = {
+  invalid:
+    "zły e-mail lub hasło, albo formularz, którego nie da się odczytać; tu wysłany ze strony produktu, więc ukryte pole next zachowuje drogę powrotną",
+  busy: "Auth odpowiedział 429: za dużo prób z adresu, który widzi, wspólnego dla wszystkich użytkowników",
+  failed: "każda inna odpowiedź Auth",
+  config: "bez Supabase aplikacja nie ma kogo zapytać",
+};
+
+/** The sign-in page's states: as opened, sent from a product's page, after a sign-out, and after each refusal. */
+const STATES: {
+  id: string;
+  code: string;
+  text: string;
+  next: string;
+  error: string | null;
+  notice: string | null;
+}[] = [
+  {
+    id: "plain",
+    code: "plain",
+    text: "strona, jak ją otwiera /auth/signin albo / bez sesji: po zalogowaniu lista",
+    next: DEFAULT_RETURN_PATH,
+    error: null,
+    notice: null,
+  },
+  {
+    id: "next",
+    code: "next",
+    text: `z drogą powrotną do produktu, jak po przekierowaniu z jego strony: ukryte pole next niesie ${PRODUCT_PAGE}`,
+    next: PRODUCT_PAGE,
+    error: null,
+    notice: null,
+  },
+  {
+    id: "signed-out",
+    code: "signed-out",
+    text: "po wylogowaniu (?signed-out=1): komunikat jako status",
+    next: DEFAULT_RETURN_PATH,
+    error: null,
+    notice: SIGNED_OUT_NOTICE,
+  },
+  ...SIGN_IN_ERROR_CODES.map((code) => ({
+    id: `error-${code}`,
+    code: `error=${code}`,
+    text: ERROR_CAUSES[code],
+    next: code === "invalid" ? PRODUCT_PAGE : DEFAULT_RETURN_PATH,
+    error: SIGN_IN_ERRORS[code],
+    notice: null,
+  })),
+];
+---
+
+<Layout title="Kitchen sink: logowanie · Drogeria Radar" lang="pl" theme="light">
+  <div class="min-h-dvh bg-paper p-4 text-foreground">
+    <main class="flex flex-col gap-6">
+      <header class="flex flex-col gap-3" style={COLUMN_STYLE}>
+        <h1 class="text-2xl font-bold">Kitchen sink: logowanie</h1>
+        <p class="text-sm text-muted-foreground">
+          Strona <code>/auth/signin</code> w każdym stanie, jaki może pokazać, zbudowana jej komponentami (
+          <code>AuthColumn</code>, <code>SignInView</code>). Każdy stan jest dwa razy: w jasnym motywie i w ciemnym. Ta
+          strona istnieje tylko w <code>astro dev</code>.
+        </p>
+        <p class="text-sm text-muted-foreground">
+          Formularze wysyłają się naprawdę, jak na stronie: prawdziwe dane logują. Przycisk „Pokaż hasło” działa tylko z
+          JavaScriptem, więc bez niego jest ukryty; kreska obrysowuje jego strefę dotyku 44 × 44 px. <code>:hover</code>{" "}
+          i <code>focus-visible</code> trzeba sprawdzić w DevTools i klawiaturą: każde pole i przycisk ma obrys 2 px w
+          kolorze <code>--ring</code>, 2 px od krawędzi.
+        </p>
+      </header>
+
+      <section aria-labelledby="signin-heading" class="flex flex-col gap-3">
+        <h2 id="signin-heading" class="text-lg font-semibold">
+          Logowanie
+        </h2>
+        <div class="flex flex-col gap-6" data-show-hit-areas>
+          {STATES.map(({ id, code, text, next, error, notice }) => (
+            <div class="flex flex-col gap-1">
+              <p class="text-xs text-muted-foreground" style={COLUMN_STYLE}>
+                <code>{code}</code> · {text}
+              </p>
+              <div class="flex flex-wrap items-start gap-6">
+                {COPIES.map(({ theme, wrapper }) => (
+                  <div class:list={[FRAME, wrapper]} style={FRAME_STYLE}>
+                    <AuthColumn>
+                      <SignInView next={next} error={error} notice={notice} idPrefix={`${theme}-${id}-`} />
+                    </AuthColumn>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </main>
+  </div>
+</Layout>

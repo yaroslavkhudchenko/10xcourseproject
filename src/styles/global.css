@@ -394,17 +394,6 @@
   background-size: 18px 18px;
 }
 
-/* The starter's navy gradient, which the sign-in page paints with until S-07 restyles it. Its stops are the old dark
-   theme's --background and --background-glow, as fixed values, so the page keeps its look in the new dark theme. */
-@utility bg-cosmic {
-  background-image: linear-gradient(
-    to bottom,
-    oklch(0.1663 0.0262 269.371),
-    oklch(0.2014 0.0412 269.806),
-    oklch(0.1663 0.0262 269.371)
-  );
-}
-
 @layer base {
   /* Every element's outline is already in --ring, so a control's transition has no colour to fade when it gains
      focus. */

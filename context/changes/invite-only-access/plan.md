@@ -747,6 +747,61 @@ The "Deferred" item "Sign-up page" is marked done. The end-to-end verification i
   - the phone account menu's "Wyloguj" ended on `/auth/signin`, after which `/watchlist` redirected to sign-in;
   - screenshots were read back.
 
+### Phase 2
+
+- **§3 `AuthColumn.astro` (new, not in the files).** It holds the logo and the `Card`, with the ink edge, the hard shadow and `max-w-sm`. `AuthShell` renders it inside `Layout`, and `/dev/auth` renders the same column, because a sink can't nest `AuthShell`, which wraps `Layout`.
+- **§1 `SIGN_IN_PATH`.** `watchlist-rows.ts` also exports `SIGN_IN_PATH = "/auth/signin"`, which `signInHref` and `auth.ts`'s redirects share.
+- **§1 `signInHref` follows the contract to the letter.** `signInHref("/watchlist")` gives `/auth/signin?next=%2Fwatchlist`, so a visitor opening the bare list carries `next=/watchlist`. Only the sign-in route's error redirect leaves `next=/watchlist` out.
+- **§2 `auth.ts` gains three tested helpers**, so the routes only call and map (`lessons.md:26-31`):
+  - `parseSignInForm`: form to fields, null for any failed or non-text field;
+  - `signInErrorHref(code, next)`: `/auth/signin?error=<code>`, then `&next=` only when `next` isn't `/watchlist`;
+  - `signOutBackTo("done" | "failed" | "config")`.
+- **§2 the parameter values chosen:**
+  - `SIGNED_OUT_PARAM = "signed-out"`: sign-out lands on `/auth/signin?signed-out=1`, which shows "Wylogowano.".
+  - The failed sign-out is `SIGN_OUT_PARAM = "sign-out"` with the code `failed`: `/watchlist?sign-out=failed`, in `LIST_NOTICE_PARAMS`.
+  - `SIGN_IN_ERROR_CODES` and `SIGN_IN_ERRORS` follow the `REMOVED_CODES` pattern, with `signInErrorMessage` as the parser.
+  - `SIGN_IN_NOTICE_PARAMS` is `[error, signed-out]`.
+- **§4 the sign-in route's order:**
+  - It guards `formData()` first; a non-form body is `invalid`, with no `next`.
+  - Then it reads `next` with `returnPathOf`, then checks for `config`, then the schema.
+  - `config` and `invalid` both keep the validated `next`.
+- **§4 sign-out without a Supabase client** goes to the plain `/auth/signin`. The contract named only success and error.
+- **§4 two files outside the list:**
+  - `src/pages/watchlist.astro` shows the failed sign-out as its destructive Alert, and its address-bar comment names the parameter.
+  - `src/dev/watchlist.astro` gains a "sign-out failed" head state, per CLAUDE.md's kitchen-sink rule.
+- **§4 `src/dev/fixtures.ts` is unchanged.** `PriceComparisonView` builds the session link from `itemId` and `listFilter`, so the fixture needs nothing.
+- **§3 `input.tsx`.** Besides the planned `h-13`, `rounded-search`, `border-2 border-input`, `bg-card` and no ring of its own:
+  - `px-3.5` instead of `px-3`;
+  - `text-base` at every width (the registry's `md:text-sm` dropped), so a phone doesn't zoom into a focused field;
+  - `shadow-xs`, `outline-none`, `dark:bg-input/30` and the `aria-invalid` ring colours removed;
+  - `aria-invalid:border-destructive` and the transition kept.
+- **§3 `PasswordInput`.**
+  - The field is always required.
+  - The toggle is a ghost icon button narrowed to 38 px (`size-9.5`). It keeps the icon size's `hit-area`, measured at 44 × 44 px.
+  - Sending the form switches the field back to `type="password"`, so the browser never keeps it as plain text.
+- **§3 `SignInView`.** The heading is "Logowanie" and the page title "Logowanie · Drogeria Radar"; the plan named no heading, and the owner may reword it. The submit is drawn like the phone bottom bar's 52 px primary. An `idPrefix` prop keeps ids unique in the sink, and the hidden `next` is always rendered.
+- **§6 smoke.**
+  - The three anonymous API-route steps expect exactly `/auth/signin`.
+  - A `signIn` helper was added.
+  - Sign-out expects exactly `/auth/signin?signed-out=1`.
+  - The crafted-`next` steps are three real sign-ins, so a run now makes 5 sign-in attempts and 1 sign-up against the local limit of 30 per 5 minutes.
+- **§5 `Layout`'s `theme` prop** is now `"user" | typeof LIGHT_THEME`. The comments on `tokenConfig` and `devKitchenSink` name the auth pages and `/dev/auth`.
+- **Side effect.** The old `signin.astro` was the last scanned file using `min-h-screen`, so the product-page and watchlist sinks' `min-h-screen` now gets no CSS. It's invisible, since those pages are taller than the screen. `/dev/auth` uses `min-h-dvh`.
+- **Contrast.** No pair was added: the sign-in card's pairs are listed already. The ghost toggle's dark hover is unlisted, like `MatchChoice`'s existing ghost "Anuluj".
+- **2.8 was agent-run** (`/dev/auth` under `astro dev`, headless Chromium at 390 and 1280 px; screenshots read back):
+  - 14 forms, every state in both themes;
+  - a focused field and the 52 px button showed the 2 px `--ring` outline at a 2 px offset;
+  - the 38 px show/hide button had a 44 × 44 px hit area, and stayed hidden without JavaScript;
+  - no palette colour, which the lint confirms.
+- **2.9 was agent-run** (the local preview at 390 × 844 with touch; a throwaway user whose product was matched in Natura and Hebe with fresh prices; every shop held stopped; screenshots read back):
+  - A visitor's `/watchlist/<id>?f=check&repin=natura` went to sign-in with `next=/watchlist/<id>?f=check`.
+  - A wrong password showed "Nieprawidłowy e-mail lub hasło." and kept `next`.
+  - The right one landed on `/watchlist/<id>?f=check` without `repin`.
+  - With the cookies cleared, the island's "Odśwież ceny" showed "Sesja wygasła", and its link returned through sign-in to the product with `f`.
+  - Sign-out showed "Wylogowano.".
+  - Without JavaScript, the show/hide button was hidden and the form signed in.
+- **Seen, not this change:** when all three shops have the same price, S-05's price track draws their labels on top of one another ("ROSSMANNATURHEBE"). This showed in the 2.9 screenshot and is a follow-up for the price track.
+
 ## References
 
 - Research: `context/changes/invite-only-access/research.md`
@@ -767,34 +822,34 @@ The "Deferred" item "Sign-up page" is marked done. The end-to-end verification i
 
 #### Automated
 
-- [x] 1.1 Unit tests pass: `npm run test`
-- [x] 1.2 Lint and types pass: `npm run lint` and `npx astro check`
-- [x] 1.3 The build passes, fonts included: `npm run build`
-- [x] 1.4 Smoke passes against the local production preview
-- [x] 1.5 The database checks pass unchanged (three locally, the shop-gate check in CI)
-- [x] 1.6 The e2e suite passes: `npx playwright test`
-- [x] 1.7 No reference to the removed pages remains in src, tests or scripts, smoke's 404 steps aside
+- [x] 1.1 Unit tests pass: `npm run test` — 4b92983
+- [x] 1.2 Lint and types pass: `npm run lint` and `npx astro check` — 4b92983
+- [x] 1.3 The build passes, fonts included: `npm run build` — 4b92983
+- [x] 1.4 Smoke passes against the local production preview — 4b92983
+- [x] 1.5 The database checks pass unchanged (three locally, the shop-gate check in CI) — 4b92983
+- [x] 1.6 The e2e suite passes: `npx playwright test` — 4b92983
+- [x] 1.7 No reference to the removed pages remains in src, tests or scripts, smoke's 404 steps aside — 4b92983
 
 #### Manual
 
-- [x] 1.8 In a browser at 390 px, `/` lands on sign-in without a "Sign up" link when signed out, on the list when signed in, and sign-out ends on sign-in
+- [x] 1.8 In a browser at 390 px, `/` lands on sign-in without a "Sign up" link when signed out, on the list when signed in, and sign-out ends on sign-in — 4b92983
 
 ### Phase 2: Polish sign-in with a return path
 
 #### Automated
 
-- [ ] 2.1 The new unit tests pass (return path, auth service, sign-in link, notices)
-- [ ] 2.2 All unit tests, lint and types pass
-- [ ] 2.3 The token contrast check passes
-- [ ] 2.4 The build passes
-- [ ] 2.5 Smoke passes with the return-path, code, origin and sign-out steps
-- [ ] 2.6 The e2e suite passes, its setup signing in through the Polish form
-- [ ] 2.7 Break-checks turn the return-path and exact-error steps red
+- [x] 2.1 The new unit tests pass (return path, auth service, sign-in link, notices)
+- [x] 2.2 All unit tests, lint and types pass
+- [x] 2.3 The token contrast check passes
+- [x] 2.4 The build passes
+- [x] 2.5 Smoke passes with the return-path, code, origin and sign-out steps
+- [x] 2.6 The e2e suite passes, its setup signing in through the Polish form
+- [x] 2.7 Break-checks turn the return-path and exact-error steps red
 
 #### Manual
 
-- [ ] 2.8 `/dev/auth` sign-in states in light and dark at 390 px and 1280 px
-- [ ] 2.9 In a browser at 390 px, the return path, the session link, the Polish error, "Wylogowano." and the form without JavaScript
+- [x] 2.8 `/dev/auth` sign-in states in light and dark at 390 px and 1280 px
+- [x] 2.9 In a browser at 390 px, the return path, the session link, the Polish error, "Wylogowano." and the form without JavaScript
 
 ### Phase 3: Invite and recovery links
 

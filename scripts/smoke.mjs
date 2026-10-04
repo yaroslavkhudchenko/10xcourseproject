@@ -86,6 +86,12 @@ async function request(path, { method = "GET", form, json, origin = BASE_URL } =
 const missingProductId = "00000000-0000-4000-8000-000000000000";
 const missingProduct = `/watchlist/${missingProductId}`;
 
+// The sign-in page with the page a sign-in goes back to, as signInHref writes it (src/lib/services/watchlist-rows.ts).
+const signInBackTo = (path) => `/auth/signin?next=${encodeURIComponent(path)}`;
+// The sign-in form's post, from the app's own origin unless a step says otherwise. Each one that signs in replaces the
+// session's cookies; none asks a shop, since smoke follows no redirect.
+const signIn = (form, options) => request("/api/auth/signin", { method: "POST", form, ...options });
+
 // The product page island's price refresh. Every post names the product no one has, with a shop item as the island
 // names the one its page shows, so none reaches a shop.
 const pricesRoute = "/api/watchlist/prices";
@@ -99,23 +105,38 @@ const listRefresh = (options) => request("/api/watchlist/refresh", { method: "PO
 const removal = (options) =>
   request("/api/watchlist/remove", { method: "POST", form: { itemId: missingProductId }, ...options });
 
-// No step searches (no `q`), opens a product that exists or refreshes its price, and the list refresh runs on an empty
-// list, so the smoke test never calls a shop; no removal names a product anyone has, so no step deletes anything. A
-// step's location is where the redirect starts, or, with `exact`, all of it, so a step can check a redirect carries no
-// code.
+// No signed-in step searches (the one `q` is a visitor's, whom the middleware sends to sign-in before the page runs),
+// opens a product that exists or refreshes its price, and the list refresh runs on an empty list, so the smoke test
+// never calls a shop; no removal names a product anyone has, so no step deletes anything. A step's location is where
+// the redirect starts, or, with `exact`, all of it, so a step can check a redirect carries no code.
 const steps = [
   ["home sends a visitor to sign-in", () => request("/"), { status: 302, location: "/auth/signin", exact: true }],
   // The starter's demo page is gone, so it answers 404, not a redirect to sign-in.
   ["dashboard answers 404", () => request("/dashboard"), { status: 404 }],
   ["watchlist redirects anonymous user", () => request("/watchlist"), { status: 302, location: "/auth/signin" }],
-  ["product page redirects anonymous user", () => request(missingProduct), { status: 302, location: "/auth/signin" }],
   [
+    // The way back keeps the list's filter and drops everything else, the search among it.
+    "watchlist redirects anonymous user with its filter as the way back",
+    () => request("/watchlist?f=check&q=x"),
+    { status: 302, location: "/auth/signin?next=%2Fwatchlist%3Ff%3Dcheck", exact: true },
+  ],
+  [
+    "product page redirects anonymous user with itself as the way back",
+    () => request(missingProduct),
+    { status: 302, location: signInBackTo(missingProduct), exact: true },
+  ],
+  [
+    // An API route goes to the plain sign-in page, which the product's island reads as an ended session.
     "price refresh redirects anonymous user",
     () => priceRefresh({ json: missingProductPrice }),
-    { status: 302, location: "/auth/signin" },
+    { status: 302, location: "/auth/signin", exact: true },
   ],
-  ["list price refresh redirects anonymous user", () => listRefresh(), { status: 302, location: "/auth/signin" }],
-  ["removal redirects anonymous user", () => removal(), { status: 302, location: "/auth/signin" }],
+  [
+    "list price refresh redirects anonymous user",
+    () => listRefresh(),
+    { status: 302, location: "/auth/signin", exact: true },
+  ],
+  ["removal redirects anonymous user", () => removal(), { status: 302, location: "/auth/signin", exact: true }],
   [
     // No one registers through the app: the smoke user came from Auth's own sign-up, before the steps.
     "sign-up route answers 404",
@@ -123,16 +144,35 @@ const steps = [
     { status: 404 },
   ],
   [
-    "signin rejects wrong password",
-    () => request("/api/auth/signin", { method: "POST", form: { email, password: "wrong" } }),
-    { status: 302, location: "/auth/signin?error=" },
+    // Astro's checkOrigin is the sign-in route's only defence against a form posted from another site.
+    "signin posted from another site is refused",
+    () => signIn({ email, password: "wrong" }, { origin: "https://evil.example" }),
+    { status: 403 },
   ],
   [
-    "signin accepts correct password",
-    () => request("/api/auth/signin", { method: "POST", form: { email, password } }),
-    { status: 302, location: "/watchlist" },
+    // The page's own code, never Auth's message.
+    "signin rejects wrong password",
+    () => signIn({ email, password: "wrong" }),
+    { status: 302, location: "/auth/signin?error=invalid", exact: true },
   ],
+  [
+    "signin accepts correct password and goes back to the page it was sent from",
+    () => signIn({ email, password, next: `${missingProduct}?f=check` }),
+    { status: 302, location: `${missingProduct}?f=check`, exact: true },
+  ],
+  // A way back that isn't the list's or a product's page with at most its filter lands on the list: another site, or a
+  // re-pin that would make the product's page ask a shop.
+  ...["https://evil.example/watchlist", "//evil.example/watchlist", `${missingProduct}?repin=natura`].map((next) => [
+    `signin with the way back ${next} goes to the list`,
+    () => signIn({ email, password, next }),
+    { status: 302, location: "/watchlist", exact: true },
+  ]),
   ["home sends a signed-in user to the list", () => request("/"), { status: 302, location: "/watchlist", exact: true }],
+  [
+    "sign-in page sends a signed-in user on to the list",
+    () => request("/auth/signin"),
+    { status: 302, location: "/watchlist", exact: true },
+  ],
   [
     "watchlist renders for signed-in user and isn't cacheable",
     () => request("/watchlist"),
@@ -213,7 +253,12 @@ const steps = [
     () => removal({ form: { itemId: missingProductId, f: "check" } }),
     { status: 302, location: "/watchlist?f=check&removed=gone", exact: true },
   ],
-  ["signout clears session", () => request("/api/auth/signout", { method: "POST" }), { status: 302, location: "/" }],
+  [
+    // Lands on sign-in with "Wylogowano." (SIGNED_OUT_PARAM in src/lib/notices.ts).
+    "signout clears session",
+    () => request("/api/auth/signout", { method: "POST" }),
+    { status: 302, location: "/auth/signin?signed-out=1", exact: true },
+  ],
   ["watchlist redirects after signout", () => request("/watchlist"), { status: 302, location: "/auth/signin" }],
 ];
 

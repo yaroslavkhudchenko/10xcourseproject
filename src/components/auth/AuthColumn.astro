@@ -1,0 +1,14 @@
+---
+// The column of the pages a visitor sees before signing in, as AuthShell centres it on the paper and the kitchen sink
+// draws it: the logo, then a card holding the page's content, with an ink edge and a hard shadow like the account
+// menu's panel. It takes a phone's width less the page's gutter, up to 384 px (max-w-sm).
+import LogoMark from "@/components/shell/LogoMark.astro";
+import { Card } from "@/components/ui/card";
+---
+
+<div class="flex w-full max-w-sm flex-col items-center gap-6 lg:gap-8">
+  <LogoMark size="lg" />
+  <Card className="w-full border-2 border-foreground px-5.5 py-6 shadow-hero lg:px-7 lg:py-7 lg:shadow-hero-lg">
+    <slot />
+  </Card>
+</div>
