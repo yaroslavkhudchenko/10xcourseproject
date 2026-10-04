@@ -1,7 +1,7 @@
 ---
 change_id: hebe-in-comparison
 title: Add Hebe to the price comparison (roadmap S-05)
-status: implementing
+status: implemented
 created: 2026-10-02
 updated: 2026-10-04
 archived_at: null

@@ -1214,11 +1214,11 @@ Each adaptation made during implementation gets one line here, naming the contra
 
 #### Automated
 
-- [x] 7.1 Prettier passes on every changed Markdown file, and `npm run lint` is clean
-- [x] 7.2 CLAUDE.md's course block is byte-identical (sha256 before and after)
-- [ ] 7.3 CI (`ci`, `smoke`, `e2e`) is green on the final commit
+- [x] 7.1 Prettier passes on every changed Markdown file, and `npm run lint` is clean — 40c597e
+- [x] 7.2 CLAUDE.md's course block is byte-identical (sha256 before and after) — 40c597e
+- [x] 7.3 CI (`ci`, `smoke`, `e2e`) is green on the final commit — 40c597e
 
 #### Manual
 
-- [x] 7.4 The owner confirms that production's `hebe` shop row is enabled before the merge
+- [x] 7.4 The owner confirms that production's `hebe` shop row is enabled before the merge — 40c597e
 - [ ] 7.5 After the merge, the owner's phone check on production passes: a Hebe card, the list's Hebe line and a list refresh
