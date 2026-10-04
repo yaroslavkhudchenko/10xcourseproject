@@ -1125,6 +1125,17 @@ Each adaptation made during implementation gets one line here, naming the contra
 - **F7, two doc sentences:** change.md's note and CLAUDE.md:51 are reworded to match research §2.2 and the code. CLAUDE.md's Shops bullet also follows F3, F4 and F5. The course block's sha256 is unchanged (`bb541ab6…`).
 - **F8, the removal confirm's text:** `phone-remove-product.spec.ts` asserts it as the confirm button's accessible description.
 
+### Production rollout
+
+- **Merged on 2026-10-04** as `0b5e53c` (PR #23), after the implementation review's fixes (`fd7ff44`).
+  - No migration was needed, and production's `public.shops` row `hebe` was confirmed enabled before the merge (7.4).
+  - Workers Builds reported the deploy at 17:39 UTC, and `ci`, `smoke` and `e2e` passed on `main`.
+- **The owner's phone check on production passed** (7.5, confirmed on 2026-10-04): a Hebe card, the list's Hebe line and a list refresh.
+- **Left for later changes:**
+  - Super-Pharm, S-06: the roadmap's S-06 block carries what this change built for it.
+  - The correction to the test plan's risk #6 evidence: the "wrong EAN" was a wrong size field. It waits for `/10x-test-plan --refresh`, as test-plan §6.6 records.
+  - Live price batches larger than two ids are still untested in both shops. Since F3, an answer cut short records no item as missing.
+
 ## References
 
 - Research: `context/changes/hebe-in-comparison/research.md`
@@ -1238,4 +1249,4 @@ Each adaptation made during implementation gets one line here, naming the contra
 #### Manual
 
 - [x] 7.4 The owner confirms that production's `hebe` shop row is enabled before the merge — 40c597e
-- [ ] 7.5 After the merge, the owner's phone check on production passes: a Hebe card, the list's Hebe line and a list refresh
+- [x] 7.5 After the merge, the owner's phone check on production passes: a Hebe card, the list's Hebe line and a list refresh — 0b5e53c
