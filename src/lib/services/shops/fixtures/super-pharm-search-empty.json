@@ -1,0 +1,27 @@
+{
+  "hits": [],
+  "nbHits": 0,
+  "page": 0,
+  "nbPages": 0,
+  "hitsPerPage": 5,
+  "exhaustiveNbHits": true,
+  "exhaustiveTypo": true,
+  "exhaustive": {
+    "nbHits": true,
+    "typo": true
+  },
+  "query": "4005900009319",
+  "params": "query=4005900009319&hitsPerPage=5&analytics=false&tagFilters=",
+  "processingTimeMS": 1,
+  "processingTimingsMS": {
+    "_request": {
+      "roundTrip": 39
+    },
+    "fetch": {
+      "query": 1,
+      "total": 1
+    },
+    "total": 2
+  },
+  "serverTimeMS": 3
+}

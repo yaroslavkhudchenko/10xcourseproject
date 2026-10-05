@@ -39,17 +39,17 @@ A shopper who buys the same drugstore products again and again checks two or thr
 
 ## At a glance
 
-| ID   | Change ID                     | Outcome (user can …)                                                        | Prerequisites | PRD refs                                                                                                               | Status   |
-| ---- | ----------------------------- | --------------------------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- | -------- |
-| F-01 | polite-shop-access            | (foundation) every shop call obeys a deployment-wide cap and stops on block | —             | NFR polite to the shops                                                                                                | done     |
-| S-01 | watchlist-add-by-search       | search a product by name and size and add it to their private watchlist     | F-01          | FR-003, FR-004, FR-005, NFR private watchlists                                                                         | done     |
-| S-02 | shop-matching-first-two-shops | confirm the matching item in the first two shops once                       | S-01          | US-02, FR-006, FR-013                                                                                                  | done     |
-| S-03 | cheapest-shop-today           | see which shop is cheapest today, on the watchlist and on each product      | S-02          | US-01, FR-008, FR-010, FR-011, NFR per-shop feedback, NFR price age, NFR phone-usable, Guardrail failed prices visible | done     |
-| S-04 | good-price-judgement          | see whether today's price is a good one                                     | S-03          | FR-012                                                                                                                 | blocked  |
-| S-05 | hebe-in-comparison            | match their products in Hebe and see Hebe in the comparison                 | S-03, F-01    | US-02, FR-006, FR-013                                                                                                  | done     |
-| S-06 | super-pharm-in-comparison     | match their products in Super-Pharm and see it in the comparison            | S-03, F-01    | US-02, FR-006, FR-013                                                                                                  | proposed |
-| S-07 | invite-only-access            | sign in with an owner-added account; nobody can register themselves         | —             | FR-001, FR-002                                                                                                         | done     |
-| S-08 | fix-matches-and-watchlist     | re-pin or remove a wrong match and remove a product safely                  | S-02          | FR-007, FR-005                                                                                                         | done     |
+| ID   | Change ID                     | Outcome (user can …)                                                        | Prerequisites | PRD refs                                                                                                               | Status      |
+| ---- | ----------------------------- | --------------------------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------- |
+| F-01 | polite-shop-access            | (foundation) every shop call obeys a deployment-wide cap and stops on block | —             | NFR polite to the shops                                                                                                | done        |
+| S-01 | watchlist-add-by-search       | search a product by name and size and add it to their private watchlist     | F-01          | FR-003, FR-004, FR-005, NFR private watchlists                                                                         | done        |
+| S-02 | shop-matching-first-two-shops | confirm the matching item in the first two shops once                       | S-01          | US-02, FR-006, FR-013                                                                                                  | done        |
+| S-03 | cheapest-shop-today           | see which shop is cheapest today, on the watchlist and on each product      | S-02          | US-01, FR-008, FR-010, FR-011, NFR per-shop feedback, NFR price age, NFR phone-usable, Guardrail failed prices visible | done        |
+| S-04 | good-price-judgement          | see whether today's price is a good one                                     | S-03          | FR-012                                                                                                                 | blocked     |
+| S-05 | hebe-in-comparison            | match their products in Hebe and see Hebe in the comparison                 | S-03, F-01    | US-02, FR-006, FR-013                                                                                                  | done        |
+| S-06 | super-pharm-in-comparison     | match their products in Super-Pharm and see it in the comparison            | S-03, F-01    | US-02, FR-006, FR-013                                                                                                  | in-progress |
+| S-07 | invite-only-access            | sign in with an owner-added account; nobody can register themselves         | —             | FR-001, FR-002                                                                                                         | done        |
+| S-08 | fix-matches-and-watchlist     | re-pin or remove a wrong match and remove a product safely                  | S-02          | FR-007, FR-005                                                                                                         | done        |
 
 ## Streams
 
@@ -179,16 +179,22 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **Parallel with:** S-04, S-05, S-07, S-08
 - **Blockers:** —
 - **Unknowns:**
-  - Is Super-Pharm one of the shops the owner buys from? (PRD Open Question 2) — Owner: user. Block: no.
-- **Risk:** With no EAN in its index and a search key that must be read from the shop's own page, Super-Pharm is the most fragile shop. It comes after the first comparison so a breakage can't hold that up.
+  - Is Super-Pharm one of the shops the owner buys from? (PRD Open Question 2) — Owner: user. Block: no. Answered 2026-10-05: sometimes, now and then.
+- **Risk:** With no EAN in its index and a search key that must be read from the shop's own page, Super-Pharm is the most fragile shop. It comes after the first comparison so a breakage can't hold that up. Answered 2026-10-05: the key needn't be read at runtime. It's the public key every superpharm.pl page carries, with no expiry of its own and unchanged after 18 days (research note §2.3), so the app keeps it in its code, and by the owner's call the gate has no exception for it. A key Super-Pharm stops accepting answers 403, which stops Super-Pharm for everyone until the owner updates the key and switches the shop back on (`context/deployment/deploy-plan.md`, "Super-Pharm stopped with HTTP 403"), and nothing alerts the owner yet. With no EAN, every Super-Pharm match is the user's pick, from a search that only a tap on its card's button runs.
 - **Carry-over from `etykiety-redesign`:** when a shop's match row can't be read, only the verdict says unread; the cards' "Najtaniej" mark and the live region's ", najtaniej" aren't withheld yet. Withhold them once a third shop joins: with two shops it can't happen, since an unmatched Natura has no price row.
-- **Carry-over from `hebe-in-comparison`:** Super-Pharm joins the way Hebe did, as one more matched shop.
+- **Carry-over from `hebe-in-comparison`:** Super-Pharm joins the way Hebe did, as one more matched shop. Done in this slice (2026-10-05), with no candidate rule of its own and no gate exception: see "Built" below.
   - It joins `MATCHABLE_SHOPS` with its label (`SHOP_LABELS`) and its adapter in the registry (`SHOP_ADAPTERS` in `src/lib/services/shops/registry.ts`), then `MATCHED_SHOPS`, the one switch, where the compiler asks for its colour (`SHOP_FILLS`). The matching steps, the price refresh, the island and the list already run per matched shop.
   - Its index has no EAN, so it needs candidate rules of its own: today's rule accepts only a candidate that shares an EAN, so every Super-Pharm match would be the user's choice unless S-06 adds one.
   - The `etykiety-redesign` carry-over above is done: S-05 withholds "Najtaniej" and ", najtaniej" while any matched shop's decision can't be read.
   - Its adapter's tests follow test-plan §6.4: real recordings, broken copies and the shop binding.
   - A known risk for its plan: the shop gate stops a shop on any 403, and Algolia answers a rotated or wrong search key with 403. Without a narrow exception, every change of the key would stop Super-Pharm for everyone until the owner switches it back on.
-- **Status:** proposed
+- **Built (2026-10-05):**
+  - Super-Pharm is the fourth matched shop, after Hebe, in lavender (the owner's pick): its own card on a product's page, its line on the list, and its prices in the comparison and in both refreshes. They come from its Algolia search through the gate, with the public search key in the code, and the list's refresh fetches its pinned items up to 20 a request.
+  - An undecided Super-Pharm costs nothing on a view: its card offers "Dopasuj w Super-Pharmie", and only that tap searches Super-Pharm, alone and by name, since its index has no EAN. The choice is never accepted on its own, so every Super-Pharm match is the user's pick, and until the user picks or declines, the product stays in "Do sprawdzenia".
+  - For every shop, a first lookup's choice now lists the candidates of the product's size and brand first, and a product's page forgets `?retry=` once it has rendered, so a reload or Back asks the shop nothing.
+  - Super-Pharm's price is the one it sells at, with a regular price only where its record carries one, so a sale without it shows as a plain price with its 30-day low. An item counts as orderable online when it's in stock and not sold only in the shops.
+  - Not built: a gate exception for a rejected key, or reading the key from the page (a runbook covers the stop); automatic Super-Pharm matches, by product pages' EANs or by name; a lookup on a plain view or after "Dodaj"; a promotion mark for a sale without a regular price; club prices; and dm.
+- **Status:** in-progress
 
 ### S-07: Invite-only front door
 

@@ -308,8 +308,9 @@ const LIST_HEADING_ID = "list-heading";
     // A notice shows once: the address bar forgets the code that brought it, a decision's (matched, declined, decided,
     // error) with its shop (shop), the product's no-JavaScript refresh's (prices), the list's refresh's (list-prices) or
     // a failed removal's (removal), so a reload or a copied link doesn't show it again. It forgets a re-pin's (repin)
-    // too once its choice has rendered, so going back to the choice or reloading it asks the shop nothing. Every other
-    // parameter, the list's filter among them, and the hash stay (withoutNotices).
+    // and a retry's (retry) too once the page has rendered, so going back to it or reloading it asks the shop nothing,
+    // even when the lookup only opened a choice. Every other parameter, the list's filter among them, and the hash stay
+    // (withoutNotices).
     const forgotten = withoutNotices(window.location.href, NOTICE_PARAMS);
     if (forgotten !== null) {
       history.replaceState(history.state, "", forgotten);

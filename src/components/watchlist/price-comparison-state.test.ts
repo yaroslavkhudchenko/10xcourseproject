@@ -91,6 +91,16 @@ const hebe = (latest: LatestPrice | null = stored("hebe", HEBE_SOFT_ID, 24.99)):
   productUrl: "https://www.hebe.pl/nivea-intensywnie-nawilzajacy-krem-do-twarzy-i-ciala-200-ml-000000000000218807.html",
   latest,
 });
+// Super-Pharm's Nivea Soft 300 ml, by its record's objectID.
+const SUPER_PHARM_SOFT_ID = "10132";
+const superPharm = (
+  latest: LatestPrice | null = stored("super-pharm", SUPER_PHARM_SOFT_ID, 19.49),
+): PriceComparisonShop => ({
+  shop: "super-pharm",
+  shopItemId: SUPER_PHARM_SOFT_ID,
+  productUrl: "https://www.superpharm.pl/nivea-soft-krem-nawilzajacy-pudelko-39477",
+  latest,
+});
 
 const priceAnswer = (price: number): PriceRefreshAnswer => ({
   kind: "price",
@@ -126,34 +136,31 @@ describe("price comparison state", () => {
     ]);
   });
 
-  it.each<[PricedShop, PricedShop, PricedShop]>([
-    ["rossmann", "natura", "hebe"],
-    ["hebe", "natura", "rossmann"],
-    ["natura", "hebe", "rossmann"],
-  ])("applies every shop's answer whichever comes first (%s, then %s, then %s)", (first, second, third) => {
+  it.each<[PricedShop, PricedShop, PricedShop, PricedShop]>([
+    ["rossmann", "natura", "hebe", "super-pharm"],
+    ["super-pharm", "hebe", "natura", "rossmann"],
+    ["natura", "super-pharm", "rossmann", "hebe"],
+  ])("applies every shop's answer whichever comes first (%s, then %s, then %s, then %s)", (...order) => {
     const answers: Record<PricedShop, RefreshResult> = {
       rossmann: priceAnswer(26.49),
       natura: priceAnswer(16.99),
       hebe: priceAnswer(17.49),
+      "super-pharm": priceAnswer(19.49),
     };
     let state = run(
-      initialState({ shops: [rossmann(null), natura(null), hebe(null)], now: RENDERED }),
+      initialState({ shops: [rossmann(null), natura(null), hebe(null), superPharm(null)], now: RENDERED }),
       start("rossmann"),
       start("natura"),
       start("hebe"),
+      start("super-pharm"),
     );
-    expect(state.rows.map((row) => row.pending)).toEqual([true, true, true]);
+    expect(state.rows.map((row) => row.pending)).toEqual([true, true, true, true]);
 
-    state = run(state, done(first, answers[first], ANSWERED_AT));
-    expect(rowOf(state, first)?.pending).toBe(false);
-    expect([rowOf(state, second)?.pending, rowOf(state, third)?.pending]).toEqual([true, true]);
-
-    state = run(state, done(second, answers[second], ANSWERED_AT + 1));
-    expect(rowOf(state, second)?.pending).toBe(false);
-    expect(rowOf(state, third)?.pending).toBe(true);
-
-    state = run(state, done(third, answers[third], ANSWERED_AT + 2));
-    expect(state.rows.map((row) => row.pending)).toEqual([false, false, false]);
+    order.forEach((shop, answered) => {
+      state = run(state, done(shop, answers[shop], ANSWERED_AT + answered));
+      // The shops that answered so far are done, and every other one still waits.
+      expect(order.map((each) => rowOf(state, each)?.pending)).toEqual(order.map((_, index) => index > answered));
+    });
     expect(rowOf(state, "natura")?.latest).toEqual({
       lastCheckedAt: CHECKED_AT,
       lastStatus: "price",
@@ -162,10 +169,11 @@ describe("price comparison state", () => {
     expect(marks(state)).toEqual([
       ["natura", true],
       ["hebe", false],
+      ["super-pharm", false],
       ["rossmann", false],
     ]);
     // The answer's time moves the clock.
-    expect(state.now).toBe(ANSWERED_AT + 2);
+    expect(state.now).toBe(ANSWERED_AT + 3);
   });
 
   it("names Hebe cheapest once its answer is the lowest of three, and never its stale stored price", () => {
@@ -1260,12 +1268,16 @@ describe("trackLabels", () => {
   });
 
   it("gives a run of four one label, however wide its gaps", () => {
-    // Only three shops have prices today, so the fourth marker repeats one: the rule reads places, not shops.
-    const four = [at("rossmann", 10, 10.99), at("natura", 35, 12.99), at("hebe", 60, 14.99), at("natura", 85, 16.99)];
+    const four = [
+      at("rossmann", 10, 10.99),
+      at("natura", 35, 12.99),
+      at("hebe", 60, 14.99),
+      at("super-pharm", 85, 16.99),
+    ];
 
     expect(trackLabels(four)).toEqual([
       {
-        shops: ["rossmann", "natura", "hebe", "natura"],
+        shops: ["rossmann", "natura", "hebe", "super-pharm"],
         price: `od 10,99${NO_BREAK_SPACE}zł`,
         x: 47.5,
         side: "center",

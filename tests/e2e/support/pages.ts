@@ -9,7 +9,7 @@ import type { SeededProduct } from "./watchlist-data";
 export const JUST_NOW = String.raw`(?:przed chwilą|\d+ min temu)`;
 
 /** A shop as the pages name it on its card and in its choice. */
-export type ShopName = "Rossmann" | "Natura" | "Hebe";
+export type ShopName = "Rossmann" | "Natura" | "Hebe" | "Super-Pharm";
 
 /** What a shop's card says once the island asked the shop again and it was refused: the setup stops every shop. */
 export function stoppedNotice(shop: ShopName): string {

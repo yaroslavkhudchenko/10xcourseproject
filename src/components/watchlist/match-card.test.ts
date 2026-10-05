@@ -286,3 +286,26 @@ describe("matchCardOf for another matched shop: every text from the shop's label
     ]);
   });
 });
+
+describe("matchCardOf for a shop looked up on request", () => {
+  // Super-Pharm, which no visit looks up on its own: only its card's button does. Its lookup found nothing, and that
+  // couldn't be stored.
+  const notFound: MatchView = {
+    kind: "not-found",
+    text: "Nie znaleziono w Super-Pharmie (sprawdzono 28.09, 14:00).",
+    href: `/watchlist/${ITEM_ID}?f=check&retry=super-pharm`,
+  };
+
+  it("points to the card's button above when its lookup's outcome couldn't be stored, never to the next visit", () => {
+    const card = matchCardOf({ shop: "super-pharm", view: notFound, ...quiet, unsaved: true });
+
+    // The button the alert points to stands above it, in the card's own part.
+    expect(card).toMatchObject({ kind: "not-found", link: { label: "Szukaj ponownie", href: notFound.href } });
+    expect(card.alerts).toEqual([
+      {
+        tone: "warning",
+        text: "Nie udało się zapisać wyniku. Sklep Super-Pharm zostanie sprawdzony ponownie, gdy użyjesz przycisku powyżej.",
+      },
+    ]);
+  });
+});

@@ -26,7 +26,7 @@ const polishCalendar = new Intl.DateTimeFormat("pl-PL", {
  * Every shop the code can match a watched product in, each with its label here and its adapter in the registry
  * (src/lib/services/shops/registry.ts), whether it's switched on or not.
  */
-export const MATCHABLE_SHOPS = ["natura", "hebe"] as const satisfies readonly ShopId[];
+export const MATCHABLE_SHOPS = ["natura", "hebe", "super-pharm"] as const satisfies readonly ShopId[];
 
 /** A shop the code can match a watched product in. */
 export type MatchableShop = (typeof MATCHABLE_SHOPS)[number];
@@ -36,7 +36,7 @@ export type MatchableShop = (typeof MATCHABLE_SHOPS)[number];
  * and price-request schemas, the list and the island all read it, and the rules that take a list of shops default to
  * it, so a test can pass shops that aren't switched on yet.
  */
-export const MATCHED_SHOPS = ["natura", "hebe"] as const satisfies readonly MatchableShop[];
+export const MATCHED_SHOPS = ["natura", "hebe", "super-pharm"] as const satisfies readonly MatchableShop[];
 
 /** A matched shop that is switched on. */
 export type MatchedShop = (typeof MATCHED_SHOPS)[number];
@@ -74,6 +74,34 @@ export const SHOP_LABELS: Record<KnownShop, ShopLabel> = {
   rossmann: { name: "Rossmann", in: "w Rossmannie", of: "Rossmanna", title: "Rossmann", site: "rossmann.pl" },
   natura: { name: "Natura", in: "w Naturze", of: "Natury", title: "Drogerie Natura", site: "drogerienatura.pl" },
   hebe: { name: "Hebe", in: "w Hebe", of: "Hebe", title: "Hebe", site: "hebe.pl" },
+  "super-pharm": {
+    name: "Super-Pharm",
+    in: "w Super-Pharmie",
+    of: "Super-Pharmu",
+    title: "Super-Pharm",
+    site: "superpharm.pl",
+  },
+};
+
+/**
+ * How a matchable shop's products get matched:
+ *
+ * - `on-view`: its search finds a product by its EAN, so the user's own navigation to a product with no decision there
+ *   looks the product up, by its EAN, then by its name, and the matching rule may accept a candidate on its own
+ * - `on-request`: its search can't find an EAN, so it's searched by name only, and only when the user asks, from its
+ *   card's button (`?retry=<shop>`); it never matches on its own, since no candidate shares an EAN with the product,
+ *   which the matching rule needs to accept one (pickMatch)
+ */
+export type MatchMode = "on-view" | "on-request";
+
+/**
+ * Each matchable shop's MatchMode, in one browser-safe place: the server's lookups and steps and the island's cards
+ * read it. Super-Pharm's index holds no EAN (research note §2.3), so it's matched on request.
+ */
+export const MATCH_MODES: Record<MatchableShop, MatchMode> = {
+  natura: "on-view",
+  hebe: "on-view",
+  "super-pharm": "on-request",
 };
 
 /** What a shop item's last check found, and its latest price: a `LatestPrice` without the item it's about. */
@@ -139,8 +167,11 @@ function promotionEnded(offer: Pick<ShopOffer, "promoEndsOn"> | null, now: numbe
   return endsOn !== null && endsOn < polishDate(now);
 }
 
-/** The date in Poland at `now`, as `YYYY-MM-DD`. It's read part by part, so no locale's order of parts matters. */
-function polishDate(now: number): string {
+/**
+ * The date in Poland at `now`, as `YYYY-MM-DD`. It's read part by part, so no locale's order of parts matters. A shop
+ * adapter writes a promotion's end with it too, so the end and the day it's compared with come from one calendar.
+ */
+export function polishDate(now: number): string {
   const parts = polishCalendar.formatToParts(now);
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((entry) => entry.type === type)?.value ?? "";
   return `${part("year")}-${part("month")}-${part("day")}`;

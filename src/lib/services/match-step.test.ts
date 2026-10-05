@@ -9,7 +9,7 @@ import {
 } from "@/lib/services/match-step";
 import type { MatchesRead } from "@/lib/services/matches";
 import type { MatchableShop } from "@/lib/services/price-comparison";
-import type { ShopMatch } from "@/types";
+import type { RepinnableMatch, ShopMatch } from "@/types";
 
 const decision = { watchlistItemId: "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb", checkedAt: "2026-09-27T19:45:12+00:00" };
 // Natura's three kinds of stored decision for the product.
@@ -283,6 +283,119 @@ describe("decideMatchStep: a re-pin or a retry names one shop", () => {
   });
 });
 
+// Super-Pharm's index holds no EAN, so it's looked up on request: only from its card's button, whose link names it
+// (`?retry=super-pharm`).
+describe("decideMatchStep: a shop looked up on request (Super-Pharm)", () => {
+  // Super-Pharm's kinds of stored decision; a match there is always the user's choice.
+  const spMatched: RepinnableMatch = { ...matched, shop: "super-pharm", decidedBy: "user" };
+  const spUnmatched: RepinnableMatch = {
+    ...decision,
+    shop: "super-pharm",
+    decidedBy: "user",
+    state: "unmatched",
+    item: null,
+  };
+  const spNotFound: ShopMatch = { ...notFound, shop: "super-pharm" };
+
+  /** Super-Pharm's step for the product's decisions, on a page opened as given. */
+  const spStep = (matches: MatchesRead | null, opened: Omit<MatchStepInput, "matches" | "shop">) =>
+    decideMatchStep({ matches, shop: "super-pharm", ...opened });
+
+  /** Each shop's step, Super-Pharm's last, on the user's own navigation of a page opened as given. */
+  const stepsFor = (matches: MatchesRead, opened: Pick<MatchStepInput, "retryShop" | "repinShop">) =>
+    (["natura", "hebe", "super-pharm"] as const).map((shop) =>
+      decideMatchStep({ matches, shop, ...opened, ownNavigation: true }),
+    );
+
+  it.each([true, false])("only prompts on a plain view with no decision (own navigation: %s)", (ownNavigation) => {
+    expect(spStep(read(), { retryShop: null, repinShop: null, ownNavigation })).toEqual({ kind: "prompt" });
+  });
+
+  it("looks it up when its button names it on the user's own navigation, and only prompts for a link from another site", () => {
+    const opened = { retryShop: "super-pharm", repinShop: null } as const;
+
+    expect(spStep(read(), { ...opened, ownNavigation: true })).toEqual({ kind: "lookup", retry: false });
+    expect(spStep(read(), { ...opened, ownNavigation: false })).toEqual({ kind: "prompt" });
+  });
+
+  it("only prompts on ?repin=super-pharm with no decision, which Natura's would look up", () => {
+    expect(spStep(read(), { retryShop: null, repinShop: "super-pharm", ownNavigation: true })).toEqual({
+      kind: "prompt",
+    });
+  });
+
+  it("looks up the shops looked up on view on a plain view, and only prompts for Super-Pharm", () => {
+    expect(stepsFor(read(), { retryShop: null, repinShop: null })).toEqual([
+      { kind: "lookup", retry: false },
+      { kind: "lookup", retry: false },
+      { kind: "prompt" },
+    ]);
+  });
+
+  it("asks only Super-Pharm when its button names it: the other shops with no decision only get theirs", () => {
+    expect(stepsFor(read(), { retryShop: "super-pharm", repinShop: null })).toEqual([
+      { kind: "prompt" },
+      { kind: "prompt" },
+      { kind: "lookup", retry: false },
+    ]);
+    expect(stepsFor(read(matched, hebeNotFound), { retryShop: "super-pharm", repinShop: null })).toEqual([
+      { kind: "stored", match: matched },
+      { kind: "stored", match: hebeNotFound },
+      { kind: "lookup", retry: false },
+    ]);
+  });
+
+  it.each<{ view: string; matches: MatchesRead; opened: Pick<MatchStepInput, "retryShop" | "repinShop"> }>([
+    { view: "?repin=natura", matches: read(matched), opened: { retryShop: null, repinShop: "natura" } },
+    { view: "?retry=natura", matches: read(notFound), opened: { retryShop: "natura", repinShop: null } },
+    // A page that names another shop as well asks only that one, as for any shop with no decision.
+    {
+      view: "?repin=natura&retry=super-pharm",
+      matches: read(matched),
+      opened: { retryShop: "super-pharm", repinShop: "natura" },
+    },
+  ])("only prompts for Super-Pharm with no decision on $view", ({ matches, opened }) => {
+    expect(stepsFor(matches, opened)[2]).toEqual({ kind: "prompt" });
+  });
+
+  it.each<{ stored: ShopMatch; opened: Pick<MatchStepInput, "retryShop" | "repinShop">; step: MatchStep }>([
+    { stored: spMatched, opened: { retryShop: null, repinShop: null }, step: { kind: "stored", match: spMatched } },
+    {
+      stored: spMatched,
+      opened: { retryShop: "super-pharm", repinShop: null },
+      step: { kind: "stored", match: spMatched },
+    },
+    {
+      stored: spMatched,
+      opened: { retryShop: null, repinShop: "super-pharm" },
+      step: { kind: "repin", match: spMatched },
+    },
+    {
+      stored: spUnmatched,
+      opened: { retryShop: null, repinShop: "super-pharm" },
+      step: { kind: "repin", match: spUnmatched },
+    },
+    { stored: spNotFound, opened: { retryShop: null, repinShop: null }, step: { kind: "stored", match: spNotFound } },
+    {
+      stored: spNotFound,
+      opened: { retryShop: "super-pharm", repinShop: null },
+      step: { kind: "lookup", retry: true },
+    },
+  ])(
+    "treats a stored $stored.state as any shop does (retry: $opened.retryShop, re-pin: $opened.repinShop)",
+    ({ stored, opened, step }) => {
+      expect(spStep(read(stored), { ...opened, ownNavigation: true })).toEqual(step);
+    },
+  );
+
+  it("looks nothing up when its decision couldn't be read, though its button names it", () => {
+    const opened = { retryShop: "super-pharm", repinShop: null, ownNavigation: true } as const;
+
+    expect(spStep(null, opened)).toEqual({ kind: "read-failed" });
+    expect(spStep({ matches: [], unreadable: ["super-pharm"] }, opened)).toEqual({ kind: "read-failed" });
+  });
+});
+
 describe("repinShopOf and retryShopOf: the shop a page was opened for", () => {
   it.each<{ query: string; repin: MatchableShop | null; retry: MatchableShop | null }>([
     { query: "repin=natura", repin: "natura", retry: null },
@@ -291,6 +404,9 @@ describe("repinShopOf and retryShopOf: the shop a page was opened for", () => {
     { query: "repin=hebe", repin: "hebe", retry: null },
     { query: "retry=hebe", repin: null, retry: "hebe" },
     { query: "repin=hebe&retry=natura", repin: "hebe", retry: "natura" },
+    // Super-Pharm is a matched shop: its card's button opens ?retry=super-pharm, and "Zmień" ?repin=super-pharm.
+    { query: "repin=super-pharm", repin: "super-pharm", retry: null },
+    { query: "f=check&retry=super-pharm", repin: null, retry: "super-pharm" },
   ])("reads ?$query", ({ query, repin, retry }) => {
     const params = new URLSearchParams(query);
 
@@ -303,7 +419,7 @@ describe("repinShopOf and retryShopOf: the shop a page was opened for", () => {
     "repin=1&retry=1",
     "repin=&retry=",
     "repin=rossmann&retry=rossmann",
-    "repin=super-pharm&retry=super-pharm",
+    "repin=dm&retry=dm",
     "repin=NATURA&retry=Hebe",
   ])("ignores ?%s, which names no matched shop, the old ?repin=1 and ?retry=1 included", (query) => {
     const params = new URLSearchParams(query);

@@ -1,16 +1,9 @@
 import { z } from "astro/zod";
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import type { ShopGate } from "@/lib/services/shop-gate";
-import {
-  amountOf,
-  createLuigisBoxClient,
-  eansOf,
-  httpsHost,
-  textOf,
-  valuesOf,
-  within,
-} from "@/lib/services/shops/luigis-box";
+import { amountOf, createLuigisBoxClient, eansOf } from "@/lib/services/shops/luigis-box";
 import { storableOffer } from "@/lib/services/shops/shop-offer";
+import { httpsHost, textOf, valuesOf, within } from "@/lib/services/shops/shop-values";
 import { parseSize, trailingSizeText } from "@/lib/services/size";
 import type { PriceCheck, ShopCandidate, ShopOffer, ShopSearch, Size } from "@/types";
 

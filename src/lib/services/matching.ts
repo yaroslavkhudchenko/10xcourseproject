@@ -73,7 +73,9 @@ export function judge(product: MatchProduct, candidate: ShopCandidate): Candidat
 
 /**
  * Accepts the only candidate that shares an EAN and the size, unless its brand differs. Otherwise the user chooses from
- * up to `limit` candidates: the ones that qualify first (two of them are ambiguous), then the rest in the shop's order.
+ * up to `limit` candidates: the ones that qualify first (two of them are ambiguous), then the likeliest of the rest,
+ * those in the product's size whose brand doesn't differ, then the others, each group in the shop's order. A shop whose
+ * index holds no EAN has no candidate that qualifies, so its likeliest items lead its choice.
  */
 export function pickMatch(product: MatchProduct, candidates: ShopCandidate[], limit = 3): MatchPick {
   if (candidates.length === 0) {
@@ -85,12 +87,22 @@ export function pickMatch(product: MatchProduct, candidates: ShopCandidate[], li
     return { kind: "accepted", candidate: qualifying[0].candidate };
   }
   const others = judged.filter((option) => !qualifies(option.verdict));
-  return { kind: "choose", options: [...qualifying, ...others].slice(0, limit) };
+  const likely = others.filter((option) => looksAlike(option.verdict));
+  const rest = others.filter((option) => !looksAlike(option.verdict));
+  return { kind: "choose", options: [...qualifying, ...likely, ...rest].slice(0, limit) };
 }
 
 /** A candidate the rule may accept on its own: a shared EAN and the same size, with no brand that contradicts them. */
 function qualifies(verdict: CandidateVerdict): boolean {
   return verdict.sharesEan && verdict.size === "equal" && verdict.brand !== "differs";
+}
+
+/**
+ * A candidate in the product's size whose brand doesn't contradict it. One that doesn't qualify then lacks only a
+ * shared EAN, as every candidate of a shop whose index holds no EAN does: the likeliest of the rest.
+ */
+function looksAlike(verdict: CandidateVerdict): boolean {
+  return verdict.size === "equal" && verdict.brand !== "differs";
 }
 
 /**

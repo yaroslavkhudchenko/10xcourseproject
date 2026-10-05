@@ -280,6 +280,11 @@ describe("the views' links keep the list's filter", () => {
       built: promptView("natura", product, true, "check"),
       href: `${PAGE}?f=check&retry=natura`,
     },
+    {
+      view: "the button of a shop looked up on request",
+      built: promptView("super-pharm", product, false, "check"),
+      href: `${PAGE}?f=check&retry=super-pharm`,
+    },
     { view: "the link to a decision stored meanwhile", built: decidedView(product, "check"), href: `${PAGE}?f=check` },
   ])("keeps it in $view", ({ built, href }) => {
     expect(built).toMatchObject({ href });
@@ -490,6 +495,16 @@ describe("promptView", () => {
     expect(promptView("natura", product, false, "all")).toEqual({ kind: "prompt", href: PAGE });
     expect(promptView("natura", product, true, "all")).toEqual({ kind: "prompt", href: `${PAGE}?retry=natura` });
   });
+
+  it.each([false, true])(
+    "always names a shop looked up on request, which no other page looks up (retrying: %s)",
+    (retrying) => {
+      expect(promptView("super-pharm", product, retrying, "all")).toEqual({
+        kind: "prompt",
+        href: `${PAGE}?retry=super-pharm`,
+      });
+    },
+  );
 });
 
 describe("decidedView", () => {
@@ -532,11 +547,22 @@ describe("decisionNotice", () => {
     });
   });
 
+  it("gives Super-Pharm's notice, now that Super-Pharm is a matched shop", () => {
+    expect(decisionNotice(new URLSearchParams("shop=super-pharm&declined=1"))).toEqual({
+      shop: "super-pharm",
+      text: "Zapisano: brak w Super-Pharmie.",
+    });
+    expect(decisionNotice(new URLSearchParams("f=check&shop=super-pharm&matched=1"))).toEqual({
+      shop: "super-pharm",
+      text: "Zapisano dopasowanie.",
+    });
+  });
+
   it.each([
     "declined=1",
     "shop=&declined=1",
     "shop=rossmann&declined=1",
-    "shop=super-pharm&declined=1",
+    "shop=dm&declined=1",
     "shop=NATURA&matched=1",
     "shop=1&decided=1",
   ])("gives none for ?%s, whose code names no matched shop", (query) => {
@@ -563,6 +589,13 @@ describe("decisionError", () => {
     });
   });
 
+  it("gives Super-Pharm's error for its card, now that Super-Pharm is a matched shop", () => {
+    expect(decisionError(new URLSearchParams("shop=super-pharm&error=invalid"))).toEqual({
+      shop: "super-pharm",
+      text: "Nie udało się zapisać wyboru: nieprawidłowe dane.",
+    });
+  });
+
   it.each([
     "",
     "shop=natura&matched=1",
@@ -570,7 +603,7 @@ describe("decisionError", () => {
     "shop=natura&error=Twoje+konto+wygasło",
     "error=failed",
     "shop=rossmann&error=failed",
-    "shop=super-pharm&error=failed",
+    "shop=dm&error=failed",
   ])("gives none for ?%s: no error the app sent, or no matched shop to show it", (query) => {
     expect(decisionError(new URLSearchParams(query))).toBeNull();
   });

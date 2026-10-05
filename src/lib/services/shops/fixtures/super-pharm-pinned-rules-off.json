@@ -1,0 +1,58 @@
+{
+  "hits": [
+    {
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 19.49,
+          "default_formated": "19,49 zł",
+          "default_historical_min_price_formated": "33,99 zł",
+          "special_from_date": 1480001487,
+          "special_to_date": false
+        }
+      },
+      "inStoreOnly": 0,
+      "objectID": "10132"
+    },
+    {
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 13.99,
+          "default_formated": "13,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": 1668470400,
+          "special_to_date": false
+        }
+      },
+      "inStoreOnly": 0,
+      "objectID": "96276"
+    },
+    {
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 28.99,
+          "default_formated": "28,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": 1668470400,
+          "special_to_date": false
+        }
+      },
+      "inStoreOnly": 0,
+      "objectID": "96278"
+    }
+  ],
+  "nbHits": 3,
+  "page": 0,
+  "nbPages": 1,
+  "hitsPerPage": 4,
+  "exhaustiveNbHits": true,
+  "exhaustiveTypo": true,
+  "exhaustive": { "nbHits": true, "typo": true },
+  "query": "",
+  "params": "query=&filters=objectID%3A96276+OR+objectID%3A96278+OR+objectID%3A10132+OR+objectID%3A999999999&hitsPerPage=4&analytics=false&attributesToRetrieve=price%2Cin_stock%2CinStoreOnly&attributesToHighlight=%5B%5D&enableRules=false&tagFilters=",
+  "processingTimeMS": 1,
+  "processingTimingsMS": { "_request": { "roundTrip": 41 }, "total": 0 },
+  "serverTimeMS": 1
+}

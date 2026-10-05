@@ -11,7 +11,7 @@
 | --------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------- |
 | Rossmann        | internal JSON API `www.rossmann.pl/products/v4/api/Products`              | `unit` string, `eanNumber[]`                                              | none                             | **open, verified**                                                    |
 | Hebe            | Luigi's Box search API (`live.luigisbox.com`)                             | size at the end of the legal name (`Pojemność` unreliable, §2.2), `EAN[]` | tracker id from page             | **open, verified**                                                    |
-| Super-Pharm     | Algolia index `spprod_drugstore_pl_simple_products`                       | `capacity`, `farmax_capacity`; EAN only in product page JSON-LD           | public search-only key from page | **open, verified**                                                    |
+| Super-Pharm     | Algolia index `spprod_drugstore_pl_simple_products`, POST search          | `capacity` (`farmax_capacity` has no unit); EAN only on product pages     | public key in every page, stable | **open, verified**                                                    |
 | dm              | `product-search.services.dmtech.com/pl/search`                            | size inside `title`, `gtin`                                               | none                             | **open from a normal connection; 403 from Cloudflare Workers** (§9)   |
 | Drogerie Natura | Luigi's Box search API                                                    | `size` + `size_unit`, `ean[]`                                             | tracker id from page             | **open, verified**                                                    |
 | Ziko Dermo      | plain server-rendered HTML (AptusShop)                                    | in HTML                                                                   | none                             | scrapable                                                             |
@@ -136,7 +136,12 @@ GET https://live.luigisbox.com/search?tracker_id=421168-505233&f[]=type:item&f[]
 
 ### 2.3 Super-Pharm (superpharm.pl)
 
-- Platform: Magento 2 + Algolia (extension v3.9.1). The `algoliaConfig` JSON embedded in every page carries `applicationId: "EP43QPDX9Q"`, `indexName: "spprod_drugstore_pl_simple"` and a **search-only** `apiKey` (base64 secured key that embeds `tagFilters`; it rotates with deployments, so read it from the page at runtime). Key seen on 2026-09-17: `NjRmYmE4ZDZhMDg5ODhkMjg1MzIzM2M1NzUwODE1MGFmN2E4NTllNjM2MmJmMzdhZmJkODQ3MmUzNTg4ZWZjOHRhZ0ZpbHRlcnM9`.
+- Platform: Magento 2 + Algolia (extension v3.9.1). The `algoliaConfig` JSON embedded in every page carries `applicationId: "EP43QPDX9Q"`, `indexName: "spprod_drugstore_pl_simple"` and a **search-only** `apiKey` (base64 secured key that embeds `tagFilters`). Key seen on 2026-09-17, and the same on 2026-10-05: `NjRmYmE4ZDZhMDg5ODhkMjg1MzIzM2M1NzUwODE1MGFmN2E4NTllNjM2MmJmMzdhZmJkODQ3MmUzNTg4ZWZjOHRhZ0ZpbHRlcnM9`.
+- The key is stable. This note first said it rotates with deployments, which no second key ever showed (corrected 2026-10-05):
+  - It decodes to a 64-character hex HMAC followed by `tagFilters=` and nothing else, so it carries no `validUntil` and lives as long as the key Super-Pharm made it from.
+  - It was the same, byte for byte, 18 days after the first sighting, on the same extension version (v3.9.1, in the page's `algoliaConfig`).
+  - From extension v3.14.0 on, the extension adds a 24-hour `validUntil`, so after such an upgrade the key would change daily (the extension's source).
+  - The app keeps it as a constant (`SUPER_PHARM_SEARCH_KEY` in `src/lib/services/shops/super-pharm.ts`). Algolia answers a key it no longer accepts with 403, as its API specification and issue threads show (this app's answer was never recorded), which stops the shop until the owner copies the page's new key into the code and switches the shop back on (`context/deployment/deploy-plan.md`, "Super-Pharm stopped with HTTP 403").
 - The Magento index for products is `<indexName>_products`, i.e. **`spprod_drugstore_pl_simple_products`**. Replicas: `..._price_default_asc`, `..._price_default_desc`, `..._created_at_desc`. A separate `spprod_pharmacy_pl` index serves apteka.superpharm.pl.
 
 ```
@@ -147,9 +152,10 @@ Headers: X-Algolia-Application-Id: EP43QPDX9Q
 Body:    {"params":"query=nivea%20soft&hitsPerPage=20"}
 ```
 
-- Hit fields: `name, sku, url, brand, capacity ("300 ml"), farmax_capacity (300), price.PLN.{default, default_formated, default_historical_min_price_formated (Omnibus), special_from_date, special_to_date}, in_stock, showRedPrice, rating_summary, reviews_count, categories, thumbnail_url, variant_skus, variant_attribute, isProductRx, pharmaceuticalFlag, objectID`.
-- No EAN in the index. The product page JSON-LD has it: `"gtin13":"4005900009319"` plus `offers.price`, `availability`, `priceValidUntil`.
-- Sample hit (trimmed):
+- The route is this POST, Algolia's documented search of one index; a GET on the index is its legacy, discouraged form. Every search and every price request goes to this one URL, so the app's tests tell them apart by their bodies. The app's bodies also send `analytics=false`, which keeps its requests out of Super-Pharm's search statistics, `attributesToRetrieve` with only the attributes it reads, and `attributesToHighlight=[]`, and its price requests send `enableRules=false` too (see the query rules below).
+- Hit fields: `name, sku, url, brand, capacity ("300 ml"), farmax_capacity (300), price.PLN.{default, default_formated, default_historical_min_price_formated (Omnibus), special_from_date, special_to_date}, in_stock, inStoreOnly, showRedPrice, badges, rating_summary, reviews_count, categories, thumbnail_url, variant_skus, variant_attribute, isProductRx, pharmaceuticalFlag, algoliaLastUpdateAtCET, objectID`.
+- No EAN in the index. The product page JSON-LD has it: `"gtin13":"4005900009319"` plus `offers.price`, `availability`, `priceValidUntil`. An EAN query finds nothing (0 hits for 4005900009319 on 2026-10-05), so the app never sends one.
+- Sample hit (trimmed, 2026-09-17; on 2026-10-05 the same item, `objectID` "10132", was on promotion without its regular price, see below):
 
 ```json
 {
@@ -165,6 +171,27 @@ Body:    {"params":"query=nivea%20soft&hitsPerPage=20"}
   "url": "https://www.superpharm.pl/nivea-soft-krem-nawilzajacy-pudelko-39477"
 }
 ```
+
+- Re-checked on 2026-10-05: 7 requests from the developer machine, one at a time and at least 2.5 s apart, with the gate's User-Agent and the owner's approval: robots.txt and the homepage, then 5 to Algolia, three probes and two of the adapter's own requests. The Algolia answers became the `super-pharm-*.json` fixtures, which `src/lib/services/shops/super-pharm.test.ts` lists. A check through the app on the local production preview followed, also approved: 4 requests through the gate, a tap's search, the first refetch after a pick, a list refresh and a re-pin's search. One more curl request followed on 2026-10-06, approved by the owner: the adapter's price request with the query rules off (below).
+- Ids, sizes and links:
+  - `objectID` is the Magento product id ("10132" for Nivea Soft 300 ml), not the `sku` ("39477", which ends the URL's slug). The app pins the `objectID`.
+  - `capacity` is the size with its unit, as the shop shows it, and it's searchable: "NIVEA Soft 300 ml" found exactly the 300 ml item. `farmax_capacity` (300) has no unit, so the app never reads a size from it.
+  - `url` is absolute, on `www.superpharm.pl`, while `thumbnail_url` is on another host, `media.superpharm.eu`. An image's file name is no evidence of size: the 300 ml item's says 200ml.
+- Prices:
+  - `price.PLN.default` is a number, the price Super-Pharm sells at, a promotion's included, and `default_formated` is its text.
+  - `default_historical_min_price_formated`, the 30-day low, is Polish text with a no-break space before "zł" ("33,99 zł"), or `false` when there's none. It's Super-Pharm's own field, not the extension's.
+  - `default_original_formated`, the regular price as text, comes with some promotions only, and no recorded hit has one yet. On 2026-10-05 the 300 ml item was on promotion at 19,49 zł, shown in red (`showRedPrice` 1) with a "Promocja" badge and a 30-day low of 33,99 zł, yet it had no `default_original_formated`, its `special_from_date` was 1480001487 (2016-11-24) and its `special_to_date` `false`. So a sale can come without its regular price or its end, and a record keeps a sale's dates after the sale. The app shows such a sale as a plain price with its 30-day low, and reads `special_to_date` as a promotion's end only beside a regular price, as the extension's own frontend does (`common.js` in v3.9.1).
+  - The record carries only the guest price: the page's `priceGroup` is null, and no club or customer-group price comes with it.
+  - `algoliaLastUpdateAtCET` is when Super-Pharm last indexed the record, in Polish time ("2026-10-05 11:16:30"): a price is as fresh as its record.
+- Orderable online: `in_stock` (1 or 0) and `inStoreOnly` (1 for an item sold only in the shops). Every recorded hit has `in_stock` 1 and, where it was asked for, `inStoreOnly` 0. The app counts an item orderable online when `in_stock` is 1 and `inStoreOnly` is 0 or missing, since the extension usually leaves an unset attribute out. The page's config has `areOutOfStockOptionsDisplayed` false, under which the extension deletes an out-of-stock product from the index, so such an item would read as missing rather than not orderable (inferred).
+- Pinned items by `objectID` (2026-10-05): an empty `query` with `filters=objectID:<id> OR objectID:<id>` returns those items, and an id Super-Pharm doesn't have is simply left out, with `nbHits` counting only the hits returned. Verified with two ids, one known (a 700-byte answer), and with the request below, three known and one unknown; larger batches are untested. Algolia limits a parameter's value to 512 bytes, so the app asks for at most 20 ids a request, with `hitsPerPage` set to their number and only the price attributes retrieved (`objectID` comes with every hit). It never filters by `sku`, which the extension most likely doesn't declare for filtering (inferred).
+
+```
+POST https://EP43QPDX9Q-dsn.algolia.net/1/indexes/spprod_drugstore_pl_simple_products/query
+Body: {"params":"query=&filters=objectID%3A96276+OR+objectID%3A96278+OR+objectID%3A10132+OR+objectID%3A999999999&hitsPerPage=4&analytics=false&attributesToRetrieve=price%2Cin_stock%2CinStoreOnly&attributesToHighlight=%5B%5D&enableRules=false"}
+```
+
+- Query rules: the index runs its query rules on a price request's empty query too. Both pinned answers of 2026-10-05, sent without `enableRules`, report `rulesProcessing` in their `processingTimingsMS`, and a rule could hide an asked item or add one nobody asked for, so the app's price requests send `enableRules=false`. Re-checked on 2026-10-06 with the adapter's own price request, the body above, rules off: 200, the same three hits at the same prices, the unknown id left out, and no `rulesProcessing` in the answer's `processingTimingsMS`. Its answer is the fixture `super-pharm-pinned-rules-off.json`.
 
 - Dead ends: index `spprod_drugstore_pl_simple` → "does not exist"; `spprod_drugstore_pl_products` → 0 hits; listing indices with the search key → 403 (expected). Search page URL is `/catalogsearch/result/?q=`; `/szukaj` and `/search` are 404.
 
@@ -270,7 +297,7 @@ GET https://live.luigisbox.com/search?tracker_id=703598-939363&f[]=type:product&
 
 - rossmann.pl: `User-agent: *` allowed except account/checkout paths; the `/products/...` API is not mentioned.
 - hebe.pl: explicit `Disallow: /` for AI/scraper agents (Applebot-Extended, Bytespider, CCBot, ClaudeBot, Diffbot, FacebookBot, Meta-ExternalAgent, omgili, ImagesiftBot, Scrapy).
-- superpharm.pl: Magento defaults; `/catalogsearch/result/` not disallowed.
+- superpharm.pl: Magento defaults, in one `User-agent: *` group with no rule for an AI crawler. Re-checked on 2026-10-05: it now also disallows `/catalogsearch/` and `/catalogsearch/result/`, the site's own search page, which the app never reads (its search is Algolia's API); the homepage and the product pages stay allowed.
 - dm.pl: `Disallow: /search` (site path; the API host is separate).
 - drogerienatura.pl: `Disallow: /catalogsearch/*` (site path; Luigi's Box is separate).
 - sephora.pl: disallows many SFCC parameter URLs; irrelevant because Akamai blocks anyway.
@@ -280,17 +307,18 @@ GET https://live.luigisbox.com/search?tracker_id=703598-939363&f[]=type:product&
 1. Resolve the user's input once to a canonical product with an **EAN**: query Rossmann `v4/api/Products` (returns `eanNumber[]` + `unit`) or dm (returns `gtin` + size in title). Let the user pick if several sizes/variants match.
 2. Look up the EAN directly where supported: Hebe (Luigi's Box `q=<EAN>`), Natura (`q=<EAN>`), dm (`query=<GTIN>`).
 3. Rossmann: text search, then keep items whose `eanNumber` contains the EAN.
-4. Super-Pharm: Algolia text search, filter by brand + `farmax_capacity`, confirm via product page `gtin13` when ambiguous.
+4. Super-Pharm: Algolia text search by brand, name and size (`capacity` is searchable, §2.3). With no EAN in the index no candidate can be accepted on its own, so the user always picks the item, from the candidates of the product's size and brand first; the app reads no product page for its `gtin13` (2026-10-05).
 5. Normalise sizes before comparing: Rossmann `"300 ml"`, Hebe the size its legal name ends with (`"300 ml"`; its `Pojemność` litres are unreliable, §2.2), Natura `size`+`size_unit`, Super-Pharm `"300 ml"` / `300`, dm text inside `title`. Convert to ml / g / pcs.
-6. Fallback matching when EAN data is missing (Super-Pharm) or wrong: brand + normalised name tokens + size within ±5 %. Hebe's one reported case was a wrong size field, not a wrong EAN (§2.2).
+6. Fallback matching when EAN data is missing (Super-Pharm) or wrong: brand + normalised name tokens + size within ±5 %. Hebe's one reported case was a wrong size field, not a wrong EAN (§2.2). The app matches no shop this way: without a shared EAN, the user picks (step 4).
 7. Keep Omnibus / promo fields separately: Hebe `price_sale`, `price_omnibus`; Natura `price_old_amount`, `lowest_price`; Super-Pharm `default_historical_min_price_formated`; Rossmann `oldPrice`, `lastLowestPrice`, `promotionFrom` / `promotionTo` (not `promotion`, which tags a campaign; §2.1).
 
 ## 7. Caveats
 
 - All five working endpoints are **internal and undocumented**. Index names, tracker ids, Algolia keys and response shapes can change without notice. Implement one adapter per shop with a health check (known EAN → expected fields) and read dynamic values (Algolia key, Luigi's Box tracker) from the live page.
+  - The app keeps the tracker ids and Super-Pharm's key as constants instead (§2.2, §2.3, §2.5), so a change shows as a refusal. A tracker Luigi's Box no longer knows answers 404, logged as "tracker id rejected". A key Algolia no longer accepts answers 403, which stops Super-Pharm until the owner updates the key and switches the shop back on (`context/deployment/deploy-plan.md`, "Super-Pharm stopped with HTTP 403").
 - Terms of use of the shops generally prohibit automated access; low-volume personal use is common practice, a commercial product would need permission or official feeds (Notino affiliate feed, Ceneo partner API, Allegro API).
 - Be polite: cache results (prices change at most a few times per day), stay around 1 request/s or less per host, set a descriptive User-Agent, back off on 429/5xx.
-- Online price ≠ shelf price. Rossmann marks `differentPricesInShop: true`; Rossmann and Hebe have app-only / loyalty prices; Super-Pharm has club prices. `shopNumber` (Rossmann) allows store-level checks.
+- Online price ≠ shelf price. Rossmann marks `differentPricesInShop: true`; Rossmann and Hebe have app-only / loyalty prices; Super-Pharm has club prices, though its index record carries only the guest price (2026-10-05, §2.3). `shopNumber` (Rossmann) allows store-level checks.
 - Hebe's size attribute (`Pojemność`) was wrong for at least one product, and one EAN can come with another size in another shop (§2.2, 2026-10-02) → never trust a single identifier blindly; cross-check size.
 
 ## 8. Recommendation for the MVP

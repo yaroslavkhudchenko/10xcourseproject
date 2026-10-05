@@ -13,7 +13,13 @@ import {
 } from "@/lib/services/match-view";
 import { recordLookup, type MatchesRead } from "@/lib/services/matches";
 import { judge, pickMatch, type MatchPick, type MatchProduct } from "@/lib/services/matching";
-import { MATCHED_SHOPS, SHOP_LABELS, type MatchableShop, type MatchedShop } from "@/lib/services/price-comparison";
+import {
+  MATCH_MODES,
+  MATCHED_SHOPS,
+  SHOP_LABELS,
+  type MatchableShop,
+  type MatchedShop,
+} from "@/lib/services/price-comparison";
 import { recordPriceChecks } from "@/lib/services/prices";
 import { toShopQuery } from "@/lib/services/search-query";
 import type { ShopGate } from "@/lib/services/shop-gate";
@@ -51,12 +57,12 @@ export interface LookupProduct extends MatchProduct {
 
 /**
  * Looks a watched product up in a shop with as few requests as possible: by its EAN first, then with one search by its
- * brand, name and size only when the EAN finds nothing. When the shop can't be asked, it makes no further request and
- * says why. It never throws.
+ * brand, name and size only when the EAN finds nothing. A shop whose search can't find an EAN (`on-request`) gets the
+ * search by name alone. When the shop can't be asked, it makes no further request and says why. It never throws.
  */
 export async function lookupInShop(shop: MatchableShop, gate: ShopGate, product: LookupProduct): Promise<ShopLookup> {
   const { search: searchShop } = SHOP_ADAPTERS[shop];
-  const ean = lookupEan(product);
+  const ean = lookupEan(shop, product);
   if (ean !== null) {
     const search = await searchShop(gate, ean, EAN_HITS);
     if (search.kind === "unavailable") {
@@ -91,7 +97,8 @@ export async function lookupInShop(shop: MatchableShop, gate: ShopGate, product:
  * search's first, at most six. When the EAN search gets no answer (busy, paused, stopped or failed), it asks nothing
  * more and says why. A name search without an answer leaves the EAN search's candidates incomplete, or, after an EAN
  * search that found none or didn't run, says why too: nothing found is only what every search that ran answered.
- * Without a usable EAN or name, that search is skipped, and without either nothing is asked. It never throws.
+ * Without a usable EAN or name, that search is skipped, and without either nothing is asked. A shop whose search can't
+ * find an EAN (`on-request`) gets the name search alone. It never throws.
  */
 export async function lookupChoicesInShop(
   shop: MatchableShop,
@@ -99,7 +106,7 @@ export async function lookupChoicesInShop(
   product: LookupProduct,
 ): Promise<ShopChoices> {
   const { search: searchShop } = SHOP_ADAPTERS[shop];
-  const ean = lookupEan(product);
+  const ean = lookupEan(shop, product);
   let byEan: ShopCandidate[] = [];
   if (ean !== null) {
     const search = await searchShop(gate, ean, EAN_HITS);
@@ -137,8 +144,15 @@ export async function lookupChoicesInShop(
   return { kind: "choices", options, via: foundBy(byEan.length > 0, byName.length > 0), incomplete };
 }
 
-/** The product's first EAN that may go into a shop URL, or null without one. */
-function lookupEan(product: LookupProduct): string | null {
+/**
+ * The product's first EAN that may go into a shop URL, or null without one. A shop whose search can't find an EAN
+ * (`on-request`, MATCH_MODES) gets none either, so its lookups go straight to the search by name: an EAN search there
+ * would spend a request to learn nothing.
+ */
+function lookupEan(shop: MatchableShop, product: LookupProduct): string | null {
+  if (MATCH_MODES[shop] === "on-request") {
+    return null;
+  }
   return product.eans.find((value) => EAN.test(value)) ?? null;
 }
 
@@ -202,7 +216,10 @@ export interface MatchStepsInput<Shop extends MatchableShop = MatchedShop> {
   product: WatchlistProduct;
   /** The product's stored decisions, as listMatches read them: null when they couldn't be read at all. */
   matches: MatchesRead | null;
-  /** The shop the page was opened to look up again (`?retry=<shop>`, from "Szukaj ponownie"), if any. */
+  /**
+   * The shop the page was opened to look up again (`?retry=<shop>`, from "Szukaj ponownie"), or to look up at all when
+   * it's looked up on request (its card's button), if any.
+   */
   retryShop: MatchableShop | null;
   /** The shop whose decision the page was opened to change (`?repin=<shop>`, "Zmień" or "Dopasuj ponownie"), if any. */
   repinShop: MatchableShop | null;
@@ -217,9 +234,9 @@ export interface MatchStepsInput<Shop extends MatchableShop = MatchedShop> {
 /**
  * What one shop's step came to on the product's page: the step decideMatchStep chose, the view the shop's card shows,
  * the choice the user opened to change its stored decision (`repin`), whether the lookup's own outcome couldn't be
- * stored, so the next visit looks the product up again (`unsaved`), the shop's matched item, stored or just stored,
- * whose prices the page shows (`item`), and whether a retry stored its outcome, so the page goes back to its plain
- * address (`retried`).
+ * stored, so the next visit looks the product up again, or offers the button of a shop looked up on request
+ * (`unsaved`), the shop's matched item, stored or just stored, whose prices the page shows (`item`), and whether a
+ * retry stored its outcome, so the page goes back to its plain address (`retried`).
  */
 export interface MatchStepResult<Shop extends MatchableShop = MatchedShop> {
   shop: Shop;
@@ -285,7 +302,8 @@ async function outcomeOf(shop: MatchableShop, step: MatchStep, input: StepInput)
     case "repin":
       return repinOutcome(shop, step.match, input);
     case "prompt":
-      // A link on another site, a prefetch, or a page opened to re-pin or retry another shop only gets the button.
+      // A link on another site, a prefetch, or a page opened to re-pin or retry another shop only gets the button, and
+      // so does a shop looked up on request until the page names it.
       return { ...SHOWN_ONLY, view: promptView(shop, product, input.retryShop === shop, filter) };
     case "lookup":
       return lookupOutcome(shop, step.retry, input);
@@ -337,7 +355,8 @@ async function lookupOutcome(
           await recordPriceChecks(supabase, [{ key: { shop, shopItemId }, check: { kind: "price", offer } }]);
         }
       }
-      // An outcome that wasn't stored is looked up again on the next visit.
+      // An outcome that wasn't stored is looked up again on the next visit, or, in a shop looked up on request, offered
+      // its button again.
       const unsaved = result === "failed" || result === "gone";
       // The plain address shows the stored outcome, so a `?retry=<shop>` left in the address bar can't repeat it.
       const retried = retry && result === "saved";

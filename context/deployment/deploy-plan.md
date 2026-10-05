@@ -25,6 +25,7 @@ Approved on 2026-09-23. Checkboxes track execution; the Deployment record at the
 - dm is dropped from the MVP (PRD FR-013 update, research §9).
 - Changes reach `main` only through pull requests. The `preventFailedDeploy` ruleset is active, with `ci` and `smoke` required, and every merge deploys. Since 2026-10-02 it requires `e2e` too, the Playwright suite added by `testing-critical-browser-flows`.
 - Since 2026-10-05 (S-07, `invite-only-access`) the app has no sign-up page and sends no email. You add a person as a dashboard account or with an invite or recovery link, and a read-only check after each deploy shows that production still refuses sign-up: see "Accounts and links (S-07)".
+- Since S-06 (`super-pharm-in-comparison`, 2026-10-05) Super-Pharm is the fourth shop, priced through its Algolia search with the public key the app keeps in its code. If Super-Pharm changes that key, the old one's 403 stops the shop for everyone until you follow "Super-Pharm stopped with HTTP 403".
 
 ## Context
 
@@ -348,6 +349,28 @@ Since S-07 (`invite-only-access`, 2026-10-05) the app has no sign-up page and se
   - The answer must hold `"disable_signup":true` and, under `"external"`, `"email":true`: sign-up refused, and the email provider on, which password sign-in needs (1.2).
   - Anything else means sign-up is open or sign-in is off: redo 1.2.
   - It creates nothing and needs no secret key. It replaces the sign-up attempt of 5.1, whose route the app no longer has.
+
+## Super-Pharm stopped with HTTP 403
+
+Since S-06 (`super-pharm-in-comparison`) Super-Pharm's prices come from its Algolia search, with the public search-only key that every superpharm.pl page carries. The app keeps that key in the code as `SUPER_PHARM_SEARCH_KEY` (`src/lib/services/shops/super-pharm.ts`) and never reads it from the page. Algolia answers a key it no longer accepts with 403, and the gate stops a shop after any 403, with no exception for this one (your call, 2026-10-05). So a changed key stops Super-Pharm for everyone until you follow the steps below.
+
+- **How a stop shows:**
+  - Super-Pharm's cards say the shop blocked the app. A tap on its button or "Zmień" reads "Wyszukiwanie w sklepie Super-Pharm jest wyłączone, bo sklep zablokował zapytania. Właściciel musi je ponownie włączyć.", and a matched card whose price is due for a refetch reads "Odświeżanie cen w sklepie Super-Pharm jest wyłączone, bo sklep zablokował zapytania." beside its last price. The other shops carry on.
+  - Production's `public.shops` row `super-pharm` has `enabled` false and `disabled_reason` 'HTTP 403', with the stop's time in `disabled_at`: Table Editor → `shops`, or in the SQL editor `select id, enabled, disabled_reason, disabled_at from public.shops where id = 'super-pharm';`. Any other reason, such as `challenge`, is a real block: leave the shop off.
+  - Nothing tells you. There is no alert until the observability audit's alert fix lands (`context/audits/observability/2026-10-05_1626-prices-sign-in-watchlist-writes.md`, §6 step 2). Until then you learn it from the cards, and Workers Logs keep the gate's line for the 403 (`"event":"shop-gate"`, `"shopId":"super-pharm"`, outcome `blocked` with status 403).
+- **The steps:**
+  1. [you] Open `https://www.superpharm.pl/` in your browser, view the page's source and find `algoliaConfig`. Its `apiKey` is the key the shop's own search uses today.
+  2. If it differs from `SUPER_PHARM_SEARCH_KEY`, the key has changed:
+     - [agent] Put the new key in the constant and in `SEARCH_KEY` in `src/lib/services/shops/super-pharm.test.ts`, which pins it, and note the date in the research note's §2.3, which quotes the key. Open a pull request.
+     - [you] Merge it once `ci`, `smoke` and `e2e` are green, and wait for Workers Builds to deploy it. Switching the shop back on before then would send the old key, and its 403 would stop Super-Pharm again.
+     - [you] Then switch the row back on, in Table Editor or in the SQL editor:
+
+       ```sql
+       update public.shops set enabled = true, disabled_reason = null, disabled_at = null, updated_at = now() where id = 'super-pharm';
+       ```
+
+  3. If it's the same key, Algolia refused something else: treat the stop as a real block and leave the shop off.
+- **Switching Super-Pharm off yourself [you]:** set the same row's `enabled` to false. The gate then skips every Super-Pharm request at once, without a deploy, and its cards show the gap. The full rollback is a revert PR. The stored Super-Pharm decisions stay, and the reads ignore a shop that isn't switched on.
 
 ## Deferred, with the trigger that brings each back
 

@@ -1,0 +1,41 @@
+{
+  "hits": [
+    {
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 19.49,
+          "default_formated": "19,49 zł",
+          "default_historical_min_price_formated": "33,99 zł",
+          "special_from_date": 1480001487,
+          "special_to_date": false
+        }
+      },
+      "objectID": "10132"
+    }
+  ],
+  "nbHits": 1,
+  "page": 0,
+  "nbPages": 1,
+  "hitsPerPage": 2,
+  "exhaustiveNbHits": true,
+  "exhaustiveTypo": true,
+  "exhaustive": {
+    "nbHits": true,
+    "typo": true
+  },
+  "query": "",
+  "params": "query=&filters=objectID%3A10132%20OR%20objectID%3A999999999&hitsPerPage=2&attributesToRetrieve=objectID%2Cprice%2Cin_stock&attributesToHighlight=%5B%5D&analytics=false&tagFilters=",
+  "processingTimeMS": 2,
+  "processingTimingsMS": {
+    "_request": {
+      "roundTrip": 41
+    },
+    "rulesProcessing": {
+      "indexRules": 1,
+      "total": 1
+    },
+    "total": 2
+  },
+  "serverTimeMS": 3
+}

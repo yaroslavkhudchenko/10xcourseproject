@@ -1,10 +1,11 @@
 // The list's kitchen sink's fixtures (src/dev/watchlist.astro): made-up products on no one's list, their shops' latest
-// checks and their decisions in Natura and Hebe, on a fixed clock, and search results. Every row is built by the
-// list's own row service (watchlist-rows.ts): one product at a time from its shops, or the whole list from its three
-// reads as the page gets them, so the kitchen sink shows only rows the page can reach. The tag states' rows stand
-// beside a Hebe the user declined, and Hebe's own rows follow them: the cheapest of three, still to match, not found,
-// a match that differs from its product, and a decision that couldn't be read. Nothing here is real user data, and
-// nothing here asks Supabase or a shop.
+// checks and their decisions in Natura, Hebe and Super-Pharm, on a fixed clock, and search results. Every row is built
+// by the list's own row service (watchlist-rows.ts): one product at a time from its shops, or the whole list from its
+// three reads as the page gets them, so the kitchen sink shows only rows the page can reach. The tag states' rows stand
+// beside a Hebe and a Super-Pharm the user declined, and Hebe's own rows follow them: the cheapest of three, still to
+// match, not found, a match that differs from its product, and a decision that couldn't be read. Super-Pharm's rows
+// close them: the cheapest of four, and still to match. Nothing here is real user data, and nothing here asks Supabase
+// or a shop.
 import type { LatestCheck, PricedShop } from "@/lib/services/price-comparison";
 import { parseSize } from "@/lib/services/size";
 import {
@@ -103,23 +104,36 @@ function stateOf(state: ListMatchState["state"]): ListMatchState {
   return state === "matched" ? { state, mismatch: { size: false, brand: false } } : { state };
 }
 
-/** A product's state in every matched shop, by its name there: Hebe declined by the user unless given. */
-function statesOf(natura: ListMatchState["state"], hebe: ListMatchState["state"] = "unmatched"): ListMatchStates {
-  return { natura: stateOf(natura), hebe: stateOf(hebe) };
+/** A product's state in every matched shop, by its name there: Hebe and Super-Pharm declined by the user unless given. */
+function statesOf(
+  natura: ListMatchState["state"],
+  hebe: ListMatchState["state"] = "unmatched",
+  superPharm: ListMatchState["state"] = "unmatched",
+): ListMatchStates {
+  return { natura: stateOf(natura), hebe: stateOf(hebe), "super-pharm": stateOf(superPharm) };
 }
 
-/** The row of `item` with these shops and these states in Natura and Hebe, at the page's time. */
+/** The row of `item` with these shops and these states in Natura, Hebe and Super-Pharm, at the page's time. */
 const rowOf = (
   item: WatchlistItem,
   shops: RowShop[],
   natura: ListMatchState["state"],
   hebe?: ListMatchState["state"],
-): ListRow => listRowOf(item, shops, statesOf(natura, hebe), NOW_MS);
+  superPharm?: ListMatchState["state"],
+): ListRow => listRowOf(item, shops, statesOf(natura, hebe, superPharm), NOW_MS);
+
+/** A product's decline in Super-Pharm, as the list reads it, which the rows built from the list's reads stand beside. */
+const superPharmDeclined = (watchlistItemId: string): ShopMatchState => ({
+  watchlistItemId,
+  shop: "super-pharm",
+  state: "unmatched",
+  shopItemId: null,
+});
 
 // A shampoo matched in Natura to an item of another brand in its size, which a lookup accepted on its own before the
-// brand rule, and declined in Hebe. Nobody has seen it differ, so the list counts the product in "Do sprawdzenia", and
-// the row's line for screen readers says why, while the row looks like any other. The row comes from the list's own
-// reads as the page gets them, so the list's rule decides all that.
+// brand rule, and declined in Hebe and in Super-Pharm. Nobody has seen it differ, so the list counts the product in "Do
+// sprawdzenia", and the row's line for screen readers says why, while the row looks like any other. The row comes from
+// the list's own reads as the page gets them, so the list's rule decides all that.
 const JOANNA = product(15, { brand: "Joanna", name: "Naturia", caption: "szampon z pokrzywą", sizeText: "500 ml" });
 const JOANNA_SKU = "NV90015";
 const OTHER_BRAND_MATCH: ShopMatchState = {
@@ -134,7 +148,11 @@ const OTHER_BRAND_MATCH: ShopMatchState = {
 const [OTHER_BRAND_ROW] = listRowsOf(
   [JOANNA],
   {
-    states: [OTHER_BRAND_MATCH, { watchlistItemId: JOANNA.id, shop: "hebe", state: "unmatched", shopItemId: null }],
+    states: [
+      OTHER_BRAND_MATCH,
+      { watchlistItemId: JOANNA.id, shop: "hebe", state: "unmatched", shopItemId: null },
+      superPharmDeclined(JOANNA.id),
+    ],
     unread: [],
     unattributed: [],
   },
@@ -169,8 +187,8 @@ const HAND_SHOPS = [shop("rossmann", checked(30 * MINUTE, 6.99)), shop("natura",
 const HEBE_NONE_ROW = rowOf(ZIAJA_FEET, FOOT_SHOPS, "matched", "none");
 const HEBE_NOT_FOUND_ROW = rowOf(ISANA_HANDS, HAND_SHOPS, "matched", "not_found");
 
-// A lip balm declined in Natura and matched automatically in Hebe to its item in another size, as such a match is
-// stored: nobody has seen it differ, so the list counts the product in "Do sprawdzenia", and the line says why.
+// A lip balm declined in Natura and Super-Pharm and matched automatically in Hebe to its item in another size, as such a
+// match is stored: nobody has seen it differ, so the list counts the product in "Do sprawdzenia", and the line says why.
 const LABELLO = product(19, { brand: "Labello", name: "Original", caption: "pomadka do ust", sizeText: "4,8 g" });
 const LABELLO_HEBE_ID = "990000000000000019";
 const [HEBE_SIZE_ROW] = listRowsOf(
@@ -187,6 +205,7 @@ const [HEBE_SIZE_ROW] = listRowsOf(
         size: parseSize("5,5 ml"),
         decidedBy: "auto",
       },
+      superPharmDeclined(LABELLO.id),
     ],
     unread: [],
     unattributed: [],
@@ -202,8 +221,8 @@ const [HEBE_SIZE_ROW] = listRowsOf(
   NOW_MS,
 );
 
-// A shower gel matched in Natura whose Hebe decision came back odd: Hebe's match may name a lower price, so the row
-// names no shop.
+// A shower gel matched in Natura, declined in Super-Pharm, whose Hebe decision came back odd: Hebe's match may name a
+// lower price, so the row names no shop.
 const PALMOLIVE = product(20, { brand: "Palmolive", name: "Żel pod prysznic", caption: "Aroma", sizeText: "500 ml" });
 const PALMOLIVE_SKU = "NV90020";
 const [HEBE_UNREAD_ROW] = listRowsOf(
@@ -219,6 +238,7 @@ const [HEBE_UNREAD_ROW] = listRowsOf(
         size: parseSize("500 ml"),
         decidedBy: "auto",
       },
+      superPharmDeclined(PALMOLIVE.id),
     ],
     unread: [{ watchlistItemId: PALMOLIVE.id, shop: "hebe" }],
     unattributed: [],
@@ -232,6 +252,38 @@ const [HEBE_UNREAD_ROW] = listRowsOf(
     unattributed: 0,
   },
   NOW_MS,
+);
+
+// Super-Pharm's rows. A body lotion priced in all four shops, cheapest in Super-Pharm, where the user picked its item.
+const CETAPHIL = product(21, {
+  brand: "Cetaphil",
+  name: "Balsam nawilżający",
+  caption: "do skóry suchej i wrażliwej",
+  sizeText: "236 ml",
+});
+const FOUR_SHOPS = [
+  shop("rossmann", checked(10 * MINUTE, 39.99)),
+  shop("natura", checked(5 * MINUTE, 37.49)),
+  shop("hebe", checked(5 * MINUTE, 36.99)),
+  shop("super-pharm", checked(5 * MINUTE, 34.49)),
+];
+// A body balm matched in Natura and Hebe, and still to match in Super-Pharm, whose button nobody has tapped yet.
+const EVELINE_BODY = product(22, {
+  brand: "Eveline",
+  name: "Balsam do ciała",
+  caption: "z masłem kakaowym",
+  sizeText: "350 ml",
+});
+const SUPER_PHARM_NONE_ROW = rowOf(
+  EVELINE_BODY,
+  [
+    shop("rossmann", checked(30 * MINUTE, 14.99)),
+    shop("natura", checked(30 * MINUTE, 13.99)),
+    shop("hebe", checked(30 * MINUTE, 14.49)),
+  ],
+  "matched",
+  "matched",
+  "none",
 );
 
 /** What a screen reader hears of a row, as a fixture's label quotes it. */
@@ -339,6 +391,18 @@ export const ROW_FIXTURES: RowFixture[] = [
     text: `nie udało się wczytać decyzji Hebe: żaden sklep nie jest nazwany, a ${heard(HEBE_UNREAD_ROW)}`,
     row: HEBE_UNREAD_ROW,
   },
+  {
+    code: "super-pharm-cheapest",
+    text: "cztery sklepy, Super-Pharm najtańszy: etykieta w kolorze sun z nazwą Super-Pharmu",
+    row: rowOf(CETAPHIL, FOUR_SHOPS, "matched", "matched", "matched"),
+  },
+  {
+    code: "super-pharm-none",
+    text:
+      "Super-Pharm do dopasowania, czeka na przycisk na stronie produktu: wiersz liczy się w „Do sprawdzenia”, a " +
+      heard(SUPER_PHARM_NONE_ROW),
+    row: SUPER_PHARM_NONE_ROW,
+  },
 ];
 
 /** Every row of the gallery once, as a list of them. */
@@ -406,7 +470,7 @@ export const LONG_COUNTS = filterCounts(LONG_ROWS);
 
 // The whole list's three reads as the page gets them, from which the read failures are built: Nivea matched in Natura
 // on its own, to an item of its brand and size, Ziaja still to match, Colgate declined there; none of them has a
-// decision in Hebe yet.
+// decision in Hebe or Super-Pharm yet.
 const LIST: WatchlistItem[] = [NIVEA, ZIAJA, COLGATE];
 const LIST_STATES: ShopMatchState[] = [
   {
@@ -458,7 +522,7 @@ export const ROWS_FIXTURES: RowsFixture[] = [
   },
   {
     code: "matches-failed",
-    text: "nie udało się wczytać decyzji Natury i Hebe: żaden wiersz nie mówi, że czeka na dopasowanie",
+    text: "nie udało się wczytać decyzji Natury, Hebe i Super-Pharmu: żaden wiersz nie mówi, że czeka na dopasowanie",
     rows: listRowsOf(LIST, null, PRICE_READ, NOW_MS),
     filter: "all",
     matchesFailed: true,
