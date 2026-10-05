@@ -18,6 +18,9 @@ monitor and diagnose. READ-ONLY: do not edit files, do not commit.
 ## Known issues (don't re-report; say if your finding explains one)
 {{KNOWN_ISSUES_OR_NONE}}
 
+## Symptom reported by the user
+{{SYMPTOM_OR_NONE}}
+
 ## Your scope
 {{AREA_DESCRIPTION}} — full stack: UI/client code, API/handlers, services,
 data access, external calls, background work triggered by this flow.
@@ -34,6 +37,11 @@ redirects, 2xx with an error flag, errors inside streams, fallbacks/empty
 states, "not found"/"no access" that could really be an outage.
 
 ## Rules
+- Audit application code. Assume logs and the error tracker are collected
+  in production. Don't report missing platform/dashboard settings (logging
+  not enabled in deploy config, no log forwarding, no alert rules). They can
+  live outside the repo. At most mention one in a closing "assumptions"
+  line.
 - Verify every claim by reading the code; cite file:line.
 - Skip cases a comment clearly justifies, but note if the justification
   still leaves a monitoring gap.
@@ -50,12 +58,23 @@ bullets on the systemic patterns in this flow.
 ## Plumbing auditor (one per run, read-only)
 
 ```
-You are auditing the **cross-cutting observability plumbing** of
+You are auditing the **cross-cutting observability code** of
 {{PROJECT_ONE_LINER}} (repo: {{REPO_PATH}}). READ-ONLY. Other agents cover
-the feature flows ({{AREAS}}); you cover the shared infrastructure.
+the feature flows ({{AREAS}}); you cover the shared code they all run
+through: tracker init, boundaries, middleware, logger, error helpers.
+
+Assume logs and the error tracker are collected in production. Platform or
+dashboard settings (log collection, log forwarding, alert rules) are often
+configured outside the repo, so their absence in config files is
+**unknown, not missing**. List those under "assumptions" and never as
+findings or root causes. Your job is what the code does to errors before
+they reach that pipeline.
 
 ## Capture model so far
 {{CAPTURE_MODEL}}
+
+## Symptom reported by the user
+{{SYMPTOM_OR_NONE}}
 
 ## Answer with evidence (file:line, and dependency source when behaviour depends on a library version)
 1. Uncaught exceptions in request handlers/pages: do they reach the
@@ -70,8 +89,10 @@ the feature flows ({{AREAS}}); you cover the shared infrastructure.
 5. Scrubbing/privacy hooks: do they strip or rewrite things needed for
    diagnosis (stack frames, file names, breadcrumbs, release, causes, error
    codes)? How does the logger serialize error objects?
-6. Release/version, environment, source maps/symbols: set and uploaded
-   for every deploy target? Are preview/staging events separable?
+6. Release/version and environment: does the init *code* set them where
+   the SDK needs them from code? Are preview/staging events separable?
+   (Build/upload steps you can't see may happen in CI or the dashboard;
+   treat that as an assumption.)
 7. Client side: global handlers, error boundaries, framework hydration
    or chunk-load handling, is the tracker loaded on every page/layout?
 8. Background work: jobs, queues, cron, post-response tasks, separate
@@ -80,13 +101,16 @@ the feature flows ({{AREAS}}); you cover the shared infrastructure.
    binding, promise catch-to-default, raw console/print error logging,
    error-level log calls, and errors thrown without cause. List the ~10
    most consequential examples *outside* {{AREAS}}.
-10. Platform side: log retention/sampling, alerting, tail/log drains —
-    would the platform catch what the app misses?
+10. Given that the platform collects logs and invocation outcomes: which
+    code-level failures still leave nothing useful in them? Look for a
+    request that ends 200/3xx, a log line without the error object, or an
+    exception caught before the runtime could record it.
 
 ## Output
 Answers 1–10 with evidence and a verdict each; then findings
 (location, category, severity, production impact, fix direction); then
-3–5 systemic root causes.
+3–5 systemic root causes, each a code mechanism with file:line; then a
+short "assumptions" list of outside-repo settings you could not confirm.
 ```
 
 ## Runtime prober (optional, isolated)
