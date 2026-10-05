@@ -8,4 +8,5 @@ export const SHOP_FILLS: Record<PricedShop, string> = {
   rossmann: "bg-shop-rossmann",
   natura: "bg-shop-natura",
   hebe: "bg-shop-hebe",
+  "super-pharm": "bg-shop-super-pharm",
 };

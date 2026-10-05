@@ -36,7 +36,7 @@ export type MatchableShop = (typeof MATCHABLE_SHOPS)[number];
  * and price-request schemas, the list and the island all read it, and the rules that take a list of shops default to
  * it, so a test can pass shops that aren't switched on yet.
  */
-export const MATCHED_SHOPS = ["natura", "hebe"] as const satisfies readonly MatchableShop[];
+export const MATCHED_SHOPS = ["natura", "hebe", "super-pharm"] as const satisfies readonly MatchableShop[];
 
 /** A matched shop that is switched on. */
 export type MatchedShop = (typeof MATCHED_SHOPS)[number];

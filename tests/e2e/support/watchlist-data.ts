@@ -1,5 +1,5 @@
 // What a spec seeds and removes (test-plan Phase 1, context/changes/testing-critical-browser-flows/plan.md): its own
-// products, their matches in Natura and Hebe and exact price states, written as the run's user through supabase-js on
+// products, their matches in the matched shops and exact price states, written as the run's user through supabase-js on
 // the local stack, as the database checks do, and deleted again after the test. Two reads and writes act as the local
 // superuser (scripts/e2e-local-db.mjs): the check that every shop is stopped, since no API role may read the shops, and
 // backdating a check, since the database stamps each check's time. Every product gets fresh shop ids: price checks are
@@ -88,8 +88,20 @@ function freshHebeId(): string {
   return `9${high}${low}`;
 }
 
+/**
+ * A Super-Pharm item id no run has used: digits, as Super-Pharm's ids are, 12 of them (the app takes 1 to 12), starting
+ * with 9, unlike Super-Pharm's real ids' five or six.
+ */
+function freshSuperPharmId(): string {
+  return `9${String(randomInt(0, 100_000_000_000)).padStart(11, "0")}`;
+}
+
 /** A fresh item id in each matched shop, in the shape its ids take. */
-const FRESH_IDS: Record<MatchedShop, () => string> = { natura: freshNaturaSku, hebe: freshHebeId };
+const FRESH_IDS: Record<MatchedShop, () => string> = {
+  natura: freshNaturaSku,
+  hebe: freshHebeId,
+  "super-pharm": freshSuperPharmId,
+};
 
 function idOf(row: unknown): string {
   if (typeof row === "object" && row !== null && "id" in row && typeof row.id === "string") return row.id;
@@ -127,28 +139,47 @@ export async function addRossmannProduct({ name }: { name: string }): Promise<Se
 
 /**
  * Adds a product from Rossmann matched in Natura, the shape every spec compares: its name, ids and Natura's SKU. It has
- * no decision in Hebe, so its page, opened by the user, looks it up there, which the stopped shop refuses; a spec that
- * needs Hebe settled matches it there too (matchShop).
+ * no decision in Hebe, so its page, opened by the user, looks it up there, which the stopped shop refuses, nor in
+ * Super-Pharm, whose card then offers only its button; a spec that needs either settled matches it there too
+ * (matchShop).
  */
 export async function addMatchedProduct(name: string): Promise<SeededProduct & { sku: string }> {
   const product = await addRossmannProduct({ name });
   return { ...product, sku: await matchShop("natura", product.productId, { name: `Natura ${name}` }) };
 }
 
+/** A match as a spec seeds it: the matched item's name, who decided on it, and the item's page in the shop, if any. */
+export interface SeededMatch {
+  /** The matched item's name, to which the run's token is added. */
+  name: string;
+  /**
+   * Who decided: the matching rule on its own (`auto`, the default), or the user (`user`), whose pick is the only way a
+   * Super-Pharm match is made, since Super-Pharm's items carry no EAN.
+   */
+  decidedBy?: "auto" | "user";
+  /** The item's page in the shop, which its card links to as "Zobacz w sklepie"; none by default. */
+  productUrl?: string;
+}
+
 /**
- * Stores an automatic match in a matched shop for the product, to a fresh item id there (Natura's `E2E-` SKU, Hebe's 18
- * digits), so its page doesn't look the product up in that shop. Returns the matched item's id.
+ * Stores a match in a matched shop for the product, to a fresh item id there (Natura's `E2E-` SKU, Hebe's 18 digits,
+ * Super-Pharm's 12), so its page doesn't look the product up in that shop. Returns the matched item's id.
  */
-export async function matchShop(shop: MatchedShop, productId: string, { name }: { name: string }): Promise<string> {
+export async function matchShop(
+  shop: MatchedShop,
+  productId: string,
+  { name, decidedBy = "auto", productUrl }: SeededMatch,
+): Promise<string> {
   const client = await asRunUser();
   const shopItemId = FRESH_IDS[shop]();
   const { error } = await client.from("watchlist_matches").insert({
     watchlist_item_id: productId,
     shop_id: shop,
     state: "matched",
-    decided_by: "auto",
+    decided_by: decidedBy,
     shop_item_id: shopItemId,
     name: `${name} ${runToken()}`,
+    product_url: productUrl ?? null,
   });
   expect(error, `the product ${productId} is matched with ${shop} ${shopItemId}`).toBeNull();
   await expectNoChecks(client, shop, shopItemId);

@@ -118,15 +118,23 @@ const stateOf = (state: ListMatchState["state"]): ListMatchState => (state === "
 const differing = (mismatch: ListMismatch): ListMatchState => ({ state: "matched", mismatch });
 
 /**
- * Hebe declined by the user, which Natura's cases stand beside: a decline holds no item, so Hebe adds no price and puts
- * nothing in Do sprawdzenia, and the row's line ends with it (HEBE_DECLINED_LINE).
+ * Hebe and Super-Pharm declined by the user, which Natura's cases stand beside: a decline holds no item, so neither adds
+ * a price or puts anything in Do sprawdzenia, and the row's line ends with both (OTHERS_DECLINED_LINE).
  */
 const HEBE_DECLINED: ListMatchState = { state: "unmatched" };
-const HEBE_DECLINED_LINE = "Hebe: brak (Twój wybór).";
+const SUPER_PHARM_DECLINED: ListMatchState = { state: "unmatched" };
+const OTHERS_DECLINED_LINE = "Hebe: brak (Twój wybór). Super-Pharm: brak (Twój wybór).";
 
-/** Nivea Soft's row with these shops, this state in Natura and this one in Hebe, declined unless given, at NOW. */
-const rowOf = (shops: RowShop[], natura: ListMatchState = MATCHED, hebe: ListMatchState = HEBE_DECLINED): ListRow =>
-  listRowOf(soft, shops, { natura, hebe }, NOW);
+/**
+ * Nivea Soft's row with these shops, this state in Natura and these in Hebe and Super-Pharm, declined unless given, at
+ * NOW.
+ */
+const rowOf = (
+  shops: RowShop[],
+  natura: ListMatchState = MATCHED,
+  hebe: ListMatchState = HEBE_DECLINED,
+  superPharm: ListMatchState = SUPER_PHARM_DECLINED,
+): ListRow => listRowOf(soft, shops, { natura, hebe, "super-pharm": superPharm }, NOW);
 
 /** What a match the list reads may differ from its product in: its brand, its size, and who decided on it. */
 type MatchFields = Partial<Pick<Extract<ShopMatchState, { state: "matched" }>, "brand" | "size" | "decidedBy">>;
@@ -188,7 +196,12 @@ describe("listRowOf: the product", () => {
     { why: "no caption", item: { caption: null }, eyebrow: "NIVEA · 300 ml", name: "Soft" },
   ])("leaves out what a product with $why doesn't have", ({ item, eyebrow, name }) => {
     expect(
-      listRowOf({ ...soft, ...item }, [rossmannRegular], { natura: MATCHED, hebe: HEBE_DECLINED }, NOW),
+      listRowOf(
+        { ...soft, ...item },
+        [rossmannRegular],
+        { natura: MATCHED, hebe: HEBE_DECLINED, "super-pharm": SUPER_PHARM_DECLINED },
+        NOW,
+      ),
     ).toMatchObject({
       eyebrow,
       name,
@@ -304,8 +317,12 @@ describe("the price tag", () => {
       meta: "Natura · 2 godz. temu",
     });
     expect(
-      listRowOf(soft, [rossmannRegular, naturaOnPromotion], { natura: MATCHED, hebe: HEBE_DECLINED }, NOW + 2 * HOUR)
-        .tag.meta,
+      listRowOf(
+        soft,
+        [rossmannRegular, naturaOnPromotion],
+        { natura: MATCHED, hebe: HEBE_DECLINED, "super-pharm": SUPER_PHARM_DECLINED },
+        NOW + 2 * HOUR,
+      ).tag.meta,
     ).toBe("Natura · 2 godz. temu");
   });
 
@@ -421,30 +438,35 @@ describe("the Do sprawdzenia filter", () => {
 
   it("leaves out a decline: only a match can differ from the product", () => {
     // A decline holds no item, so it comes without a mismatch whatever the item the user declined differed in. The
-    // product is declined in both matched shops.
+    // product is declined in every matched shop.
     const declined: ShopMatchState = { watchlistItemId: SOFT_ID, shop: "natura", state: "unmatched", shopItemId: null };
-    const read: DecisionsRead = { states: [declined, { ...declined, shop: "hebe" }], unread: [], unattributed: [] };
+    const read: DecisionsRead = {
+      states: [declined, { ...declined, shop: "hebe" }, { ...declined, shop: "super-pharm" }],
+      unread: [],
+      unattributed: [],
+    };
     const row = listRowOf(soft, [rossmannRegular], matchStatesOf(soft, read), NOW);
 
     expect(row.check).toBe(false);
     expect(row.summary).toBe(
-      said(`Tylko w Rossmannie: 26,99 zł · 10 min temu. Natura: brak (Twój wybór). ${HEBE_DECLINED_LINE}`),
+      said(`Tylko w Rossmannie: 26,99 zł · 10 min temu. Natura: brak (Twój wybór). ${OTHERS_DECLINED_LINE}`),
     );
   });
 });
 
 describe("the row's line for screen readers", () => {
-  it("gives the price line alone for a product matched in Natura and Hebe, whose line names their prices", () => {
+  it("gives the price line alone for a product matched in every matched shop, whose line names their prices", () => {
     const hebe = shop("hebe", check({ price: 24.99 }));
+    const superPharm = shop("super-pharm", check({ price: 23.49 }));
 
-    expect(rowOf([rossmannRegular, naturaOnPromotion, hebe], MATCHED, MATCHED).summary).toBe(
-      said("Najtaniej: Natura 22,99 zł, o 2,00 zł taniej niż Hebe · 5 min temu."),
+    expect(rowOf([rossmannRegular, naturaOnPromotion, hebe, superPharm], MATCHED, MATCHED, MATCHED).summary).toBe(
+      said("Najtaniej: Natura 22,99 zł, o 0,50 zł taniej niż Super-Pharm · 5 min temu."),
     );
   });
 
-  it("gives the price line, then Hebe's decline, for a product matched in Natura alone", () => {
+  it("gives the price line, then Hebe's and Super-Pharm's declines, for a product matched in Natura alone", () => {
     expect(rowOf([rossmannRegular, naturaOnPromotion]).summary).toBe(
-      said(`Najtaniej: Natura 22,99 zł, o 4,00 zł taniej niż Rossmann · 5 min temu. ${HEBE_DECLINED_LINE}`),
+      said(`Najtaniej: Natura 22,99 zł, o 4,00 zł taniej niż Rossmann · 5 min temu. ${OTHERS_DECLINED_LINE}`),
     );
   });
 
@@ -452,11 +474,11 @@ describe("the row's line for screen readers", () => {
     { natura: "none", status: "Natura: do dopasowania." },
     { natura: "not_found", status: "Natura: nie znaleziono." },
     { natura: "unmatched", status: "Natura: brak (Twój wybór)." },
-  ])("adds Natura's status for a product $natura there, before Hebe's", ({ natura, status }) => {
+  ])("adds Natura's status for a product $natura there, before Hebe's and Super-Pharm's", ({ natura, status }) => {
     const only = shop("rossmann", check({ price: 12.99, checkedAgo: DAY }));
 
     expect(rowOf([only], stateOf(natura)).summary).toBe(
-      said(`Tylko w Rossmannie: 12,99 zł · wczoraj. ${status} ${HEBE_DECLINED_LINE}`),
+      said(`Tylko w Rossmannie: 12,99 zł · wczoraj. ${status} ${OTHERS_DECLINED_LINE}`),
     );
   });
 
@@ -466,22 +488,22 @@ describe("the row's line for screen readers", () => {
     { mismatch: { size: true, brand: true }, status: "Natura: sprawdź dopasowanie, inny rozmiar i marka." },
   ])("says what to check about a Natura match that differs unseen: $status", ({ mismatch, status }) => {
     expect(rowOf([rossmannRegular, naturaOnPromotion], differing(mismatch)).summary).toBe(
-      said(`Najtaniej: Natura 22,99 zł, o 4,00 zł taniej niż Rossmann · 5 min temu. ${status} ${HEBE_DECLINED_LINE}`),
+      said(`Najtaniej: Natura 22,99 zł, o 4,00 zł taniej niż Rossmann · 5 min temu. ${status} ${OTHERS_DECLINED_LINE}`),
     );
   });
 
   it("says a price or a match couldn't be read, never that the product has no price or awaits a match", () => {
     expect(rowOf([rossmannRegular], stateOf("unreadable")).summary).toBe(
-      `Nie udało się wczytać ceny. Natura: nie udało się wczytać dopasowania. ${HEBE_DECLINED_LINE}`,
+      `Nie udało się wczytać ceny. Natura: nie udało się wczytać dopasowania. ${OTHERS_DECLINED_LINE}`,
     );
     expect(rowOf([rossmannRegular, shop("natura", null, true)]).summary).toBe(
-      `Nie udało się wczytać ceny. ${HEBE_DECLINED_LINE}`,
+      `Nie udało się wczytać ceny. ${OTHERS_DECLINED_LINE}`,
     );
   });
 
   it("ends each sentence once", () => {
     expect(rowOf([shop("rossmann", null)], stateOf("none")).summary).toBe(
-      `Jeszcze bez cen. Otwórz produkt, aby je pobrać. Natura: do dopasowania. ${HEBE_DECLINED_LINE}`,
+      `Jeszcze bez cen. Otwórz produkt, aby je pobrać. Natura: do dopasowania. ${OTHERS_DECLINED_LINE}`,
     );
   });
 });
@@ -610,11 +632,14 @@ describe("matchStatesOf: where a product stands in Natura", () => {
       ? naturaMatch(watchlistItemId)
       : { watchlistItemId, shop: "natura", state: decision, shopItemId: null };
 
+  // The other matched shops' states of a product without a decision there.
+  const NONE_ELSEWHERE = { hebe: stateOf("none"), "super-pharm": stateOf("none") };
+
   it.each(["matched", "unmatched", "not_found"] as const)("gives a product's %s decision in Natura", (decision) => {
     const read = { states: [state(OTHER_ID, "matched"), state(SOFT_ID, decision)], unread: [], unattributed: [] };
 
-    // Every matched shop's state, Hebe's none without a decision there, and no other shop's.
-    expect(matchStatesOf(soft, read)).toEqual({ natura: stateOf(decision), hebe: stateOf("none") });
+    // Every matched shop's state, Hebe's and Super-Pharm's none without a decision there, and no other shop's.
+    expect(matchStatesOf(soft, read)).toEqual({ natura: stateOf(decision), ...NONE_ELSEWHERE });
   });
 
   it("gives none for a product without a decision in Natura, whatever other products and shops have", () => {
@@ -626,7 +651,11 @@ describe("matchStatesOf: where a product stands in Natura", () => {
     };
 
     // Hebe's decline is the product's own decision in Hebe.
-    expect(matchStatesOf(soft, read)).toEqual({ natura: stateOf("none"), hebe: stateOf("unmatched") });
+    expect(matchStatesOf(soft, read)).toEqual({
+      ...NONE_ELSEWHERE,
+      natura: stateOf("none"),
+      hebe: stateOf("unmatched"),
+    });
   });
 
   it("gives none for a product whose only odd rows are another shop's, which say nothing about Natura", () => {
@@ -637,7 +666,11 @@ describe("matchStatesOf: where a product stands in Natura", () => {
     };
 
     // They cost only Hebe's decision.
-    expect(matchStatesOf(soft, read)).toEqual({ natura: stateOf("none"), hebe: stateOf("unreadable") });
+    expect(matchStatesOf(soft, read)).toEqual({
+      ...NONE_ELSEWHERE,
+      natura: stateOf("none"),
+      hebe: stateOf("unreadable"),
+    });
   });
 
   it("gives unreadable for a product whose decision couldn't be read, never none", () => {
@@ -647,8 +680,12 @@ describe("matchStatesOf: where a product stands in Natura", () => {
       unattributed: [],
     };
 
-    expect(matchStatesOf(soft, read)).toEqual({ natura: stateOf("unreadable"), hebe: stateOf("none") });
-    expect(matchStatesOf(soft, null)).toEqual({ natura: stateOf("unreadable"), hebe: stateOf("unreadable") });
+    expect(matchStatesOf(soft, read)).toEqual({ natura: stateOf("unreadable"), ...NONE_ELSEWHERE });
+    expect(matchStatesOf(soft, null)).toEqual({
+      natura: stateOf("unreadable"),
+      hebe: stateOf("unreadable"),
+      "super-pharm": stateOf("unreadable"),
+    });
   });
 
   it("keeps a Natura decision that was read beside an odd row of the product that may be Natura's", () => {
@@ -659,15 +696,15 @@ describe("matchStatesOf: where a product stands in Natura", () => {
       unattributed: [],
     };
 
-    expect(matchStatesOf(soft, read)).toEqual({ natura: stateOf("unmatched"), hebe: stateOf("none") });
+    expect(matchStatesOf(soft, read)).toEqual({ natura: stateOf("unmatched"), ...NONE_ELSEWHERE });
   });
 
   it("gives unreadable for a product without a readable Natura row when a Natura row couldn't say whose it is", () => {
     const read: DecisionsRead = { states: [state(OTHER_ID, "matched")], unread: [], unattributed: ["natura"] };
 
     // The odd row may be this product's Natura decision; the one that was read stands.
-    expect(matchStatesOf(soft, read)).toEqual({ natura: stateOf("unreadable"), hebe: stateOf("none") });
-    expect(matchStatesOf({ ...soft, id: OTHER_ID }, read)).toEqual({ natura: MATCHED, hebe: stateOf("none") });
+    expect(matchStatesOf(soft, read)).toEqual({ natura: stateOf("unreadable"), ...NONE_ELSEWHERE });
+    expect(matchStatesOf({ ...soft, id: OTHER_ID }, read)).toEqual({ natura: MATCHED, ...NONE_ELSEWHERE });
   });
 });
 
@@ -741,8 +778,8 @@ describe("the list beside a row that can't say whose it is", () => {
     name,
     caption: null,
   });
-  // Nivea Soft is matched in Natura; Ziaja's lotion and Felix are declined there. None of them has a decision in Hebe
-  // yet, as on the day Hebe was switched on.
+  // Nivea Soft is matched in Natura; Ziaja's lotion and Felix are declined there. None of them has a decision in Hebe or
+  // Super-Pharm yet, as on the day Super-Pharm was switched on.
   const products = [soft, product(ZIAJA_ID, "300200", "Mleczko do ciała"), product(OTHER_ID, "131225", "Felix")];
   const states: ShopMatchState[] = [
     naturaMatch(SOFT_ID),
@@ -842,7 +879,7 @@ describe("the list beside a row that can't say whose it is", () => {
           { length: 3 },
           () =>
             "Nie udało się wczytać ceny. Natura: nie udało się wczytać dopasowania. " +
-            "Hebe: nie udało się wczytać dopasowania.",
+            "Hebe: nie udało się wczytać dopasowania. Super-Pharm: nie udało się wczytać dopasowania.",
         ),
       );
       expect(rows.every((row) => row.check)).toBe(true);
@@ -853,9 +890,9 @@ describe("the list beside a row that can't say whose it is", () => {
 
       expect(rows.map((row) => row.tag)).toEqual([unreadTag, unreadTag, unreadTag]);
       expect(rows.map((row) => row.summary)).toEqual([
-        "Nie udało się wczytać ceny. Hebe: do dopasowania.",
-        "Nie udało się wczytać ceny. Natura: brak (Twój wybór). Hebe: do dopasowania.",
-        "Nie udało się wczytać ceny. Natura: brak (Twój wybór). Hebe: do dopasowania.",
+        "Nie udało się wczytać ceny. Hebe: do dopasowania. Super-Pharm: do dopasowania.",
+        "Nie udało się wczytać ceny. Natura: brak (Twój wybór). Hebe: do dopasowania. Super-Pharm: do dopasowania.",
+        "Nie udało się wczytać ceny. Natura: brak (Twój wybór). Hebe: do dopasowania. Super-Pharm: do dopasowania.",
       ]);
       expect(rows.every((row) => row.check && !row.promo)).toBe(true);
     });
@@ -867,19 +904,23 @@ describe("the list beside a row that can't say whose it is", () => {
 });
 
 describe("listRowsOf: a Natura match that differs from its product", () => {
-  // Nivea Soft's fresh prices in Rossmann and Natura, and Hebe declined by the user, so only its Natura match can make
-  // it a product to check.
+  // Nivea Soft's fresh prices in Rossmann and Natura, and Hebe and Super-Pharm declined by the user, so only its Natura
+  // match can make it a product to check.
   const prices: LatestPrice[] = [
     { shop: "rossmann", shopItemId: "26900", ...check({ price: 26.99, checkedAgo: 10 * MINUTE }) },
     { shop: "natura", shopItemId: "NV89063", ...check({ price: 22.99, regularPrice: 27.99 }) },
   ];
   const hebeDeclined: ShopMatchState = { watchlistItemId: SOFT_ID, shop: "hebe", state: "unmatched", shopItemId: null };
+  const superPharmDeclined: ShopMatchState = { ...hebeDeclined, shop: "super-pharm" };
   const priceLine = said("Najtaniej: Natura 22,99 zł, o 4,00 zł taniej niż Rossmann · 5 min temu.");
 
-  /** Nivea Soft's row, as the list builds it from its reads, with this match in Natura and Hebe declined. */
+  /**
+   * Nivea Soft's row, as the list builds it from its reads, with this match in Natura, and Hebe and Super-Pharm
+   * declined.
+   */
   function rowWith(fields: MatchFields): ListRow {
     const matchRead: DecisionsRead = {
-      states: [naturaMatch(SOFT_ID, fields), hebeDeclined],
+      states: [naturaMatch(SOFT_ID, fields), hebeDeclined, superPharmDeclined],
       unread: [],
       unattributed: [],
     };
@@ -902,7 +943,7 @@ describe("listRowsOf: a Natura match that differs from its product", () => {
     const row = rowWith(fields);
 
     expect(row.check).toBe(true);
-    expect(row.summary).toBe(`${priceLine} ${status} ${HEBE_DECLINED_LINE}`);
+    expect(row.summary).toBe(`${priceLine} ${status} ${OTHERS_DECLINED_LINE}`);
     // The row looks as drawn: its tag is the one of a match that agrees.
     expect(row.tag).toEqual(rowWith({}).tag);
   });
@@ -919,14 +960,15 @@ describe("listRowsOf: a Natura match that differs from its product", () => {
     const row = rowWith(fields);
 
     expect(row.check).toBe(false);
-    expect(row.summary).toBe(`${priceLine} ${HEBE_DECLINED_LINE}`);
+    expect(row.summary).toBe(`${priceLine} ${OTHERS_DECLINED_LINE}`);
   });
 });
 
-// Hebe is switched on beside Natura, so the list's rules read both shops by default. Each row is built from the list's
-// reads as the page gets them (listRowsOf), so a Hebe match brings its item's price row, and any other Hebe decision
-// none: Hebe's item, 24,99 zł, is compared only while Hebe's match names it.
-describe("the list with both matched shops: Natura and Hebe", () => {
+// Hebe and Super-Pharm are switched on beside Natura, so the list's rules read all three by default. Each row is built
+// from the list's reads as the page gets them (listRowsOf), so a Hebe match brings its item's price row, and any other
+// Hebe decision none: Hebe's item, 24,99 zł, is compared only while Hebe's match names it. Every read here holds the
+// user's decline in Super-Pharm, which adds no price and nothing to check, so Natura and Hebe decide each row.
+describe("the list with Natura and Hebe, beside a Super-Pharm the user declined", () => {
   const UNREADABLE = stateOf("unreadable");
   const HEBE_SOFT_ID = "000000000000218807";
 
@@ -950,11 +992,19 @@ describe("the list with both matched shops: Natura and Hebe", () => {
     shopItemId: null,
   });
 
-  /** The list's read of the decisions: these that were read, beside these odd rows. */
+  // The user's decline in Super-Pharm, which every read below holds, and the sentence the row's line ends with for it.
+  const SUPER_PHARM_DECLINE = decision("super-pharm", "unmatched");
+  const SUPER_PHARM_DECLINED_LINE = "Super-Pharm: brak (Twój wybór).";
+
+  /** The list's read of the decisions: these that were read, and Super-Pharm's decline, beside these odd rows. */
   const readOf = (
     states: ShopMatchState[],
     odd: { unread?: DecisionsRead["unread"]; unattributed?: DecisionsRead["unattributed"] } = {},
-  ): DecisionsRead => ({ states, unread: odd.unread ?? [], unattributed: odd.unattributed ?? [] });
+  ): DecisionsRead => ({
+    states: [...states, SUPER_PHARM_DECLINE],
+    unread: odd.unread ?? [],
+    unattributed: odd.unattributed ?? [],
+  });
 
   /**
    * The latest prices the user can see: Nivea Soft's in Rossmann and Natura, and its Hebe item's, 24,99 zł unless
@@ -985,10 +1035,12 @@ describe("the list with both matched shops: Natura and Hebe", () => {
     expect(matchStatesOf(soft, readOf([naturaMatch(SOFT_ID), decision("hebe", "not_found")]))).toEqual({
       natura: MATCHED,
       hebe: stateOf("not_found"),
+      "super-pharm": SUPER_PHARM_DECLINED,
     });
     expect(matchStatesOf(soft, readOf([decision("natura", "unmatched")]))).toEqual({
       natura: stateOf("unmatched"),
       hebe: stateOf("none"),
+      "super-pharm": SUPER_PHARM_DECLINED,
     });
   });
 
@@ -997,22 +1049,30 @@ describe("the list with both matched shops: Natura and Hebe", () => {
     expect(matchStatesOf(soft, readOf([naturaMatch(SOFT_ID)], odd))).toEqual({
       natura: MATCHED,
       hebe: UNREADABLE,
+      "super-pharm": SUPER_PHARM_DECLINED,
     });
     expect(matchStatesOf(soft, readOf([decision("natura", "unmatched")], odd))).toEqual({
       natura: stateOf("unmatched"),
       hebe: UNREADABLE,
+      "super-pharm": SUPER_PHARM_DECLINED,
     });
-    expect(matchStatesOf(soft, readOf([], odd))).toEqual({ natura: stateOf("none"), hebe: UNREADABLE });
+    expect(matchStatesOf(soft, readOf([], odd))).toEqual({
+      natura: stateOf("none"),
+      hebe: UNREADABLE,
+      "super-pharm": SUPER_PHARM_DECLINED,
+    });
   });
 
   it("keeps Hebe's state beside an odd Natura row, and says Natura's couldn't be read", () => {
     expect(matchStatesOf(soft, readOf([], { unread: [{ watchlistItemId: SOFT_ID, shop: "natura" }] }))).toEqual({
       natura: UNREADABLE,
       hebe: stateOf("none"),
+      "super-pharm": SUPER_PHARM_DECLINED,
     });
     expect(matchStatesOf(soft, readOf([decision("hebe", "unmatched")], { unattributed: ["natura"] }))).toEqual({
       natura: UNREADABLE,
       hebe: stateOf("unmatched"),
+      "super-pharm": SUPER_PHARM_DECLINED,
     });
   });
 
@@ -1025,7 +1085,8 @@ describe("the list with both matched shops: Natura and Hebe", () => {
     );
 
     expect(row.summary).toBe(
-      "Nie udało się wczytać ceny. Natura: do dopasowania. Hebe: nie udało się wczytać dopasowania.",
+      "Nie udało się wczytać ceny. Natura: do dopasowania. Hebe: nie udało się wczytać dopasowania. " +
+        SUPER_PHARM_DECLINED_LINE,
     );
   });
 
@@ -1033,7 +1094,9 @@ describe("the list with both matched shops: Natura and Hebe", () => {
     const row = rowFrom(readOf([naturaMatch(SOFT_ID)], odd));
 
     expect(row.tag).toEqual({ tone: "outline", price: null, label: "Błąd odczytu", meta: null });
-    expect(row.summary).toBe("Nie udało się wczytać ceny. Hebe: nie udało się wczytać dopasowania.");
+    expect(row.summary).toBe(
+      `Nie udało się wczytać ceny. Hebe: nie udało się wczytać dopasowania. ${SUPER_PHARM_DECLINED_LINE}`,
+    );
     expect(row.check).toBe(true);
     // Hebe's decision read, the same prices name Natura cheapest.
     expect(rowFrom(readOf([naturaMatch(SOFT_ID), decision("hebe", "unmatched")])).tag).toEqual({
@@ -1044,12 +1107,13 @@ describe("the list with both matched shops: Natura and Hebe", () => {
     });
   });
 
-  it("says both shops' decisions couldn't be read when the decisions couldn't be read at all", () => {
+  it("says every matched shop's decision couldn't be read when the decisions couldn't be read at all", () => {
     const row = rowFrom(null);
 
     expect(row.tag).toEqual({ tone: "outline", price: null, label: "Błąd odczytu", meta: null });
     expect(row.summary).toBe(
-      "Nie udało się wczytać ceny. Natura: nie udało się wczytać dopasowania. Hebe: nie udało się wczytać dopasowania.",
+      "Nie udało się wczytać ceny. Natura: nie udało się wczytać dopasowania. " +
+        "Hebe: nie udało się wczytać dopasowania. Super-Pharm: nie udało się wczytać dopasowania.",
     );
   });
 
@@ -1060,7 +1124,7 @@ describe("the list with both matched shops: Natura and Hebe", () => {
     const row = rowFrom(readOf([naturaMatch(SOFT_ID), ...hebe]));
 
     expect(row.check).toBe(true);
-    expect(row.summary).toBe(`${priceLine} ${status}`);
+    expect(row.summary).toBe(`${priceLine} ${status} ${SUPER_PHARM_DECLINED_LINE}`);
     // The row names the cheapest of the prices it has: Hebe has none to compare.
     expect(row.tag).toEqual(rowOf([rossmannRegular, naturaOnPromotion]).tag);
   });
@@ -1069,7 +1133,7 @@ describe("the list with both matched shops: Natura and Hebe", () => {
     const row = rowFrom(readOf([naturaMatch(SOFT_ID), decision("hebe", "unmatched")]));
 
     expect(row.check).toBe(false);
-    expect(row.summary).toBe(`${priceLine} Hebe: brak (Twój wybór).`);
+    expect(row.summary).toBe(`${priceLine} Hebe: brak (Twój wybór). ${SUPER_PHARM_DECLINED_LINE}`);
   });
 
   it.each<{ why: string; fields: MatchFields; status: string }>([
@@ -1088,7 +1152,7 @@ describe("the list with both matched shops: Natura and Hebe", () => {
     const row = rowFrom(readOf([naturaMatch(SOFT_ID), hebeMatch(fields)]));
 
     expect(row.check).toBe(true);
-    expect(row.summary).toBe(`${hebePricedLine} ${status}`);
+    expect(row.summary).toBe(`${hebePricedLine} ${status} ${SUPER_PHARM_DECLINED_LINE}`);
     // The row looks as drawn: its tag is the one of a Hebe match that agrees.
     expect(row.tag).toEqual(rowFrom(readOf([naturaMatch(SOFT_ID), hebeMatch()])).tag);
   });
@@ -1105,7 +1169,7 @@ describe("the list with both matched shops: Natura and Hebe", () => {
 
     expect(row.check).toBe(false);
     // Hebe's match brings its price, the next after Natura's.
-    expect(row.summary).toBe(hebePricedLine);
+    expect(row.summary).toBe(`${hebePricedLine} ${SUPER_PHARM_DECLINED_LINE}`);
   });
 
   // The expected verdicts come from FR-011 and the S-03 rule that only a fresh price the shop sells online can win, not
@@ -1114,7 +1178,9 @@ describe("the list with both matched shops: Natura and Hebe", () => {
     const row = rowFrom(readOf([naturaMatch(SOFT_ID), hebeMatch()]), pricesWith(check({ price: 19.99 })));
 
     expect(row.tag).toEqual({ tone: "sun", price: 19.99, label: "Hebe", meta: "Hebe · 5 min temu" });
-    expect(row.summary).toBe(said("Najtaniej: Hebe 19,99 zł, o 3,00 zł taniej niż Natura · 5 min temu."));
+    expect(row.summary).toBe(
+      `${said("Najtaniej: Hebe 19,99 zł, o 3,00 zł taniej niż Natura · 5 min temu.")} ${SUPER_PHARM_DECLINED_LINE}`,
+    );
     expect(row.check).toBe(false);
   });
 
@@ -1130,7 +1196,8 @@ describe("the list with both matched shops: Natura and Hebe", () => {
 
     expect(row.tag).toEqual({ tone: "sun", price: 22.99, label: "Natura", meta: "Natura · 5 min temu" });
     expect(row.summary).toBe(
-      `${said("Najtaniej: Natura 22,99 zł, o 4,00 zł taniej niż Rossmann · 5 min temu")} · Hebe: ${note}.`,
+      `${said("Najtaniej: Natura 22,99 zł, o 4,00 zł taniej niż Rossmann · 5 min temu")} · Hebe: ${note}. ` +
+        SUPER_PHARM_DECLINED_LINE,
     );
   });
 
@@ -1141,15 +1208,22 @@ describe("the list with both matched shops: Natura and Hebe", () => {
     );
 
     expect(row.tag).toEqual({ tone: "sun", price: 22.99, label: "Natura", meta: "Natura · 5 min temu" });
-    expect(row.summary).toBe(`${priceLine} Hebe: brak (Twój wybór).`);
+    expect(row.summary).toBe(`${priceLine} Hebe: brak (Twój wybór). ${SUPER_PHARM_DECLINED_LINE}`);
   });
 
   it("says each shop's status in the shops' order, however its states were put together", () => {
     const only = shop("rossmann", check({ price: 12.99, checkedAgo: DAY }));
-    const line = said("Tylko w Rossmannie: 12,99 zł · wczoraj. Natura: nie znaleziono. Hebe: do dopasowania.");
+    const line = said(
+      "Tylko w Rossmannie: 12,99 zł · wczoraj. Natura: nie znaleziono. Hebe: do dopasowania. Super-Pharm: do dopasowania.",
+    );
+    const none = stateOf("none");
 
-    expect(listRowOf(soft, [only], { natura: stateOf("not_found"), hebe: stateOf("none") }, NOW).summary).toBe(line);
-    expect(listRowOf(soft, [only], { hebe: stateOf("none"), natura: stateOf("not_found") }, NOW).summary).toBe(line);
+    expect(
+      listRowOf(soft, [only], { natura: stateOf("not_found"), hebe: none, "super-pharm": none }, NOW).summary,
+    ).toBe(line);
+    expect(
+      listRowOf(soft, [only], { "super-pharm": none, hebe: none, natura: stateOf("not_found") }, NOW).summary,
+    ).toBe(line);
   });
 
   it("says what to check about both shops' automatic matches that differ, Natura's first", () => {
@@ -1159,19 +1233,144 @@ describe("the list with both matched shops: Natura and Hebe", () => {
 
     expect(row.check).toBe(true);
     expect(row.summary).toBe(
-      `${hebePricedLine} Natura: sprawdź dopasowanie, inna marka. Hebe: sprawdź dopasowanie, inny rozmiar.`,
+      `${hebePricedLine} Natura: sprawdź dopasowanie, inna marka. Hebe: sprawdź dopasowanie, inny rozmiar. ` +
+        SUPER_PHARM_DECLINED_LINE,
     );
   });
 });
 
+// Super-Pharm is matched only by the user's own pick. A product still to match there is one to check, as in any matched
+// shop (the owner's call, S-06), its match brings its item's price, which may be the cheapest of four, and a match the
+// user picked differs in nothing the list counts, since they saw its flags first. The expected verdicts come from
+// FR-011 and the S-03 rule that only a fresh price the shop sells online can win, not from the comparison's code.
+describe("the list with Super-Pharm, matched on the user's pick", () => {
+  const HEBE_SOFT_ID = "000000000000218807";
+  const SUPER_PHARM_SOFT_ID = "10132";
+
+  // Nivea Soft's automatic match in Hebe, of its brand and size.
+  const hebeMatch: ShopMatchState = {
+    watchlistItemId: SOFT_ID,
+    shop: "hebe",
+    state: "matched",
+    shopItemId: HEBE_SOFT_ID,
+    brand: "NIVEA",
+    size: { value: 300, unit: "ml" },
+    decidedBy: "auto",
+  };
+
+  /**
+   * The list's read of Nivea Soft's decisions: matched in Natura and Hebe, agreeing with both, these in Super-Pharm, and
+   * these that came back odd.
+   */
+  const readWith = (superPharm: ShopMatchState[], unread: DecisionsRead["unread"] = []): DecisionsRead => ({
+    states: [naturaMatch(SOFT_ID), hebeMatch, ...superPharm],
+    unread,
+    unattributed: [],
+  });
+
+  /** Nivea Soft's match in Super-Pharm, the user's pick: by default its item of the product's brand and size. */
+  const superPharmMatch = (fields: MatchFields = {}): ShopMatchState => ({
+    watchlistItemId: SOFT_ID,
+    shop: "super-pharm",
+    state: "matched",
+    shopItemId: SUPER_PHARM_SOFT_ID,
+    brand: "Nivea",
+    size: { value: 300, unit: "ml" },
+    decidedBy: "user",
+    ...fields,
+  });
+
+  /** Nivea Soft's decline or lookup that found nothing in Super-Pharm. */
+  const superPharmDecision = (state: "unmatched" | "not_found"): ShopMatchState => ({
+    watchlistItemId: SOFT_ID,
+    shop: "super-pharm",
+    state,
+    shopItemId: null,
+  });
+
+  /**
+   * The latest prices the user can see: Rossmann's 26,99 zł, Natura's 22,99 zł, Hebe's 24,99 zł and Super-Pharm's
+   * item's, 19,49 zł unless given.
+   */
+  const pricesWith = (superPharm: LatestCheck = check({ price: 19.49 })): LatestPrice[] => [
+    { shop: "rossmann", shopItemId: "26900", ...check({ price: 26.99, checkedAgo: 10 * MINUTE }) },
+    { shop: "natura", shopItemId: "NV89063", ...check({ price: 22.99, regularPrice: 27.99 }) },
+    { shop: "hebe", shopItemId: HEBE_SOFT_ID, ...check({ price: 24.99 }) },
+    { shop: "super-pharm", shopItemId: SUPER_PHARM_SOFT_ID, ...superPharm },
+  ];
+
+  /** Nivea Soft's row from this read of its decisions and the prices, as the list builds it (listRowsOf), at NOW. */
+  const rowFrom = (read: DecisionsRead, prices: LatestPrice[] = pricesWith()): ListRow =>
+    listRowsOf([soft], read, { prices, unread: [], unattributed: 0 }, NOW)[0];
+
+  // Natura's price line without a Super-Pharm match: 2,00 zł under Hebe's, the next price.
+  const naturaLine = said("Najtaniej: Natura 22,99 zł, o 2,00 zł taniej niż Hebe · 5 min temu.");
+  // Super-Pharm's line once its match brings its 19,49 zł: 3,50 zł under Natura's.
+  const superPharmLine = said("Najtaniej: Super-Pharm 19,49 zł, o 3,50 zł taniej niż Natura · 5 min temu.");
+
+  it("puts a product still to be matched in Super-Pharm in Do sprawdzenia, saying so, and compares no Super-Pharm price", () => {
+    const row = rowFrom(readWith([]));
+
+    expect(row.check).toBe(true);
+    expect(row.summary).toBe(`${naturaLine} Super-Pharm: do dopasowania.`);
+    // Super-Pharm's item has a price, but no match names it.
+    expect(row.tag).toEqual({ tone: "sun", price: 22.99, label: "Natura", meta: "Natura · 5 min temu" });
+  });
+
+  it("puts a product Super-Pharm didn't find in Do sprawdzenia, and leaves out one the user declined there", () => {
+    expect(rowFrom(readWith([superPharmDecision("not_found")]))).toMatchObject({
+      check: true,
+      summary: `${naturaLine} Super-Pharm: nie znaleziono.`,
+    });
+    expect(rowFrom(readWith([superPharmDecision("unmatched")]))).toMatchObject({
+      check: false,
+      summary: `${naturaLine} Super-Pharm: brak (Twój wybór).`,
+    });
+  });
+
+  it("names Super-Pharm cheapest when its fresh price is the lowest of the four shops, on the line and the tag", () => {
+    const row = rowFrom(readWith([superPharmMatch()]));
+
+    expect(row.tag).toEqual({ tone: "sun", price: 19.49, label: "Super-Pharm", meta: "Super-Pharm · 5 min temu" });
+    expect(row.summary).toBe(superPharmLine);
+    expect(row.check).toBe(false);
+  });
+
+  it("never names Super-Pharm's lower price cheapest when it can't be ordered online, and says why", () => {
+    const row = rowFrom(readWith([superPharmMatch()]), pricesWith(check({ price: 19.49, available: false })));
+
+    expect(row.tag).toEqual({ tone: "sun", price: 22.99, label: "Natura", meta: "Natura · 5 min temu" });
+    expect(row.summary).toBe(
+      `${said("Najtaniej: Natura 22,99 zł, o 2,00 zł taniej niż Hebe · 5 min temu")} · Super-Pharm: niedostępny online.`,
+    );
+  });
+
+  it("leaves out a product whose Super-Pharm match, the user's pick, is of another size, which they saw first", () => {
+    const row = rowFrom(readWith([superPharmMatch({ size: { value: 200, unit: "ml" } })]));
+
+    expect(row.check).toBe(false);
+    expect(row.summary).toBe(superPharmLine);
+  });
+
+  it("names no cheapest shop while Super-Pharm's decision can't be read, since its match may name a lower price", () => {
+    const row = rowFrom(readWith([], [{ watchlistItemId: SOFT_ID, shop: "super-pharm" }]));
+
+    expect(row.tag).toEqual({ tone: "outline", price: null, label: "Błąd odczytu", meta: null });
+    expect(row.summary).toBe("Nie udało się wczytać ceny. Super-Pharm: nie udało się wczytać dopasowania.");
+    expect(row.check).toBe(true);
+  });
+});
+
 describe("the list's alert and footer", () => {
-  it("names every matched shop whose decisions couldn't be read, Natura and Hebe", () => {
-    expect(matchesFailedText()).toBe("Nie udało się wczytać dopasowań w Naturze i w Hebe. Odśwież stronę.");
+  it("names every matched shop whose decisions couldn't be read, Natura, Hebe and Super-Pharm", () => {
+    expect(matchesFailedText()).toBe(
+      "Nie udało się wczytać dopasowań w Naturze, w Hebe i w Super-Pharmie. Odśwież stronę.",
+    );
     expect(matchesFailedText(["natura"])).toBe("Nie udało się wczytać dopasowań w Naturze. Odśwież stronę.");
   });
 
-  it("lists every priced shop's site, Hebe's too, the last after 'i'", () => {
-    expect(priceSourcesText()).toBe("Ceny online z rossmann.pl, drogerienatura.pl i hebe.pl");
+  it("lists every priced shop's site, Hebe's and Super-Pharm's too, the last after 'i'", () => {
+    expect(priceSourcesText()).toBe("Ceny online z rossmann.pl, drogerienatura.pl, hebe.pl i superpharm.pl");
     expect(priceSourcesText(["rossmann", "natura"])).toBe("Ceny online z rossmann.pl i drogerienatura.pl");
   });
 });

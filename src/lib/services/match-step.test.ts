@@ -284,7 +284,7 @@ describe("decideMatchStep: a re-pin or a retry names one shop", () => {
 });
 
 // Super-Pharm's index holds no EAN, so it's looked up on request: only from its card's button, whose link names it
-// (`?retry=super-pharm`). It isn't switched on yet, so these tests name it.
+// (`?retry=super-pharm`).
 describe("decideMatchStep: a shop looked up on request (Super-Pharm)", () => {
   // Super-Pharm's kinds of stored decision; a match there is always the user's choice.
   const spMatched: RepinnableMatch = { ...matched, shop: "super-pharm", decidedBy: "user" };
@@ -404,6 +404,9 @@ describe("repinShopOf and retryShopOf: the shop a page was opened for", () => {
     { query: "repin=hebe", repin: "hebe", retry: null },
     { query: "retry=hebe", repin: null, retry: "hebe" },
     { query: "repin=hebe&retry=natura", repin: "hebe", retry: "natura" },
+    // Super-Pharm is a matched shop: its card's button opens ?retry=super-pharm, and "Zmień" ?repin=super-pharm.
+    { query: "repin=super-pharm", repin: "super-pharm", retry: null },
+    { query: "f=check&retry=super-pharm", repin: null, retry: "super-pharm" },
   ])("reads ?$query", ({ query, repin, retry }) => {
     const params = new URLSearchParams(query);
 
@@ -416,7 +419,7 @@ describe("repinShopOf and retryShopOf: the shop a page was opened for", () => {
     "repin=1&retry=1",
     "repin=&retry=",
     "repin=rossmann&retry=rossmann",
-    "repin=super-pharm&retry=super-pharm",
+    "repin=dm&retry=dm",
     "repin=NATURA&retry=Hebe",
   ])("ignores ?%s, which names no matched shop, the old ?repin=1 and ?retry=1 included", (query) => {
     const params = new URLSearchParams(query);

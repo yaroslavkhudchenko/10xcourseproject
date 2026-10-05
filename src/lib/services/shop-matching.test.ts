@@ -483,7 +483,7 @@ describe("lookups in Hebe, through Hebe's own adapter", () => {
 // Super-Pharm answers with its own recordings (super-pharm.test.ts says when each was made), through the real gate.
 // Every Super-Pharm search is a POST to one URL, so each recording is served for the exact body it answers, spelled out
 // as the adapter sends it. Its index holds no EAN, so it's looked up on request (MATCH_MODES): by name alone, never by
-// EAN, and no candidate is accepted on its own. It isn't switched on yet, so each test names it.
+// EAN, and no candidate is accepted on its own.
 const SUPER_PHARM_URL = "https://ep43qpdx9q-dsn.algolia.net/1/indexes/spprod_drugstore_pl_simple_products/query";
 /**
  * A Super-Pharm search's body, as the adapter sends it: the query form-encoded (a space as "+"), as many hits as asked
@@ -647,7 +647,8 @@ describe("lookups in Super-Pharm, looked up on request: one search, by name", ()
 });
 
 // The product page's steps for its matched shops (runMatchSteps), on Natura's and Hebe's recordings together, through
-// the real gate. Both are switched on, so each test runs the page's own list of shops, Natura's step first.
+// the real gate. Each test runs the page's own list of shops, Natura's step first and Super-Pharm's last: Super-Pharm,
+// looked up only from its card's button, gets that button on every view that doesn't name it, and asks nothing.
 const PRODUCT_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
 const PLAIN_PAGE = `/watchlist/${PRODUCT_ID}`;
 // What a shop's card says when its step threw: the shop gave no answer.
@@ -799,7 +800,7 @@ const throwingFor = (shop: MatchableShop, gate: ShopGate): ShopGate => ({
       : gate.fetch(shopId, url, init),
 });
 
-/** The page opened plainly, by the user's own navigation, for the product without decisions, in both shops. */
+/** The page opened plainly, by the user's own navigation, for the product without decisions, in every matched shop. */
 function opened(fields: Pick<MatchStepsInput, "supabase" | "gate"> & Partial<MatchStepsInput>): MatchStepsInput {
   return {
     product: softInBoth,
@@ -834,6 +835,8 @@ describe("runMatchSteps: each matched shop's step on the product's page", () => 
     expect(steps.map(({ shop, step }) => [shop, step])).toEqual([
       ["natura", { kind: "lookup", retry: false }],
       ["hebe", { kind: "lookup", retry: false }],
+      // Super-Pharm, looked up only from its card's button, gets that button.
+      ["super-pharm", { kind: "prompt" }],
     ]);
     // Natura's EAN search accepts its item, which is stored with the price it came with, and its card shows it.
     expect(steps[0]).toMatchObject({
@@ -1028,13 +1031,17 @@ describe("runMatchSteps: each matched shop's step on the product's page", () => 
   });
 
   it.each<{ why: string; input: Partial<MatchStepsInput>; views: string[] }>([
-    { why: "decisions that couldn't be read", input: { matches: null }, views: ["read-failed", "read-failed"] },
+    {
+      why: "decisions that couldn't be read",
+      input: { matches: null },
+      views: ["read-failed", "read-failed", "read-failed"],
+    },
     {
       why: "a decision of one shop that came back odd, beside the other's",
       input: { matches: { matches: [naturaMatched], unreadable: ["hebe"] } },
-      views: ["matched", "read-failed"],
+      views: ["matched", "read-failed", "prompt"],
     },
-    { why: "a page another site opened", input: { ownNavigation: false }, views: ["prompt", "prompt"] },
+    { why: "a page another site opened", input: { ownNavigation: false }, views: ["prompt", "prompt", "prompt"] },
   ])("asks no shop for $why", async ({ input, views }) => {
     const { gate, fetchMock } = slowGate([answers.eanHit, hebeAnswers.offlineEan, hebeAnswers.name]);
     const { client, queries } = stubClient();
@@ -1047,19 +1054,14 @@ describe("runMatchSteps: each matched shop's step on the product's page", () => 
   });
 });
 
-// The page's shops with Super-Pharm last, as they will be once it's switched on: the steps run the shops they're given.
-const WITH_SUPER_PHARM = ["natura", "hebe", "super-pharm"] as const;
-
+// Super-Pharm is the page's last matched shop, so the steps' own list of shops runs it.
 describe("runMatchSteps: a shop looked up on request on the product's page", () => {
   it("gives Super-Pharm only its button, which names it, on a plain view that looks the other shops up", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { gate, fetchMock, reserve } = slowGate([answers.eanHit, hebeAnswers.offlineEan, hebeAnswers.name]);
     const { client } = stubClient();
 
-    const steps = await runMatchSteps({
-      ...opened({ supabase: client, gate, filter: "check" }),
-      shops: WITH_SUPER_PHARM,
-    });
+    const steps = await runMatchSteps(opened({ supabase: client, gate, filter: "check" }));
 
     expect(steps.map(({ shop, step }) => [shop, step.kind])).toEqual([
       ["natura", "lookup"],
@@ -1084,10 +1086,9 @@ describe("runMatchSteps: a shop looked up on request on the product's page", () 
     const { gate, fetchMock, reserve } = setupCharged([superPharmAnswers.cream]);
     const { client, queries } = stubClient();
 
-    const steps = await runMatchSteps({
-      ...opened({ supabase: client, gate, product: watched(spCream), retryShop: "super-pharm" }),
-      shops: WITH_SUPER_PHARM,
-    });
+    const steps = await runMatchSteps(
+      opened({ supabase: client, gate, product: watched(spCream), retryShop: "super-pharm" }),
+    );
 
     expect(steps.map(({ shop, step }) => [shop, step])).toEqual([
       ["natura", { kind: "prompt" }],

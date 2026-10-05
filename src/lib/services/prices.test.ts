@@ -343,15 +343,13 @@ describe("listLatestPrices", () => {
     expect(loggedLine(warn)).toMatchObject({ reason: "unexpected rows dropped", detail: "1" });
   });
 
+  // Every shop the app knows is priced, so only a shop it doesn't know, such as dm, is one whose prices the list
+  // doesn't compare.
   it.each<{ why: string; row: unknown }>([
     { why: "a shop the app doesn't know", row: { ...felixRow, shop_id: "dm" } },
     {
       why: "a shop the app doesn't know, with an item id that isn't text",
       row: { ...felixRow, shop_id: "dm", shop_item_id: 131225 },
-    },
-    {
-      why: "a shop whose prices the list doesn't compare",
-      row: { ...felixRow, shop_id: "super-pharm", price: "5.99" },
     },
   ])("leaves out an odd row of $why, which can't be any product's price, and logs it", async ({ row }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -361,19 +359,25 @@ describe("listLatestPrices", () => {
     expect(loggedLine(warn)).toMatchObject({ reason: "unexpected rows dropped", detail: "1" });
   });
 
-  it("reports an odd row of Hebe's, whose prices the list compares, as its item's unread price, and logs it", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const hebeRow = { ...felixRow, shop_id: "hebe", shop_item_id: "000000000000218807", price: "15.99" };
-    const { client } = stubClient({ data: [hebeRow, softRow, otherRow] });
+  it.each<{ shop: "hebe" | "super-pharm"; shopItemId: string }>([
+    { shop: "hebe", shopItemId: "000000000000218807" },
+    { shop: "super-pharm", shopItemId: "10132" },
+  ])(
+    "reports an odd row of $shop's, whose prices the list compares, as its item's unread price, and logs it",
+    async ({ shop, shopItemId }) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const shopRow = { ...felixRow, shop_id: shop, shop_item_id: shopItemId, price: "15.99" };
+      const { client } = stubClient({ data: [shopRow, softRow, otherRow] });
 
-    // The list then says that item's price couldn't be read, never that it was never checked.
-    expect(await listLatestPrices(client)).toEqual({
-      prices: [soft, other],
-      unread: [{ shop: "hebe", shopItemId: "000000000000218807" }],
-      unattributed: 0,
-    });
-    expect(loggedLine(warn)).toMatchObject({ reason: "unexpected rows dropped", detail: "1" });
-  });
+      // The list then says that item's price couldn't be read, never that it was never checked.
+      expect(await listLatestPrices(client)).toEqual({
+        prices: [soft, other],
+        unread: [{ shop, shopItemId }],
+        unattributed: 0,
+      });
+      expect(loggedLine(warn)).toMatchObject({ reason: "unexpected rows dropped", detail: "1" });
+    },
+  );
 
   it.each<{ answer: string; result: Answer; detail: string }>([
     {

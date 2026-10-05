@@ -76,6 +76,19 @@ const hebeMatchedRow = {
   eans: ["4005900008299"],
 };
 
+// The product's decision in Super-Pharm, the third matched shop: the user's pick of Super-Pharm's Nivea Soft 300 ml, by
+// its record's objectID, with no EAN, which Super-Pharm's index doesn't hold.
+const SUPER_PHARM_SOFT_ID = "10132";
+const superPharmMatchedRow = {
+  ...matchedRow,
+  shop_id: "super-pharm",
+  decided_by: "user",
+  shop_item_id: SUPER_PHARM_SOFT_ID,
+  name: "Nivea Soft Krem nawilżający (Pudełko)",
+  brand: "Nivea",
+  eans: [],
+};
+
 /** One builder call a query made, such as `["eq", "id", SOFT_ID]`. */
 type Call = [method: string, ...args: unknown[]];
 
@@ -152,17 +165,16 @@ describe("priceRequestSchema", () => {
     ).toStrictEqual({ itemId: SOFT_ID, shop: "natura", shopItemId: "NV89063" });
   });
 
-  it("reads a request for Hebe's item, whose prices are fetched like every matched shop's", () => {
-    expect(priceRequestSchema.parse({ itemId: SOFT_ID, shop: "hebe", shopItemId: HEBE_SOFT_ID })).toStrictEqual({
-      itemId: SOFT_ID,
-      shop: "hebe",
-      shopItemId: HEBE_SOFT_ID,
-    });
+  it.each([
+    { shop: "hebe", shopItemId: HEBE_SOFT_ID },
+    { shop: "super-pharm", shopItemId: SUPER_PHARM_SOFT_ID },
+  ])("reads a request for $shop's item, whose prices are fetched like every matched shop's", (request) => {
+    expect(priceRequestSchema.parse({ itemId: SOFT_ID, ...request })).toStrictEqual({ itemId: SOFT_ID, ...request });
   });
 
   it.each([
     { why: "a product id that isn't a UUID", body: { itemId: "26900", shop: "rossmann", shopItemId: "26900" } },
-    { why: "a shop whose prices aren't fetched", body: { itemId: SOFT_ID, shop: "super-pharm", shopItemId: "39477" } },
+    { why: "a shop the app doesn't know", body: { itemId: SOFT_ID, shop: "dm", shopItemId: "39477" } },
     { why: "no shop", body: { itemId: SOFT_ID, shopItemId: "NV89063" } },
     { why: "no shop item", body: { itemId: SOFT_ID, shop: "natura" } },
     {
@@ -183,10 +195,11 @@ describe("priceTargetFor", () => {
     { shop: "rossmann", shopItemId: "26900" },
     { shop: "natura", shopItemId: "NV89063" },
     { shop: "hebe", shopItemId: HEBE_SOFT_ID },
+    { shop: "super-pharm", shopItemId: SUPER_PHARM_SOFT_ID },
   ])("gives the user's own item in $shop when the page shows that item", async ({ shop, shopItemId }) => {
     const { client } = stubClient({
       watchlist_items: { data: softRow },
-      watchlist_matches: { data: [matchedRow, hebeMatchedRow] },
+      watchlist_matches: { data: [matchedRow, hebeMatchedRow, superPharmMatchedRow] },
     });
 
     expect(await priceTargetFor(client, request(shop, shopItemId))).toEqual({ shop, shopItemId });
@@ -344,15 +357,16 @@ describe("shopItemFor", () => {
     expect(await shopItemFor(client, SOFT_ID, "hebe")).toEqual({ shop: "hebe", shopItemId: HEBE_SOFT_ID });
   });
 
-  it("gives Natura's matched item beside the rows of a shop that isn't switched on, readable or odd", async () => {
+  it("gives Natura's matched item beside the rows of a shop the app doesn't know, a decline or a state it can't read", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const superPharmRows = [
-      { ...undecidedRow("unmatched"), shop_id: "super-pharm" },
-      { ...matchedRow, shop_id: "super-pharm", state: "repinned" },
+    // Every shop the app knows is matched, so a shop outside the list the page reads is one it doesn't know, such as dm.
+    const unknownShopRows = [
+      { ...undecidedRow("unmatched"), shop_id: "dm" },
+      { ...matchedRow, shop_id: "dm", state: "repinned" },
     ];
     const { client } = stubClient({
       watchlist_items: { data: softRow },
-      watchlist_matches: { data: [...superPharmRows, matchedRow] },
+      watchlist_matches: { data: [...unknownShopRows, matchedRow] },
     });
 
     expect(await shopItemFor(client, SOFT_ID, "natura")).toEqual({ shop: "natura", shopItemId: "NV89063" });
@@ -400,10 +414,10 @@ describe("productTargets", () => {
     expect(await productTargets(client, SOFT_ID)).toBe("failed");
   });
 
-  it("gives the product's Rossmann item and its match in each matched shop, Hebe's too, in the shops' order", async () => {
+  it("gives the product's Rossmann item and its match in each matched shop, Hebe's and Super-Pharm's too, in the shops' order", async () => {
     const { client } = stubClient({
       watchlist_items: { data: softRow },
-      watchlist_matches: { data: [hebeMatchedRow, matchedRow] },
+      watchlist_matches: { data: [superPharmMatchedRow, hebeMatchedRow, matchedRow] },
     });
 
     expect(await productTargets(client, SOFT_ID)).toEqual<RefreshTargets>({
@@ -411,6 +425,7 @@ describe("productTargets", () => {
         { shop: "rossmann", shopItemId: "26900" },
         { shop: "natura", shopItemId: "NV89063" },
         { shop: "hebe", shopItemId: HEBE_SOFT_ID },
+        { shop: "super-pharm", shopItemId: SUPER_PHARM_SOFT_ID },
       ],
       unread: [],
     });
@@ -645,8 +660,17 @@ describe("listTargets", () => {
   // Felix's item in Hebe, made up: Hebe's ids are 18 digits.
   const HEBE_FELIX_ID = "000000000000131225";
 
-  it("gives the stale items of every matched shop, Hebe's too, those never checked first, then the oldest check first", async () => {
-    // Nivea Soft's Hebe match was checked 3 hours ago, and Felix's never.
+  /** A product's match in Super-Pharm, as the list reads it: always the user's pick. */
+  const superPharmListRow = (watchlistItemId: string, shopItemId: string) => ({
+    ...hebeListRow(watchlistItemId, shopItemId),
+    shop_id: "super-pharm",
+    size_value: 300,
+    decided_by: "user",
+  });
+
+  it("gives the stale items of every matched shop, Hebe's and Super-Pharm's too, those never checked first, then the oldest check first", async () => {
+    // Nivea Soft's Hebe match was checked 3 hours ago and its Super-Pharm match an hour ago, and Felix's Hebe match
+    // never.
     const { client } = stubClient({
       ...listAnswers,
       watchlist_matches: {
@@ -654,10 +678,15 @@ describe("listTargets", () => {
           ...listAnswers.watchlist_matches.data,
           hebeListRow(SOFT_ID, HEBE_SOFT_ID),
           hebeListRow(FELIX_ID, HEBE_FELIX_ID),
+          superPharmListRow(SOFT_ID, SUPER_PHARM_SOFT_ID),
         ],
       },
       latest_price_observations: {
-        data: [...listAnswers.latest_price_observations.data, latestRow("hebe", HEBE_SOFT_ID, 3 * 60 * MINUTE)],
+        data: [
+          ...listAnswers.latest_price_observations.data,
+          latestRow("hebe", HEBE_SOFT_ID, 3 * 60 * MINUTE),
+          latestRow("super-pharm", SUPER_PHARM_SOFT_ID, 60 * MINUTE),
+        ],
       },
     });
 
@@ -667,6 +696,7 @@ describe("listTargets", () => {
         { shop: "rossmann", shopItemId: "11790" },
         { shop: "natura", shopItemId: "NV89063" },
         { shop: "hebe", shopItemId: HEBE_SOFT_ID },
+        { shop: "super-pharm", shopItemId: SUPER_PHARM_SOFT_ID },
         { shop: "rossmann", shopItemId: "26900" },
       ],
       unread: [],

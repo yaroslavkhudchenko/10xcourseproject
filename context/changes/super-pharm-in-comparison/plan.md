@@ -808,6 +808,60 @@ What each page view and action costs Super-Pharm (`context/foundation/lessons.md
 
   Four more went red too: no shop in the prompt's link (3), the EAN search not skipped (10), `retry` not forgotten (2), and the old unsaved text (1).
 
+### Phase 4
+
+- **Main merged in first** (the owner's call, 2026-10-05): `97cc9bc` brought #26–#29 in before this phase. Its only conflict, the roadmap's table, kept main's S-07 `done` and this branch's S-06 `in-progress`.
+- **The colour** (§1) is as planned. `scripts/check-token-contrast.mjs` needed no edit: no pair it checks draws on a shop fill.
+- **The changed tests** (§2) were found by content, since the plan's line numbers had moved. A test about a shop that isn't switched on now uses `dm` or a narrower list, each default-list assertion expects Super-Pharm, and each flipped premise says what Super-Pharm does now:
+  - `match-step.test.ts`: "repinShopOf and retryShopOf > reads ?$query" gains `?repin=super-pharm` and `?f=check&retry=super-pharm`, and "ignores ?%s, which names no matched shop…" uses `repin=dm&retry=dm`.
+  - `match-view.test.ts`: "decisionNotice > gives none for ?%s…" and "decisionError > gives none for ?%s…" use `shop=dm`, with two new tests for Super-Pharm's notice and error.
+  - `match-card.test.ts`: a comment only.
+  - `matches.test.ts`, parseMatchForm: "rejects a decline with $field" (a shop the app doesn't know) and "refuses a decision in %j…" (without super-pharm), with two new tests: every candidate the adapter makes from a recording is accepted as Super-Pharm's decision and none as another shop's, and Super-Pharm's decline and re-pin are accepted.
+  - `matches.test.ts`, listMatches: "reads each matched shop's decision…, Hebe's and Super-Pharm's too"; "leaves out every row of a shop outside the list…" passes Natura and Hebe; "says every matched shop without a decision read…" and "takes an odd row whose product can't be read…" expect three shops.
+  - `matches.test.ts`, listMatchStates: its three odd-row tests expect three shops, and "leaves out every row of a known shop outside the list…" passes Natura and Hebe.
+  - `price-comparison.test.ts`: productPriceKeys' "leaves out a product's own item…" (now: when it wasn't picked in Rossmann), "gives the match of each matched shop, Hebe's and Super-Pharm's too…" and "adds nothing for a matched shop without a match…" (passes Natura and Hebe); listPricedItems' two tests (a test's list of Natura and Hebe; every matched shop with Super-Pharm's match).
+  - `price-refresh.test.ts`: "refreshPrices: storing > stores only the prices and missing items…" passes Rossmann, Natura and Hebe. The describe is now "every priced shop, Hebe's and Super-Pharm's too", and its "asks Rossmann, Natura, Hebe and Super-Pharm at once…" runs on `super-pharm-pinned-one.json` with its body spelled out (4 in flight, 4 inserts).
+  - `price-targets.test.ts`: priceRequestSchema's "reads a request for $shop's item…" (Hebe, Super-Pharm) and "refuses $why" (`dm`); priceTargetFor's "gives the user's own item in $shop…" gains Super-Pharm; shopItemFor's "…beside the rows of a shop the app doesn't know…" (`dm`); productTargets' and listTargets' "…Hebe's and Super-Pharm's too".
+  - `prices.test.ts`: listLatestPrices' "leaves out an odd row of $why…" drops Super-Pharm, and "reports an odd row of $shop's…" covers Hebe and Super-Pharm.
+  - `shop-matching.test.ts`: runMatchSteps' "looks the undecided shops up at once…" expects Super-Pharm's button as the third step, and "asks no shop for $why" three views. The Super-Pharm describe uses the default shops.
+  - `watchlist-rows.test.ts`: `rowOf` gains a Super-Pharm state, declined by default, so every summary in "the row's line for screen readers" and "listRowsOf: a Natura match that differs from its product" ends with "Super-Pharm: brak (Twój wybór)." (`OTHERS_DECLINED_LINE`). Three tests are retitled ("…in every matched shop…", "…Hebe's and Super-Pharm's declines…", "…before Hebe's and Super-Pharm's").
+  - `watchlist-rows.test.ts`, more: the states gain Super-Pharm in "leaves out what a product with $why doesn't have", "reads the price's age…", "says each shop's status in the shops' order…", "the Do sprawdzenia filter > leaves out a decline…", all six matchStatesOf tests and both "couldn't be read" tests. The Natura-and-Hebe describe is now "…beside a Super-Pharm the user declined", the footer tests expect Super-Pharm and superpharm.pl, and a new describe, "the list with Super-Pharm, matched on the user's pick", has 6 tests.
+  - `price-comparison-state.test.ts`: "applies every shop's answer whichever comes first" is a four-shop permutation, and "trackLabels > gives a run of four one label…" uses Super-Pharm as the fourth marker.
+- **The kitchen sinks** (§3):
+  - every product-page state hands the island all three matched shops, Super-Pharm declined by default like Hebe, so each existing frame ends with a second ghost card;
+  - the new group "Cztery sklepy: z Super-Pharmem" has the plan's three states and two more: "four-waiting" and "four-super-pharm-choice";
+  - the new "Super-Pharm" card section has the plan's seven states and two more: "matched + repin" and "not-found + unsaved";
+  - its "stopped" state is the search refused after a tap (`searchStoppedNotice`), the state the e2e reaches;
+  - on the list, the JOANNA, LABELLO and PALMOLIVE reads gain a Super-Pharm decline, so each keeps its own reason for "Do sprawdzenia", and the new rows "super-pharm-cheapest" and "super-pharm-none" join. The footer names superpharm.pl through `priceSourcesText`'s default.
+- **The e2e** (§4):
+  - `matchShop` takes `{ name, decidedBy = "auto", productUrl? }`. `productUrl` goes beyond the contract, since "Zobacz w sklepie" renders only for an item with a page.
+  - `freshSuperPharmId` gives 12 digits starting with 9.
+  - The spec seeds a made-up link on Super-Pharm's real host (`https://www.superpharm.pl/e2e-…`), which it renders and asserts but never follows.
+  - No existing spec changed: their row patterns aren't anchored at the end, and none lists every card.
+- **Left as found:** `price-comparison.test.ts`'s 'lists three shops with commas, the last after "i", a matched shop not yet priced included' has carried a stale "not yet priced" premise since S-05. It doesn't involve Super-Pharm.
+- **The database checks** (4.4): the watchlist (17), matches (40) and prices (36) checks passed locally. The shop-gate check runs in CI's `smoke` job on a fresh stack, since locally its rows persist and a rerun needs `supabase db reset --local`, which deletes the owner's local accounts. This phase doesn't touch the gate.
+- **Break-checks:** both turned the four-shop spec red:
+  - Super-Pharm switched off again: the list row lost "Super-Pharm: do dopasowania" (spec line 74);
+  - looked up on a plain view: the card's button text was gone (line 98).
+- **The sinks** (4.7) were checked from screenshots by the agent, which the owner accepted. The states checked at 1280 px, light and dark:
+  - the prompt;
+  - the promotion with its regular price and end;
+  - not found with the unsaved alert under its button;
+  - the four-shop tie's one label;
+  - Super-Pharm waiting beside a lone Rossmann price.
+
+  At 390 px it checked the four-shop cheapest state and the choice: the same size and brand first, the size and brand flags, no "Ten sam EAN". It also checked the list's two rows and its footer.
+
+- **The live check** (4.8), with the owner's OK, on the local preview, with Rossmann, Natura and Hebe held stopped: 4 Super-Pharm requests (`shop_requests` 131–134) against a budget of 10, each step matching the cost table:
+  - the plain view: 0;
+  - the tap: 1;
+  - the pick and its first view: 1;
+  - the list's refresh over a check backdated an hour: 1;
+  - "Zmień": 1;
+  - "Anuluj": 0.
+
+  Both stored checks of 10132 read 19,49 zł, no regular price, a 30-day low of 33,99 zł, orderable. The tap's page forgot `?retry=`.
+
 ## References
 
 - Research, with probe results: `context/changes/super-pharm-in-comparison/research.md`
@@ -851,26 +905,26 @@ What each page view and action costs Super-Pharm (`context/foundation/lessons.md
 
 #### Automated
 
-- [x] 3.1 The new unit tests pass: step rule, prompt link, lookups without an EAN search, forgotten retry parameter, unsaved text, candidate order
-- [x] 3.2 All unit tests, lint and types pass
-- [x] 3.3 The e2e suite passes unedited
-- [x] 3.4 Break-checks turn named tests red: an on-request shop looked up on a plain view, and candidates in the shop's order alone
+- [x] 3.1 The new unit tests pass: step rule, prompt link, lookups without an EAN search, forgotten retry parameter, unsaved text, candidate order — 3cb7771
+- [x] 3.2 All unit tests, lint and types pass — 3cb7771
+- [x] 3.3 The e2e suite passes unedited — 3cb7771
+- [x] 3.4 Break-checks turn named tests red: an on-request shop looked up on a plain view, and candidates in the shop's order alone — 3cb7771
 
 ### Phase 4: Super-Pharm switched on
 
 #### Automated
 
-- [ ] 4.1 All unit tests, lint, types and the token contrast check pass
-- [ ] 4.2 The build passes, fonts included
-- [ ] 4.3 The e2e suite passes with the new four-shop spec
-- [ ] 4.4 Smoke and the database checks pass against the local stack
-- [ ] 4.5 Break-checks turn the four-shop spec red: Super-Pharm switched off again, and looked up on a plain view
+- [x] 4.1 All unit tests, lint, types and the token contrast check pass
+- [x] 4.2 The build passes, fonts included
+- [x] 4.3 The e2e suite passes with the new four-shop spec
+- [x] 4.4 Smoke and the database checks pass against the local stack
+- [x] 4.5 Break-checks turn the four-shop spec red: Super-Pharm switched off again, and looked up on a plain view
 - [ ] 4.6 CI (`ci`, `smoke`, `e2e`) is green on the phase's commit
 
 #### Manual
 
-- [ ] 4.7 The kitchen sinks show Super-Pharm's states, in light and dark at 390 px and 1280 px
-- [ ] 4.8 The live check stays within 10 Super-Pharm requests, with the count proven and matching the cost table
+- [x] 4.7 The kitchen sinks show Super-Pharm's states, in light and dark at 390 px and 1280 px
+- [x] 4.8 The live check stays within 10 Super-Pharm requests, with the count proven and matching the cost table
 
 ### Phase 5: Docs and rollout
 

@@ -288,8 +288,8 @@ describe("matchCardOf for another matched shop: every text from the shop's label
 });
 
 describe("matchCardOf for a shop looked up on request", () => {
-  // Super-Pharm, which no visit looks up on its own: only its card's button does. It isn't switched on yet, so the
-  // test names it. Its lookup found nothing, and that couldn't be stored.
+  // Super-Pharm, which no visit looks up on its own: only its card's button does. Its lookup found nothing, and that
+  // couldn't be stored.
   const notFound: MatchView = {
     kind: "not-found",
     text: "Nie znaleziono w Super-Pharmie (sprawdzono 28.09, 14:00).",
