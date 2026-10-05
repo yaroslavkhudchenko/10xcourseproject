@@ -208,6 +208,50 @@ describe("pickMatch", () => {
   });
 });
 
+describe("pickMatch: the order of a choice", () => {
+  /** The ids of the candidates a choice offers, in its order, up to `limit`; anything but a choice fails the test. */
+  function offeredIds(candidates: ShopCandidate[], limit?: number): string[] {
+    const pick = pickMatch(product, candidates, limit);
+    if (pick.kind !== "choose") {
+      throw new Error(`expected choose, got ${pick.kind}`);
+    }
+    return pick.options.map((option) => option.candidate.shopItemId);
+  }
+
+  // None of these shares an EAN with the product, as no candidate of a shop whose index holds no EAN does.
+  const otherSize = candidate("A1", [OTHER_EAN], "200 ml");
+  const otherBrand = candidate("A2", [OTHER_EAN], "300 ml", "YOPE");
+  const alike = candidate("A3", [OTHER_EAN], "300 ml");
+  const noSize = candidate("A4", [], null);
+  const noBrand = candidate("A5", [], "0,3 l", null);
+  const subBrand = candidate("A6", [OTHER_EAN], "300 ml", "NIVEA MEN");
+  const candidates = [otherSize, otherBrand, alike, noSize, noBrand, subBrand];
+
+  it("puts the candidates in the product's size whose brand doesn't differ first, each group in the shop's order", () => {
+    // In the product's size: A3 of its brand, A5 of a brand that can't be compared and A6 of its sub-brand; then A1 in
+    // another size, A2 of another brand and A4 of a size that can't be compared.
+    expect(offeredIds(candidates, 10)).toEqual(["A3", "A5", "A6", "A1", "A2", "A4"]);
+  });
+
+  it("offers at most 3, the likeliest", () => {
+    expect(offeredIds(candidates)).toEqual(["A3", "A5", "A6"]);
+    expect(offeredIds([otherSize, otherBrand, noSize, alike])).toEqual(["A3", "A1", "A2"]);
+  });
+
+  it("keeps the qualifying candidates first, then the likeliest, then the others", () => {
+    const [q1, q2] = ["Q1", "Q2"].map((id) => candidate(id, [SOFT_EAN], "300 ml"));
+
+    expect(offeredIds([otherSize, alike, q1, subBrand, q2], 10)).toEqual(["Q1", "Q2", "A3", "A6", "A1"]);
+    expect(offeredIds([otherSize, alike, q1, subBrand, q2])).toEqual(["Q1", "Q2", "A3"]);
+  });
+
+  it("puts an item in the product's size ahead of one that shares the EAN in another size", () => {
+    const sharedOtherSize = candidate("S1", [SOFT_EAN], "200 ml");
+
+    expect(offeredIds([sharedOtherSize, alike])).toEqual(["A3", "S1"]);
+  });
+});
+
 describe("matchDifferences", () => {
   /** A matched item of the given brand and size text, its size parsed from the text as the adapter does. */
   const itemOf = (brand: string | null, sizeText: string | null) => ({ brand, size: parseSize(sizeText) });

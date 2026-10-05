@@ -1,6 +1,6 @@
 import { DECISION_NOTICES } from "@/lib/notices";
 import type { MatchAction, MatchItemSummary, MatchView } from "@/lib/services/match-view";
-import { SHOP_LABELS, type MatchableShop, type MatchedShop, type ShopLabel } from "@/lib/services/price-comparison";
+import { MATCH_MODES, SHOP_LABELS, type MatchableShop, type MatchedShop } from "@/lib/services/price-comparison";
 
 // A matched shop's card on the product's page, without React: what it says for each view the page builds of the shop
 // (src/lib/services/match-view.ts), with the notices of a decision just made, every text naming the shop by its label.
@@ -29,8 +29,9 @@ export function unreadable(view: MatchView | null): boolean {
 /**
  * A matched shop as the product's page hands it to its island: the shop, the view the page built of it, the notice of
  * a decision just saved there (`?matched`, `?declined` or `?decided`), why a decision wasn't (`?error=`), both as text,
- * and whether the lookup's own outcome couldn't be stored, so the next visit looks the product up again. The page hands
- * over the matched shops in their order (MATCHED_SHOPS); a test may name a shop that isn't switched on yet.
+ * and whether the lookup's own outcome couldn't be stored, so the next visit looks the product up again, or, in a shop
+ * looked up on request, offers its button again. The page hands over the matched shops in their order (MATCHED_SHOPS);
+ * a test may name a shop that isn't switched on yet.
  */
 export interface MatchedShopView<Shop extends MatchableShop = MatchedShop> {
   shop: Shop;
@@ -98,11 +99,15 @@ export type MatchCard<Shop extends MatchableShop = MatchedShop> = { shop: Shop; 
 );
 
 /**
- * What a shop's card says when the lookup's own outcome couldn't be stored, so the next visit asks the shop again: it
- * names the shop as "sklep Natura", which reads right for any shop.
+ * What a shop's card says when the lookup's own outcome couldn't be stored: that the next visit asks the shop again,
+ * or, for a shop looked up only on request (MATCH_MODES), which no visit asks on its own, that the card's button above
+ * the alert does. It names the shop as "sklep Natura", which reads right for any shop.
  */
-function unsavedText({ name }: ShopLabel): string {
-  return `Nie udało się zapisać wyniku. Przy następnym otwarciu produktu sklep ${name} zostanie sprawdzony ponownie.`;
+function unsavedText(shop: MatchableShop): string {
+  const { name } = SHOP_LABELS[shop];
+  return MATCH_MODES[shop] === "on-request"
+    ? `Nie udało się zapisać wyniku. Sklep ${name} zostanie sprawdzony ponownie, gdy użyjesz przycisku powyżej.`
+    : `Nie udało się zapisać wyniku. Przy następnym otwarciu produktu sklep ${name} zostanie sprawdzony ponownie.`;
 }
 
 // What a stored decision's action says: the link that opens its choice, and, while the choice is open, the line that
@@ -144,7 +149,7 @@ export function matchCardOf<Shop extends MatchableShop>({
     alerts.push({ tone: "destructive", text: error });
   }
   if (unsaved) {
-    alerts.push({ tone: "warning", text: unsavedText(label) });
+    alerts.push({ tone: "warning", text: unsavedText(shop) });
   }
   switch (view.kind) {
     case "matched":

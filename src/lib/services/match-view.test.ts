@@ -280,6 +280,11 @@ describe("the views' links keep the list's filter", () => {
       built: promptView("natura", product, true, "check"),
       href: `${PAGE}?f=check&retry=natura`,
     },
+    {
+      view: "the button of a shop looked up on request",
+      built: promptView("super-pharm", product, false, "check"),
+      href: `${PAGE}?f=check&retry=super-pharm`,
+    },
     { view: "the link to a decision stored meanwhile", built: decidedView(product, "check"), href: `${PAGE}?f=check` },
   ])("keeps it in $view", ({ built, href }) => {
     expect(built).toMatchObject({ href });
@@ -490,6 +495,17 @@ describe("promptView", () => {
     expect(promptView("natura", product, false, "all")).toEqual({ kind: "prompt", href: PAGE });
     expect(promptView("natura", product, true, "all")).toEqual({ kind: "prompt", href: `${PAGE}?retry=natura` });
   });
+
+  it.each([false, true])(
+    "always names a shop looked up on request, which no other page looks up (retrying: %s)",
+    (retrying) => {
+      // Super-Pharm isn't switched on yet, so the test names it.
+      expect(promptView("super-pharm", product, retrying, "all")).toEqual({
+        kind: "prompt",
+        href: `${PAGE}?retry=super-pharm`,
+      });
+    },
+  );
 });
 
 describe("decidedView", () => {

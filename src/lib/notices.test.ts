@@ -18,6 +18,7 @@ import {
   REMOVAL_PARAM,
   REMOVED_PARAM,
   REPIN_PARAM,
+  RETRY_PARAM,
   SET_PASSWORD_NOTICE_PARAMS,
   SHOP_PARAM,
   SIGN_IN_ERROR_CODES,
@@ -59,7 +60,7 @@ describe("LIST_NOTICE_PARAMS, which the list's address bar forgets", () => {
 });
 
 describe("NOTICE_PARAMS, which the product page's address bar forgets", () => {
-  it("holds a decision's with its shop's, an error's, both refreshes', a failed removal's and a re-pin's", () => {
+  it("holds a decision's with its shop's, an error's, both refreshes', a failed removal's, a re-pin's and a retry's", () => {
     expect(NOTICE_PARAMS).toEqual(
       expect.arrayContaining([
         ...DECISION_CODES,
@@ -69,6 +70,7 @@ describe("NOTICE_PARAMS, which the product page's address bar forgets", () => {
         LIST_PRICES_PARAM,
         REMOVAL_PARAM,
         REPIN_PARAM,
+        RETRY_PARAM,
       ]),
     );
   });
@@ -264,6 +266,17 @@ describe("withoutNotices, which both pages' address-bar scripts forget their not
   it("drops a re-pin's parameter and keeps the filter, so going back to its choice asks the shop nothing", () => {
     expect(withoutNotices(`${BASE}/watchlist/x?f=check&repin=natura`, NOTICE_PARAMS)).toBe(
       `${BASE}/watchlist/x?f=check`,
+    );
+  });
+
+  it("drops a retry's parameter and keeps the filter, so going back to its lookup or reloading it asks the shop nothing", () => {
+    // The tap on the button of a shop looked up on request, which usually opens a choice and stores nothing.
+    expect(withoutNotices(`${BASE}/watchlist/x?f=check&retry=super-pharm`, NOTICE_PARAMS)).toBe(
+      `${BASE}/watchlist/x?f=check`,
+    );
+    // "Szukaj ponownie" over a stored "not found".
+    expect(withoutNotices(`${BASE}/watchlist/x?retry=natura&f=promo`, NOTICE_PARAMS)).toBe(
+      `${BASE}/watchlist/x?f=promo`,
     );
   });
 

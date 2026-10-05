@@ -110,8 +110,11 @@ export const LIST_PRICES_PARAM = "list-prices";
 export const REPIN_PARAM = "repin";
 
 /**
- * The parameter that looks a shop's stored "not found" up again on its product's page, holding the shop
- * (`?retry=natura`), from "Szukaj ponownie". A retry that stored its outcome goes back to the plain page.
+ * The parameter that looks the product up in one shop on its product's page, holding the shop (`?retry=natura`): again
+ * over a stored "not found", from "Szukaj ponownie", or at all in a shop looked up only on request, from its card's
+ * button. A retry that stored its outcome goes back to the plain page, and the page's address bar forgets the
+ * parameter once the page has rendered, so going back to the page or reloading it asks the shop nothing, also after a
+ * lookup that only opened a choice, which stores nothing.
  */
 export const RETRY_PARAM = "retry";
 
@@ -266,8 +269,8 @@ export const PASSWORD_SET_NOTICE = "Hasło zapisane.";
 
 /**
  * Every parameter the product page's address bar forgets: a notice's, once the notice has shown (a decision's, its
- * shop's, a decision's error, the product's no-JavaScript refresh's, the list's refresh's and a failed removal's), and
- * the re-pin's, once its choice has rendered.
+ * shop's, a decision's error, the product's no-JavaScript refresh's, the list's refresh's and a failed removal's), the
+ * re-pin's, once its choice has rendered, and the retry's, once its lookup has.
  */
 export const NOTICE_PARAMS = [
   ...DECISION_CODES,
@@ -277,6 +280,7 @@ export const NOTICE_PARAMS = [
   LIST_PRICES_PARAM,
   REMOVAL_PARAM,
   REPIN_PARAM,
+  RETRY_PARAM,
 ] as const;
 
 /**

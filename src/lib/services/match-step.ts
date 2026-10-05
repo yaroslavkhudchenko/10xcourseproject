@@ -1,6 +1,6 @@
 import { REPIN_PARAM, RETRY_PARAM } from "@/lib/notices";
 import type { MatchesRead } from "@/lib/services/matches";
-import { parseMatchedShop, type MatchableShop, type MatchedShop } from "@/lib/services/price-comparison";
+import { MATCH_MODES, parseMatchedShop, type MatchableShop, type MatchedShop } from "@/lib/services/price-comparison";
 import type { RepinnableMatch, ShopMatch } from "@/types";
 
 /**
@@ -25,7 +25,8 @@ export function repinShopOf(params: URLSearchParams): MatchedShop | null {
 
 /**
  * The matched shop whose stored "not found" the page was opened to look up again (`?retry=natura`, from "Szukaj
- * ponownie"), or null for any other value, the old `?retry=1` included, which then opens the plain page.
+ * ponownie"), or, for a shop looked up on request, to look up at all, from its card's button; null for any other
+ * value, the old `?retry=1` included, which then opens the plain page.
  */
 export function retryShopOf(params: URLSearchParams): MatchedShop | null {
   return parseMatchedShop(params.get(RETRY_PARAM));
@@ -36,7 +37,10 @@ export interface MatchStepInput {
   /** The product's stored decisions, as `listMatches` reads them: null when they couldn't be read at all. */
   matches: MatchesRead | null;
   shop: MatchableShop;
-  /** The shop the page was opened to look up again (`?retry=<shop>`, from "Szukaj ponownie"), if any. */
+  /**
+   * The shop the page was opened to look up again (`?retry=<shop>`, from "Szukaj ponownie"), or to look up at all when
+   * it's looked up on request (its card's button), if any.
+   */
   retryShop: MatchableShop | null;
   /** The shop whose decision the page was opened to change (`?repin=<shop>`, "Zmień" or "Dopasuj ponownie"), if any. */
   repinShop: MatchableShop | null;
@@ -51,7 +55,9 @@ export interface MatchStepInput {
  * decision, whose card holds the link that opens the choice. A lookup that found nothing has no such choice: it's the
  * one decision a retry checks again. Without the shop's stored decision nothing is looked up there, because a lookup
  * could ask again about what's settled. A request that isn't the user's own navigation only gets the button, and so
- * does a shop with no decision on a page opened to re-pin or retry another shop, which asks only that shop.
+ * does a shop with no decision on a page opened to re-pin or retry another shop, which asks only that shop. A shop
+ * looked up on request (MATCH_MODES) with no decision gets its button on every other view too, a plain one and its own
+ * `?repin=<shop>` included: only its button's `?retry=<shop>`, on the user's own navigation, looks it up.
  */
 export function decideMatchStep({ matches, shop, retryShop, repinShop, ownNavigation }: MatchStepInput): MatchStep {
   if (matches === null || matches.unreadable.includes(shop)) {
@@ -67,7 +73,9 @@ export function decideMatchStep({ matches, shop, retryShop, repinShop, ownNaviga
   }
   // A page opened to re-pin or retry another shop asks only that shop: this one, with no decision yet, gets its button.
   const forAnotherShop = [repinShop, retryShop].some((named) => named !== null && named !== shop);
-  if (!ownNavigation || forAnotherShop) {
+  // A shop looked up on request is asked only by a page its button opened, which names it.
+  const notAsked = MATCH_MODES[shop] === "on-request" && retryShop !== shop;
+  if (!ownNavigation || forAnotherShop || notAsked) {
     return { kind: "prompt" };
   }
   return { kind: "lookup", retry };

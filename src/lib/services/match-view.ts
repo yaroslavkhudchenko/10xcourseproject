@@ -3,6 +3,7 @@ import { matchErrorMessage, replacesFieldOf } from "@/lib/services/matches";
 import { matchDifferences } from "@/lib/services/matching";
 import {
   formatPrice,
+  MATCH_MODES,
   parseMatchedShop,
   SHOP_LABELS,
   type MatchableShop,
@@ -367,10 +368,12 @@ function unavailableText(shop: MatchableShop, { reason, until }: ShopUnavailable
 /**
  * The button that looks the product up in `shop`, for a page opened other than by the user's own navigation, which may
  * not spend the shop's cap, or opened to re-pin or retry another shop. A retry stays in its link
- * (`?retry=<shop>`), so the lookup it leads to checks a stored "not found" again.
+ * (`?retry=<shop>`), so the lookup it leads to checks a stored "not found" again. A shop looked up on request
+ * (MATCH_MODES) always gets its shop in its link: no other page looks it up.
  */
 export function promptView(shop: MatchableShop, own: MatchProduct, retrying: boolean, filter: ListFilter): MatchView {
-  return { kind: "prompt", href: pageHref(own, filter, retrying ? { [RETRY_PARAM]: shop } : {}) };
+  const named = retrying || MATCH_MODES[shop] === "on-request";
+  return { kind: "prompt", href: pageHref(own, filter, named ? { [RETRY_PARAM]: shop } : {}) };
 }
 
 /**

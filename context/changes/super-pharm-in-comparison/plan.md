@@ -786,6 +786,28 @@ What each page view and action costs Super-Pharm (`context/foundation/lessons.md
 
 - **Heads-up for Phase 3:** a file write turned the no-break space's escape into the literal character again, inside a string in `super-pharm.test.ts`, where ESLint doesn't look; a script that scans the touched files is the check. In Git Bash, `node -e` drops one backslash of each doubled one, so byte-level edits go through a script file.
 
+### Phase 3
+
+- **`[id].astro`** (not in the plan's file list): the address-bar script's comment now names `retry` beside `repin`. Comment only.
+- **The kitchen sink needs no edit** (§6): `HEBE_CHOICE` is built through `pickMatch`, so it reorders on its own (…0003, …0002, …0004), and Natura's sink choice keeps its order.
+- **No existing assertion changed with the new rules:** all 1898 tests passed with them before any test was added.
+- **`shop-matching.test.ts`**: the helper `setupHebe` is now `setupCharged`, since the Super-Pharm cases reuse it. Beyond §7's list, it pins:
+  - a plain view gives Super-Pharm its button (`?f=check&retry=super-pharm`) and asks it nothing;
+  - a tap asks only Super-Pharm: one name search, its URL and body spelled out, a choice with 10132 first and nothing stored, while Natura and Hebe get their plain buttons;
+  - a name that can't be searched sends nothing, even with an EAN;
+  - a failed name search is `unavailable`, never "not found".
+
+  P3's recording answers the adapter's own body for "NIVEA Soft 300 ml", and P5's empty answer stands in for a name search that finds nothing.
+
+- **The unsaved text** (§5) for an on-request shop: "Nie udało się zapisać wyniku. Sklep Super-Pharm zostanie sprawdzony ponownie, gdy użyjesz przycisku powyżej." Only a "not found" can go unsaved there, and the card draws its alerts under its button (`MatchCard.tsx`), so "powyżej" names "Szukaj ponownie".
+- **Two shops in one address** (§3): the on-request rule is one more reason for a button beside "a page opened for another shop". So a hand-typed `?repin=natura&retry=super-pharm` gives an undecided Super-Pharm its button, not a lookup, as any undecided shop gets on such a page, and a test pins it. No link in the app builds such an address, though §3's sentence, read literally, would look it up.
+- **"Never matches automatically"** (§1) has no guard keyed on the mode. It holds because Super-Pharm's candidates carry no EAN (`eans: []`, pinned in `super-pharm.test.ts`), and `pickMatch` accepts only one that shares an EAN. A test shows a lookup gives a choice even for an item of the product's size and brand.
+- **Break-checks:** the plan's two went red:
+  - an on-request shop looked up on a plain view: 4 tests;
+  - candidates in the shop's order alone: 6 tests.
+
+  Four more went red too: no shop in the prompt's link (3), the EAN search not skipped (10), `retry` not forgotten (2), and the old unsaved text (1).
+
 ## References
 
 - Research, with probe results: `context/changes/super-pharm-in-comparison/research.md`
@@ -815,24 +837,24 @@ What each page view and action costs Super-Pharm (`context/foundation/lessons.md
 
 #### Automated
 
-- [x] 2.1 `super-pharm.test.ts` passes, covering mapping, matching, pinned batches, broken copies and the binding
-- [x] 2.2 `natura.test.ts`, `hebe.test.ts` and `rossmann.test.ts` pass unedited
-- [x] 2.3 All unit tests, lint and types pass
-- [x] 2.4 Break-checks turn named tests red: the size from `farmax_capacity`, an `inStoreOnly` item orderable, a regular price the record doesn't carry
-- [x] 2.5 No test reaches a live shop: every Super-Pharm request is served by the replay and spelled out
+- [x] 2.1 `super-pharm.test.ts` passes, covering mapping, matching, pinned batches, broken copies and the binding — 595d699
+- [x] 2.2 `natura.test.ts`, `hebe.test.ts` and `rossmann.test.ts` pass unedited — 595d699
+- [x] 2.3 All unit tests, lint and types pass — 595d699
+- [x] 2.4 Break-checks turn named tests red: the size from `farmax_capacity`, an `inStoreOnly` item orderable, a regular price the record doesn't carry — 595d699
+- [x] 2.5 No test reaches a live shop: every Super-Pharm request is served by the replay and spelled out — 595d699
 
 #### Manual
 
-- [x] 2.6 The owner approved each new recording (at most 3), sent under test-plan §6.4's rules, and `probes/` is gone in this phase's commit
+- [x] 2.6 The owner approved each new recording (at most 3), sent under test-plan §6.4's rules, and `probes/` is gone in this phase's commit — 595d699
 
 ### Phase 3: Matching rules
 
 #### Automated
 
-- [ ] 3.1 The new unit tests pass: step rule, prompt link, lookups without an EAN search, forgotten retry parameter, unsaved text, candidate order
-- [ ] 3.2 All unit tests, lint and types pass
-- [ ] 3.3 The e2e suite passes unedited
-- [ ] 3.4 Break-checks turn named tests red: an on-request shop looked up on a plain view, and candidates in the shop's order alone
+- [x] 3.1 The new unit tests pass: step rule, prompt link, lookups without an EAN search, forgotten retry parameter, unsaved text, candidate order
+- [x] 3.2 All unit tests, lint and types pass
+- [x] 3.3 The e2e suite passes unedited
+- [x] 3.4 Break-checks turn named tests red: an on-request shop looked up on a plain view, and candidates in the shop's order alone
 
 ### Phase 4: Super-Pharm switched on
 

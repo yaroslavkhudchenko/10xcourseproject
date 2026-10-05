@@ -83,6 +83,27 @@ export const SHOP_LABELS: Record<KnownShop, ShopLabel> = {
   },
 };
 
+/**
+ * How a matchable shop's products get matched:
+ *
+ * - `on-view`: its search finds a product by its EAN, so the user's own navigation to a product with no decision there
+ *   looks the product up, by its EAN, then by its name, and the matching rule may accept a candidate on its own
+ * - `on-request`: its search can't find an EAN, so it's searched by name only, and only when the user asks, from its
+ *   card's button (`?retry=<shop>`); it never matches on its own, since no candidate shares an EAN with the product,
+ *   which the matching rule needs to accept one (pickMatch)
+ */
+export type MatchMode = "on-view" | "on-request";
+
+/**
+ * Each matchable shop's MatchMode, in one browser-safe place: the server's lookups and steps and the island's cards
+ * read it. Super-Pharm's index holds no EAN (research note §2.3), so it's matched on request.
+ */
+export const MATCH_MODES: Record<MatchableShop, MatchMode> = {
+  natura: "on-view",
+  hebe: "on-view",
+  "super-pharm": "on-request",
+};
+
 /** What a shop item's last check found, and its latest price: a `LatestPrice` without the item it's about. */
 export type LatestCheck = Omit<LatestPrice, keyof PriceKey>;
 
