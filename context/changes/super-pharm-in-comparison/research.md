@@ -19,8 +19,8 @@ tags:
     request-costs,
     tests,
   ]
-status: partial
-last_updated: 2026-10-04
+status: complete
+last_updated: 2026-10-05
 last_updated_by: Claude (claude-opus-5-5)
 ---
 
@@ -34,7 +34,9 @@ last_updated_by: Claude (claude-opus-5-5)
 
 > **Citations.** `path:line` is the same on `main` and on the S-05 branch. **S-05 @ 50fb7c6: `path:line`** marks a file that exists only on the S-05 branch, or whose lines differ there; those lines will move as S-05's Phases 5–7 land.
 >
-> **Why `partial`.** Each question is answered as far as the code, the project's documents and public documentation allow. The facts that only Super-Pharm's live answers can give are open, and each has a proposed probe (§ Proposed probes): the hit fields of an item on promotion, the pinned-item request, the exact answer to a rejected key, and the robots rules of the page that carries the key. No request was sent to superpharm.pl, to Algolia's hosts or to any shop.
+> **Probes, 2026-10-05.** The draft of 2026-10-04 sent no request to superpharm.pl, to Algolia's hosts or to any shop, and stayed `partial` until Super-Pharm's live answers could settle what the code and the documentation can't. On 2026-10-05 the owner approved the five baseline probes (P1, P2, P3, P5 and P6). They ran from the developer machine and answered every question they were for (§ Probe results). The conditional probes (P4, P7–P11) wait for the decisions that would need them. The one still likely is P10, the answer to a rejected key, if the plan takes the gate exception (Open Question 2).
+>
+> **Code citations** are still those of 2026-10-04: `main` 1a74a2a and S-05 @ 50fb7c6. S-05 has since merged (`0b5e53c`) and S-07 is in review, so `/10x-plan` re-reads the code on `main`.
 
 ## Research Question
 
@@ -60,6 +62,17 @@ Roadmap S-06 (`context/foundation/roadmap.md:173-185`): the user can match their
 - One local computation: base64-decoding the search key the research note quotes (`docs/research/polish-drugstore-price-apis.md:118`).
 
 ## Summary
+
+**Update 2026-10-05, after the probes** (§ Probe results). Where a point below calls a fact unrecorded or inferred, the probes settle it:
+
+- **The key is unchanged** since 2026-09-17, 18 days later, on the same extension v3.9.1, and still carries no `validUntil` (point 4).
+- **robots.txt refuses no AI crawler** and allows the homepage and the product pages. It now disallows `/catalogsearch/`, the site's own search page, which the app never reads (point 5).
+- **The size words help the search.** "NIVEA Soft 300 ml" found exactly the 300 ml item, whose "300 ml" matched the searchable `capacity` (§2).
+- **The EAN query finds nothing**: a real empty answer, so the adapter can skip the EAN search (§2).
+- **The pinned filter works with the secured key**: `objectID:10132 OR objectID:999999999` returned the known item and left out the unknown one, in a 700-byte answer (point 7).
+- **A promotion's regular price can be missing from the record.** The 300 ml item is on promotion (19,49 zł, shown in red, a "Promocja" badge, Omnibus low 33,99 zł) yet has no `default_original_formated`, and its promotion dates are a 2016 start and no end (point 8, §7).
+- **No customer-group prices**: the page's `priceGroup` is null, and the record carries only the guest price (point 8).
+- **Images come from another host**, `media.superpharm.eu` (§2).
 
 1. **The platform already knows Super-Pharm. On S-05's code it needs an adapter, a label, a colour and its switch.**
    - `SHOP_IDS` has `super-pharm` (S-05 @ 50fb7c6: `src/types.ts:2`).
@@ -509,23 +522,23 @@ A worker read these on 2026-10-04 from Algolia's documentation, its API specific
 
 ### 10. Risks and unknowns, and how to retire each (Q8)
 
-| #   | Risk or unknown                                                                                                     | Evidence                                                                                            | How to retire it                                                                                                     |
-| --- | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| 1   | A rotated parent key (403) stops Super-Pharm for everyone and tells users the shop blocked them                     | `src/lib/services/shop-gate.ts:136-143`; `src/lib/shop-messages.ts:26-27`; §3.4                     | decision (Open Question 2); gate tests; probe P10 for this app's exact answer, since the documented spellings differ |
-| 2   | How often the key changes                                                                                           | research note `:118` (claim without a second key)                                                   | probe P2 against the 2026-09-17 key                                                                                  |
-| 3   | robots.txt refuses the page the key is read from                                                                    | research note `:252` (silent on AI crawlers); S-05 @ 50fb7c6: `context/foundation/test-plan.md:149` | probe P1, first                                                                                                      |
-| 4   | The size words in the query empty a search, storing a false "not found"                                             | §2                                                                                                  | probes P3 and P4; decision (Open Question 6)                                                                         |
-| 5   | The pinned request is refused (403, a stop) or its filter doesn't apply (every item "missing")                      | research note `:148`; §3.4; §5                                                                      | pin the `objectID`, never `sku`; probe P6 before any code relies on it (P7 too if getObjects is wanted)              |
-| 6   | Promotion fields: the price during a sale, the regular price, the end date                                          | research note `:129`, one hit without a promotion                                                   | probes P3 or P9; a mapping table on the recordings                                                                   |
-| 7   | A wrong user choice goes unnoticed, since under option (a) of §4 every match is the user's                          | `src/lib/services/matching.ts:101-109` flags size and brand only                                    | the flags shown while choosing; "Zmień"; option (b) of §4 if the owner wants a second check                          |
-| 8   | The key read breaks only on workerd                                                                                 | `context/foundation/infrastructure.md:100`; `context/foundation/test-plan.md:30`                    | `response.text()` and a string search rather than HTMLRewriter; the manual check on the preview build                |
-| 9   | Undecided products cost a search on every own-navigation view under today's flow                                    | §6                                                                                                  | decision (Open Question 5); the cost table in the plan                                                               |
-| 10  | S-05 or S-07 change the contracts S-06 extends                                                                      | §8                                                                                                  | plan S-06 against `main` after both merge                                                                            |
-| 11  | `scripts/check-shop-gate-db.mjs` expects exactly 30 of 40 reservations for `super-pharm`                            | `scripts/check-shop-gate-db.mjs:52-60`                                                              | keep the cap at 30, or move that check to another shop if the plan changes Super-Pharm's cap                         |
-| 12  | A crafted stored id changes an Algolia filter                                                                       | `CLAUDE.md:52`; §5                                                                                  | digits-only (or the recorded format only) id check before a filter, with a unit case                                 |
-| 13  | Super-Pharm upgrades its extension to v3.14.0 or later, so the key expires daily and a constant breaks within a day | §3.4                                                                                                | read `validUntil` from the key; treat a 400 as a reason to read the page once; option B or C of §3.3 rather than A   |
-| 14  | A promotion that has ended stays in the record until a reindex, at its old price                                    | §3.4                                                                                                | decision (Open Question 11); a unit case with `special_to_date` in the past                                          |
-| 15  | A 512-byte filter limit cuts a batch, or a long batch answers 400                                                   | §3.4; §5                                                                                            | a batch of about 20; probe P11 if the plan wants more                                                                |
+| #   | Risk or unknown                                                                                                     | Evidence                                                                                            | How to retire it                                                                                                                                  |
+| --- | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | A rotated parent key (403) stops Super-Pharm for everyone and tells users the shop blocked them                     | `src/lib/services/shop-gate.ts:136-143`; `src/lib/shop-messages.ts:26-27`; §3.4                     | decision (Open Question 2); gate tests; probe P10 for this app's exact answer, since the documented spellings differ                              |
+| 2   | How often the key changes                                                                                           | research note `:118` (claim without a second key)                                                   | probe P2 against the 2026-09-17 key; **2026-10-05: unchanged after 18 days**                                                                      |
+| 3   | robots.txt refuses the page the key is read from                                                                    | research note `:252` (silent on AI crawlers); S-05 @ 50fb7c6: `context/foundation/test-plan.md:149` | probe P1, first; **retired 2026-10-05: no AI crawler refused, the homepage allowed**                                                              |
+| 4   | The size words in the query empty a search, storing a false "not found"                                             | §2                                                                                                  | probes P3 and P4; decision (Open Question 6); **retired 2026-10-05 for the probed product: the size matched `capacity`**                          |
+| 5   | The pinned request is refused (403, a stop) or its filter doesn't apply (every item "missing")                      | research note `:148`; §3.4; §5                                                                      | pin the `objectID`, never `sku`; probe P6 before any code relies on it (P7 too if getObjects is wanted); **retired 2026-10-05: the filter works** |
+| 6   | Promotion fields: the price during a sale, the regular price, the end date                                          | research note `:129`, one hit without a promotion                                                   | probes P3 or P9; a mapping table on the recordings; **2026-10-05: P3 shows a promotion without its regular price or dates (Open Question 11)**    |
+| 7   | A wrong user choice goes unnoticed, since under option (a) of §4 every match is the user's                          | `src/lib/services/matching.ts:101-109` flags size and brand only                                    | the flags shown while choosing; "Zmień"; option (b) of §4 if the owner wants a second check                                                       |
+| 8   | The key read breaks only on workerd                                                                                 | `context/foundation/infrastructure.md:100`; `context/foundation/test-plan.md:30`                    | `response.text()` and a string search rather than HTMLRewriter; the manual check on the preview build                                             |
+| 9   | Undecided products cost a search on every own-navigation view under today's flow                                    | §6                                                                                                  | decision (Open Question 5); the cost table in the plan                                                                                            |
+| 10  | S-05 or S-07 change the contracts S-06 extends                                                                      | §8                                                                                                  | plan S-06 against `main` after both merge                                                                                                         |
+| 11  | `scripts/check-shop-gate-db.mjs` expects exactly 30 of 40 reservations for `super-pharm`                            | `scripts/check-shop-gate-db.mjs:52-60`                                                              | keep the cap at 30, or move that check to another shop if the plan changes Super-Pharm's cap                                                      |
+| 12  | A crafted stored id changes an Algolia filter                                                                       | `CLAUDE.md:52`; §5                                                                                  | digits-only (or the recorded format only) id check before a filter, with a unit case                                                              |
+| 13  | Super-Pharm upgrades its extension to v3.14.0 or later, so the key expires daily and a constant breaks within a day | §3.4                                                                                                | read `validUntil` from the key; treat a 400 as a reason to read the page once; option B or C of §3.3 rather than A                                |
+| 14  | A promotion that has ended stays in the record until a reindex, at its old price                                    | §3.4                                                                                                | decision (Open Question 11); a unit case with `special_to_date` in the past                                                                       |
+| 15  | A 512-byte filter limit cuts a batch, or a long batch answers 400                                                   | §3.4; §5                                                                                            | a batch of about 20; probe P11 if the plan wants more                                                                                             |
 
 ## Proposed probes (need the owner's OK)
 
@@ -560,6 +573,78 @@ A worker read these on 2026-10-04 from Algolia's documentation, its API specific
 - Up to 6 more on their conditions: P4, P7, P8, P9, P10 and P11.
 - At most 11 requests: at most 3 to `www.superpharm.pl` (P1, P2, P8) and at most 8 to Algolia's host.
 - At 2 s apart, all 11 take about half a minute. Super-Pharm's cap of 30 a minute applies to the deployment, not to the developer machine, but the probes stay well under it anyway.
+
+## Probe results (2026-10-05)
+
+The owner approved P1, then P2, P3, P5 and P6, on 2026-10-05. They were sent from the developer machine with `curl` (no `-L`, with `--compressed`), the gate's User-Agent and the headers named above, one at a time and at least 2.5 s apart. None was refused, redirected or challenged, so no stop rule fired. That makes 5 requests: 2 to `www.superpharm.pl` and 3 to Algolia's host.
+
+The answers of P3, P5 and P6, and P2's config script, are kept in `probes/` for the adapter's fixtures, which the adapter's phase cuts from them before deleting the folder. Headers stay out of the repository, because Cloudflare's cookies are in them.
+
+| #   | Sent (UTC)               | Answer                                                                              | Time   |
+| --- | ------------------------ | ----------------------------------------------------------------------------------- | ------ |
+| P1  | 2026-10-05T13:57:14Z     | 200 `text/plain`, 2,746 bytes                                                       | 0.21 s |
+| P2  | 2026-10-05T13:58:07.857Z | 200 `text/html`, no redirect, 1,666,231 bytes decoded (263,808 gzipped on the wire) | 0.25 s |
+| P3  | 2026-10-05T13:58:10.654Z | 200 JSON, 5,769 bytes, `nbHits` 1                                                   | 0.45 s |
+| P5  | 2026-10-05T13:58:13.656Z | 200 JSON, 373 bytes, `nbHits` 0                                                     | 0.14 s |
+| P6  | 2026-10-05T13:58:16.343Z | 200 JSON, 700 bytes, `nbHits` 1                                                     | 0.22 s |
+
+**P1, robots.txt**
+
+- One group, `User-agent: *`, with no rule for an AI crawler or any other named agent.
+- `/` and the product pages' clean URLs are allowed. Magento's system paths are disallowed (`/catalog/…`, `/checkout/`, `/customer/` and others), and now so are `/catalogsearch/` and `/catalogsearch/result/`, which the research note recorded as allowed (`docs/research/polish-drugstore-price-apis.md:273`). The app reads neither.
+- The site answers through Cloudflare (`Server: cloudflare`) and sets `__cf_bm` and `_cfuvid`, its bot-management cookies, on both page answers. Neither page was challenged. Algolia's host answers from its own servers (`Server: nginx`) and sends no rate-limit header.
+- Risk #3 is retired: the page that carries the key may be read.
+
+**P2, the homepage and its key**
+
+- The config is a plain script constant, `const algoliaConfig = {…};`, not a `window` property. It's the first of 13 mentions of the name, at character 1,332,448 of 1,665,789 (80 % into the page), and later scripts assign to it (`algoliaConfig.resultURL = …`). Its object is 33,151 bytes of JSON, and the key appears once in the page.
+- Its values: `applicationId` "EP43QPDX9Q", `indexName` "spprod_drugstore_pl_simple", `extensionVersion` "3.9.1", `priceKey` ".PLN.default", `priceGroup` null, `customerIsLoggedIn` false, `areOutOfStockOptionsDisplayed` false, `origFormatedVar` "price.PLN.default_original_formated" and `now` 1791158400 (2026-10-05T00:00:00Z, the page's day).
+- **The key is the 2026-09-17 one, byte for byte** (`docs/research/polish-drugstore-price-apis.md:138`): 100 characters that decode to a 64-character hex HMAC followed by `tagFilters=`, with no `validUntil`. On risk #2: unchanged for 18 days on the same extension version, so "it rotates with deployments" stays unsupported.
+- Stopping the read early would save at most a fifth of the page, so `response.text()` and a string search (§3.2) lose little. The theme is Hyvä (`x-built-with: Hyva Themes`), and the config's script is the theme's own markup, which a theme update can change.
+
+**P3, a name search with the size**
+
+- "NIVEA Soft 300 ml" returned exactly one hit, the 300 ml Soft, with `exhaustiveNbHits` true. Its highlights show "300" and "ml" matched `capacity`, so the size words narrowed the search instead of emptying it. That retires risk #4 for this product, and P4 wasn't needed. Algolia's prefix matching also lit "ml" in "mleczka" in a category name, which did no harm.
+- The answer's keys are `hits, nbHits, page, nbPages, hitsPerPage, exhaustiveNbHits, exhaustiveTypo, exhaustive, query, params, processingTimeMS, processingTimingsMS, serverTimeMS`. Its echoed `params` add `tagFilters=`, the key's restriction.
+
+The hit, field by field:
+
+| Field                                | Value                                                                                                                                                       | Note                                                                                                      |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `objectID`                           | "10132"                                                                                                                                                     | 5 digits, not the `sku`                                                                                   |
+| `sku`                                | "39477"                                                                                                                                                     | also the end of the URL's slug                                                                            |
+| `name`                               | "Nivea Soft Krem nawilżający (Pudełko)"                                                                                                                     |                                                                                                           |
+| `brand`                              | "Nivea"                                                                                                                                                     | agrees with Rossmann's "NIVEA"                                                                            |
+| `capacity` / `farmax_capacity`       | "300 ml" / 300                                                                                                                                              |                                                                                                           |
+| `url`                                | `https://www.superpharm.pl/nivea-soft-krem-nawilzajacy-pudelko-39477`                                                                                       | absolute, on the shop's host                                                                              |
+| `thumbnail_url`                      | `https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/n/i/nivea-soft-krem-do-twarzy-i-ciala-200ml-1_2.jpg`              | another host, `media.superpharm.eu`; the file name says 200 ml, so an image's name is no evidence of size |
+| `in_stock` / `inStoreOnly`           | 1 / 0                                                                                                                                                       | `inStoreOnly` wasn't in the note's field list                                                             |
+| `isProductRx` / `pharmaceuticalFlag` | false / 0                                                                                                                                                   |                                                                                                           |
+| `showRedPrice` / `badges`            | 1 / ["Peeling cukrowy Pina Colada za 12,99 zł", "Promocja"]                                                                                                 | the shop shows the price as a promotion                                                                   |
+| `price.PLN`                          | `default` 19.49, `default_formated` "19,49 zł", `default_historical_min_price_formated` "33,99 zł", `special_from_date` 1480001487, `special_to_date` false | no other key                                                                                              |
+| `algoliaLastUpdateAtCET`             | "2026-10-05 11:16:30"                                                                                                                                       | when Super-Pharm last indexed the record, in Polish time                                                  |
+
+- **A promotion without its regular price.** The price fell from 36,99 zł on 2026-09-17 to 19,49 zł, `showRedPrice` is 1 and a badge reads "Promocja", yet the record has no `default_original_formated`, the field the page's config names for the crossed-out price. So the shop's own search tile has no regular price to show either.
+  - The extension writes that field only for a Magento special price below the regular price (§3.4), so this promotion most likely comes from elsewhere, such as a campaign (`campaignIds` lists four). That is inferred.
+  - `special_from_date` is 2016-11-24 and `special_to_date` is `false`, not `''`: the dates say nothing about this promotion.
+  - From such a record the adapter can take the price and the Omnibus low, but no regular price and no end date. Risk #6 is settled as far as the record goes, and Open Question 11 changes.
+- **The Omnibus text** is present during the promotion and above the price, as it should be. On 2026-09-17, without a promotion, it was `false`.
+
+**P5, an EAN query**
+
+- "4005900009319" answered 0 hits, with `nbHits` 0 and `exhaustiveNbHits` true. That's a real empty answer, and the fixture for "nothing found". The index can't find a product by its EAN, so the adapter can skip that search (Open Question 7).
+
+**P6, the pinned filter**
+
+- `filters=objectID:10132 OR objectID:999999999` with an empty `query` returned 10132 alone, with `nbHits` 1: the known id answered and the unknown one was simply left out. `attributesToRetrieve=objectID,price,in_stock` trimmed the hit to those three attributes, and the whole answer to 700 bytes.
+- So route (i) of §5 works with the secured key, and P7 isn't needed. An answer is complete when `nbHits` equals the number of hits returned and `nbPages` is at most 1. Risk #5 is retired.
+- A pinned request should also retrieve `inStoreOnly` if the plan uses it for "orderable online".
+- A 5-digit `objectID:10132 OR ` takes 18 bytes, so 20 ids fit the 512-byte limit with room for longer ids. P11 isn't needed for a batch of 20.
+
+**Not sent**
+
+- P4, because P3 found the item with its size; P7, because P6's filter works; P8, needed only for option (b) of §4; P9, because P3's hit was on promotion; P11, because a batch of 20 fits.
+- P10, the answer to a rejected key, is the one still useful. If the plan takes the gate exception (Open Question 2), it needs this app's exact status and body, and it needs the owner's own OK.
 
 ## Code References
 
@@ -656,6 +741,7 @@ Each is the owner's call unless marked as a planning detail. The recommendation 
    - Not E: it holds the key per data center only, and its behaviour on workers.dev is undocumented.
    - Not F: a new binding (`context/deployment/deploy-plan.md:68`) for one short string.
    - Not A alone: an extension upgrade would break it within a day, and under G2 each rotation stops the shop.
+   - **Probe result (P2):** the key is unchanged since 2026-09-17, so the recommendation is **B**.
 
 4. **Automatic matching without an EAN** (§4).
    - Options: (a) never automatic; (b) `gtin13` from candidates' pages; (c) brand, size and name similarity.
@@ -674,14 +760,17 @@ Each is the owner's call unless marked as a planning detail. The recommendation 
 6. **The name query** (§2).
    - Options: (a) brand, name and size, as for the other shops; (b) brand and name only, through a per-adapter query; (c) (a) plus Algolia's `removeWordsIfNoResults`.
    - **Recommendation:** settle it on probes P3 and P4, with (b) as the default. The size is compared in the verdict anyway, so leaving it out of the query costs no safety.
+   - **Probe result (P3):** the query with the size found exactly the item, its "300 ml" matching `capacity`. So the recommendation becomes **(a)**, the other shops' query, with no per-adapter query.
 7. **Skipping the EAN search for Super-Pharm** (planning detail, §2).
    - **Recommendation:** skip it through a `ShopAdapter` field, unless probe P5 shows an EAN query finds the product. That saves one request per lookup and per re-pin.
+   - **Probe result (P5):** the EAN query found nothing, so skip it.
 8. **The order and number of a no-EAN shop's candidates** (§4).
    - Options: (a) Algolia's first 3, as today; (b) same size and agreeing brand first, then the shop's order, for every shop (it reorders only the candidates that don't qualify); (c) more than 3.
    - **Recommendation:** (b), with the limit unchanged and a unit case on recorded candidates.
 9. **The pinned request** (planning detail, §5).
    - Options: (i) a filtered search; (ii) getObjects; (iii) one request per item.
    - **Recommendation:** (i), `POST …/query` with `objectID` filters, batches of about 20 and `analytics=false`, storing the `objectID` as the shop item id. (ii) only after probe P7.
+   - **Probe result (P6):** (i) works with the secured key, and an unknown id is simply left out.
 10. **POST and the replay** (planning detail, §2).
     - Options: `POST …/query`, documented and proven twice, with the replay matching bodies; or the legacy GET with today's replay.
     - **Recommendation:** POST.
@@ -690,6 +779,11 @@ Each is the owner's call unless marked as a planning detail. The recommendation 
     - (b) After `special_to_date`, either mirror the shop's frontend (the regular price parsed from `default_original_formated`, no promotion), or store `default` with its end date and let the S-03 rule show it out of date. **Recommendation:** mirror the frontend when the regular price parses, else the S-03 rule.
     - (c) The Omnibus text parsed strictly, `false` as null. **Recommendation:** yes.
     - (d) `available` from `in_stock` alone. **Recommendation:** yes, unless probe P3 shows prescription items in the drugstore index.
+    - **Probe result (P3) for (b):** a promotion can come without the regular price and with meaningless dates (§ Probe results). The 300 ml item is shown red with a "Promocja" badge, yet has no `default_original_formated`, `special_from_date` 2016-11-24 and `special_to_date` false. So the options become:
+      - (b1) the price and the Omnibus low only, with no regular price and no end date when the record has none; a regular price only from `default_original_formated`, and only when it parses above the price;
+      - (b2) mark such a price as a promotion from `showRedPrice` or the "Promocja" badge, still without a regular price.
+      - **Recommendation:** (b1). The app states only what the record says, the shop's own tile shows no regular price either, and the Omnibus low still gives the 30-day context.
+    - **Probe result (P3) for (d):** `in_stock` 1 comes with an `inStoreOnly` flag, 0 here. **Recommendation:** `available` when `in_stock` is 1 and `inStoreOnly` is 0. One hit can't show whether prescription items appear in the index.
 12. **"Do sprawdzenia" and undecided Super-Pharm products** (§4).
     - Options: keep S-05's rule, where an undecided matched shop counts, so every product counts until decided; or leave out an undecided shop that never matches automatically.
     - **Recommendation:** keep the rule. The chip is where the user finds the products that still need a decision, and with question 5's button it's the way to them.
@@ -702,6 +796,7 @@ Each is the owner's call unless marked as a planning detail. The recommendation 
       - approve P1 first, then P2, P3, P5 and P6 if robots.txt allows reading the homepage: at most 5 requests;
       - P4, P7–P9 and P11 when the plan needs them;
       - P10 on its own.
+    - **Done on 2026-10-05:** P1, P2, P3, P5 and P6, with the owner's OK. P10 still needs its own OK, and only if the plan takes G1.
 15. **Sequencing** (§8).
     - Options: (a) plan S-06 against `main` once S-05 and S-07 have merged; (b) branch from S-05 now; (c) land the gate exception as its own change on `main` first.
     - **Recommendation:** (a), with the decisions and probes done now. The gate exception fits as S-06's first phase: S-05 doesn't touch the gate, and a separate change would need the same tests and review.
@@ -709,7 +804,8 @@ Each is the owner's call unless marked as a planning detail. The recommendation 
     - Options: move the batch loop, the refusal stop, the missing-versus-failed rule and the value helpers out of `luigis-box.ts` into a shop-neutral module, or copy them into Super-Pharm's adapter.
     - **Recommendation:** move them (`context/foundation/lessons.md:40-45`). The proof is that Natura's and Hebe's tests pass unedited, as S-05 Phase 1 proved its split.
 17. **Docs to correct** (planning detail). The places:
-    - the research note's §1 row and §2.3: the rotation claim, POST as the route, the record's fields, and pins by `objectID`;
+    - the research note's §1 row and §2.3: the rotation claim, POST as the route, the record's fields (`inStoreOnly`, `algoliaLastUpdateAtCET`, the image host `media.superpharm.eu`, a promotion without its regular price), and pins by `objectID`;
+    - the research note's §5: robots.txt now disallows `/catalogsearch/` and `/catalogsearch/result/`;
     - CLAUDE.md's gate sentence (with G1) and its "Shops and matching" bullet;
     - dated PRD notes on FR-006 and FR-013;
     - the roadmap's S-06 risk and unknown.

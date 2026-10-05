@@ -1,0 +1,138 @@
+{
+  "hits": [
+    {
+      "name": "Nivea Soft Krem nawilżający (Pudełko)",
+      "url": "https://www.superpharm.pl/nivea-soft-krem-nawilzajacy-pudelko-39477",
+      "visibility_search": 1,
+      "visibility_catalog": 1,
+      "type_id": "simple",
+      "rating_summary": 99,
+      "reviews_count": 17,
+      "isProductRx": false,
+      "preparationType": null,
+      "showRedPrice": 1,
+      "promotion_exclusion": "nie",
+      "categories": {
+        "level0": ["Drogeria"],
+        "level1": ["Drogeria /// Ciało"],
+        "level2": ["Drogeria /// Ciało /// Pielęgnacja ciała"],
+        "level3": ["Drogeria /// Ciało /// Pielęgnacja ciała /// Balsamy, emulsje, mleczka do ciała"]
+      },
+      "categories_without_path": ["Balsamy, emulsje, mleczka do ciała"],
+      "categoryIds": ["8612", "8663", "8664", "8665"],
+      "mainCategoryName": "Balsamy, emulsje, mleczka do ciała",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/n/i/nivea-soft-krem-do-twarzy-i-ciala-200ml-1_2.jpg",
+      "thumbnail_url_webp": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/n/i/nivea-soft-krem-do-twarzy-i-ciala-200ml-1_2.webp",
+      "image_url": "https://media.superpharm.eu/media/catalog/product/cache/824f52ffa3fbe06f77fbc2b8f48a8b7b/n/i/nivea-soft-krem-do-twarzy-i-ciala-200ml-1_2.jpg",
+      "image_url_webp": "https://media.superpharm.eu/media/catalog/product/cache/824f52ffa3fbe06f77fbc2b8f48a8b7b/n/i/nivea-soft-krem-do-twarzy-i-ciala-200ml-1_2.webp",
+      "in_stock": 1,
+      "sku": "39477",
+      "price": {
+        "PLN": {
+          "default": 19.49,
+          "default_formated": "19,49 zł",
+          "default_historical_min_price_formated": "33,99 zł",
+          "special_from_date": 1480001487,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "capacity": "300 ml",
+      "dermokosmetyk": "Nie",
+      "forWhom": "Dla kobiet",
+      "formula_kremu": "Lekki",
+      "farmax_capacity": 300,
+      "typ_skory": "Uniwersalne produkty do wszystkich typów skóry",
+      "wiek": "Produkty uniwersalne",
+      "wlasciwosci": ["Nawilżające", "Odżywiające"],
+      "zawiera_w_skladzie": [
+        "Olej jojoba",
+        "Olej migdałowy",
+        "Olej ze słodkich migdałów",
+        "Witamina E",
+        "Gliceryna",
+        "Lawenda"
+      ],
+      "created_at": "2017-09-19 09:49:17",
+      "badgesHtml": "\n    <div class=\"amasty-label-container\n            amasty-label-container-1073-10132-cat            amasty-label-for-10132\"\n         style=\"display: none; background&#x3A;&#x20;&#x23;EDEAF4&#x3B;&#x20;line-height&#x3A;&#x20;24px&#x3B;&#x20;padding&#x3A;&#x20;0&#x3B;&#x20;border-radius&#x3A;&#x20;120px&#x3B;&#x20;height&#x3A;&#x20;24px&#x3B;width&#x3A;&#x20;130px&#x3B;text-align&#x3A;&#x20;center&#x3B;&#x20;margin-bottom&#x3A;&#x20;5px&#x3B;&#x20;margin-bottom&#x3A;&#x20;5px&#x3B;&#x20;font-size&#x3A;&#x20;12px&#x3B;&#x20;color&#x3A;&#x20;&#x23;000000&#x3B;\"\n         >\n        <div class=\"amlabel-text\">\n            Peeling za 12,99 zł        </div>\n\n            </div>\n\n    <div class=\"amasty-label-container\n            amasty-label-container-5-10132-cat            amasty-label-for-10132\"\n         style=\"display: none; background&#x3A;&#x20;&#x23;e31837&#x3B;&#x20;line-height&#x3A;&#x20;24px&#x3B;&#x20;padding&#x3A;&#x20;0&#x3B;&#x20;border-radius&#x3A;&#x20;100px&#x3B;&#x20;height&#x3A;&#x20;24px&#x3B;width&#x3A;&#x20;100px&#x3B;text-align&#x3A;&#x20;center&#x3B;&#x20;margin-bottom&#x3A;&#x20;5px&#x3B;&#x20;margin-bottom&#x3A;&#x20;5px&#x3B;&#x20;font-size&#x3A;&#x20;12px&#x3B;&#x20;color&#x3A;&#x20;&#x23;ffffff&#x3B;\"\n         >\n        <div class=\"amlabel-text\">\n            Promocja        </div>\n\n            </div>\n",
+      "badges": ["Peeling cukrowy Pina Colada za 12,99 zł", "Promocja"],
+      "variant_skus": null,
+      "variant_attribute": null,
+      "variant_attribute_value": null,
+      "variant_has": false,
+      "isSkinAndBeauty": false,
+      "pharmaceuticalFlag": 0,
+      "pickupShopIds": [
+        7, 11, 26, 30, 40, 46, 51, 55, 56, 68, 75, 76, 92109, 92110, 93978, 99008, 99301, 99351, 99354, 99355, 99356,
+        99357, 99358, 99359, 99360, 99361, 99362, 99363, 99364, 99365, 99366, 99367, 99368, 99369, 99370, 99371, 99372,
+        99374, 99375, 99376, 99377, 99378, 99379, 99380, 99381, 99384, 99385, 99386, 99388, 99389, 99390, 99391, 99392,
+        99393, 99394, 99395, 99398, 99399, 99400, 99401, 99403, 99404, 99405, 99407, 99408, 99409
+      ],
+      "inStoreOnly": 0,
+      "campaignIds": ["155", "193", "201", "453"],
+      "ruleIds": [],
+      "giftRuleIds": ["410"],
+      "algoliaLastUpdateAtCET": "2026-10-05 11:16:30",
+      "objectID": "10132",
+      "_highlightResult": {
+        "name": {
+          "value": "<em>Nivea</em> <em>Soft</em> Krem nawilżający (Pudełko)",
+          "matchLevel": "partial",
+          "fullyHighlighted": false,
+          "matchedWords": ["nivea", "soft"]
+        },
+        "categories": {
+          "level0": [{ "value": "Drogeria", "matchLevel": "none", "matchedWords": [] }],
+          "level1": [{ "value": "Drogeria /// Ciało", "matchLevel": "none", "matchedWords": [] }],
+          "level2": [{ "value": "Drogeria /// Ciało /// Pielęgnacja ciała", "matchLevel": "none", "matchedWords": [] }],
+          "level3": [
+            {
+              "value": "Drogeria /// Ciało /// Pielęgnacja ciała /// Balsamy, emulsje, <em>ml</em>eczka do ciała",
+              "matchLevel": "partial",
+              "fullyHighlighted": false,
+              "matchedWords": ["ml"]
+            }
+          ]
+        },
+        "categories_without_path": [
+          {
+            "value": "Balsamy, emulsje, <em>ml</em>eczka do ciała",
+            "matchLevel": "partial",
+            "fullyHighlighted": false,
+            "matchedWords": ["ml"]
+          }
+        ],
+        "in_stock": { "value": "1", "matchLevel": "none", "matchedWords": [] },
+        "sku": { "value": "39477", "matchLevel": "none", "matchedWords": [] },
+        "brand": {
+          "value": "<em>Nivea</em>",
+          "matchLevel": "partial",
+          "fullyHighlighted": true,
+          "matchedWords": ["nivea"]
+        },
+        "capacity": {
+          "value": "<em>300</em> <em>ml</em>",
+          "matchLevel": "partial",
+          "fullyHighlighted": true,
+          "matchedWords": ["300", "ml"]
+        },
+        "badges": [
+          { "value": "Peeling cukrowy Pina Colada za 12,99 zł", "matchLevel": "none", "matchedWords": [] },
+          { "value": "Promocja", "matchLevel": "none", "matchedWords": [] }
+        ]
+      }
+    }
+  ],
+  "nbHits": 1,
+  "page": 0,
+  "nbPages": 1,
+  "hitsPerPage": 10,
+  "exhaustiveNbHits": true,
+  "exhaustiveTypo": true,
+  "exhaustive": { "nbHits": true, "typo": true },
+  "query": "NIVEA Soft 300 ml",
+  "params": "query=NIVEA%20Soft%20300%20ml&hitsPerPage=10&analytics=false&tagFilters=",
+  "processingTimeMS": 1,
+  "processingTimingsMS": { "_request": { "roundTrip": 46 }, "total": 1 },
+  "serverTimeMS": 2
+}
