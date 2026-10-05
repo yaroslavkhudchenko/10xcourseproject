@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { pickMatch, type MatchProduct } from "@/lib/services/matching";
 import { createShopGate, type ShopGate, type ShopGateDeps, type ShopGateLogEntry } from "@/lib/services/shop-gate";
 import {
@@ -14,17 +14,22 @@ import type { PriceCheck, ShopCandidate, ShopOffer } from "@/types";
 import nameSearchOne from "@/lib/services/shops/fixtures/super-pharm-name-search-one.json";
 import nameSearch from "@/lib/services/shops/fixtures/super-pharm-name-search.json";
 import pinnedOne from "@/lib/services/shops/fixtures/super-pharm-pinned-one.json";
+import pinnedRulesOff from "@/lib/services/shops/fixtures/super-pharm-pinned-rules-off.json";
 import pinned from "@/lib/services/shops/fixtures/super-pharm-pinned.json";
 import searchEmpty from "@/lib/services/shops/fixtures/super-pharm-search-empty.json";
 
 // The fixtures are real Algolia answers for Super-Pharm, recorded once with curl from the developer machine on
-// 2026-10-05, with the gate's User-Agent and the adapter's headers, at least 2.5 s apart and following no redirect; no
-// test reaches the live search. Every request is a POST to one URL, so each recording is served for the exact body it
-// answers (`requestBody`), spelled out below.
+// 2026-10-05 (UTC), with the gate's User-Agent and the adapter's headers, at least 2.5 s apart and following no
+// redirect; no test reaches the live search. Every request is a POST to one URL, so each recording is served for the
+// exact body it answers (`requestBody`), spelled out below.
 // - super-pharm-name-search.json (18:51 UTC): the adapter's own name search for "NIVEA krem", 10 hits, cut to its first
 //   5 of 134. Each hit has `in_stock` 1 and `inStoreOnly` 0, and two have a 30-day low.
-// - super-pharm-pinned.json (18:51 UTC): the adapter's own price request for 96276, 96278 and 10132 from that search,
-//   and 999999999, which Super-Pharm doesn't have: three hits, in Algolia's order, and the unknown id left out.
+// - super-pharm-pinned-rules-off.json (22:24 UTC, 00:24 on 2026-10-06 in Poland): the adapter's own price request for
+//   96276, 96278 and 10132 from that search, and 999999999, which Super-Pharm doesn't have, with the query rules off
+//   (`enableRules=false`): three hits, in Algolia's order, and the unknown id left out. It's the one price answer
+//   recorded with the adapter's current body.
+// - super-pharm-pinned.json (18:51 UTC): the same price request, sent before the adapter turned the query rules off,
+//   with the same three hits at the same prices; the index ran its rules on it (`rulesProcessing`).
 // - super-pharm-name-search-one.json (13:58 UTC, research probe P3): the search for "NIVEA Soft 300 ml", 10 hits, sent
 //   without the adapter's attribute list and highlighting off, so its one hit, Nivea Soft 300 ml (10132), carries every
 //   attribute of the record; the adapter reads only its own. It's on sale at 19,49 zł, with a 30-day low of 33,99 zł and
@@ -35,8 +40,10 @@ import searchEmpty from "@/lib/services/shops/fixtures/super-pharm-search-empty.
 //   parameters in another order and encoding and `attributesToRetrieve` objectID, price and in_stock, so its hit has no
 //   `inStoreOnly`. Only 10132 came back.
 // The probes' requests differ from the adapter's only in parameters that trim an answer or order its text, so each is
-// served for the adapter's own request for the same search. The broken answers below each change one thing in a copy
-// of these, or stand in a page where the JSON was.
+// served for the adapter's own request for the same search. The two earlier price recordings, super-pharm-pinned.json
+// and probe P6's, were sent without `enableRules=false`, and are served for the adapter's body all the same: the
+// rules-off answer holds the same hits at the same prices. The broken answers below each change one thing in a copy of
+// these, or stand in a page where the JSON was.
 const QUERY_URL = "https://ep43qpdx9q-dsn.algolia.net/1/indexes/spprod_drugstore_pl_simple_products/query";
 // Super-Pharm's Algolia application and the public search-only key its pages carry: every request carries both.
 const APP_ID = "EP43QPDX9Q";
@@ -52,11 +59,12 @@ const searchBody = (encodedQuery: string, size: number) =>
   '&attributesToHighlight=%5B%5D"}';
 /**
  * A price request's body, spelled out as the adapter sends it: no query, one objectID filter per id joined by OR, as
- * many hits as ids, out of the analytics, only the price attributes, and no highlighting.
+ * many hits as ids, out of the analytics, only the price attributes, no highlighting, and the query rules off.
  */
 const priceBody = (ids: string[]) =>
   `{"params":"query=&filters=${ids.map((id) => `objectID%3A${id}`).join("+OR+")}&hitsPerPage=${ids.length}` +
-  '&analytics=false&attributesToRetrieve=price%2Cin_stock%2CinStoreOnly&attributesToHighlight=%5B%5D"}';
+  "&analytics=false&attributesToRetrieve=price%2Cin_stock%2CinStoreOnly&attributesToHighlight=%5B%5D" +
+  '&enableRules=false"}';
 // The searches the recordings answer: as the adapter is asked for them, and the body it sends for each.
 const SOFT_SEARCH = { query: "NIVEA Soft 300 ml", size: 10, body: searchBody("NIVEA+Soft+300+ml", 10) };
 const NAME_SEARCH = { query: "NIVEA krem", size: 10, body: searchBody("NIVEA+krem", 10) };
@@ -236,7 +244,15 @@ function loggedLines(warn: { mock: { calls: unknown[][] } }): unknown[] {
   return warn.mock.calls.map(([line]) => JSON.parse(String(line)) as unknown);
 }
 
+beforeEach(() => {
+  // Only the clock an offer's promotion end is judged by, against the tables' dates in 2026 and 2027, so no expectation
+  // expires; the requests' time limits keep their real timers.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-05T12:00:00Z"));
+});
+
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -466,20 +482,29 @@ describe("Super-Pharm search: prices", () => {
   });
 
   it.each([
-    { why: "with a no-break space before zł, as Super-Pharm writes prices", value: `36,99${NBSP}zł`, regular: 36.99 },
-    { why: "with a space before zł", value: "36,99 zł", regular: 36.99 },
-    { why: "with thousands grouped", value: `1${NBSP}036,99${NBSP}zł`, regular: 1036.99 },
-    { why: "equal to the price, so no regular price", value: `19,49${NBSP}zł`, regular: null },
-    { why: "with a dot as the decimal mark, which reads as nothing", value: "36.99 zł", regular: null },
-    { why: "sent as false", value: false, regular: null },
-    { why: "sent as a number", value: 36.99, regular: null },
-  ])("reads default_original_formated $why", async ({ value, regular }) => {
+    {
+      why: "with a no-break space before zł, as Super-Pharm writes prices",
+      value: `36,99${NBSP}zł`,
+      regular: 36.99,
+      odd: false,
+    },
+    { why: "with a space before zł", value: "36,99 zł", regular: 36.99, odd: false },
+    { why: "with thousands grouped", value: `1${NBSP}036,99${NBSP}zł`, regular: 1036.99, odd: false },
+    // It reads as a price, so it isn't counted: it's only not above the price.
+    { why: "equal to the price, so no regular price", value: `19,49${NBSP}zł`, regular: null, odd: false },
+    { why: "with a dot as the decimal mark, which reads as nothing", value: "36.99 zł", regular: null, odd: true },
+    { why: "sent as false", value: false, regular: null, odd: false },
+    { why: "sent as a number", value: 36.99, regular: null, odd: true },
+  ])("reads default_original_formated $why", async ({ value, regular, odd }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     const [candidate] = await candidatesFrom([withPrices(soft(), { default_original_formated: value })]);
 
     expect(candidate.offer).toEqual({ ...SOFT_OFFER, regularPrice: regular });
-    expect(warn).not.toHaveBeenCalled();
+    // A value that's there but can't be read costs only the regular price, and is counted so a changed format shows.
+    expect(loggedLines(warn)).toEqual(
+      odd ? [{ event: "super-pharm-search", reason: "regular price unread", detail: "1 of 1 product hits" }] : [],
+    );
   });
 
   it.each([
@@ -504,50 +529,83 @@ describe("Super-Pharm search: prices", () => {
   });
 
   it.each([
-    { why: "a second before midnight in Poland", value: 1791669599, endsOn: "2026-10-10" },
-    { why: "midnight in Poland, 22:00 UTC the day before", value: 1791669600, endsOn: "2026-10-11" },
-    { why: "midnight in Poland in winter time, 23:00 UTC", value: 1798758000, endsOn: "2027-01-01" },
-    { why: "false, as recorded", value: false, endsOn: null },
-    { why: "empty text, the extension's unset date", value: "", endsOn: null },
-    { why: "seconds as text", value: "1791669600", endsOn: null },
-    { why: "zero", value: 0, endsOn: null },
-    { why: "negative", value: -1, endsOn: null },
-    { why: "not whole seconds", value: 1791669600.5, endsOn: null },
-    { why: "past the year 9999", value: 253402300800, endsOn: null },
-    { why: "past any date", value: Number.MAX_SAFE_INTEGER, endsOn: null },
-  ])("reads a promotion's end from special_to_date that is $why, beside a regular price", async ({ value, endsOn }) => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    { why: "a second before midnight in Poland", value: 1791669599, endsOn: "2026-10-10", odd: false },
+    { why: "midnight in Poland, 22:00 UTC the day before", value: 1791669600, endsOn: "2026-10-11", odd: false },
+    { why: "midnight in Poland in winter time, 23:00 UTC", value: 1798758000, endsOn: "2027-01-01", odd: false },
+    { why: "false, as recorded", value: false, endsOn: null, odd: false },
+    { why: "empty text, the extension's unset date", value: "", endsOn: null, odd: false },
+    { why: "seconds as text", value: "1791669600", endsOn: null, odd: true },
+    { why: "zero", value: 0, endsOn: null, odd: true },
+    { why: "negative", value: -1, endsOn: null, odd: true },
+    { why: "not whole seconds", value: 1791669600.5, endsOn: null, odd: true },
+    { why: "past the year 9999", value: 253402300800, endsOn: null, odd: true },
+    { why: "past any date", value: Number.MAX_SAFE_INTEGER, endsOn: null, odd: true },
+  ])(
+    "reads a promotion's end from special_to_date that is $why, beside a regular price",
+    async ({ value, endsOn, odd }) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
-    const [candidate] = await candidatesFrom([
-      withPrices(soft(), { default_original_formated: `36,99${NBSP}zł`, special_to_date: value }),
-    ]);
+      const [candidate] = await candidatesFrom([
+        withPrices(soft(), { default_original_formated: `36,99${NBSP}zł`, special_to_date: value }),
+      ]);
 
-    expect(candidate.offer).toEqual({ ...SOFT_OFFER, regularPrice: 36.99, promoEndsOn: endsOn });
-    expect(warn).not.toHaveBeenCalled();
-  });
+      expect(candidate.offer).toEqual({ ...SOFT_OFFER, regularPrice: 36.99, promoEndsOn: endsOn });
+      // A value that's there but can't be read costs only the end, and is counted so a changed format shows.
+      expect(loggedLines(warn)).toEqual(
+        odd ? [{ event: "super-pharm-search", reason: "promotion end unread", detail: "1 of 1 product hits" }] : [],
+      );
+    },
+  );
 
   // Magento keeps a sale's dates on the record after the sale (the probe's hit still has a `special_from_date` from
   // 2016), and an end in the past would make the current price stale on every check. So an end counts only beside the
   // regular price it ends, as the search extension's own frontend reads it.
   it.each([
-    { why: "no regular price and an end a year past", fields: { special_to_date: 1759269600 } },
-    { why: "no regular price and an end still to come", fields: { special_to_date: 1791669599 } },
+    // Without a regular price the end is left out (offerOf), so even one a year past isn't counted as ended.
+    { why: "no regular price and an end a year past", fields: { special_to_date: 1759269600 }, odd: false },
+    { why: "no regular price and an end still to come", fields: { special_to_date: 1791669599 }, odd: false },
     {
       why: "a regular price equal to the price",
       fields: { default_original_formated: `19,49${NBSP}zł`, special_to_date: 1791669599 },
+      odd: false,
     },
     {
       why: "a regular price it can't read",
       fields: { default_original_formated: "36.99 zł", special_to_date: 1791669599 },
+      odd: true,
     },
-    { why: "a regular price sent as false", fields: { default_original_formated: false, special_to_date: 1791669599 } },
-  ])("takes no promotion end with $why", async ({ fields }) => {
+    {
+      why: "a regular price sent as false",
+      fields: { default_original_formated: false, special_to_date: 1791669599 },
+      odd: false,
+    },
+  ])("takes no promotion end with $why", async ({ fields, odd }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     const [candidate] = await candidatesFrom([withPrices(soft(), fields)]);
 
     expect(candidate.offer).toEqual(SOFT_OFFER);
-    expect(warn).not.toHaveBeenCalled();
+    // Only a regular price that's there but can't be read is counted, as in the table of regular prices above.
+    expect(loggedLines(warn)).toEqual(
+      odd ? [{ event: "super-pharm-search", reason: "regular price unread", detail: "1 of 1 product hits" }] : [],
+    );
+  });
+
+  it("keeps a promotion's end already past beside its regular price, and logs how many", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    // 2025-10-01 in Poland, a year before the clock: as a sale's end Magento left behind would read.
+    const [candidate] = await candidatesFrom([
+      withPrices(soft(), { default_original_formated: `36,99${NBSP}zł`, special_to_date: 1759269600 }),
+    ]);
+
+    // The end is kept, so the comparison reads the price as stale on every check, and only the line shows it.
+    expect(candidate.offer).toEqual({ ...SOFT_OFFER, regularPrice: 36.99, promoEndsOn: "2025-10-01" });
+    expect(loggedLine(warn)).toEqual({
+      event: "super-pharm-search",
+      reason: "promotion ended",
+      detail: "1 of 1 product hits",
+    });
   });
 
   it("drops only the offer of a price that can't be stored", async () => {
@@ -759,6 +817,24 @@ describe("Super-Pharm search: broken copies give a gap, never 'not found'", () =
     expect(reportBlock).not.toHaveBeenCalled();
   });
 
+  it("gives up on a 404, as for an index Algolia doesn't have, and says the index may have changed", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { gate, fetchMock, reportBlock, gateLog } = setup([answering(NAME_SEARCH.body, "", 404)]);
+
+    expect(await searchSuperPharm(gate, NAME_SEARCH.query, NAME_SEARCH.size)).toEqual(FAILED);
+    expect(sentRequests(fetchMock)).toEqual([request(NAME_SEARCH.body)]);
+    // Beside the gate's line, the adapter's own names the constant to update.
+    expect(loggedLine(warn)).toEqual({
+      event: "super-pharm-search",
+      reason: "index rejected",
+      detail: "HTTP 404: QUERY_URL may have changed",
+    });
+    expect(gateLog.mock.calls).toEqual([
+      [expect.objectContaining({ shopId: "super-pharm", outcome: { kind: "failed", reason: "http", status: 404 } })],
+    ]);
+    expect(reportBlock).not.toHaveBeenCalled();
+  });
+
   it("is stopped by a 403, as Algolia answers a key it no longer accepts", async () => {
     const { gate, fetchMock, reportBlock } = setup([answering(NAME_SEARCH.body, "", 403)]);
 
@@ -791,8 +867,9 @@ describe("Super-Pharm search: broken copies give a gap, never 'not found'", () =
 
 describe("Super-Pharm prices: recorded answers", () => {
   it("fetches the asked-for items' offers, and calls the id Super-Pharm left out missing", async () => {
+    // The ids in the order the rules-off recording asked for them, which its body was sent with.
     const ids = [HAND_CREAM, LUMINOUS, SOFT, UNKNOWN_ID];
-    const { gate, fetchMock } = setup([answering(priceBody(ids), JSON.stringify(pinned))]);
+    const { gate, fetchMock } = setup([answering(priceBody(ids), JSON.stringify(pinnedRulesOff))]);
 
     const checks = await fetchSuperPharmPrices(gate, ids);
 
@@ -974,6 +1051,19 @@ describe("Super-Pharm prices: what they keep out", () => {
     });
   });
 
+  it("drops only a regular price it can't read, keeps the price, and logs how many", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const unread = withPrices(pricedSoft(), { default_original_formated: "36.99 zł" });
+    const { gate } = setup([answering(priceBody([SOFT]), priceAnswer([unread]))]);
+
+    expect(await fetchSuperPharmPrices(gate, [SOFT])).toEqual(new Map([[SOFT, { kind: "price", offer: SOFT_OFFER }]]));
+    expect(loggedLine(warn)).toEqual({
+      event: "super-pharm-prices",
+      reason: "regular price unread",
+      detail: "1 of 1 product hits",
+    });
+  });
+
   it("keeps the other id's price when one hit can't be read, and the unread one is unavailable", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const unread = withPrices(hitFor(pinned, HAND_CREAM), { default: "13,99 zł" });
@@ -1131,6 +1221,29 @@ describe("Super-Pharm prices: why they're unavailable", () => {
     expect(reportBlock).not.toHaveBeenCalled();
   });
 
+  it("calls every id of a request unavailable on a 404, and says the index may have changed", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { gate, fetchMock, reportBlock, gateLog } = setup([answering(priceBody([SOFT, UNKNOWN_ID]), "", 404)]);
+
+    expect(await fetchSuperPharmPrices(gate, [SOFT, UNKNOWN_ID])).toEqual(
+      new Map([
+        [SOFT, FAILED],
+        [UNKNOWN_ID, FAILED],
+      ]),
+    );
+    expect(sentRequests(fetchMock)).toEqual([request(priceBody([SOFT, UNKNOWN_ID]))]);
+    // Beside the gate's line, the adapter's own names the constant to update.
+    expect(loggedLine(warn)).toEqual({
+      event: "super-pharm-prices",
+      reason: "index rejected",
+      detail: "HTTP 404: QUERY_URL may have changed",
+    });
+    expect(gateLog.mock.calls).toEqual([
+      [expect.objectContaining({ shopId: "super-pharm", outcome: { kind: "failed", reason: "http", status: 404 } })],
+    ]);
+    expect(reportBlock).not.toHaveBeenCalled();
+  });
+
   it.each([
     { answer: "an HTML page", body: HTML_PAGE, reason: "unreadable body" },
     {
@@ -1170,14 +1283,16 @@ describe("Super-Pharm: the shop every request is charged to", () => {
   });
 
   it("spells its bodies as the recordings of its own requests were sent", () => {
-    // The two bodies kept beside the recordings, as sent.
+    // The two bodies kept beside the recordings, as sent: the name search's on 2026-10-05 at 18:51 UTC, and the price
+    // request's, with the query rules off, at 22:24:52 UTC (00:24 on 2026-10-06 in Poland).
     expect(NAME_SEARCH.body).toBe(
       '{"params":"query=NIVEA+krem&hitsPerPage=10&analytics=false&attributesToRetrieve=name%2Cbrand%2Ccapacity%2Curl' +
         '%2Cthumbnail_url%2Cprice%2Cin_stock%2CinStoreOnly&attributesToHighlight=%5B%5D"}',
     );
     expect(priceBody([HAND_CREAM, LUMINOUS, SOFT, UNKNOWN_ID])).toBe(
       '{"params":"query=&filters=objectID%3A96276+OR+objectID%3A96278+OR+objectID%3A10132+OR+objectID%3A999999999' +
-        '&hitsPerPage=4&analytics=false&attributesToRetrieve=price%2Cin_stock%2CinStoreOnly&attributesToHighlight=%5B%5D"}',
+        "&hitsPerPage=4&analytics=false&attributesToRetrieve=price%2Cin_stock%2CinStoreOnly" +
+        '&attributesToHighlight=%5B%5D&enableRules=false"}',
     );
   });
 

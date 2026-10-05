@@ -38,9 +38,9 @@ interface ShopRefresh {
  */
 export type PriceFetcher = (gate: ShopGate, ids: string[]) => Promise<Map<string, PriceCheck>>;
 
-// Each matchable shop's adapter's fetcher, 50 ids per request, taken from the registry (registry.ts), so a shop the
-// registry gains needs no line here. Object.fromEntries can't say which keys it gives; they're every matchable shop's,
-// so the cast holds.
+// Each matchable shop's adapter's fetcher, as many ids per request as its adapter takes (50 on Luigi's Box, 20 on
+// Algolia), taken from the registry (registry.ts), so a shop the registry gains needs no line here. Object.fromEntries
+// can't say which keys it gives; they're every matchable shop's, so the cast holds.
 const MATCHABLE_FETCHERS = Object.fromEntries(
   MATCHABLE_SHOPS.map((shop) => [shop, SHOP_ADAPTERS[shop].fetchPrices] as const),
 ) as Record<MatchableShop, PriceFetcher>;
@@ -58,9 +58,10 @@ export const PRICE_FETCHERS: Record<KnownShop, PriceFetcher> = { rossmann: fetch
  *
  * Within a shop the requests go one at a time. Rossmann has no batch route, so it's asked one product per request in
  * the order given: callers pass the oldest check first, and the cap cuts off the newest. A matched shop's items are
- * asked for together, 50 per request. Once a shop refuses, busy under the cap, paused or stopped, its remaining items
- * get that same answer with no request and no reservation, while the other shops go on. Each item is checked once,
- * however often it's given, and an item in a shop outside `shops` is `unavailable` with no request.
+ * asked for together, as many per request as its adapter takes. Once a shop refuses, busy under the cap, paused or
+ * stopped, its remaining items get that same answer with no request and no reservation, while the other shops go on.
+ * Each item is checked once, however often it's given, and an item in a shop outside `shops` is `unavailable` with no
+ * request.
  */
 export async function refreshPrices(
   gate: ShopGate,

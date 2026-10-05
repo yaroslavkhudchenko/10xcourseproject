@@ -101,7 +101,7 @@ test("#7: on a phone, Super-Pharm waits for its button, a tap asks only the stop
   await expect(button).toHaveAttribute("href", `/watchlist/${waiting.productId}?f=check&retry=super-pharm`);
   await expect(superPharm.getByText(searchStoppedNotice("Super-Pharm"), { exact: true })).toHaveCount(0);
   await expect(superPharm.getByText(stoppedNotice("Super-Pharm"), { exact: true })).toHaveCount(0);
-  expect(requestLogMark(), "a plain view asks Super-Pharm nothing").toBe(mark);
+  expect(requestLogMark(), "no shop request was reserved: the run holds every shop stopped").toBe(mark);
 
   // 4. Tap "Dopasuj w Super-Pharmie": the page opens ?retry=super-pharm, whose one search the stopped shop refuses
   // before any request. Super-Pharm's card says its search is stopped, and no shop request was reserved.

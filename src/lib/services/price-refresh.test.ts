@@ -42,11 +42,13 @@ const hebePriceUrl = (ids: string[]) =>
   ids.map((id) => `&f%5B%5D=ID%3A${id}`).join("") +
   `&size=${ids.length}&hit_fields=price_amount%2Cprice_sale_amount%2Cprice_omnibus_amount%2Conline_flag`;
 // Super-Pharm's price request, spelled out as its adapter sends it (super-pharm.test.ts): a POST to one URL, whose body
-// filters the ids by objectID and asks only for the price attributes. The replay serves a recording for its body alone.
+// filters the ids by objectID, asks only for the price attributes and turns the query rules off. The replay serves a
+// recording for its body alone.
 const SUPER_PHARM_URL = "https://ep43qpdx9q-dsn.algolia.net/1/indexes/spprod_drugstore_pl_simple_products/query";
 const superPharmPriceBody = (ids: string[]) =>
   `{"params":"query=&filters=${ids.map((id) => `objectID%3A${id}`).join("+OR+")}&hitsPerPage=${ids.length}` +
-  '&analytics=false&attributesToRetrieve=price%2Cin_stock%2CinStoreOnly&attributesToHighlight=%5B%5D"}';
+  "&analytics=false&attributesToRetrieve=price%2Cin_stock%2CinStoreOnly&attributesToHighlight=%5B%5D" +
+  '&enableRules=false"}';
 
 // Rossmann's Felix on promotion, Nivea Soft at its regular price, and an id Rossmann doesn't have; Natura's Nivea Soft
 // on promotion, Nivea MEN, and a SKU Natura doesn't have; Hebe's Nivea Soft 200 ml; and Super-Pharm's Nivea Soft

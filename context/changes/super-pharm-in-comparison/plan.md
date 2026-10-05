@@ -892,6 +892,15 @@ What each page view and action costs Super-Pharm (`context/foundation/lessons.md
 - **The PRD:** FR-006's note credits the tap, "Do sprawdzenia" and the candidate order to the owner, and states "never automatic" as the unchanged rule. There's no FR-007 note, since S-05's covers any undecided matched shop.
 - **Row 5.4:** the owner confirmed production's `super-pharm` row enabled on 2026-10-05. The gate reads only `enabled` (`polite_shop_access.sql:65`), so `disabled_reason` is only a note.
 
+### Review fixes (2026-10-06)
+
+`/10x-impl-review` (`reviews/impl-review.md`, NEEDS ATTENTION, 3 warnings and 7 observations) was triaged by the owner, who chose to fix all ten. The behaviour changes:
+
+- **Price requests switch Algolia's query rules off** (`enableRules=false`, F1). Both pinned answers of 2026-10-05 showed the index running its rules on a price request's empty query, so a rule could have hidden an asked item (stored `missing`) or added an unasked one. One owner-approved live request on 2026-10-06 answered 200 with the same three hits and no rules processing. Its answer is the fixture `super-pharm-pinned-rules-off.json`, which now serves the headline pinned test (F9).
+- **More log lines** (F3, F7, F8): "regular price unread", "promotion end unread" and "promotion ended", like the 30-day low's line, and "index rejected" on a 404, like Luigi's Box's tracker line. The adapter's tests pin the clock to 2026-10-05, so the promotion-end dates in them can't expire.
+- **Wording** (F2, F4, F5, F6, F10): CLAUDE.md's availability rule, test-plan §6.4's broken copies, the four-shop spec's message, two `price-refresh.ts` comments and the batch-size comment now say what the code does.
+- **Left for later:** see `follow-ups/review-fixes.md`, which covers the audit's empty-answer rule for every shop, the failure helpers' module, the chip count and two probe stand-ins.
+
 ## References
 
 - Research, with probe results: `context/changes/super-pharm-in-comparison/research.md`

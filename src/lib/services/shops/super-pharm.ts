@@ -15,7 +15,7 @@ import { storableOffer } from "@/lib/services/shops/shop-offer";
 import { gateUnavailable } from "@/lib/services/shops/shop-outcome";
 import { httpsHost, textOf, within } from "@/lib/services/shops/shop-values";
 import { parseSize } from "@/lib/services/size";
-import type { PriceCheck, ShopCandidate, ShopOffer, ShopSearch, Size } from "@/types";
+import type { GateOutcome, PriceCheck, ShopCandidate, ShopOffer, ShopSearch, ShopUnavailable, Size } from "@/types";
 
 // Super-Pharm's product search runs on Algolia (research note §2.3): a POST to one index's query URL, whose body holds
 // the search's parameters, answered with hits. Its index holds no EAN, so a candidate never shares one with the product
@@ -39,7 +39,9 @@ const QUERY_URL = "https://ep43qpdx9q-dsn.algolia.net/1/indexes/spprod_drugstore
 const SEARCH_TIMEOUT_MS = 4000;
 const PRICE_TIMEOUT_MS = 4000;
 // The most ids one price request asks for. Algolia limits a parameter's value to 512 bytes, and 20 filters of
-// "objectID:" and 12 digits, joined by " OR ", take 496 of them.
+// "objectID:" and 12 digits, joined by " OR ", take 496 of them: the value decoded. Form-encoded, as the body sends it,
+// twenty 12-digit ids take 536, but Super-Pharm's ids have 5 or 6 digits (396 to 416 bytes encoded), and a batch over
+// the limit would only get a 400, which shows as a gap.
 const IDS_PER_REQUEST = 20;
 // The only attributes a request retrieves; Algolia adds `objectID` to every hit. A search's are what a candidate shows,
 // and a price request's what an offer needs.
@@ -112,8 +114,8 @@ const pinned: PinnedPriceShop = {
 export async function searchSuperPharm(gate: ShopGate, query: string, size: number): Promise<ShopSearch> {
   const outcome = await gate.fetch("super-pharm", QUERY_URL, post(searchParams(query, size), SEARCH_TIMEOUT_MS));
   if (outcome.kind !== "ok") {
-    // The gate has already logged why. A 403, as Algolia answers a key it no longer accepts, has stopped the shop.
-    return gateUnavailable(outcome);
+    // A 403, as Algolia answers a key it no longer accepts, has stopped the shop.
+    return shopUnavailable(outcome, SEARCH_EVENT);
   }
   const answer = await readAnswer(outcome.response, SEARCH_EVENT);
   if (answer === null) {
@@ -134,7 +136,7 @@ export async function searchSuperPharm(gate: ShopGate, query: string, size: numb
   }
   const keptHits = kept.map(({ hit }) => hit);
   logOddAvailability(hasOddAvailability, SEARCH_EVENT, keptHits, total);
-  logOddLowest(SEARCH_EVENT, keptHits, total);
+  logOddOffers(SEARCH_EVENT, keptHits, total);
   // Hits that all fail their check point to a changed format, not to a product the shop doesn't sell: a lookup would
   // store that as "not found".
   if (total > 0 && candidates.length === 0) {
@@ -207,7 +209,12 @@ function searchParams(query: string, size: number): URLSearchParams {
 
 /**
  * A price request's parameters: no query, one `objectID:` filter per id, joined by OR, as many hits as ids, out of the
- * search analytics, only the price attributes, and no highlighting. Each id is digits only (isSuperPharmItemId).
+ * search analytics, only the price attributes, no highlighting, and no query rules. Each id is digits only
+ * (isSuperPharmItemId). Super-Pharm's index runs its query rules on a price request's empty query too, as both pinned
+ * answers recorded on 2026-10-05 report (`rulesProcessing`). A rule could hide an asked item, which would be stored
+ * `missing`, or add one nobody asked for, which can push an asked item off the page and leaves every id without a hit
+ * unavailable. With the rules off, an answer holds exactly what the filter matches. A name search keeps them, since its
+ * candidates are only offered to the user.
  */
 function priceParams(ids: string[]): URLSearchParams {
   return new URLSearchParams([
@@ -217,6 +224,7 @@ function priceParams(ids: string[]): URLSearchParams {
     ["analytics", "false"],
     ["attributesToRetrieve", PRICE_ATTRIBUTES.join(",")],
     ["attributesToHighlight", "[]"],
+    ["enableRules", "false"],
   ]);
 }
 
@@ -228,15 +236,14 @@ function priceParams(ids: string[]): URLSearchParams {
 async function requestPrices(gate: ShopGate, ids: string[]): Promise<PinnedAnswer> {
   const outcome = await gate.fetch("super-pharm", QUERY_URL, post(priceParams(ids), PRICE_TIMEOUT_MS));
   if (outcome.kind !== "ok") {
-    // The gate has already logged why.
-    return gateUnavailable(outcome);
+    return shopUnavailable(outcome, PRICES_EVENT);
   }
   const answer = await readAnswer(outcome.response, PRICES_EVENT);
   if (answer === null) {
     return failed();
   }
   const { hits, nbHits, page, nbPages } = answer;
-  logOddLowest(
+  logOddOffers(
     PRICES_EVENT,
     hits.filter((hit) => readPriceHit(hit) !== null),
     hits.length,
@@ -250,6 +257,18 @@ function readPriceHit(hit: unknown): { id: string; offer: ShopOffer } | null {
   const parsed = offerHitSchema.safeParse(hit);
   const offer = parsed.success ? offerOf(parsed.data) : null;
   return parsed.success && offer !== null ? { id: parsed.data.objectID, offer } : null;
+}
+
+/**
+ * Says why the gate produced no answer, and flags a 404: Algolia answers a query to an index it doesn't have with one
+ * (its API specification), as it would once Super-Pharm renamed its index.
+ */
+function shopUnavailable(outcome: Exclude<GateOutcome, { kind: "ok" }>, event: string): ShopUnavailable {
+  // The gate has already logged why.
+  if (outcome.kind === "failed" && outcome.status === 404) {
+    logFailure(event, "index rejected", "HTTP 404: QUERY_URL may have changed");
+  }
+  return gateUnavailable(outcome);
 }
 
 /**
@@ -325,7 +344,8 @@ function offerOf(hit: OfferHit): ShopOffer | null {
   });
   // A promotion's end counts only beside the regular price it ends, as the search extension's own frontend reads it
   // (common.js in version 3.9.1). Magento leaves a sale's dates on the record after the sale, and an end in the past
-  // would mark the current price stale on every check, so it could never be named cheapest.
+  // would mark the current price stale on every check, so it could never be named cheapest. Beside a regular price, an
+  // end already past is kept, and counted in a log line (logOddOffers).
   if (offer !== null && offer.regularPrice === null) {
     return { ...offer, promoEndsOn: null };
   }
@@ -335,7 +355,7 @@ function offerOf(hit: OfferHit): ShopOffer | null {
 /**
  * A hit's 30-day low from Polish text such as "33,99 zł" (parsePolishPrice). There's none for `false`, which
  * Super-Pharm sends without one, nor for a value that isn't there at all. Any other value that doesn't read as a price
- * is `odd`: it costs only the 30-day low, and is counted in a log line (logOddLowest), so a changed format shows.
+ * is `odd`: it costs only the 30-day low, and is counted in a log line (logOddOffers), so a changed format shows.
  */
 function lowestOf(value: unknown): { amount: number | null; odd: boolean } {
   if (value === undefined || value === null || value === false) {
@@ -345,21 +365,63 @@ function lowestOf(value: unknown): { amount: number | null; odd: boolean } {
   return { amount, odd: amount === null };
 }
 
-/** Logs how many of the kept hits have a 30-day low that can't be read (lowestOf): how many, never which. */
-function logOddLowest(event: string, kept: unknown[], hits: number): void {
-  const odd = kept.filter((hit) => {
+/**
+ * Logs how many of the kept hits have each of these, one line for each count that isn't zero, in this order: how many,
+ * never which. Each costs only its own value or nothing, so without its line nothing would show it happening.
+ * - "30-day low unread": a 30-day low that can't be read (lowestOf). A changed format would strip every 30-day low.
+ * - "regular price unread": a regular price that's there, not none (isNone), but can't be read (parsePolishPrice). A
+ *   changed format would strip every promotion of its crossed-out price, and of its end with it (offerOf).
+ * - "promotion end unread": a promotion's end that's there, not none, but can't be read (promoEndOf). A changed format
+ *   would strip every promotion of its end.
+ * - "promotion ended": an offer whose promotion ended before today in Poland, which it keeps only beside a regular
+ *   price (offerOf). A sale's end Magento left behind, beside a regular price from a running price rule, would keep
+ *   the price stale on every check, so it could never be named cheapest.
+ */
+function logOddOffers(event: string, kept: unknown[], hits: number): void {
+  const today = polishDate(Date.now());
+  const counted: [reason: string, isOdd: (hit: OfferHit) => boolean][] = [
+    ["30-day low unread", ({ price }) => lowestOf(price.PLN.default_historical_min_price_formated).odd],
+    ["regular price unread", ({ price }) => isUnread(price.PLN.default_original_formated, parsePolishPrice)],
+    ["promotion end unread", ({ price }) => isUnread(price.PLN.special_to_date, promoEndOf)],
+    ["promotion ended", (hit) => promotionEnded(hit, today)],
+  ];
+  const offerHits = kept.flatMap((hit) => {
     const parsed = offerHitSchema.safeParse(hit);
-    return parsed.success && lowestOf(parsed.data.price.PLN.default_historical_min_price_formated).odd;
-  }).length;
-  if (odd > 0) {
-    logFailure(event, "30-day low unread", `${odd} of ${hits} product hits`);
+    return parsed.success ? [parsed.data] : [];
+  });
+  for (const [reason, isOdd] of counted) {
+    const odd = offerHits.filter(isOdd).length;
+    if (odd > 0) {
+      logFailure(event, reason, `${odd} of ${hits} product hits`);
+    }
   }
+}
+
+/**
+ * True for a value that stands for none: a field left out, `null`, `false`, as Super-Pharm sends a price text it
+ * doesn't have, or text that's empty once trimmed, as the extension writes an unset date.
+ */
+function isNone(value: unknown): boolean {
+  return value === undefined || value === null || value === false || (typeof value === "string" && value.trim() === "");
+}
+
+/** True for a value that's there and isn't none (isNone), yet `read` gives null for it. */
+function isUnread(value: unknown, read: (value: unknown) => unknown): boolean {
+  return !isNone(value) && read(value) === null;
+}
+
+/** True for a hit whose offer, as stored (offerOf), has a promotion that ended before `today`, a date in Poland. */
+function promotionEnded(hit: OfferHit, today: string): boolean {
+  const endsOn = offerOf(hit)?.promoEndsOn ?? null;
+  // Both are `YYYY-MM-DD`, so comparing them as text compares the dates, as the comparison does (polishDate).
+  return endsOn !== null && endsOn < today;
 }
 
 /**
  * A promotion's end from `special_to_date`, a time in whole seconds, as its date in Poland ("YYYY-MM-DD"): the calendar
  * the comparison ends promotions by (polishDate). Null for anything else, such as Super-Pharm's `false` for none, or a
- * time whose date the database could store but the app couldn't read back.
+ * time whose date the database could store but the app couldn't read back; a value that isn't none (isNone) is then
+ * counted in a log line (logOddOffers).
  */
 function promoEndOf(value: unknown): string | null {
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {

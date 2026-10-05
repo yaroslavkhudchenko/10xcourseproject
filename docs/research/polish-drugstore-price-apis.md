@@ -152,7 +152,7 @@ Headers: X-Algolia-Application-Id: EP43QPDX9Q
 Body:    {"params":"query=nivea%20soft&hitsPerPage=20"}
 ```
 
-- The route is this POST, Algolia's documented search of one index; a GET on the index is its legacy, discouraged form. Every search and every price request goes to this one URL, so the app's tests tell them apart by their bodies. The app's bodies also send `analytics=false`, which keeps its requests out of Super-Pharm's search statistics, `attributesToRetrieve` with only the attributes it reads, and `attributesToHighlight=[]`.
+- The route is this POST, Algolia's documented search of one index; a GET on the index is its legacy, discouraged form. Every search and every price request goes to this one URL, so the app's tests tell them apart by their bodies. The app's bodies also send `analytics=false`, which keeps its requests out of Super-Pharm's search statistics, `attributesToRetrieve` with only the attributes it reads, and `attributesToHighlight=[]`, and its price requests send `enableRules=false` too (see the query rules below).
 - Hit fields: `name, sku, url, brand, capacity ("300 ml"), farmax_capacity (300), price.PLN.{default, default_formated, default_historical_min_price_formated (Omnibus), special_from_date, special_to_date}, in_stock, inStoreOnly, showRedPrice, badges, rating_summary, reviews_count, categories, thumbnail_url, variant_skus, variant_attribute, isProductRx, pharmaceuticalFlag, algoliaLastUpdateAtCET, objectID`.
 - No EAN in the index. The product page JSON-LD has it: `"gtin13":"4005900009319"` plus `offers.price`, `availability`, `priceValidUntil`. An EAN query finds nothing (0 hits for 4005900009319 on 2026-10-05), so the app never sends one.
 - Sample hit (trimmed, 2026-09-17; on 2026-10-05 the same item, `objectID` "10132", was on promotion without its regular price, see below):
@@ -172,7 +172,7 @@ Body:    {"params":"query=nivea%20soft&hitsPerPage=20"}
 }
 ```
 
-- Re-checked on 2026-10-05: 7 requests from the developer machine, one at a time and at least 2.5 s apart, with the gate's User-Agent and the owner's approval: robots.txt and the homepage, then 5 to Algolia, three probes and two of the adapter's own requests. The Algolia answers became the `super-pharm-*.json` fixtures, which `src/lib/services/shops/super-pharm.test.ts` lists. A check through the app on the local production preview followed, also approved: 4 requests through the gate, a tap's search, the first refetch after a pick, a list refresh and a re-pin's search.
+- Re-checked on 2026-10-05: 7 requests from the developer machine, one at a time and at least 2.5 s apart, with the gate's User-Agent and the owner's approval: robots.txt and the homepage, then 5 to Algolia, three probes and two of the adapter's own requests. The Algolia answers became the `super-pharm-*.json` fixtures, which `src/lib/services/shops/super-pharm.test.ts` lists. A check through the app on the local production preview followed, also approved: 4 requests through the gate, a tap's search, the first refetch after a pick, a list refresh and a re-pin's search. One more curl request followed on 2026-10-06, approved by the owner: the adapter's price request with the query rules off (below).
 - Ids, sizes and links:
   - `objectID` is the Magento product id ("10132" for Nivea Soft 300 ml), not the `sku` ("39477", which ends the URL's slug). The app pins the `objectID`.
   - `capacity` is the size with its unit, as the shop shows it, and it's searchable: "NIVEA Soft 300 ml" found exactly the 300 ml item. `farmax_capacity` (300) has no unit, so the app never reads a size from it.
@@ -188,8 +188,10 @@ Body:    {"params":"query=nivea%20soft&hitsPerPage=20"}
 
 ```
 POST https://EP43QPDX9Q-dsn.algolia.net/1/indexes/spprod_drugstore_pl_simple_products/query
-Body: {"params":"query=&filters=objectID%3A96276+OR+objectID%3A96278+OR+objectID%3A10132+OR+objectID%3A999999999&hitsPerPage=4&analytics=false&attributesToRetrieve=price%2Cin_stock%2CinStoreOnly&attributesToHighlight=%5B%5D"}
+Body: {"params":"query=&filters=objectID%3A96276+OR+objectID%3A96278+OR+objectID%3A10132+OR+objectID%3A999999999&hitsPerPage=4&analytics=false&attributesToRetrieve=price%2Cin_stock%2CinStoreOnly&attributesToHighlight=%5B%5D&enableRules=false"}
 ```
+
+- Query rules: the index runs its query rules on a price request's empty query too. Both pinned answers of 2026-10-05, sent without `enableRules`, report `rulesProcessing` in their `processingTimingsMS`, and a rule could hide an asked item or add one nobody asked for, so the app's price requests send `enableRules=false`. Re-checked on 2026-10-06 with the adapter's own price request, the body above, rules off: 200, the same three hits at the same prices, the unknown id left out, and no `rulesProcessing` in the answer's `processingTimingsMS`. Its answer is the fixture `super-pharm-pinned-rules-off.json`.
 
 - Dead ends: index `spprod_drugstore_pl_simple` → "does not exist"; `spprod_drugstore_pl_products` → 0 hits; listing indices with the search key → 403 (expected). Search page URL is `/catalogsearch/result/?q=`; `/szukaj` and `/search` are 404.
 
