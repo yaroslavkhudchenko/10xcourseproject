@@ -14,7 +14,7 @@ description: >
   does Sentry (or Datadog, Rollbar, CloudWatch…) miss", "audyt
   observability", "czego nie widzimy w monitoringu", or wants to re-run a
   previous observability audit. Tech-stack agnostic.
-argument-hint: "[area ...] [--runtime] [--verify <report-path>]"
+argument-hint: "[area ...] [--runtime] [--verify <report-path>] [--out <dir-or-file>]"
 allowed-tools:
   - Read
   - Glob
@@ -41,6 +41,15 @@ labelled. The audit's job is to find those mechanisms, show the concrete
 places where they hurt the flows that matter, and prove the worst of them.
 It doesn't produce a lint-style list of every empty `catch`.
 
+**The subject is application code.** The audit asks what the code does with
+a failure once the monitoring pipeline exists: does it throw, catch, log,
+report, flatten or drop it? Whether a logging product or error tracker is
+switched on is a precondition, not the audit's question. It is often set in
+a platform or vendor dashboard, so the repo can't show it.
+Assume the pipeline works in production unless the user says otherwise.
+Config the repo doesn't contain is **unknown, not missing**, and it never
+becomes a root cause.
+
 The skill never modifies the audited code in the main working tree. It
 writes one new report per run. Runtime proof happens only in a throwaway
 isolated copy.
@@ -63,11 +72,19 @@ normal debugging. Also skip when they want to *choose* a monitoring vendor
   `context/foundation/prd.md`, `context/foundation/roadmap.md`. They tell you
   which flows matter to users and the business, so the audit spends its
   budget there.
+- **Symptom (optional, most valuable):** what the user already sees, e.g.
+  "requests show up in the logs but the errors I'm looking for don't". A
+  symptom like that confirms the pipeline works and points the audit at the
+  code paths that lose errors. Use it to steer area selection and the
+  auditor briefs.
 - **Arguments (optional):** area names (e.g. `login checkout "admin import"`)
   override area selection. `--runtime` opts into runtime proof without
   asking. `--verify <report>` re-checks an earlier report's findings instead
-  of hunting for new ones (see *Verify mode*).
-- **Previous reports (optional):** `context/audits/observability/*.md`.
+  of hunting for new ones (see *Verify mode*). `--out <dir-or-file>`, or
+  the user naming a location in words, overrides where the report is
+  written (see Step 6).
+- **Previous reports (optional):** `*.md` in the report directory
+  (default `context/audits/observability/`).
 
 ## Workflow
 
@@ -80,13 +97,15 @@ should see where it is.
    and say so.
 2. Record the run identity. Every report is anchored to exactly what was
    audited, which is what makes reruns comparable:
-   - date and time (`date +%Y-%m-%d_%H%M`), current commit
+   - date (`date +%Y-%m-%d`) and time (`date +%H:%M`), current commit
      (`git rev-parse --short HEAD`), branch, and whether the tree is dirty
      (`git status --porcelain`). A dirty tree is fine, but say so in the
      report.
-3. List earlier reports: `ls context/audits/observability/ 2>/dev/null`.
-   Read the frontmatter of the most recent one (areas covered, commit,
-   open findings). You will use it in Step 2 and Step 6.
+3. List earlier reports in the report directory (default
+   `context/audits/observability/`): `ls <report-dir> 2>/dev/null`.
+   Read the frontmatter of the most recent one: areas covered, commit,
+   open findings. Pick it by the `date` key, which includes the time; file
+   names only carry the day. You will use it in Step 2 and Step 6.
 
 ### Step 1 — Discover the observability stack
 
@@ -115,6 +134,14 @@ description of how a failure travels from code to a human. Do this yourself
 - **Deploy identity:** release/version and environment tags; source maps or
   debug symbols; whether preview/staging traffic is distinguishable from
   production.
+
+Keep this step short. It is context for the code audit, not the audit. Tag
+each claim as **in repo** (cited file:line) or **outside repo** (dashboard
+or platform setting you can't see). For outside-repo pieces, write the
+assumption ("assumed: platform log collection is enabled") instead of a
+finding. If the whole audit depends on one of these (no tracker SDK
+anywhere in the code, and the user didn't mention a symptom), ask the user
+one question about what they see in production before going on. Don't guess.
 
 Put the capture model in the report. The subagents also need it, so they
 don't each rediscover it.
@@ -148,14 +175,15 @@ records how each earlier finding changed.
 Launch in a single message, so they run concurrently:
 
 - **One auditor per area** (read-only).
-- **One plumbing auditor** (read-only). It covers the cross-cutting pieces
-  no area owns: tracker init, boundaries and middleware order, the
-  logger's error serialization, scrubbing hooks, deploy identity,
-  background/worker processes, client-side global handlers, platform log
-  and alert config, plus a repo-wide sweep with counts.
+- **One plumbing auditor** (read-only). It covers the cross-cutting *code*
+  no area owns: tracker init code, boundaries and middleware order, the
+  logger's error serialization, scrubbing hooks, release tagging in code,
+  background/worker entry points, client-side global handlers, plus a
+  repo-wide sweep with counts. It does not audit dashboard or platform
+  settings.
 
 Use the briefs in `references/auditor-briefs.md`. Paste the capture model
-from Step 1 into every brief, together with any known issues from earlier
+from Step 1 into every brief, together with the user's symptom (if any) and known issues from earlier
 reports or triage docs. Classify every finding with the taxonomy and
 severity rubric in `references/gap-taxonomy.md`, so that area results merge
 cleanly.
@@ -200,17 +228,42 @@ Subagents over-report. Before the report:
 - **Deduplicate** across areas. Several area findings are often one
   mechanism: "12 routes don't call the reporter" is *one* coverage gap with
   12 locations, not 12 findings.
+- **Drop precondition findings.** "Logging isn't enabled in the deploy
+  config", "no log forwarding", "no alert rules in the repo" or "no tracker
+  key in the example env file" aren't findings when the setting can live
+  outside the repo. Move them to the report's *Assumptions* list. Keep a
+  config item only when code you can cite actively degrades events (a
+  scrubbing hook that drops stacks, error sampling below 100%, an ignore
+  list that matches first-party errors).
 - **Name the systemic root causes** (usually 3–6). These are the most
   valuable part of the report, because fixing one root cause closes many
-  findings.
+  findings. Every root cause must be a code mechanism with file:line
+  evidence: where the error is caught, converted, stripped or run outside a
+  boundary. "Monitoring isn't configured" is never a root cause. It's
+  unverifiable from the repo, and if it were true it would hide every
+  code-level gap behind one fix that doesn't help.
 - **Order the fixes** by blindness removed per unit of effort. Wide-coverage
-  plumbing fixes (one global boundary, logger serialization, scrubbing
-  scope, release tagging) usually come before local ones.
+  code fixes (one global boundary, logger serialization, scrubbing scope,
+  a shared error-to-response helper that keeps the cause) usually come
+  before local ones.
 
 ### Step 6 — Write the report (new file every run)
 
-Write to `context/audits/observability/<YYYY-MM-DD_HHMM>-<areas-slug>.md`
-using `references/report-template.md`. Create the directory if needed.
+Write the report using `references/report-template.md` to:
+
+```
+<project-root>/context/audits/observability/<YYYY-MM-DD>_<slug>.md
+```
+
+- `<project-root>` is the audited project's root (`git rev-parse
+  --show-toplevel`, or cwd outside git), not the skill's directory.
+- `<slug>` is the audited areas in kebab-case, joined with `-` (e.g.
+  `login-checkout`), or `verify-<areas>` in verify mode.
+- Create the directory if needed.
+- **User override:** if the user passed `--out` or named another location,
+  use it. A directory gets the same `<YYYY-MM-DD>_<slug>.md` file name; a
+  path ending in `.md` is used as is. Use the default in every other case,
+  and don't ask about it.
 
 - **Never overwrite or edit an earlier report.** If the path exists, add
   `-2`, `-3`. Earlier reports are the history that later runs compare
@@ -251,6 +304,9 @@ before/after table. The same probe catalog before and after is what turns
 
 ## Principles
 
+- **Code over configuration.** Assume logs and the tracker are collected in
+  production. The question is what the code hands them. A missing setting
+  you can't see in the repo is an assumption to confirm, not a finding.
 - **Coverage first, then fidelity, then noise.** A failure the tracker never
   sees matters more than one it sees without a stack, which matters more
   than one it sees too often.
