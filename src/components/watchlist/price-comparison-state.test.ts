@@ -7,7 +7,7 @@ import {
   gapText,
   heroOf,
   initialState,
-  markerLabelSides,
+  markerSteps,
   matchChangedText,
   parseRefreshAnswer,
   priceComparisonReducer,
@@ -20,6 +20,7 @@ import {
   start,
   tick,
   trackHint,
+  trackLabels,
   trackOf,
   verdictOfState,
   type PriceComparisonAction,
@@ -28,6 +29,8 @@ import {
   type PricesEventDetail,
   type RefreshResponse,
   type RefreshResult,
+  type TrackLabel,
+  type TrackMarker,
 } from "@/components/watchlist/price-comparison-state";
 import {
   compareShops,
@@ -1172,32 +1175,128 @@ describe("a match that changed under the page", () => {
   });
 });
 
-describe("markerLabelSides", () => {
-  it("centres the labels of markers far apart, as the handoff's Nivea draws them", () => {
-    const { rows, verdict } = nivea();
+describe("trackLabels", () => {
+  // A marker at a place along the track, its price written out as the pages write it.
+  const at = (shop: PricedShop, x: number, amount: number): TrackMarker => ({
+    shop,
+    price: `${amount.toFixed(2).replace(".", ",")}${NO_BREAK_SPACE}zł`,
+    x,
+  });
+  // Each label as the shops it names and the side it sits on.
+  const sides = (labels: TrackLabel[]) => labels.map(({ shops, side }) => [shops, side]);
+  const labelsOf = ({ rows, verdict }: ReturnType<typeof judged>) => trackLabels(trackOf(rows, verdict)?.markers ?? []);
 
-    expect(markerLabelSides(trackOf(rows, verdict)?.markers ?? [])).toEqual(["center", "center"]);
+  it("centres the labels of markers far apart, as the handoff's Nivea draws them", () => {
+    expect(sides(labelsOf(nivea()))).toEqual([
+      [["natura"], "center"],
+      [["rossmann"], "center"],
+    ]);
   });
 
   it("turns the labels of close markers away from each other, whichever comes first", () => {
-    expect(markerLabelSides([{ x: 76.2 }, { x: 80.6 }])).toEqual(["end", "start"]);
-    expect(markerLabelSides([{ x: 80.6 }, { x: 76.2 }])).toEqual(["start", "end"]);
+    const close = [at("rossmann", 76.2, 19.99), at("natura", 80.6, 20.49)];
+
+    expect(sides(trackLabels(close))).toEqual([
+      [["rossmann"], "end"],
+      [["natura"], "start"],
+    ]);
+    expect(sides(trackLabels(close.toReversed()))).toEqual([
+      [["rossmann"], "end"],
+      [["natura"], "start"],
+    ]);
     // 30 % apart is far enough.
-    expect(markerLabelSides([{ x: 20 }, { x: 50 }])).toEqual(["center", "center"]);
+    expect(sides(trackLabels([at("rossmann", 20, 15.99), at("natura", 50, 19.99)]))).toEqual([
+      [["rossmann"], "center"],
+      [["natura"], "center"],
+    ]);
   });
 
-  it("sets the labels of equal prices side by side, in the markers' order", () => {
+  it("sets the labels of two equal prices side by side, in the markers' order, each with its price", () => {
+    const labels = labelsOf(
+      judged([
+        { shop: "rossmann", latest: checkOf(16.99) },
+        { shop: "natura", latest: checkOf(16.99) },
+      ]),
+    );
+
+    expect(sides(labels)).toEqual([
+      [["rossmann"], "end"],
+      [["natura"], "start"],
+    ]);
+    expect(labels.map(({ price }) => price)).toEqual([`16,99${NO_BREAK_SPACE}zł`, `16,99${NO_BREAK_SPACE}zł`]);
+  });
+
+  it("gives three equal prices one label: every name in the markers' order, then the price once", () => {
     const { rows, verdict } = judged([
       { shop: "rossmann", latest: checkOf(16.99) },
       { shop: "natura", latest: checkOf(16.99) },
+      { shop: "hebe", latest: checkOf(16.99) },
     ]);
+    const markers = trackOf(rows, verdict)?.markers ?? [];
 
-    expect(markerLabelSides(trackOf(rows, verdict)?.markers ?? [])).toEqual(["end", "start"]);
+    expect(trackLabels(markers)).toEqual([
+      { shops: markers.map(({ shop }) => shop), price: `16,99${NO_BREAK_SPACE}zł`, x: markers[0].x, side: "center" },
+    ]);
   });
 
-  it("keeps centred a label with close neighbours on both sides", () => {
-    expect(markerLabelSides([{ x: 40 }, { x: 50 }, { x: 60 }])).toEqual(["end", "center", "start"]);
-    expect(markerLabelSides([])).toEqual([]);
+  it("keeps three close labels apart, around a centred middle one, while both gaps leave half a label's room", () => {
+    expect(sides(trackLabels([at("rossmann", 20, 15.99), at("natura", 45, 17.99), at("hebe", 70, 19.99)]))).toEqual([
+      [["rossmann"], "end"],
+      [["natura"], "center"],
+      [["hebe"], "start"],
+    ]);
+  });
+
+  it("gives a closer run one label, centred on it: every name left to right, then 'od' the lowest price", () => {
+    const run = [at("hebe", 60, 19.99), at("rossmann", 40, 19.97), at("natura", 50, 19.98)];
+
+    expect(trackLabels(run)).toEqual([
+      { shops: ["rossmann", "natura", "hebe"], price: `od 19,97${NO_BREAK_SPACE}zł`, x: 50, side: "center" },
+    ]);
+    // One narrow gap is enough.
+    expect(sides(trackLabels([at("rossmann", 20, 15.99), at("natura", 45, 17.99), at("hebe", 55, 18.79)]))).toEqual([
+      [["rossmann", "natura", "hebe"], "center"],
+    ]);
+  });
+
+  it("gives a run of four one label, however wide its gaps", () => {
+    // Only three shops have prices today, so the fourth marker repeats one: the rule reads places, not shops.
+    const four = [at("rossmann", 10, 10.99), at("natura", 35, 12.99), at("hebe", 60, 14.99), at("natura", 85, 16.99)];
+
+    expect(trackLabels(four)).toEqual([
+      {
+        shops: ["rossmann", "natura", "hebe", "natura"],
+        price: `od 10,99${NO_BREAK_SPACE}zł`,
+        x: 47.5,
+        side: "center",
+      },
+    ]);
+  });
+
+  it("labels each run on its own: a lone marker apart from a close pair", () => {
+    expect(sides(trackLabels([at("rossmann", 10, 9.99), at("natura", 70, 19.99), at("hebe", 80, 21.99)]))).toEqual([
+      [["rossmann"], "center"],
+      [["natura"], "end"],
+      [["hebe"], "start"],
+    ]);
+    expect(trackLabels([])).toEqual([]);
+  });
+});
+
+describe("markerSteps", () => {
+  it("leaves a marker at its own place while no other has its price", () => {
+    const { rows, verdict } = nivea();
+
+    expect(markerSteps(trackOf(rows, verdict)?.markers ?? [])).toEqual([0, 0]);
+  });
+
+  it("steps markers at the same price aside, in the markers' order, around their shared place", () => {
+    const marker = (shop: PricedShop, price: string): TrackMarker => ({ shop, price, x: 50 });
+
+    expect(markerSteps([marker("rossmann", "a"), marker("natura", "a")])).toEqual([-1, 1]);
+    expect(markerSteps([marker("rossmann", "a"), marker("natura", "a"), marker("hebe", "a")])).toEqual([-2, 0, 2]);
+    expect(markerSteps([marker("rossmann", "a"), marker("natura", "b"), marker("hebe", "a")])).toEqual([-1, 0, 1]);
+    expect(markerSteps([])).toEqual([]);
   });
 });
 

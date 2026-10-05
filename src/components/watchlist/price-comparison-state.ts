@@ -558,33 +558,88 @@ function lowestOf(rows: readonly ShopPrice[], shops: readonly PricedShop[]): num
   return lows.length === 0 ? null : Math.min(...lows);
 }
 
-/** Where a marker's label sits above it: centred on it, ending at it (to its left) or starting at it (to its right). */
+/** Where a label sits above its place: centred on it, ending at it (to its left) or starting at it (to its right). */
 export type MarkerLabelSide = "center" | "end" | "start";
+
+/**
+ * One label above the price track: the shops it names, left to right, the price it gives, and its place, in percent of
+ * the track's width, with the side it sits on.
+ */
+export interface TrackLabel {
+  shops: PricedShop[];
+  price: string;
+  x: number;
+  side: MarkerLabelSide;
+}
 
 // How close two markers may come, in percent of the track, before their centred labels would run into each other: a
 // label is about as wide as 30 % of a phone's track.
 const CLOSE_MARKERS = 30;
 
 /**
- * Where each marker's label sits, in the markers' order. A label is centred on its marker, unless its neighbour along
- * the track is closer than 30 %: then the one on the left ends at its marker and the one on the right starts at its
- * own, so equal or nearby prices never write over each other. A marker with close neighbours on both sides keeps its
- * label centred. Markers at the same place keep their order, left to right.
+ * The labels above the markers, left to right; markers at the same place keep their order. A run of markers, each
+ * closer than 30 % to the next, shares the room above it. One marker's label is centred on it. Two turn away from each
+ * other: the left one ends at its marker and the right one starts at its own, so equal or nearby prices never write
+ * over each other. Three do the same around a centred middle one, while both gaps leave half a label's room. Any closer
+ * run gets one label, centred on the run: every name, one under another, then the price they share, or "od" the
+ * lowest of theirs when their prices differ.
  */
-export function markerLabelSides(markers: readonly Pick<TrackMarker, "x">[]): MarkerLabelSide[] {
-  const along = markers.map(({ x }, index) => ({ x, index })).sort((a, b) => a.x - b.x || a.index - b.index);
-  const turns = markers.map(() => ({ left: false, right: false }));
-  for (let place = 1; place < along.length; place++) {
-    if (along[place].x - along[place - 1].x < CLOSE_MARKERS) {
-      turns[along[place - 1].index].left = true;
-      turns[along[place].index].right = true;
+export function trackLabels(markers: readonly TrackMarker[]): TrackLabel[] {
+  const along = markers
+    .map((marker, index) => ({ marker, index }))
+    .sort((a, b) => a.marker.x - b.marker.x || a.index - b.index);
+  const runs: TrackMarker[][] = [];
+  for (const { marker } of along) {
+    const run = runs.at(-1);
+    if (run !== undefined && marker.x - run[run.length - 1].x < CLOSE_MARKERS) {
+      run.push(marker);
+    } else {
+      runs.push([marker]);
     }
   }
-  return turns.map(({ left, right }) => {
-    if (left === right) {
-      return "center";
-    }
-    return left ? "end" : "start";
+  return runs.flatMap(labelsOfRun);
+}
+
+/** The labels of one run of close markers, left to right (trackLabels). */
+function labelsOfRun(run: TrackMarker[]): TrackLabel[] {
+  const own = ({ shop, price, x }: TrackMarker, side: MarkerLabelSide): TrackLabel => ({
+    shops: [shop],
+    price,
+    x,
+    side,
+  });
+  const [first, second, third] = run;
+  const last = run[run.length - 1];
+  if (run.length === 1) {
+    return [own(first, "center")];
+  }
+  if (run.length === 2) {
+    return [own(first, "end"), own(second, "start")];
+  }
+  const roomy = (left: TrackMarker, right: TrackMarker) => right.x - left.x >= CLOSE_MARKERS / 2;
+  if (run.length === 3 && roomy(first, second) && roomy(second, third)) {
+    return [own(first, "end"), own(second, "center"), own(third, "start")];
+  }
+  return [
+    {
+      shops: run.map(({ shop }) => shop),
+      // Left to right is from the lowest price to the highest, so the first is the lowest.
+      price: run.every(({ price }) => price === first.price) ? first.price : `od ${first.price}`,
+      x: (first.x + last.x) / 2,
+      side: "center",
+    },
+  ];
+}
+
+/**
+ * How far each marker's circle steps aside, in the markers' order, so markers at the same price stand side by side
+ * around their shared place: in half-steps of the view's spacing, 0 alone, −1 and 1 for two, −2, 0 and 2 for three.
+ */
+export function markerSteps(markers: readonly TrackMarker[]): number[] {
+  return markers.map(({ price }, index) => {
+    const samePrice = markers.filter((marker) => marker.price === price).length;
+    const before = markers.slice(0, index).filter((marker) => marker.price === price).length;
+    return 2 * before - (samePrice - 1);
   });
 }
 
