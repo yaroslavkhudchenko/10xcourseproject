@@ -960,11 +960,11 @@ What each page view and action costs Super-Pharm (`context/foundation/lessons.md
 
 #### Automated
 
-- [x] 5.1 Prettier passes on every changed Markdown file, and `npm run lint` is clean
-- [x] 5.2 CLAUDE.md's course block is byte-identical (sha256 before and after)
-- [ ] 5.3 CI (`ci`, `smoke`, `e2e`) is green on the final commit
+- [x] 5.1 Prettier passes on every changed Markdown file, and `npm run lint` is clean — 85f8c17
+- [x] 5.2 CLAUDE.md's course block is byte-identical (sha256 before and after) — 85f8c17
+- [x] 5.3 CI (`ci`, `smoke`, `e2e`) is green on the final commit — 85f8c17
 
 #### Manual
 
-- [x] 5.4 The owner confirms production's `super-pharm` row is enabled with no disabled reason before the merge
+- [x] 5.4 The owner confirms production's `super-pharm` row is enabled with no disabled reason before the merge — 85f8c17
 - [ ] 5.5 After the merge, the owner's phone check on production passes
