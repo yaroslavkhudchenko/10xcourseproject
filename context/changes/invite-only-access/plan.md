@@ -738,7 +738,7 @@ The "Deferred" item "Sign-up page" is marked done. The end-to-end verification i
   - The signed-in "dashboard renders" step was dropped, not turned into a second 404.
   - After sign-out, `/watchlist` redirecting to sign-in replaces the old dashboard step.
   - The `POST /api/auth/signup` 404 step posts the smoke user's own email and password, as the old step did.
-- **Smoke's Auth sign-up (§3).** It runs after the local-only guard, before any step, and prints one PASS/FAIL line. On a failure it prints Auth's status with its error code, never the key or a token, and exits 1.
+- **Smoke's Auth sign-up (§3).** It runs after the local-only guard, before any step, and prints one PASS/FAIL line. On a failure it prints Auth's status with its error code (or, without one, Auth's message; implementation review F5), never the key or a token, and exits 1.
 - **Follow-up, not this change:** smoke's local-only guard means `npm run smoke` can't target a hosted project. So test-plan rollout Phase 4's signed-out production smoke will need its own entry point or flag. The deploy plan (`context/deployment/deploy-plan.md:56`) already says smoke can't run against production.
 - **Roadmap.** S-07 went to `in-progress` on entry, and `/10x-plan`'s earlier `planning` flip lands in the same commit.
 - **1.8 was agent-run, at the owner's standing request** (headless Chromium at 390 × 844 with touch, on the local production preview, with a throwaway local user):
@@ -892,6 +892,19 @@ The "Deferred" item "Sign-up page" is marked done. The end-to-end verification i
   - `README.md` still says "No database tables or migrations are required", its "## CI" names two jobs (there are three), and "Email confirmation in local development" still describes a cloud project's sign-up.
   - test-plan §4 ("e2e | none yet") and §7 (the kitchen sinks named without `/dev/auth`) are frozen or interview records.
 - **4.4's grep** leaves only dated history: the roadmap's Baseline (as of 2026-09-25), S-07's carry-over text under its "Done" notes, a roadmap line saying those pages answer 404, and the deploy plan's checked records 3.2 and 5.1–5.3.
+
+### Implementation review fixes
+
+`/10x-impl-review` (2026-10-05, `reviews/impl-review.md`): APPROVED, 0 critical, 1 warning, 5 observations. The owner's decisions:
+
+- **F1, fixed: the deploy plan named the wrong moment for `email_exists`.** Auth confirms an invited account when "Ustaw hasło" is pressed, and gives it a temporary password no one knows. That was checked on the local stack: before the button the account was unconfirmed with no password; after it, confirmed with a password; a second invite answered `email_exists`. The how-to now says so, and that a recovery link is the way back for someone who pressed the button but never saved a password. Its length line says the 8 to 72 are counted in bytes.
+- **F2, Fix A: Workers Logs keep an opened link's URL, token included.** This is accepted, since only Cloudflare account members can read them, and recorded in the deploy plan's "Accounts and links (S-07)". The confirm route's comment now says the token goes into no log the app writes. The plan's "Token and key hygiene" hadn't considered the platform's logs.
+- **F3, fixed: the set-password page didn't name the account.** `SetPasswordView` shows the session's email (`Astro.locals.user.email`) in a read-only "E-mail" field with `autocomplete="username"` and no `name`, so it isn't posted. Whoever pressed a forwarded link's button then sees whose password they set, and a password manager saves the new one under that email. The sink passes an example address.
+- **F4, fixed: the secret key could land in shell history, or travel over plain http.**
+  - The deploy plan, CLAUDE.md and the script's header read the key with `read -rs SUPABASE_SECRET_KEY && export SUPABASE_SECRET_KEY` and `unset` it after.
+  - `owner-link.mjs` takes http only for `localhost` and `127.0.0.1`, for `SUPABASE_URL` and `APP_URL` alike: the finding named the first, and the second would print a link that opens over plain http.
+- **F5, fixed: two removed pages weren't pinned.** Smoke gained `GET /auth/signup` and `GET /auth/confirm-email` answering 404, so CLAUDE.md's and README's "the removed pages' 404s" hold. Phase 1's note on smoke's sign-up message is corrected.
+- **F6, Fix A: an anti-framing header and `httpOnly` session cookies are a follow-up.** Both are app-wide and older than S-07, so they wait for a hardening change of their own with its own checks. It's recorded on the roadmap's S-07 block and in `follow-ups/review-fixes.md`, which also lists the accepted risks.
 
 ## References
 

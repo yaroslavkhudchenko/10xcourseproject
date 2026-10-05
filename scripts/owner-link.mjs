@@ -1,10 +1,11 @@
 // The owner's invite and recovery links: makes a link the owner hands to a person, who opens it, presses "Ustaw hasło"
 // and chooses their password, with no email sent and no secret key in the app. Run it on the owner's own machine, with
-// the project's secret key in this one command's environment only, never in .env or .dev.vars, which the build copies
-// into dist/server:
+// the project's secret key in the shell's environment only, never in .env or .dev.vars, which the build copies into
+// dist/server. `read -rs` takes the key without showing it or keeping it in the shell's history:
 //
-//   SUPABASE_URL=<project URL> SUPABASE_SECRET_KEY=<sb_secret_… key> APP_URL=<app origin> \
-//     node scripts/owner-link.mjs <invite|recovery> <email>
+//   read -rs SUPABASE_SECRET_KEY && export SUPABASE_SECRET_KEY
+//   SUPABASE_URL=<project URL> APP_URL=<app origin> node scripts/owner-link.mjs <invite|recovery> <email>
+//   unset SUPABASE_SECRET_KEY
 //
 // - invite: a new account, which gets its first password from the link. Auth refuses an email that already has an
 //   account (email_exists): make a recovery link for it.
@@ -23,7 +24,7 @@ import { Buffer } from "node:buffer";
 import { createClient } from "@supabase/supabase-js";
 
 const USAGE =
-  "Usage: SUPABASE_URL=<project URL> SUPABASE_SECRET_KEY=<secret key> APP_URL=<app origin> node scripts/owner-link.mjs <invite|recovery> <email>";
+  "Usage: read -rs SUPABASE_SECRET_KEY && export SUPABASE_SECRET_KEY, then SUPABASE_URL=<project URL> APP_URL=<app origin> node scripts/owner-link.mjs <invite|recovery> <email>";
 
 // What a handed-over link is for, and the shape of Auth's hashed token, the hex SHA-224 of the email and the link's
 // code, as the confirm page takes them (LINK_TYPES and confirmFormSchema in src/lib/services/auth.ts).
@@ -47,15 +48,20 @@ function refuse(reason) {
   process.exit(1);
 }
 
+// The hosts that may be reached over plain http: this machine, where the local stack and the dev server run.
+const LOCAL_HOSTS = ["localhost", "127.0.0.1"];
+
 /**
- * Whether `value` is an http(s) URL.
+ * Whether `value` is an https URL, or an http one on this machine (LOCAL_HOSTS). Any other http URL is refused, so a
+ * typo such as http://<ref>.supabase.co can't send the secret key in clear, nor an APP_URL print a link that opens
+ * over plain http.
  * @param {string} value
  * @returns {boolean}
  */
-function isHttpUrl(value) {
+function isSecureUrl(value) {
   try {
-    const { protocol } = new URL(value);
-    return protocol === "http:" || protocol === "https:";
+    const { protocol, hostname } = new URL(value);
+    return protocol === "https:" || (protocol === "http:" && LOCAL_HOSTS.includes(hostname));
   } catch {
     return false;
   }
@@ -81,13 +87,14 @@ function isSecretKey(key) {
 }
 
 /**
- * The app's origin, from an APP_URL that is exactly an http(s) origin, such as http://localhost:4321, with at most a
- * trailing slash; null for one with a path, a query, a hash or credentials.
+ * The app's origin, from an APP_URL that is exactly an https origin, or an http one on this machine such as
+ * http://localhost:4321 (isSecureUrl), with at most a trailing slash; null for one with a path, a query, a hash or
+ * credentials.
  * @param {string} value
  * @returns {string | null}
  */
 function appOriginOf(value) {
-  if (!isHttpUrl(value)) return null;
+  if (!isSecureUrl(value)) return null;
   const url = new URL(value);
   return url.href === `${url.origin}/` ? url.origin : null;
 }
@@ -102,12 +109,18 @@ const missing = Object.entries({ SUPABASE_URL, SUPABASE_SECRET_KEY, APP_URL })
 if (missing.length > 0) refuse(`set ${missing.join(", ")} in this command's environment`);
 if (!LINK_TYPES.includes(type)) refuse(`the link's type is invite or recovery, not ${JSON.stringify(type)}`);
 if (email.length > 254 || !EMAIL.test(email)) refuse(`${JSON.stringify(email)} isn't an email`);
-if (!isHttpUrl(SUPABASE_URL)) refuse("SUPABASE_URL isn't the project's http(s) URL");
+if (!isSecureUrl(SUPABASE_URL)) {
+  refuse("SUPABASE_URL isn't the project's https URL (http only for localhost or 127.0.0.1)");
+}
 if (!isSecretKey(SUPABASE_SECRET_KEY)) {
   refuse("SUPABASE_SECRET_KEY isn't a secret key: use an sb_secret_… key, never the publishable or anon one");
 }
 const appOrigin = appOriginOf(APP_URL);
-if (appOrigin === null) refuse("APP_URL isn't the app's http(s) origin, such as http://localhost:4321, with no path");
+if (appOrigin === null) {
+  refuse(
+    "APP_URL isn't the app's https origin with no path (http only for localhost or 127.0.0.1, such as http://localhost:4321)",
+  );
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },

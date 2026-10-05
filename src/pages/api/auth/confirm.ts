@@ -5,9 +5,10 @@ import { confirmBackTo, confirmErrorCodeOf, parseConfirmForm } from "@/lib/servi
 // post uses the link: Auth checks its token and, for a link it still takes, signs the person in on this device, and the
 // set-password page follows. A token that isn't one never reaches Auth. A link that signs no one in goes back to the
 // confirm page with a code the page turns into its own text, never Auth's message, and never with the token, which
-// goes into no address and no log (confirmBackTo). The form posts what the link the owner's script prints holds,
-// `<app>/auth/confirm?token_hash=<token>&type=<invite|recovery>`, whose format is the confirm page's contract
-// (confirmFormSchema, scripts/owner-link.mjs). It asks no shop.
+// goes into no address the app sends and no log it writes (confirmBackTo). Workers Logs do keep the URL of an opened
+// link, token included, an accepted risk the deploy plan names ("Accounts and links (S-07)"). The form posts what the
+// link the owner's script prints holds, `<app>/auth/confirm?token_hash=<token>&type=<invite|recovery>`, whose format
+// is the confirm page's contract (confirmFormSchema, scripts/owner-link.mjs). It asks no shop.
 export const POST: APIRoute = async (context) => {
   let form: FormData;
   try {

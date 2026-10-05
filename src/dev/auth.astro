@@ -250,7 +250,7 @@ const PASSWORD_STATES: { id: string; code: string; text: string; error: string |
                 {COPIES.map(({ theme, wrapper }) => (
                   <div class:list={[FRAME, wrapper]} style={FRAME_STYLE}>
                     <AuthColumn>
-                      <SetPasswordView error={error} idPrefix={`${theme}-password-${id}-`} />
+                      <SetPasswordView email="ola@example.com" error={error} idPrefix={`${theme}-password-${id}-`} />
                     </AuthColumn>
                   </div>
                 ))}

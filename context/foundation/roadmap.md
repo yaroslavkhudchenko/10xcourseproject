@@ -215,6 +215,9 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
   - The owner adds a person as a dashboard account, or with an invite or recovery link that `scripts/owner-link.mjs` prints, run on the owner's machine with a secret key made for that use; no email is sent. A link works once, for 24 hours: `/auth/confirm` uses it only when "Ustaw hasło" is pressed, and `/auth/set-password`, open only to a session a link opened in the last hour, ends on the list with "Hasło zapisane.".
   - Sign-out ends the session on this device only, and the sign-in page says "Wylogowano.".
   - Not built: a page to change a password while signed in (a recovery link sets a new one), any email, and an e2e spec for the links, which would need a secret key in tests; smoke pins the link pages' contracts instead.
+- **Follow-up (S-07 implementation review F6, 2026-10-05):** app-wide hardening, older than S-07, for its own change with its own smoke and e2e checks:
+  - an anti-framing header on every response (`X-Frame-Options: DENY`, or `Content-Security-Policy: frame-ancestors 'none'`), so no other site can frame the sign-in, confirm and set-password forms;
+  - `httpOnly` session cookies (`cookieOptions` in `src/lib/supabase.ts`), since no browser code reads them.
 - **Status:** in-progress
 
 ### S-08: Fix a wrong match and remove a product

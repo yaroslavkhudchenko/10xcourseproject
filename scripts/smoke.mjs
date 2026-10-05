@@ -126,6 +126,9 @@ const steps = [
   ["home sends a visitor to sign-in", () => request("/"), { status: 302, location: "/auth/signin", exact: true }],
   // The starter's demo page is gone, so it answers 404, not a redirect to sign-in.
   ["dashboard answers 404", () => request("/dashboard"), { status: 404 }],
+  // No one registers through the app: the sign-up page and the page that said an email was sent are gone too.
+  ["sign-up page answers 404", () => request("/auth/signup"), { status: 404 }],
+  ["check-your-email page answers 404", () => request("/auth/confirm-email"), { status: 404 }],
   ["watchlist redirects anonymous user", () => request("/watchlist"), { status: 302, location: "/auth/signin" }],
   [
     // The way back keeps the list's filter and drops everything else, the search among it.

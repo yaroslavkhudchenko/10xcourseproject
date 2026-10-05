@@ -309,21 +309,22 @@ Since S-07 (`invite-only-access`, 2026-10-05) the app has no sign-up page and se
 - **An account [you]:** Authentication → Users → Add user → Create new user, with the person's email and a password, and **Auto Confirm User** ticked, as in 1.4. Hand the password over yourself. When they need a new password later, make them a recovery link.
 - **A link [you, own terminal]:** an invite for a new person, who then picks their own password, or a recovery for someone who has an account and needs a new password.
   1. Settings → API Keys: create a secret key (`sb_secret_…`) for this use only, named so you'll recognise it.
-  2. Run the owner script in your own terminal, with the values only in this command's environment:
+  2. Run the owner script in your own terminal. The first line reads the key without showing it or keeping it in the shell's history (paste it, then press Enter), and the last one drops it again:
 
      ```bash
-     SUPABASE_URL=<project URL> SUPABASE_SECRET_KEY=<sb_secret_… key> APP_URL=<app origin> \
-       node scripts/owner-link.mjs <invite|recovery> <email>
+     read -rs SUPABASE_SECRET_KEY && export SUPABASE_SECRET_KEY
+     SUPABASE_URL=<project URL> APP_URL=<app origin> node scripts/owner-link.mjs <invite|recovery> <email>
+     unset SUPABASE_SECRET_KEY
      ```
 
-     - `APP_URL` is the app's origin with no path: `https://drogeria-radar.<subdomain>.workers.dev`.
+     - `APP_URL` is the app's origin with no path: `https://drogeria-radar.<subdomain>.workers.dev`. Both URLs must be https; the script takes http only for `localhost` and `127.0.0.1`, so a typo can't send the key in clear or print a link that opens over plain http.
      - The script asks Auth's admin API for the link (`generateLink`), which sends no email. It prints only the link on stdout, `<APP_URL>/auth/confirm?token_hash=…&type=…`, and a reminder on stderr.
      - It refuses any bad input before it asks anything, a publishable or anon key included, and never prints the key.
      - `email_exists` means the address already has an account: make a recovery link. `user_not_found` means it has none: make an invite link.
 
   3. Hand the link over yourself, in a private message: whoever presses its button first sets the account's password.
      - Opening the link uses nothing, so a link preview can't spend it: the page only shows "Ustaw hasło".
-     - The button signs the person in and opens a form for their password, 8 to 72 characters, with "Zapisz hasło". Only a session a link opened in the last 60 minutes can use that form.
+     - The button signs the person in and opens a form for their password, 8 to 72 characters counted in bytes (a Polish letter counts twice), with "Zapisz hasło". The form shows the account's email, so the person sees whose password they set. Only a session a link opened in the last 60 minutes can use that form.
      - A saved password lands on their list with "Hasło zapisane.".
   4. Delete the key under Settings → API Keys. The link keeps working without it, since the app checks it with its own publishable key. Make a new key for the next link.
 
@@ -331,7 +332,8 @@ Since S-07 (`invite-only-access`, 2026-10-05) the app has no sign-up page and se
   - It works once, for 24 hours from when the script made it (the Email OTP expiration below).
   - A used, expired or unknown link shows "Link wygasł albo został już użyty. Poproś o nowy.": make a new one.
   - A newer link of the same type for the same email makes Auth refuse the older one.
-  - A second invite for an address whose first invite wasn't accepted yet is made too, and replaces the first. Only once the person has set a password does an invite answer `email_exists`.
+  - A second invite for an address whose first link wasn't used yet is made too, and replaces the first. Once the person has pressed "Ustaw hasło", Auth counts the account as confirmed, with a temporary password no one knows, so an invite answers `email_exists`: make a recovery link. It's also the way back for someone who pressed the button but never saved a password.
+  - Workers Logs (`observability` in `wrangler.jsonc`) keep each request's URL, so a link that was opened but not yet used is there, token included, until it's used or expires. Only members of the Cloudflare account can read them, which is accepted (S-07 implementation review, F2). Don't add a log export that keeps URLs.
 - **Production settings [you], before the first link:** Authentication → Sign In / Providers → Email.
   - "Email OTP expiration": **86400** seconds, so a link works for 24 hours.
   - "Email OTP length": **10** digits, which keeps a link unguessable for that long.
