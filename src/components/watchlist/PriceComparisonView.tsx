@@ -24,7 +24,7 @@ import ProductTitle, { type TitleProduct } from "@/components/watchlist/ProductT
 import RefreshBar from "@/components/watchlist/RefreshBar";
 import ShopCard from "@/components/watchlist/ShopCard";
 import VerdictHero from "@/components/watchlist/VerdictHero";
-import { filterHref, type ListFilter } from "@/lib/services/watchlist-rows";
+import { filterHref, signInHref, type ListFilter } from "@/lib/services/watchlist-rows";
 
 interface Props {
   /** The watched product's id, which both refresh forms post. */
@@ -76,8 +76,14 @@ export default function PriceComparisonView({ itemId, listFilter, product, state
           <AlertDescription>
             <p>
               Sesja wygasła.{" "}
-              {/* A link in the sentence keeps its line's height, with a 44 px hit area around it, on one line. */}
-              <a href="/auth/signin" className="hit-area whitespace-nowrap underline hover:decoration-2">
+              {/*
+                A link in the sentence keeps its line's height, with a 44 px hit area around it, on one line. The
+                sign-in it opens comes back to this product, with the list's filter.
+              */}
+              <a
+                href={signInHref(filterHref(`/watchlist/${itemId}`, listFilter))}
+                className="hit-area whitespace-nowrap underline hover:decoration-2"
+              >
                 Zaloguj się ponownie
               </a>
               , aby odświeżyć ceny.

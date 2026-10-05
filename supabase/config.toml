@@ -213,10 +213,13 @@ enable_confirmations = false
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
 max_frequency = "1s"
-# Number of characters used in the email OTP.
-otp_length = 6
-# Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+# Number of characters used in the email OTP. The owner's invite and recovery links (scripts/owner-link.mjs) carry a
+# hash of the email and this code: 10 digits, as production's Email OTP Length, the most its dashboard field takes.
+otp_length = 10
+# Number of seconds before the email OTP expires, so how long an owner's invite or recovery link works: 24 hours, as
+# production's Email OTP Expiration, the most its dashboard field takes. The running stack reads both after
+# `npx supabase stop` and `npx supabase start`.
+otp_expiry = 86400
 
 # Use a production-ready SMTP server
 # [auth.email.smtp]

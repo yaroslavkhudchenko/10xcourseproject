@@ -1,7 +1,7 @@
 // risk: #2 (context/foundation/test-plan.md): a deploy breaks production, here as breakage that shows only on Workers.
 // facet: on the workerd production preview, a signed-in shopper on a phone reaches their own list. The preview is bound to
-// the local Supabase, the session cookie is read on workerd and the middleware attaches the user. `/` answers 200 even
-// without Supabase, so only a signed-in state proves it.
+// the local Supabase, the session cookie is read on workerd and the middleware attaches the user. `/` answers with a
+// redirect to sign-in even without Supabase, so only a signed-in state proves it.
 // seed: the exemplar every spec in tests/e2e copies: role-based locators, waits for state, a name that names its risk.
 import { expect, test } from "@playwright/test";
 import { readRun } from "./support/run";

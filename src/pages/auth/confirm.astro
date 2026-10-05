@@ -1,0 +1,23 @@
+---
+// The page a handed-over link opens: `/auth/confirm?token_hash=<token>&type=<invite|recovery>`, the link the owner's
+// script prints (scripts/owner-link.mjs). That format is this page's contract (confirmFormSchema in
+// src/lib/services/auth.ts): change them together. Opening the page uses nothing, so a link preview or a second look
+// can't use the link up: it only shows "Ustaw hasło", whose form posts the link back to /api/auth/confirm, where Auth
+// checks it (ConfirmView). Without a link it takes, or after a post that came back with a code, it shows the code's text
+// in its own words and no button (confirmPageOf). The address keeps that code, so a reload shows the same text: without
+// it the page would call the link invalid. The address can hold a token, so no cache may keep the page, and the
+// requests the page makes name only the site as their referrer, never the address. That policy is strict-origin, not
+// no-referrer: under no-referrer a browser sends the page's own form post with `Origin: null`, which Astro's
+// checkOrigin refuses. The page itself reads no session, and it asks no shop.
+import ConfirmView from "@/components/auth/ConfirmView.astro";
+import AuthShell from "@/layouts/AuthShell.astro";
+import { confirmPageOf } from "@/lib/services/auth";
+
+Astro.response.headers.set("Cache-Control", "no-store");
+Astro.response.headers.set("Referrer-Policy", "strict-origin");
+const { link, error } = confirmPageOf(Astro.url.searchParams);
+---
+
+<AuthShell title="Hasło do konta">
+  <ConfirmView link={link} error={error} />
+</AuthShell>

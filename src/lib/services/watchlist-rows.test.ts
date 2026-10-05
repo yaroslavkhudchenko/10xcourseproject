@@ -17,11 +17,14 @@ import {
   listRowsOf,
   matchesFailedText,
   matchStatesOf,
+  NEXT_PARAM,
   parseListFilter,
   priceSourcesText,
   rowProductOf,
   rowShopsOf,
   rowTagOf,
+  SIGN_IN_PATH,
+  signInHref,
   type DecisionsRead,
   type ListMatchState,
   type ListMismatch,
@@ -537,6 +540,31 @@ describe("the chips", () => {
     expect(listChipsOf(rows, false, "promo")).toEqual({ counts: null, filter: "all" });
     expect(listChipsOf([], true, "check")).toEqual({ counts: null, filter: "all" });
     expect(listChipsOf(null, true, "check")).toEqual({ counts: null, filter: "all" });
+  });
+});
+
+describe("signInHref, the sign-in page's link", () => {
+  it("is the plain sign-in page without a page to go back to", () => {
+    expect(signInHref()).toBe("/auth/signin");
+    expect(SIGN_IN_PATH).toBe("/auth/signin");
+  });
+
+  it.each<{ next: string; href: string }>([
+    { next: "/watchlist", href: "/auth/signin?next=%2Fwatchlist" },
+    { next: "/watchlist?f=check", href: "/auth/signin?next=%2Fwatchlist%3Ff%3Dcheck" },
+    { next: `/watchlist/${SOFT_ID}`, href: `/auth/signin?next=%2Fwatchlist%2F${SOFT_ID}` },
+    { next: `/watchlist/${SOFT_ID}?f=promo`, href: `/auth/signin?next=%2Fwatchlist%2F${SOFT_ID}%3Ff%3Dpromo` },
+  ])("carries $next, encoded, in next: $href", ({ next, href }) => {
+    expect(signInHref(next)).toBe(href);
+  });
+
+  it("carries the page so the sign-in page reads it back as it was given, the filter's link included", () => {
+    const next = filterHref(`/watchlist/${SOFT_ID}`, "check");
+    const page = new URL(signInHref(next), "https://drogeria.example");
+
+    expect(page.pathname).toBe(SIGN_IN_PATH);
+    expect([...page.searchParams.keys()]).toEqual([NEXT_PARAM]);
+    expect(page.searchParams.get(NEXT_PARAM)).toBe(next);
   });
 });
 

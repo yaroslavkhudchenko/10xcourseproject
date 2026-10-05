@@ -1,0 +1,26 @@
+---
+// The frame of the pages a visitor sees before signing in, the sign-in page among them: on the paper, in the user's
+// theme or else the system's, as the watchlist's screens are, with no pin, and kept clear of a phone's notch and
+// rounded corners, which viewport-fit=cover lets the page reach, as WatchlistShell keeps its content. It centres one
+// column (AuthColumn): the logo above a card that holds the page's content, given in the default slot. The page's
+// title is its name, then the app's.
+import AuthColumn from "@/components/auth/AuthColumn.astro";
+import Layout from "@/layouts/Layout.astro";
+
+interface Props {
+  /** The page's name, which its title puts before the app's: "Logowanie · Drogeria Radar". */
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<Layout title={`${title} · Drogeria Radar`} lang="pl" theme="user">
+  <div class="flex min-h-dvh flex-col bg-paper pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] text-foreground">
+    <main class="flex flex-1 flex-col items-center justify-center px-4.5 py-8 lg:py-12">
+      <AuthColumn>
+        <slot />
+      </AuthColumn>
+    </main>
+  </div>
+</Layout>

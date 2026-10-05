@@ -1,0 +1,64 @@
+---
+// The sign-in form in the auth shell's card, as the sign-in page and the kitchen sink draw it: the page's heading,
+// then what the last post came to, "Wylogowano." after a sign-out as a status or a refused sign-in's error, then the
+// form. It's a plain form, which works without JavaScript: the email and the password with their labels, filled in by
+// the browser's password manager (autocomplete), the page a sign-in goes back to in a hidden field, and "Zaloguj się",
+// posted to /api/auth/signin once (SubmitOnce). It renders from its props alone, so the page and the kitchen sink show
+// the same thing.
+import PasswordInput from "@/components/auth/PasswordInput.astro";
+import SubmitOnce from "@/components/SubmitOnce.astro";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NEXT_PARAM } from "@/lib/services/watchlist-rows";
+
+interface Props {
+  /** The page a sign-in goes back to, as returnPathOf gave it, which the form posts. */
+  next: string;
+  /** Why the last sign-in was refused, as text (`?error=`), or null. */
+  error?: string | null;
+  /** What the page says as a status, "Wylogowano." after a sign-out (`?signed-out=1`), or null. */
+  notice?: string | null;
+  /** What the fields' ids start with, apart for each form where the kitchen sink draws several. */
+  idPrefix?: string;
+}
+
+const { next, error = null, notice = null, idPrefix = "" } = Astro.props;
+const emailId = `${idPrefix}email`;
+const passwordId = `${idPrefix}password`;
+const LABEL = "text-sm font-bold";
+---
+
+<div class="flex flex-col gap-5 lg:gap-6">
+  <h1 class="text-2xl font-extrabold tracking-heading">Logowanie</h1>
+  {notice && (
+    <Alert variant="success" role="status">
+      <AlertDescription>{notice}</AlertDescription>
+    </Alert>
+  )}
+  {error && (
+    <Alert variant="destructive">
+      <AlertDescription>{error}</AlertDescription>
+    </Alert>
+  )}
+  <form method="POST" action="/api/auth/signin" data-submit-once class="flex flex-col gap-4">
+    <input type="hidden" name={NEXT_PARAM} value={next} />
+    <div class="flex flex-col gap-2">
+      <label for={emailId} class:list={LABEL}>
+        E-mail
+      </label>
+      <Input id={emailId} name="email" type="email" autoComplete="email" required />
+    </div>
+    <div class="flex flex-col gap-2">
+      <label for={passwordId} class:list={LABEL}>
+        Hasło
+      </label>
+      <PasswordInput id={passwordId} name="password" autocomplete="current-password" />
+    </div>
+    {/* The phone bottom bar's primary button: 52 px, radius 16, 16 px extra bold, across the card. */}
+    <Button type="submit" size="touch" className="mt-2 h-13 w-full rounded-button-lg text-base font-extrabold">
+      Zaloguj się
+    </Button>
+  </form>
+</div>
+<SubmitOnce />

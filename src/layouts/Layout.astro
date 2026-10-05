@@ -3,24 +3,26 @@ import "../styles/global.css";
 import { Font } from "astro:assets";
 import Banner from "@/components/Banner.astro";
 import { missingConfigs } from "@/lib/config-status";
-import { DARK_THEME, LIGHT_THEME, THEME_CHANGE_EVENT, THEME_STORAGE_KEY, type Theme } from "@/lib/theme";
+import { DARK_THEME, LIGHT_THEME, THEME_CHANGE_EVENT, THEME_STORAGE_KEY } from "@/lib/theme";
 
 interface Props {
+  /** The page's title: the app's name unless the page gives its own. */
   title?: string;
+  /** The page's language: Polish, the app's, unless the page says otherwise. */
   lang?: string;
   /**
    * The theme the page is drawn in. "user", the default, is the user's stored choice, else the system's, which a head
-   * script sets before the first paint and follows while the page is open. "dark" or "light" pins the page to that
-   * theme, with no script.
+   * script sets before the first paint and follows while the page is open. "light" pins the page to the light theme,
+   * with no script, as the dev kitchen sinks are, which draw each section's dark copy in a `dark` wrapper.
    */
-  theme?: "user" | Theme;
+  theme?: "user" | typeof LIGHT_THEME;
 }
 
-const { title = "10x Astro Starter", lang = "en", theme = "user" } = Astro.props;
+const { title = "Drogeria Radar", lang = "pl", theme = "user" } = Astro.props;
 ---
 
 <!doctype html>
-<html lang={lang} class:list={{ [DARK_THEME]: theme === DARK_THEME }}>
+<html lang={lang}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />

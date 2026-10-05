@@ -2,11 +2,12 @@ import { SHOP_LABELS, type MatchableShop } from "@/lib/services/price-comparison
 import type { PriceRefreshCode } from "@/lib/services/price-refresh";
 
 // The parameters a page's address bar brings a notice with, and the notices' texts, defined once for the routes that
-// send them, the pages' frontmatter, the list's head, the product page's shop cards and both pages' address-bar
-// scripts: a saved decision's, with the shop it was for, what each "Odśwież ceny" came to, "Dodaj"'s and a removal's,
-// with the ones that open a shop's re-pin choice or look a shop up again. The scripts run in the browser, so this
-// module imports nothing server-only: besides a type, which the bundle drops, only the shops' labels, from the
-// browser-safe comparison rules.
+// send them, the pages' frontmatter, the list's head, the product page's shop cards and the address-bar scripts of the
+// list, the product page, the sign-in page and the set-password page: a saved decision's, with the shop it was for,
+// what each "Odśwież ceny" came to, "Dodaj"'s, a removal's, a refused sign-in's, a sign-out's, a handed-over link's that
+// didn't sign anyone in, a password's that wasn't saved and a saved password's, with the ones that open a shop's re-pin
+// choice or look a shop up again. The scripts run in the browser, so this module imports nothing server-only: besides a
+// type, which the bundle drops, only the shops' labels, from the browser-safe comparison rules.
 
 /** The parameters a saved decision comes back with (/api/watchlist/matches), in the order the page reads them. */
 export const DECISION_CODES = ["matched", "declined", "decided"] as const;
@@ -115,6 +116,155 @@ export const REPIN_PARAM = "repin";
 export const RETRY_PARAM = "retry";
 
 /**
+ * The parameter the list comes back with when a sign-out didn't go through (`?sign-out=failed`): Auth answered an
+ * error, and the session may still be there.
+ */
+export const SIGN_OUT_PARAM = "sign-out";
+
+/** What SIGN_OUT_PARAM can hold: the sign-out failed. */
+export const SIGN_OUT_CODES = ["failed"] as const;
+
+/** One code of SIGN_OUT_PARAM. */
+export type SignOutCode = (typeof SIGN_OUT_CODES)[number];
+
+/** What the list says for each, as an error: never "Wylogowano.", since the user may still be signed in. */
+export const SIGN_OUT_NOTICES: Record<SignOutCode, string> = {
+  failed: "Nie udało się wylogować. Spróbuj ponownie.",
+};
+
+/** The list's text for a failed sign-out's `?sign-out=` code, or null for anything the app didn't send itself. */
+export function signOutErrorMessage(value: string | null): string | null {
+  const code = SIGN_OUT_CODES.find((each) => each === value);
+  return code === undefined ? null : SIGN_OUT_NOTICES[code];
+}
+
+// What the auth pages say alike: too many tries, which Auth counts by the address it sees, the Worker's, shared by
+// every user of the deployment, and no Supabase, so there was no one to ask.
+const TOO_MANY_TRIES = "Zbyt wiele prób. Spróbuj za kilka minut.";
+const NO_SUPABASE = "Supabase nie jest skonfigurowany.";
+
+/**
+ * The codes a refused sign-in comes back to the sign-in page with (`?error=invalid`), which the page turns into its own
+ * text: a wrong email or password, or a form that couldn't be read (`invalid`); too many tries (`busy`); any other
+ * answer from Auth (`failed`); and no Supabase (`config`).
+ */
+export const SIGN_IN_ERROR_CODES = ["invalid", "busy", "failed", "config"] as const;
+
+/** One code of a refused sign-in. */
+export type SignInErrorCode = (typeof SIGN_IN_ERROR_CODES)[number];
+
+/** What the sign-in page says for each, as an error. */
+export const SIGN_IN_ERRORS: Record<SignInErrorCode, string> = {
+  invalid: "Nieprawidłowy e-mail lub hasło.",
+  busy: TOO_MANY_TRIES,
+  failed: "Nie udało się zalogować. Spróbuj ponownie.",
+  config: NO_SUPABASE,
+};
+
+/**
+ * The sign-in page's text for a refused sign-in's `?error=` code, or null for anything the app didn't send itself, so
+ * a link can't put words on the page.
+ */
+export function signInErrorMessage(value: string | null): string | null {
+  const code = SIGN_IN_ERROR_CODES.find((each) => each === value);
+  return code === undefined ? null : SIGN_IN_ERRORS[code];
+}
+
+/** The parameter the sign-in page comes back with after a sign-out that ended the session (`?signed-out=1`). */
+export const SIGNED_OUT_PARAM = "signed-out";
+
+/** What the sign-in page says then, as a status. */
+export const SIGNED_OUT_NOTICE = "Wylogowano.";
+
+/**
+ * Every parameter the sign-in page shows a notice by, which its address bar forgets once the notice has shown: a
+ * refused sign-in's error and a sign-out's. The page a sign-in goes back to (`next`) stays, for the next try.
+ */
+export const SIGN_IN_NOTICE_PARAMS = [ERROR_PARAM, SIGNED_OUT_PARAM] as const;
+
+/**
+ * The codes a handed-over link that didn't sign anyone in comes back to the confirm page with (`?error=expired`), which
+ * the page turns into its own text: a link Auth no longer takes, because it expired, was used already or was never
+ * made (`expired`); a link whose token or type isn't one, or a form that couldn't be read (`invalid`); too many tries
+ * (`busy`); any other answer from Auth (`failed`); and no Supabase (`config`). The page shows `invalid`'s text for an
+ * address that holds no link at all, too.
+ */
+export const CONFIRM_ERROR_CODES = ["expired", "invalid", "busy", "failed", "config"] as const;
+
+/** One code of a handed-over link that didn't sign anyone in. */
+export type ConfirmErrorCode = (typeof CONFIRM_ERROR_CODES)[number];
+
+/**
+ * What the confirm page says for each, as an error. The page then has no button: the link's token never comes back in
+ * an address, so trying again means opening the link again.
+ */
+export const CONFIRM_ERRORS: Record<ConfirmErrorCode, string> = {
+  expired: "Link wygasł albo został już użyty. Poproś o nowy.",
+  invalid: "Ten link jest nieprawidłowy. Poproś o nowy.",
+  busy: TOO_MANY_TRIES,
+  failed: "Nie udało się sprawdzić linku. Otwórz go jeszcze raz.",
+  config: NO_SUPABASE,
+};
+
+/**
+ * The confirm page's text for a confirm's `?error=` code, or null for anything the app didn't send itself, so a link
+ * can't put words on the page.
+ */
+export function confirmErrorMessage(value: string | null): string | null {
+  const code = CONFIRM_ERROR_CODES.find((each) => each === value);
+  return code === undefined ? null : CONFIRM_ERRORS[code];
+}
+
+/**
+ * The codes a password that wasn't saved comes back to the set-password page with (`?error=weak`), which the page
+ * turns into its own text: a password shorter than 8 or longer than 72 bytes, as Auth counts them, or a form that
+ * couldn't be read (`invalid`); one Auth's own policy refuses (`weak`); the password the account has already (`same`);
+ * too many tries (`busy`); any other answer from Auth (`failed`); and no Supabase (`config`).
+ */
+export const PASSWORD_ERROR_CODES = ["invalid", "weak", "same", "busy", "failed", "config"] as const;
+
+/** One code of a password that wasn't saved. */
+export type PasswordErrorCode = (typeof PASSWORD_ERROR_CODES)[number];
+
+/**
+ * What the set-password page says for each, as an error. The length text says characters, which a password of Latin
+ * letters and digits has as many of as bytes; one with Polish letters such as "ą" or "ż", which take 2 bytes each, may
+ * get it below 72 characters.
+ */
+export const PASSWORD_ERRORS: Record<PasswordErrorCode, string> = {
+  invalid: "Hasło musi mieć od 8 do 72 znaków.",
+  weak: "Hasło jest za słabe.",
+  same: "To hasło jest już ustawione.",
+  busy: TOO_MANY_TRIES,
+  failed: "Nie udało się zapisać hasła. Spróbuj ponownie.",
+  config: NO_SUPABASE,
+};
+
+/**
+ * The set-password page's text for a refused password's `?error=` code, or null for anything the app didn't send
+ * itself, so a link can't put words on the page.
+ */
+export function passwordErrorMessage(value: string | null): string | null {
+  const code = PASSWORD_ERROR_CODES.find((each) => each === value);
+  return code === undefined ? null : PASSWORD_ERRORS[code];
+}
+
+/**
+ * Every parameter the set-password page shows a notice by, which its address bar forgets once the notice has shown: a
+ * refused password's error. A reload then shows the plain form.
+ */
+export const SET_PASSWORD_NOTICE_PARAMS = [ERROR_PARAM] as const;
+
+/**
+ * The parameter the list comes back with once the password a handed-over link let the person set is saved
+ * (`?password-set=1`).
+ */
+export const PASSWORD_SET_PARAM = "password-set";
+
+/** What the list says then, as a status. */
+export const PASSWORD_SET_NOTICE = "Hasło zapisane.";
+
+/**
  * Every parameter the product page's address bar forgets: a notice's, once the notice has shown (a decision's, its
  * shop's, a decision's error, the product's no-JavaScript refresh's, the list's refresh's and a failed removal's), and
  * the re-pin's, once its choice has rendered.
@@ -131,9 +281,17 @@ export const NOTICE_PARAMS = [
 
 /**
  * Every parameter the list shows a notice by, which the list's address bar forgets once the notice has shown:
- * "Dodaj"'s, an error's, the list's refresh's and a removal's. The list's filter and its search stay.
+ * "Dodaj"'s, an error's, the list's refresh's, a removal's, a failed sign-out's and a saved password's. The list's
+ * filter and its search stay.
  */
-export const LIST_NOTICE_PARAMS = [EXISTS_PARAM, ERROR_PARAM, LIST_PRICES_PARAM, REMOVED_PARAM] as const;
+export const LIST_NOTICE_PARAMS = [
+  EXISTS_PARAM,
+  ERROR_PARAM,
+  LIST_PRICES_PARAM,
+  REMOVED_PARAM,
+  SIGN_OUT_PARAM,
+  PASSWORD_SET_PARAM,
+] as const;
 
 /**
  * The page's address without the notice parameters `params` names, keeping every other parameter, the list's filter

@@ -24,6 +24,7 @@ Approved on 2026-09-23. Checkboxes track execution; the Deployment record at the
 
 - dm is dropped from the MVP (PRD FR-013 update, research §9).
 - Changes reach `main` only through pull requests. The `preventFailedDeploy` ruleset is active, with `ci` and `smoke` required, and every merge deploys. Since 2026-10-02 it requires `e2e` too, the Playwright suite added by `testing-critical-browser-flows`.
+- Since 2026-10-05 (S-07, `invite-only-access`) the app has no sign-up page and sends no email. You add a person as a dashboard account or with an invite or recovery link, and a read-only check after each deploy shows that production still refuses sign-up: see "Accounts and links (S-07)".
 
 ## Context
 
@@ -292,7 +293,7 @@ This replaces step 5 of Getting Started in `infrastructure.md`.
 
 ## Operations after this plan
 
-- **Deploy:** merge a pull request into `main`. The ruleset requires green `ci`, `smoke` and `e2e`, and the merge deploys through Workers Builds. A manual `wrangler deploy` is for emergencies only, and only from a clean, up-to-date `main`: `git status` clean, then `npm ci`, `npm run build`, `npx wrangler deploy`.
+- **Deploy:** merge a pull request into `main`. The ruleset requires green `ci`, `smoke` and `e2e`, and the merge deploys through Workers Builds. A manual `wrangler deploy` is for emergencies only, and only from a clean, up-to-date `main`: `git status` clean, then `npm ci`, `npm run build`, `npx wrangler deploy`. After each deploy, run the read-only sign-up check in "Accounts and links (S-07)" until test-plan rollout Phase 4 automates it.
 - **Rollback [you]:** run `npx wrangler versions list --name drogeria-radar`, then `npx wrangler rollback <version-id> --message "<why>"`.
   - Then revert the bad commit on `main`, or the next push redeploys it.
   - A version carries its secret set, and wrangler asks you to confirm when the sets differ. So never roll back to the Phase 3 version `d25099a4` (no secrets) or the 4.1 version `b06bf8cc` (URL only), and never past a key rotation.
@@ -301,11 +302,58 @@ This replaces step 5 of Getting Started in `infrastructure.md`.
 - **Secrets:** `secret put` fails with API error 10215 while an undeployed version is the latest. Deploy first, or use `npx wrangler versions secret put`.
 - **Logs:** `npx wrangler tail drogeria-radar --format json --status error`, or Workers Logs in the dashboard. Retention and event limits depend on the Workers plan; the Free plan kept 3 days.
 
+## Accounts and links (S-07)
+
+Since S-07 (`invite-only-access`, 2026-10-05) the app has no sign-up page and sends no email. You give a person access in one of two ways. A secret key never goes into the app, the Worker, the repo, `.env`, `.dev.vars`, CI or this chat.
+
+- **An account [you]:** Authentication → Users → Add user → Create new user, with the person's email and a password, and **Auto Confirm User** ticked, as in 1.4. Hand the password over yourself. When they need a new password later, make them a recovery link.
+- **A link [you, own terminal]:** an invite for a new person, who then picks their own password, or a recovery for someone who has an account and needs a new password.
+  1. Settings → API Keys: create a secret key (`sb_secret_…`) for this use only, named so you'll recognise it.
+  2. Run the owner script in your own terminal. The first line reads the key without showing it or keeping it in the shell's history (paste it, then press Enter), and the last one drops it again:
+
+     ```bash
+     read -rs SUPABASE_SECRET_KEY && export SUPABASE_SECRET_KEY
+     SUPABASE_URL=<project URL> APP_URL=<app origin> node scripts/owner-link.mjs <invite|recovery> <email>
+     unset SUPABASE_SECRET_KEY
+     ```
+
+     - `APP_URL` is the app's origin with no path: `https://drogeria-radar.<subdomain>.workers.dev`. Both URLs must be https; the script takes http only for `localhost` and `127.0.0.1`, so a typo can't send the key in clear or print a link that opens over plain http.
+     - The script asks Auth's admin API for the link (`generateLink`), which sends no email. It prints only the link on stdout, `<APP_URL>/auth/confirm?token_hash=…&type=…`, and a reminder on stderr.
+     - It refuses any bad input before it asks anything, a publishable or anon key included, and never prints the key.
+     - `email_exists` means the address already has an account: make a recovery link. `user_not_found` means it has none: make an invite link.
+
+  3. Hand the link over yourself, in a private message: whoever presses its button first sets the account's password.
+     - Opening the link uses nothing, so a link preview can't spend it: the page only shows "Ustaw hasło".
+     - The button signs the person in and opens a form for their password, 8 to 72 characters counted in bytes (a Polish letter counts twice), with "Zapisz hasło". The form shows the account's email, so the person sees whose password they set. Only a session a link opened in the last 60 minutes can use that form.
+     - A saved password lands on their list with "Hasło zapisane.".
+  4. Delete the key under Settings → API Keys. The link keeps working without it, since the app checks it with its own publishable key. Make a new key for the next link.
+
+- **How a link behaves:**
+  - It works once, for 24 hours from when the script made it (the Email OTP expiration below).
+  - A used, expired or unknown link shows "Link wygasł albo został już użyty. Poproś o nowy.": make a new one.
+  - A newer link of the same type for the same email makes Auth refuse the older one.
+  - A second invite for an address whose first link wasn't used yet is made too, and replaces the first. Once the person has pressed "Ustaw hasło", Auth counts the account as confirmed, with a temporary password no one knows, so an invite answers `email_exists`: make a recovery link. It's also the way back for someone who pressed the button but never saved a password.
+  - Workers Logs (`observability` in `wrangler.jsonc`) keep each request's URL, so a link that was opened but not yet used is there, token included, until it's used or expires. Only members of the Cloudflare account can read them, which is accepted (S-07 implementation review, F2). Don't add a log export that keeps URLs.
+- **Production settings [you], before the first link:** Authentication → Sign In / Providers → Email.
+  - "Email OTP expiration": **86400** seconds, so a link works for 24 hours.
+  - "Email OTP length": **10** digits, which keeps a link unguessable for that long.
+  - Both are the fields' maximums. They affect only email codes and links, and the app sends none. Local `supabase/config.toml` has the same values.
+  - Set them in the dashboard only. Never run `supabase config push` (decision 5).
+- **Read-only check that sign-up stays refused [you]:** after the S-07 merge, and after each later deploy until test-plan rollout Phase 4 automates it. Put the Project URL and the publishable key from your password manager (1.5) into your shell's environment, then run:
+
+  ```bash
+  curl -s "$SUPABASE_URL/auth/v1/settings" -H "apikey: $SUPABASE_PUBLISHABLE_KEY"
+  ```
+
+  - The answer must hold `"disable_signup":true` and, under `"external"`, `"email":true`: sign-up refused, and the email provider on, which password sign-in needs (1.2).
+  - Anything else means sign-up is open or sign-in is off: redo 1.2.
+  - It creates nothing and needs no secret key. It replaces the sign-up attempt of 5.1, whose route the app no longer has.
+
 ## Deferred, with the trigger that brings each back
 
 - **Workers Paid:** done. Active since 2026-09-27.
 - **Anti-caching headers:** done in S-01 (`watchlist-add-by-search`). The middleware applies the headers `@supabase/ssr` passes to `setAll`, and every signed-in response is `Cache-Control: private, no-store`.
-- **Sign-up page:** replace the starter's `/auth/signup` with the owner-invite path (FR-001). Product work; Supabase already refuses sign-ups.
+- **Sign-up page:** done in S-07 (`invite-only-access`, 2026-10-05). The app has no sign-up page; accounts come from the dashboard or your invite and recovery links, and a read-only check shows that Supabase still refuses sign-ups ("Accounts and links (S-07)").
 - **Sessions and images:** turn on Astro sessions or Cloudflare Images when a feature needs them. The adapter then adds the `SESSION` KV or `IMAGES` binding.
 - **Preview deploys:** Worker Previews or version URLs, only behind Cloudflare Access and with a Supabase project that isn't production. Branch builds currently hit workers-sdk #15682, a false name mismatch with the Vite plugin's generated config.
 - **Local dev:** `npx supabase start` (Docker) with local values in `.env` and `.dev.vars`, never the production key.
@@ -334,7 +382,7 @@ The plan is done when all of these hold:
 - CI is green on `main`.
 - `wrangler deployments list` shows a Workers Builds version from the latest `main` commit.
 - The production URL renders without the config banner.
-- `/dashboard` redirects when signed out and renders when signed in on a phone.
-- Supabase refuses sign-up with `signup_disabled`.
+- `/watchlist` redirects to the Polish sign-in when signed out, and renders on a phone once signed in.
+- The read-only check in "Accounts and links (S-07)" shows `disable_signup` true with the email provider on.
 - The egress probe results are in the research note, and the probe Worker is deleted.
 - The Deployment record is filled in.

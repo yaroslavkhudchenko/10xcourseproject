@@ -55,7 +55,7 @@ npm run dev
 - `npm run lint` - Run ESLint with type-checked rules
 - `npm run lint:fix` - Auto-fix ESLint issues
 - `npm run format` - Run Prettier
-- `npm run smoke` - Smoke test the auth flow against a running server (`BASE_URL`, defaults to `http://localhost:4321`)
+- `npm run smoke` - Smoke test the auth flow against a running server bound to the local Supabase (`SUPABASE_URL` and `SUPABASE_KEY` from `.env`; `BASE_URL`, defaults to `http://localhost:4321`)
 
 ## Project Structure
 
@@ -140,14 +140,17 @@ Users can then sign in immediately after sign-up without clicking a confirmation
 
 ### Auth routes
 
-| Route                 | Description                                                             |
-| --------------------- | ----------------------------------------------------------------------- |
-| `/auth/signin`        | Email/password sign-in form                                             |
-| `/auth/signup`        | Email/password sign-up form                                             |
-| `/auth/confirm-email` | Post-signup "check your inbox" page                                     |
-| `/dashboard`          | Example protected page (redirects to `/auth/signin` if unauthenticated) |
+Nobody can register: there is no sign-up page, and the app sends no email. The owner creates each account in the Supabase dashboard, or hands out an invite or recovery link made with `scripts/owner-link.mjs` (see `context/deployment/deploy-plan.md`, "Accounts and links (S-07)").
 
-Route protection is handled in `src/middleware.ts`. Add paths to the `PROTECTED_ROUTES` array there to require authentication.
+| Route                    | Description                                                                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `/`                      | Redirects a signed-in user to `/watchlist` and a visitor to `/auth/signin`                                                     |
+| `/auth/signin`           | Polish email and password sign-in; after signing in, `?next=` returns to the list or a product, else to `/watchlist`           |
+| `/auth/confirm`          | The page an invite or recovery link opens (`?token_hash=…&type=invite\|recovery`); only its "Ustaw hasło" button uses the link |
+| `/auth/set-password`     | Sets the account's password, only for a session a link opened in the last 60 minutes; then the list with "Hasło zapisane."     |
+| `POST /api/auth/signout` | Signs out this device only, then `/auth/signin` with "Wylogowano."                                                             |
+
+Route protection is handled in `src/middleware.ts`. Add paths to the `PROTECTED_ROUTES` array there to require authentication. A signed-out request to the list or a product goes to `/auth/signin` with itself as `?next=`; any other protected path goes to the plain `/auth/signin`.
 
 ## Deployment
 
@@ -169,14 +172,14 @@ Set `SUPABASE_URL` and `SUPABASE_KEY` as secrets in your Cloudflare dashboard or
 
 ## Smoke test
 
-`scripts/smoke.mjs` is a dependency-free Node script that walks the whole auth flow (sign-up, sign-in, protected page, sign-out) over HTTP. Run it against the dev server or the production preview after dependency upgrades:
+`scripts/smoke.mjs` is a dependency-free Node script that walks the auth flow over HTTP: the redirects of `/` and the protected pages and routes, sign-in with its return path and error codes, the link pages' contracts, sign-out, and the 404s of the removed sign-up and demo pages. The app lets no one register, so the script signs its own throwaway user up through Supabase Auth's `/auth/v1/signup`. Run it against the dev server or the production preview after dependency upgrades:
 
 ```bash
 npm run dev            # or: npm run build && npm run preview
 BASE_URL=http://localhost:4321 npm run smoke
 ```
 
-It needs a reachable Supabase instance (local or cloud) with email confirmation disabled.
+`npm run smoke` reads `SUPABASE_URL` and `SUPABASE_KEY` from `.env` (`node --env-file-if-exists=.env`). They must name the local stack the server uses, with sign-up on and email confirmation off, as `supabase/config.toml` sets them: the script refuses any other `SUPABASE_URL`, so it never runs against a hosted project. `BASE_URL` defaults to `http://localhost:4321`.
 
 > **Note:** this script exists primarily to guard the development of the starter itself — it is a fast sanity check that dependency upgrades did not break the build, the Cloudflare adapter or the Supabase auth flow. It is **not** a substitute for a real test suite. Once you build your own product on top of this starter, add proper tests (unit, integration, end-to-end) suited to your application.
 

@@ -1,0 +1,264 @@
+---
+// The auth pages' kitchen sink: the pages' column, the logo above the card, with the sign-in form, a handed-over link's
+// page and the set-password form, built by the pages' own components (AuthColumn, SignInView, ConfirmView,
+// SetPasswordView) and rules (confirmPageOf, the notices' texts), in every state each page can show, for review and
+// screenshots. Only `astro dev` serves it (astro.config.mjs). The page is pinned to the light theme and draws every
+// state twice, side by side on a wide screen: in the light theme, then in a `dark` wrapper, whose class switches the
+// tokens for all it holds. Each copy stands on the paper with the page's gutter, in a frame as wide as a large phone, so
+// the column takes its full 384 px. The forms post to the real routes, as the pages' do: credentials typed here sign
+// in for real; the link's button sends a token no one was given, which Auth refuses after one check; and a new password
+// is saved only from a session a link opened in the last hour, so any other goes to the list. The browser sends no form
+// with an empty field. The password field's show/hide button and the forms' SubmitOnce run here as on the pages, and
+// every 44 px hit area is outlined. Tailwind doesn't scan this folder (global.css), so its markup uses only classes the
+// app itself uses, and the frames' widths are inline styles.
+import AuthColumn from "@/components/auth/AuthColumn.astro";
+import ConfirmView from "@/components/auth/ConfirmView.astro";
+import SetPasswordView from "@/components/auth/SetPasswordView.astro";
+import SignInView from "@/components/auth/SignInView.astro";
+import Layout from "@/layouts/Layout.astro";
+import {
+  CONFIRM_ERROR_CODES,
+  ERROR_PARAM,
+  PASSWORD_ERROR_CODES,
+  passwordErrorMessage,
+  SIGN_IN_ERROR_CODES,
+  SIGN_IN_ERRORS,
+  SIGNED_OUT_NOTICE,
+  type ConfirmErrorCode,
+  type PasswordErrorCode,
+  type SignInErrorCode,
+} from "@/lib/notices";
+import { confirmPageOf, type ConfirmPage } from "@/lib/services/auth";
+import { DEFAULT_RETURN_PATH } from "@/lib/services/return-path";
+import { filterHref } from "@/lib/services/watchlist-rows";
+import { DARK_THEME, LIGHT_THEME } from "@/lib/theme";
+
+// Each state's two copies: the page's own light theme, then the dark one in a wrapper, which switches the tokens of
+// the frame and all it holds.
+const COPIES = [
+  { theme: LIGHT_THEME, wrapper: "" },
+  { theme: DARK_THEME, wrapper: "dark" },
+] as const;
+// A column of text: 32rem, as in the other kitchen sinks.
+const COLUMN_STYLE = "max-width: 32rem";
+// A frame stands for the page around the column, as AuthShell draws it: the paper, with the page's gutter and its room
+// above and below.
+const FRAME = "flex w-full flex-col items-center rounded-card bg-paper px-4.5 py-8 text-foreground";
+// As wide as a large phone's screen: the column's 384 px with the gutter on either side, so the two copies of a state
+// stand side by side on a wide screen.
+const FRAME_STYLE = "max-width: 430px";
+
+// A product no one has, whose page answers 404 before any lookup: the page a sign-in from its product goes back to.
+const PRODUCT_PAGE = filterHref("/watchlist/00000000-0000-4000-8000-000000000000", "check");
+
+// What brings each error, as the route sends its code. The wrong password's comes from a product's page, so its form
+// keeps the way back there in its hidden next.
+const ERROR_CAUSES: Record<SignInErrorCode, string> = {
+  invalid:
+    "zły e-mail lub hasło, albo formularz, którego nie da się odczytać; tu wysłany ze strony produktu, więc ukryte pole next zachowuje drogę powrotną",
+  busy: "Auth odpowiedział 429: za dużo prób z adresu, który widzi, wspólnego dla wszystkich użytkowników",
+  failed: "każda inna odpowiedź Auth",
+  config: "bez Supabase aplikacja nie ma kogo zapytać",
+};
+
+/** The sign-in page's states: as opened, sent from a product's page, after a sign-out, and after each refusal. */
+const STATES: {
+  id: string;
+  code: string;
+  text: string;
+  next: string;
+  error: string | null;
+  notice: string | null;
+}[] = [
+  {
+    id: "plain",
+    code: "plain",
+    text: "strona, jak ją otwiera /auth/signin albo / bez sesji: po zalogowaniu lista",
+    next: DEFAULT_RETURN_PATH,
+    error: null,
+    notice: null,
+  },
+  {
+    id: "next",
+    code: "next",
+    text: `z drogą powrotną do produktu, jak po przekierowaniu z jego strony: ukryte pole next niesie ${PRODUCT_PAGE}`,
+    next: PRODUCT_PAGE,
+    error: null,
+    notice: null,
+  },
+  {
+    id: "signed-out",
+    code: "signed-out",
+    text: "po wylogowaniu (?signed-out=1): komunikat jako status",
+    next: DEFAULT_RETURN_PATH,
+    error: null,
+    notice: SIGNED_OUT_NOTICE,
+  },
+  ...SIGN_IN_ERROR_CODES.map((code) => ({
+    id: `error-${code}`,
+    code: `error=${code}`,
+    text: ERROR_CAUSES[code],
+    next: code === "invalid" ? PRODUCT_PAGE : DEFAULT_RETURN_PATH,
+    error: SIGN_IN_ERRORS[code],
+    notice: null,
+  })),
+];
+
+// A token no one was given, in the shape of Auth's (56 hex digits): the ready state's button sends it, and Auth answers
+// that the link expired, after one check.
+const UNKNOWN_TOKEN = "0".repeat(56);
+
+// What brings each of the confirm page's errors, as the route sends its code.
+const CONFIRM_CAUSES: Record<ConfirmErrorCode, string> = {
+  expired: "Auth nie przyjął linku: wygasł, został już użyty albo nigdy go nie było (otp_expired)",
+  invalid: "token albo typ, których strona nie przyjmuje, albo formularz, którego nie da się odczytać",
+  busy: "Auth odpowiedział 429: za dużo prób z adresu, który widzi, wspólnego dla wszystkich użytkowników",
+  failed: "każda inna odpowiedź Auth, albo odpowiedź bez sesji",
+  config: "bez Supabase aplikacja nie ma kogo zapytać",
+};
+
+/** The confirm page's states, each built by the page's own rule from its address: a link, each error, and no link. */
+const CONFIRM_STATES: { id: string; code: string; text: string; page: ConfirmPage }[] = [
+  {
+    id: "ready",
+    code: "ready",
+    text: "link od właściciela, jak go otwiera /auth/confirm?token_hash=…&type=invite: tylko przycisk zużywa link, wysyłając go w ukrytych polach; tu token, którego nikt nie dostał, więc Auth odpowie expired",
+    page: confirmPageOf(new URLSearchParams({ token_hash: UNKNOWN_TOKEN, type: "invite" })),
+  },
+  ...CONFIRM_ERROR_CODES.map((code) => ({
+    id: `error-${code}`,
+    code: `error=${code}`,
+    text: `${CONFIRM_CAUSES[code]}; bez przycisku, bo token nie wraca w adresie`,
+    page: confirmPageOf(new URLSearchParams({ [ERROR_PARAM]: code })),
+  })),
+  {
+    id: "no-token",
+    code: "no token",
+    text: "adres bez linku (/auth/confirm): tekst kodu invalid",
+    page: confirmPageOf(new URLSearchParams()),
+  },
+];
+
+// What brings each of the set-password page's errors, as the route sends its code.
+const PASSWORD_CAUSES: Record<PasswordErrorCode, string> = {
+  invalid:
+    "hasło krótsze niż 8 albo dłuższe niż 72 bajty, jak liczy je Auth: polska litera to 2 bajty, albo formularz, którego nie da się odczytać",
+  weak: "hasło, którego nie przyjmuje polityka haseł Auth (weak_password)",
+  same: "hasło, które konto już ma (same_password)",
+  busy: "Auth odpowiedział 429: za dużo prób z adresu, który widzi, wspólnego dla wszystkich użytkowników",
+  failed: "każda inna odpowiedź Auth",
+  config: "bez Supabase aplikacja nie ma kogo zapytać",
+};
+
+/** The set-password page's states: as a link's session opens it, and after each refusal. */
+const PASSWORD_STATES: { id: string; code: string; text: string; error: string | null }[] = [
+  {
+    id: "plain",
+    code: "plain",
+    text: "strona po naciśnięciu „Ustaw hasło”, tylko dla sesji z linku sprzed najwyżej godziny: pole nowego hasła dla menedżera haseł (new-password); po zapisaniu lista z „Hasło zapisane.”",
+    error: null,
+  },
+  ...PASSWORD_ERROR_CODES.map((code) => ({
+    id: `error-${code}`,
+    code: `error=${code}`,
+    text: PASSWORD_CAUSES[code],
+    error: passwordErrorMessage(code),
+  })),
+];
+---
+
+<Layout title="Kitchen sink: logowanie · Drogeria Radar" lang="pl" theme="light">
+  <div class="min-h-dvh bg-paper p-4 text-foreground">
+    <main class="flex flex-col gap-6">
+      <header class="flex flex-col gap-3" style={COLUMN_STYLE}>
+        <h1 class="text-2xl font-bold">Kitchen sink: logowanie</h1>
+        <p class="text-sm text-muted-foreground">
+          Strony <code>/auth/signin</code>, <code>/auth/confirm</code> i <code>/auth/set-password</code> w każdym
+          stanie, jaki mogą pokazać, zbudowane ich komponentami (<code>AuthColumn</code>, <code>SignInView</code>,{" "}
+          <code>ConfirmView</code>, <code>SetPasswordView</code>). Każdy stan jest dwa razy: w jasnym motywie i w
+          ciemnym. Ta strona istnieje tylko w <code>astro dev</code>.
+        </p>
+        <p class="text-sm text-muted-foreground">
+          Formularze wysyłają się naprawdę, jak na stronach: prawdziwe dane logują, „Ustaw hasło” wysyła token, którego
+          nikt nie dostał, więc Auth go odrzuca, a „Zapisz hasło” zapisuje hasło tylko w sesji z linku sprzed najwyżej
+          godziny, każda inna trafia na listę. Przycisk „Pokaż hasło” działa tylko z JavaScriptem, więc bez niego jest
+          ukryty; kreska obrysowuje jego strefę dotyku 44 × 44 px. <code>:hover</code> i <code>focus-visible</code>{" "}
+          trzeba sprawdzić w DevTools i klawiaturą: każde pole i przycisk ma obrys 2 px w kolorze <code>--ring</code>, 2
+          px od krawędzi.
+        </p>
+      </header>
+
+      <section aria-labelledby="signin-heading" class="flex flex-col gap-3">
+        <h2 id="signin-heading" class="text-lg font-semibold">
+          Logowanie
+        </h2>
+        <div class="flex flex-col gap-6" data-show-hit-areas>
+          {STATES.map(({ id, code, text, next, error, notice }) => (
+            <div class="flex flex-col gap-1">
+              <p class="text-xs text-muted-foreground" style={COLUMN_STYLE}>
+                <code>{code}</code> · {text}
+              </p>
+              <div class="flex flex-wrap items-start gap-6">
+                {COPIES.map(({ theme, wrapper }) => (
+                  <div class:list={[FRAME, wrapper]} style={FRAME_STYLE}>
+                    <AuthColumn>
+                      <SignInView next={next} error={error} notice={notice} idPrefix={`${theme}-${id}-`} />
+                    </AuthColumn>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section aria-labelledby="confirm-heading" class="flex flex-col gap-3">
+        <h2 id="confirm-heading" class="text-lg font-semibold">
+          Link do konta
+        </h2>
+        <div class="flex flex-col gap-6" data-show-hit-areas>
+          {CONFIRM_STATES.map(({ code, text, page }) => (
+            <div class="flex flex-col gap-1">
+              <p class="text-xs text-muted-foreground" style={COLUMN_STYLE}>
+                <code>{code}</code> · {text}
+              </p>
+              <div class="flex flex-wrap items-start gap-6">
+                {COPIES.map(({ wrapper }) => (
+                  <div class:list={[FRAME, wrapper]} style={FRAME_STYLE}>
+                    <AuthColumn>
+                      <ConfirmView link={page.link} error={page.error} />
+                    </AuthColumn>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section aria-labelledby="set-password-heading" class="flex flex-col gap-3">
+        <h2 id="set-password-heading" class="text-lg font-semibold">
+          Nowe hasło
+        </h2>
+        <div class="flex flex-col gap-6" data-show-hit-areas>
+          {PASSWORD_STATES.map(({ id, code, text, error }) => (
+            <div class="flex flex-col gap-1">
+              <p class="text-xs text-muted-foreground" style={COLUMN_STYLE}>
+                <code>{code}</code> · {text}
+              </p>
+              <div class="flex flex-wrap items-start gap-6">
+                {COPIES.map(({ theme, wrapper }) => (
+                  <div class:list={[FRAME, wrapper]} style={FRAME_STYLE}>
+                    <AuthColumn>
+                      <SetPasswordView email="ola@example.com" error={error} idPrefix={`${theme}-password-${id}-`} />
+                    </AuthColumn>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </main>
+  </div>
+</Layout>
