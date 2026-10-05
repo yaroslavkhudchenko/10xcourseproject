@@ -1,0 +1,119 @@
+{
+  "hits": [
+    {
+      "name": "Nivea Krem do rąk Intensywne Nawilżenie",
+      "url": "https://www.superpharm.pl/nivea-krem-do-rak-intensywne-nawilzenie-167924",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/5/15040933_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 13.99,
+          "default_formated": "13,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": 1668470400,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "capacity": "100 ml",
+      "inStoreOnly": 0,
+      "objectID": "96276"
+    },
+    {
+      "name": "Nivea Krem do rąk Luminous 360 przeciw Przebarwieniom",
+      "url": "https://www.superpharm.pl/nivea-krem-do-rak-luminous-360-przeciw-przebarwieniom-167925",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/5/15021115_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 28.99,
+          "default_formated": "28,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": 1668470400,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "capacity": "50 ml",
+      "inStoreOnly": 0,
+      "objectID": "96278"
+    },
+    {
+      "name": "Nivea Soft Krem nawilżający (Pudełko)",
+      "url": "https://www.superpharm.pl/nivea-soft-krem-nawilzajacy-pudelko-39477",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/n/i/nivea-soft-krem-do-twarzy-i-ciala-200ml-1_2.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 19.49,
+          "default_formated": "19,49 zł",
+          "default_historical_min_price_formated": "33,99 zł",
+          "special_from_date": 1480001487,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "capacity": "300 ml",
+      "inStoreOnly": 0,
+      "objectID": "10132"
+    },
+    {
+      "name": "Nivea Mini - Krem Uniwersalny",
+      "url": "https://www.superpharm.pl/nivea-mini-krem-uniwersalny-84638",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/n/i/nivea-krem-uniwersalny-30ml-1_2.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 4.09,
+          "default_formated": "4,09 zł",
+          "default_historical_min_price_formated": "7,99 zł",
+          "special_from_date": 1604102400,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "capacity": "30 ml",
+      "inStoreOnly": 0,
+      "objectID": "58823"
+    },
+    {
+      "name": "Nivea Hand Krem do rąk Protective Care z Woskiem Pszczelim",
+      "url": "https://www.superpharm.pl/nivea-hand-krem-do-rak-protective-care-z-woskiem-pszczelim-137777",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/6/16369168_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 9.49,
+          "default_formated": "9,49 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": 1604102400,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "capacity": "75 ml",
+      "inStoreOnly": 0,
+      "objectID": "47977"
+    }
+  ],
+  "nbHits": 134,
+  "page": 0,
+  "nbPages": 14,
+  "hitsPerPage": 10,
+  "exhaustiveNbHits": true,
+  "exhaustiveTypo": true,
+  "exhaustive": {
+    "nbHits": true,
+    "typo": true
+  },
+  "query": "NIVEA krem",
+  "params": "query=NIVEA+krem&hitsPerPage=10&analytics=false&attributesToRetrieve=name%2Cbrand%2Ccapacity%2Curl%2Cthumbnail_url%2Cprice%2Cin_stock%2CinStoreOnly&attributesToHighlight=%5B%5D&tagFilters=",
+  "processingTimeMS": 1,
+  "processingTimingsMS": {
+    "_request": {
+      "roundTrip": 45
+    },
+    "total": 1
+  },
+  "serverTimeMS": 2
+}

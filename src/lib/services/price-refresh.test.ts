@@ -117,11 +117,16 @@ const TRACKER_SHOPS = new Map<string, KnownShop>([
   ["703598-939363", "natura"],
   ["421168-505233", "hebe"],
 ]);
+// The hosts only one shop's requests go to.
+const HOST_SHOPS = new Map<string, KnownShop>([
+  ["www.rossmann.pl", "rossmann"],
+  ["ep43qpdx9q-dsn.algolia.net", "super-pharm"],
+]);
 
-/** The shop a request asks: Rossmann by its host, and Natura or Hebe by their trackers. */
+/** The shop a request asks: Rossmann and Super-Pharm by their hosts, and Natura or Hebe by their trackers. */
 function shopOf(url: string): KnownShop {
   const { host, searchParams } = new URL(url);
-  const shop = host === "www.rossmann.pl" ? "rossmann" : TRACKER_SHOPS.get(searchParams.get("tracker_id") ?? "");
+  const shop = HOST_SHOPS.get(host) ?? TRACKER_SHOPS.get(searchParams.get("tracker_id") ?? "");
   if (shop === undefined) {
     throw new Error(`No shop asked by ${url}`);
   }
@@ -159,7 +164,7 @@ function setup(entries: ReplayEntry[], reserve?: (shop: ShopId) => unknown) {
 function slowReplay(entries: ReplayEntry[]) {
   const replay = createReplayFetch(entries);
   const inFlight: KnownShop[] = [];
-  const most: Record<"all" | KnownShop, number> = { all: 0, rossmann: 0, natura: 0, hebe: 0 };
+  const most: Record<"all" | KnownShop, number> = { all: 0, rossmann: 0, natura: 0, hebe: 0, "super-pharm": 0 };
   const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
     const shop = shopOf(urlOf(input));
     inFlight.push(shop);
@@ -621,8 +626,9 @@ describe("refreshPrices: every priced shop, Hebe's too", () => {
     expect(urlsTo(fetchMock, "rossmann")).toEqual([answers.felix.url, answers.nivea.url]);
     expect(urlsTo(fetchMock, "natura")).toEqual(naturaBatches);
     expect(urlsTo(fetchMock, "hebe")).toEqual(hebeBatches);
-    // Never two requests to one shop at once, and the three shops' requests in flight together.
-    expect(most).toEqual({ all: 3, rossmann: 1, natura: 1, hebe: 1 });
+    // Never two requests to one shop at once, and the three shops' requests in flight together; Super-Pharm, which
+    // isn't switched on, is asked nothing.
+    expect(most).toEqual({ all: 3, rossmann: 1, natura: 1, hebe: 1, "super-pharm": 0 });
     expect(refresh).toEqual({ results: targets.map((key) => ({ key, check: answered(key) })), saved: "saved" });
     expect(queries).toHaveLength(3);
     expect(queries).toEqual(

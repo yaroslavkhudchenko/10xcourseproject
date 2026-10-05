@@ -760,7 +760,31 @@ What each page view and action costs Super-Pharm (`context/foundation/lessons.md
 
   A third was added and went red too: a dot accepted as the decimal mark ("reads nothing from a dot as the decimal mark").
 
-- **Heads-up for Phase 2:** write a no-break space in code as the ` ` escape. A literal one fails ESLint's `no-irregular-whitespace`, and a file write once turned the escapes into literal characters.
+- **Heads-up for Phase 2:** write a no-break space in code as the `\u00A0` escape. A literal one fails ESLint's `no-irregular-whitespace`, and a file write once turned the escapes into literal characters.
+
+### Phase 2
+
+- **The recordings** (§1): two of the three allowed, each approved by the owner on 2026-10-05 and sent at 18:51 UTC with the adapter's own bodies. The spare was skipped on the owner's call: no recorded hit carries `default_original_formated`, so a test adds it to a copy of a real hit.
+  - The fixtures are the plan's three (P3, P5 and P6), `super-pharm-name-search.json` (the name search, cut to its first 5 of 10 hits) and `super-pharm-pinned.json` (the pinned batch, whole). Each equals its raw answer, every number as written.
+  - In the 21-id test, P5's real empty answer answers the second request, as no empty price answer was recorded.
+- **The attributes a request retrieves** (§2): the price request's are `price,in_stock,inStoreOnly`, as the approved recording was sent, without `objectID`, which Algolia returns on every hit anyway. The search's list leaves it out the same way.
+- **A promotion's end** (§2, the owner's call, 2026-10-05): `special_to_date` counts only beside a regular price the offer keeps.
+  - That is how the search extension's own frontend reads it (`view/frontend/web/internals/common.js:151-159` in version 3.9.1, the one Super-Pharm's page declares).
+  - Magento keeps a sale's dates on the record after the sale (P3's hit still has a `special_from_date` from 2016), and a past end would make the current price stale on every check, so it could never be named cheapest.
+  - No recorded hit has a date, so the tests pin the rule on copies.
+- **`polishDate`** is now exported from `price-comparison.ts`, so the adapter writes a promotion's end on the calendar the comparison reads it with.
+- **The 30-day low** (§2): `false`, a missing field and `null` mean none, with no log line. Any other value that doesn't read as a price is counted as "30-day low unread". On the price path the adapter's request function writes that line, since the shared helpers have no hook for a second odd field, so it comes before theirs.
+- **`inStoreOnly` 1** (§2) is a clear "sold only in the shops": not orderable and not counted, like `in_stock` 0 and Hebe's `[false]`. Only a value other than 0, 1 or missing is counted, which is what "as Hebe's odd online flag is" meant.
+- **`price-refresh.test.ts`** (§3): besides `shopOf` and the `most` literal, the one assertion on the whole `most` record gained `"super-pharm": 0`, which also shows the switched-off shop is asked nothing.
+- **Test plan §6.4** (§4): "Another search provider" and "Asserting POST bodies" are new, and the cases, the broken copies and "Done means" gained Algolia's points.
+- **Break-checks:** the plan's three went red:
+  - the size from `farmax_capacity`: 1 test;
+  - an `inStoreOnly` item orderable: 2 tests;
+  - the 30-day low as the regular price: 42 tests.
+
+  A fourth, for the owner's rule, went red too: a promotion's end without a regular price beside it, 6 tests.
+
+- **Heads-up for Phase 3:** a file write turned the no-break space's escape into the literal character again, inside a string in `super-pharm.test.ts`, where ESLint doesn't look; a script that scans the touched files is the check. In Git Bash, `node -e` drops one backslash of each doubled one, so byte-level edits go through a script file.
 
 ## References
 
@@ -781,25 +805,25 @@ What each page view and action costs Super-Pharm (`context/foundation/lessons.md
 
 #### Automated
 
-- [x] 1.1 `natura.test.ts` and `hebe.test.ts` pass unedited after the move
-- [x] 1.2 The replay's new tests pass, and the 8 files that use the replay pass unedited
-- [x] 1.3 The price-text tests pass, covering the accepted forms and the refusals
-- [x] 1.4 All unit tests, lint and types pass
-- [x] 1.5 Break-checks turn named tests red: every id without a hit `missing`, and replay entries matched by URL alone
+- [x] 1.1 `natura.test.ts` and `hebe.test.ts` pass unedited after the move — ed12ad7
+- [x] 1.2 The replay's new tests pass, and the 8 files that use the replay pass unedited — ed12ad7
+- [x] 1.3 The price-text tests pass, covering the accepted forms and the refusals — ed12ad7
+- [x] 1.4 All unit tests, lint and types pass — ed12ad7
+- [x] 1.5 Break-checks turn named tests red: every id without a hit `missing`, and replay entries matched by URL alone — ed12ad7
 
 ### Phase 2: Super-Pharm's adapter, switched off
 
 #### Automated
 
-- [ ] 2.1 `super-pharm.test.ts` passes, covering mapping, matching, pinned batches, broken copies and the binding
-- [ ] 2.2 `natura.test.ts`, `hebe.test.ts` and `rossmann.test.ts` pass unedited
-- [ ] 2.3 All unit tests, lint and types pass
-- [ ] 2.4 Break-checks turn named tests red: the size from `farmax_capacity`, an `inStoreOnly` item orderable, a regular price the record doesn't carry
-- [ ] 2.5 No test reaches a live shop: every Super-Pharm request is served by the replay and spelled out
+- [x] 2.1 `super-pharm.test.ts` passes, covering mapping, matching, pinned batches, broken copies and the binding
+- [x] 2.2 `natura.test.ts`, `hebe.test.ts` and `rossmann.test.ts` pass unedited
+- [x] 2.3 All unit tests, lint and types pass
+- [x] 2.4 Break-checks turn named tests red: the size from `farmax_capacity`, an `inStoreOnly` item orderable, a regular price the record doesn't carry
+- [x] 2.5 No test reaches a live shop: every Super-Pharm request is served by the replay and spelled out
 
 #### Manual
 
-- [ ] 2.6 The owner approved each new recording (at most 3), sent under test-plan §6.4's rules, and `probes/` is gone in this phase's commit
+- [x] 2.6 The owner approved each new recording (at most 3), sent under test-plan §6.4's rules, and `probes/` is gone in this phase's commit
 
 ### Phase 3: Matching rules
 

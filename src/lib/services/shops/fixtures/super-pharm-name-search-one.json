@@ -82,9 +82,27 @@
           "matchedWords": ["nivea", "soft"]
         },
         "categories": {
-          "level0": [{ "value": "Drogeria", "matchLevel": "none", "matchedWords": [] }],
-          "level1": [{ "value": "Drogeria /// Ciało", "matchLevel": "none", "matchedWords": [] }],
-          "level2": [{ "value": "Drogeria /// Ciało /// Pielęgnacja ciała", "matchLevel": "none", "matchedWords": [] }],
+          "level0": [
+            {
+              "value": "Drogeria",
+              "matchLevel": "none",
+              "matchedWords": []
+            }
+          ],
+          "level1": [
+            {
+              "value": "Drogeria /// Ciało",
+              "matchLevel": "none",
+              "matchedWords": []
+            }
+          ],
+          "level2": [
+            {
+              "value": "Drogeria /// Ciało /// Pielęgnacja ciała",
+              "matchLevel": "none",
+              "matchedWords": []
+            }
+          ],
           "level3": [
             {
               "value": "Drogeria /// Ciało /// Pielęgnacja ciała /// Balsamy, emulsje, <em>ml</em>eczka do ciała",
@@ -102,8 +120,16 @@
             "matchedWords": ["ml"]
           }
         ],
-        "in_stock": { "value": "1", "matchLevel": "none", "matchedWords": [] },
-        "sku": { "value": "39477", "matchLevel": "none", "matchedWords": [] },
+        "in_stock": {
+          "value": "1",
+          "matchLevel": "none",
+          "matchedWords": []
+        },
+        "sku": {
+          "value": "39477",
+          "matchLevel": "none",
+          "matchedWords": []
+        },
         "brand": {
           "value": "<em>Nivea</em>",
           "matchLevel": "partial",
@@ -117,8 +143,16 @@
           "matchedWords": ["300", "ml"]
         },
         "badges": [
-          { "value": "Peeling cukrowy Pina Colada za 12,99 zł", "matchLevel": "none", "matchedWords": [] },
-          { "value": "Promocja", "matchLevel": "none", "matchedWords": [] }
+          {
+            "value": "Peeling cukrowy Pina Colada za 12,99 zł",
+            "matchLevel": "none",
+            "matchedWords": []
+          },
+          {
+            "value": "Promocja",
+            "matchLevel": "none",
+            "matchedWords": []
+          }
         ]
       }
     }
@@ -129,10 +163,18 @@
   "hitsPerPage": 10,
   "exhaustiveNbHits": true,
   "exhaustiveTypo": true,
-  "exhaustive": { "nbHits": true, "typo": true },
+  "exhaustive": {
+    "nbHits": true,
+    "typo": true
+  },
   "query": "NIVEA Soft 300 ml",
   "params": "query=NIVEA%20Soft%20300%20ml&hitsPerPage=10&analytics=false&tagFilters=",
   "processingTimeMS": 1,
-  "processingTimingsMS": { "_request": { "roundTrip": 46 }, "total": 1 },
+  "processingTimingsMS": {
+    "_request": {
+      "roundTrip": 46
+    },
+    "total": 1
+  },
   "serverTimeMS": 2
 }

@@ -26,7 +26,7 @@ const polishCalendar = new Intl.DateTimeFormat("pl-PL", {
  * Every shop the code can match a watched product in, each with its label here and its adapter in the registry
  * (src/lib/services/shops/registry.ts), whether it's switched on or not.
  */
-export const MATCHABLE_SHOPS = ["natura", "hebe"] as const satisfies readonly ShopId[];
+export const MATCHABLE_SHOPS = ["natura", "hebe", "super-pharm"] as const satisfies readonly ShopId[];
 
 /** A shop the code can match a watched product in. */
 export type MatchableShop = (typeof MATCHABLE_SHOPS)[number];
@@ -74,6 +74,13 @@ export const SHOP_LABELS: Record<KnownShop, ShopLabel> = {
   rossmann: { name: "Rossmann", in: "w Rossmannie", of: "Rossmanna", title: "Rossmann", site: "rossmann.pl" },
   natura: { name: "Natura", in: "w Naturze", of: "Natury", title: "Drogerie Natura", site: "drogerienatura.pl" },
   hebe: { name: "Hebe", in: "w Hebe", of: "Hebe", title: "Hebe", site: "hebe.pl" },
+  "super-pharm": {
+    name: "Super-Pharm",
+    in: "w Super-Pharmie",
+    of: "Super-Pharmu",
+    title: "Super-Pharm",
+    site: "superpharm.pl",
+  },
 };
 
 /** What a shop item's last check found, and its latest price: a `LatestPrice` without the item it's about. */
@@ -139,8 +146,11 @@ function promotionEnded(offer: Pick<ShopOffer, "promoEndsOn"> | null, now: numbe
   return endsOn !== null && endsOn < polishDate(now);
 }
 
-/** The date in Poland at `now`, as `YYYY-MM-DD`. It's read part by part, so no locale's order of parts matters. */
-function polishDate(now: number): string {
+/**
+ * The date in Poland at `now`, as `YYYY-MM-DD`. It's read part by part, so no locale's order of parts matters. A shop
+ * adapter writes a promotion's end with it too, so the end and the day it's compared with come from one calendar.
+ */
+export function polishDate(now: number): string {
   const parts = polishCalendar.formatToParts(now);
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((entry) => entry.type === type)?.value ?? "";
   return `${part("year")}-${part("month")}-${part("day")}`;

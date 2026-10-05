@@ -20,13 +20,21 @@
   "hitsPerPage": 2,
   "exhaustiveNbHits": true,
   "exhaustiveTypo": true,
-  "exhaustive": { "nbHits": true, "typo": true },
+  "exhaustive": {
+    "nbHits": true,
+    "typo": true
+  },
   "query": "",
   "params": "query=&filters=objectID%3A10132%20OR%20objectID%3A999999999&hitsPerPage=2&attributesToRetrieve=objectID%2Cprice%2Cin_stock&attributesToHighlight=%5B%5D&analytics=false&tagFilters=",
   "processingTimeMS": 2,
   "processingTimingsMS": {
-    "_request": { "roundTrip": 41 },
-    "rulesProcessing": { "indexRules": 1, "total": 1 },
+    "_request": {
+      "roundTrip": 41
+    },
+    "rulesProcessing": {
+      "indexRules": 1,
+      "total": 1
+    },
     "total": 2
   },
   "serverTimeMS": 3

@@ -8,6 +8,13 @@ import {
   isNaturaProductUrl,
   searchNatura,
 } from "@/lib/services/shops/natura";
+import {
+  fetchSuperPharmPrices,
+  isSuperPharmImage,
+  isSuperPharmItemId,
+  isSuperPharmProductUrl,
+  searchSuperPharm,
+} from "@/lib/services/shops/super-pharm";
 import type { PriceCheck, ShopSearch } from "@/types";
 
 // Each shop the code can match a watched product in, mapped to its adapter in one place: the lookups search it, the
@@ -46,5 +53,12 @@ export const SHOP_ADAPTERS: Record<MatchableShop, ShopAdapter> = {
     isItemId: isHebeItemId,
     isProductUrl: isHebeProductUrl,
     isImage: isHebeImage,
+  },
+  "super-pharm": {
+    search: searchSuperPharm,
+    fetchPrices: fetchSuperPharmPrices,
+    isItemId: isSuperPharmItemId,
+    isProductUrl: isSuperPharmProductUrl,
+    isImage: isSuperPharmImage,
   },
 };
