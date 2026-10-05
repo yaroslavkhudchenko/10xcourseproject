@@ -47,7 +47,7 @@ A shopper who buys the same drugstore products again and again checks two or thr
 | S-03 | cheapest-shop-today           | see which shop is cheapest today, on the watchlist and on each product      | S-02          | US-01, FR-008, FR-010, FR-011, NFR per-shop feedback, NFR price age, NFR phone-usable, Guardrail failed prices visible | done        |
 | S-04 | good-price-judgement          | see whether today's price is a good one                                     | S-03          | FR-012                                                                                                                 | blocked     |
 | S-05 | hebe-in-comparison            | match their products in Hebe and see Hebe in the comparison                 | S-03, F-01    | US-02, FR-006, FR-013                                                                                                  | done        |
-| S-06 | super-pharm-in-comparison     | match their products in Super-Pharm and see it in the comparison            | S-03, F-01    | US-02, FR-006, FR-013                                                                                                  | proposed    |
+| S-06 | super-pharm-in-comparison     | match their products in Super-Pharm and see it in the comparison            | S-03, F-01    | US-02, FR-006, FR-013                                                                                                  | in-progress |
 | S-07 | invite-only-access            | sign in with an owner-added account; nobody can register themselves         | —             | FR-001, FR-002                                                                                                         | in-progress |
 | S-08 | fix-matches-and-watchlist     | re-pin or remove a wrong match and remove a product safely                  | S-02          | FR-007, FR-005                                                                                                         | done        |
 
@@ -188,7 +188,7 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
   - The `etykiety-redesign` carry-over above is done: S-05 withholds "Najtaniej" and ", najtaniej" while any matched shop's decision can't be read.
   - Its adapter's tests follow test-plan §6.4: real recordings, broken copies and the shop binding.
   - A known risk for its plan: the shop gate stops a shop on any 403, and Algolia answers a rotated or wrong search key with 403. Without a narrow exception, every change of the key would stop Super-Pharm for everyone until the owner switches it back on.
-- **Status:** proposed
+- **Status:** in-progress
 
 ### S-07: Invite-only front door
 

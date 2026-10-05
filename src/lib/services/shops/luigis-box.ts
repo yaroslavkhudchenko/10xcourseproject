@@ -1,13 +1,23 @@
 import { z } from "astro/zod";
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import type { ShopGate } from "@/lib/services/shop-gate";
-import { gateUnavailable, isRefusal } from "@/lib/services/shops/shop-outcome";
+import {
+  failed,
+  fetchPinnedPrices,
+  logFailure,
+  logOddAvailability,
+  type PinnedAnswer,
+  type PinnedPriceShop,
+} from "@/lib/services/shops/pinned-prices";
+import { gateUnavailable } from "@/lib/services/shops/shop-outcome";
+import { valuesOf } from "@/lib/services/shops/shop-values";
 import type { GateOutcome, PriceCheck, ShopCandidate, ShopId, ShopOffer, ShopSearch, ShopUnavailable } from "@/types";
 
 // Luigi's Box runs the product search of Drogerie Natura and Hebe (research note §2.2, §2.5): one query, an EAN or
 // text, answered with hits. The same endpoint also answers a filter by item id without a query, which fetches several
-// pinned items' prices at once. Each shop's adapter maps its own attributes onto a client bound to its shop and its
-// tracker, so a request is always charged to the shop whose tracker it asks.
+// pinned items' prices at once, by the rules every shop's pinned prices follow (pinned-prices.ts). Each shop's adapter
+// maps its own attributes onto a client bound to its shop and its tracker, so a request is always charged to the shop
+// whose tracker it asks.
 const SEARCH_URL = "https://live.luigisbox.com/search";
 // Each search waits at most 4 s for the shop, well inside the gate's own 8 s limit, so a lookup's two searches wait at
 // most 8 s. Each price request waits as long.
@@ -85,9 +95,17 @@ export interface LuigisBoxClient {
 
 /** A Luigi's Box client bound to one shop: every request goes to that shop's tracker and is charged to that shop. */
 export function createLuigisBoxClient(config: LuigisBoxShop): LuigisBoxClient {
+  const prices: PinnedPriceShop = {
+    batchSize: IDS_PER_REQUEST,
+    isItemId: config.isItemId,
+    request: (gate, ids) => requestPrices(config, gate, ids),
+    readHit: (hit) => readPriceHit(config, hit),
+    hasOddAvailability: config.hasOddAvailability,
+    log: { event: config.log.prices, id: config.log.id },
+  };
   return {
     search: (gate, query, size) => search(config, gate, query, size),
-    fetchPrices: (gate, ids) => fetchPrices(config, gate, ids),
+    fetchPrices: (gate, ids) => fetchPinnedPrices(prices, gate, ids),
   };
 }
 
@@ -120,7 +138,7 @@ async function search(config: LuigisBoxShop, gate: ShopGate, query: string, size
     logFailure(config.log.search, "hits dropped", `${dropped} of ${itemHits.length} product hits`);
   }
   logOddAvailability(
-    config,
+    config.hasOddAvailability,
     config.log.search,
     kept.map(({ hit }) => hit),
     itemHits.length,
@@ -133,108 +151,31 @@ async function search(config: LuigisBoxShop, gate: ShopGate, query: string, size
   return { kind: "results", candidates };
 }
 
-async function fetchPrices(config: LuigisBoxShop, gate: ShopGate, ids: string[]): Promise<Map<string, PriceCheck>> {
-  // Every id starts as unanswered, once each, in the order given; each id that's sent gets its request's answer.
-  const checks = new Map<string, PriceCheck>();
-  const sendable: string[] = [];
-  for (const id of new Set(ids)) {
-    checks.set(id, failed());
-    if (config.isItemId(id)) {
-      sendable.push(id);
-    }
-  }
-  const unsent = checks.size - sendable.length;
-  if (unsent > 0) {
-    // How many, never which: an id names the product.
-    const word = config.log.id;
-    logFailure(config.log.prices, `invalid ${word}s`, `${unsent} of ${checks.size} ${word}s not sent`);
-  }
-  // A failed request doesn't stop the next one; a refusal does.
-  let refusal: ShopUnavailable | null = null;
-  for (let start = 0; start < sendable.length; start += IDS_PER_REQUEST) {
-    const batch = sendable.slice(start, start + IDS_PER_REQUEST);
-    if (refusal !== null) {
-      for (const id of batch) {
-        checks.set(id, { ...refusal });
-      }
-      continue;
-    }
-    for (const [id, check] of await fetchPriceBatch(config, gate, batch)) {
-      checks.set(id, check);
-      if (isRefusal(check)) {
-        refusal = check;
-      }
-    }
-  }
-  return checks;
-}
-
-/** One price request for up to 50 ids, and each id's check from its answer. */
-async function fetchPriceBatch(config: LuigisBoxShop, gate: ShopGate, ids: string[]): Promise<Map<string, PriceCheck>> {
+/**
+ * One price request for up to 50 ids: the answer's item hits, without a query suggestion among them, and whether
+ * they're every hit the request matched; or why there's none to read.
+ */
+async function requestPrices(config: LuigisBoxShop, gate: ShopGate, ids: string[]): Promise<PinnedAnswer> {
   const outcome = await gate.fetch(config.shop, priceUrl(config, ids), {
     headers: { Accept: "application/json" },
     signal: AbortSignal.timeout(PRICE_TIMEOUT_MS),
   });
   if (outcome.kind !== "ok") {
-    const unavailable = shopUnavailable(config, outcome, config.log.prices);
-    return new Map(ids.map((id): [string, PriceCheck] => [id, { ...unavailable }]));
+    return shopUnavailable(config, outcome, config.log.prices);
   }
   const read = await readHits(outcome.response, config.log.prices);
   if (read === null) {
-    return new Map(ids.map((id): [string, PriceCheck] => [id, failed()]));
+    return failed();
   }
+  return { kind: "hits", hits: read.hits.filter((hit) => isItemHit(hit, config.itemType)), complete: read.complete };
+}
 
-  const asked = new Set(ids);
-  const itemHits = read.hits.filter((hit) => isItemHit(hit, config.itemType));
-  const offers = new Map<string, ShopOffer>();
-  const kept: unknown[] = [];
-  let dropped = 0;
-  let notAsked = 0;
-  for (const hit of itemHits) {
-    // The shop's offer check reads the id too, so a hit with an offer has an id.
-    const offer = config.toOffer(hit);
-    const id = offer === null ? null : idOf(hit);
-    if (offer === null || id === null) {
-      dropped++;
-      continue;
-    }
-    if (asked.has(id)) {
-      offers.set(id, offer);
-      kept.push(hit);
-    } else {
-      notAsked++;
-    }
-  }
-  // How many, never which: a hit carries the product's id and name.
-  if (dropped > 0) {
-    logFailure(config.log.prices, "hits dropped", `${dropped} of ${itemHits.length} product hits`);
-  }
-  logOddAvailability(config, config.log.prices, kept, itemHits.length);
-  if (notAsked > 0) {
-    // Hits for ids nobody asked for mean the id filter wasn't applied.
-    logFailure(config.log.prices, "hits not asked for", `${notAsked} of ${itemHits.length} product hits`);
-  }
-  if (!read.complete) {
-    // An answer cut short, or one that can't say it isn't, may have left out an asked-for item's hit.
-    logFailure(
-      config.log.prices,
-      "answer incomplete",
-      `${itemHits.length} product hits for ${ids.length} ${config.log.id}s`,
-    );
-  }
-  // An id without a hit is missing only when the answer holds every hit it matched and every hit was read and was one
-  // asked for. Otherwise the left-out or unread hit could be that id's, and a changed format would be stored as items
-  // the shop no longer sells: so, as in a search, hits that all fail their check make every id unavailable.
-  const clear = read.complete && dropped === 0 && notAsked === 0;
-  return new Map(
-    ids.map((id): [string, PriceCheck] => {
-      const offer = offers.get(id);
-      if (offer !== undefined) {
-        return [id, { kind: "price", offer }];
-      }
-      return [id, clear ? { kind: "missing" } : failed()];
-    }),
-  );
+/** A price request's item hit as its id and offer, or null when either can't be read. */
+function readPriceHit(config: LuigisBoxShop, hit: unknown): { id: string; offer: ShopOffer } | null {
+  // The shop's offer check reads the id too, so a hit with an offer has an id.
+  const offer = config.toOffer(hit);
+  const id = offer === null ? null : idOf(hit);
+  return offer === null || id === null ? null : { id, offer };
 }
 
 /**
@@ -327,40 +268,6 @@ async function readHits(response: Response, event: string): Promise<HitsRead | n
   return { hits, complete };
 }
 
-/**
- * Logs how many of the kept hits have an availability their offer couldn't read (hasOddAvailability): each reads as not
- * orderable online, so it can't be named cheapest, and only this line shows a changed format.
- */
-function logOddAvailability(config: LuigisBoxShop, event: string, kept: unknown[], itemHits: number): void {
-  const odd = kept.filter((hit) => config.hasOddAvailability?.(hit) === true).length;
-  if (odd > 0) {
-    // How many, never which, as with dropped hits.
-    logFailure(event, "availability unread", `${odd} of ${itemHits} product hits`);
-  }
-}
-
-/** A shop answer that couldn't be used, fresh for each id. */
-function failed(): ShopUnavailable {
-  return { kind: "unavailable", reason: "failed" };
-}
-
-function logFailure(event: string, reason: string, detail: string): void {
-  // eslint-disable-next-line no-console -- one line per unusable Luigi's Box answer; Workers observability collects it.
-  console.warn(JSON.stringify({ event, reason, detail }));
-}
-
-/** A Luigi's Box attribute's values: most attributes come as a list, a few (such as `title`) as a single value. */
-export function valuesOf(attribute: unknown): unknown[] {
-  return Array.isArray(attribute) ? attribute : [attribute];
-}
-
-/** An attribute's first value as trimmed text, or null when it isn't text or is empty. */
-export function textOf(attribute: unknown): string | null {
-  const [value] = valuesOf(attribute);
-  const text = typeof value === "string" ? value.trim() : "";
-  return text === "" ? null : text;
-}
-
 /** An attribute's first value as an amount: a number, or decimal text such as "17.990000"; null for anything else. */
 export function amountOf(attribute: unknown): number | null {
   const [value] = valuesOf(attribute);
@@ -376,19 +283,4 @@ export function eansOf(attribute: unknown): string[] {
   return valuesOf(attribute)
     .filter((ean): ean is string => typeof ean === "string" && EAN.test(ean))
     .slice(0, PRODUCT_LIMITS.eans);
-}
-
-/** Keeps text within its limit, or drops it: a cut-off size or URL would be wrong, not just shorter. */
-export function within(value: string | null, max: number): string | null {
-  return value !== null && value.length <= max ? value : null;
-}
-
-/** The host of an https URL, or null for any other URL and for text that isn't one. */
-export function httpsHost(url: string): string | null {
-  try {
-    const { protocol, hostname } = new URL(url);
-    return protocol === "https:" ? hostname : null;
-  } catch {
-    return null;
-  }
 }
