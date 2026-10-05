@@ -891,6 +891,39 @@ const THREE_SHOP_STATES: AreaState[] = [
     hebe: HEBE_MATCHED,
   },
   {
+    code: "three-tie",
+    text: "ta sama cena w trzech sklepach: jeden podpis na pasku, z trzema nazwami i ceną, a znaczniki stoją obok siebie",
+    state: island([
+      priced("rossmann", offer(24.99), 10 * MINUTE),
+      priced("natura", offer(24.99), 5 * MINUTE),
+      priced("hebe", offer(24.99), 5 * MINUTE),
+    ]),
+    natura: MATCHED,
+    hebe: HEBE_MATCHED,
+  },
+  {
+    code: "three-two-tied",
+    text: "Rossmann i Natura w tej samej cenie, Hebe tuż obok: trzy podpisy się nie mieszczą, więc jeden mówi „od” najniższej",
+    state: island([
+      priced("rossmann", offer(19.99), 10 * MINUTE),
+      priced("natura", offer(19.99, { lowestPrice30d: 15.99 }), 5 * MINUTE),
+      priced("hebe", offer(20.49), 5 * MINUTE),
+    ]),
+    natura: MATCHED,
+    hebe: HEBE_MATCHED,
+  },
+  {
+    code: "three-roomy",
+    text: "trzy ceny blisko siebie, ale z miejscem: skrajne podpisy odwrócone od środkowego",
+    state: island([
+      priced("rossmann", offer(19.99), 10 * MINUTE),
+      priced("natura", offer(17.99), 5 * MINUTE),
+      priced("hebe", offer(15.99, { lowestPrice30d: 13.99 }), 5 * MINUTE),
+    ]),
+    natura: MATCHED,
+    hebe: HEBE_MATCHED,
+  },
+  {
     code: "three-hebe-stale",
     text: "cena Hebe sprzed 2 dni: najniższa, ale nieaktualna, więc wygrywa Natura",
     state: island([
