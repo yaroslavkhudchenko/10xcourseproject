@@ -862,6 +862,36 @@ What each page view and action costs Super-Pharm (`context/foundation/lessons.md
 
   Both stored checks of 10132 read 19,49 zł, no regular price, a 30-day low of 33,99 zł, orderable. The tap's page forgot `?retry=`.
 
+### Phase 5
+
+- **CLAUDE.md beyond §1's list**, each change keeping the rules true to the code:
+  - a new shop joins `MATCHABLE_SHOPS` with its matching mode too, since the compiler asks for its `MATCH_MODES` entry;
+  - the matching sentence names `pickMatch`'s order;
+  - the stored-id sentence names Super-Pharm's check (digits only, at most 12);
+  - the UI's `?retry=` sentence says the page forgets it;
+  - Super-Pharm's lavender joins the shop colours.
+
+  Only lines 21, 36, 53 and 54 changed. CLAUDE.md is in `.prettierignore`, so its edits were formatted by hand, and the course block's sha256 is `02e55687…` before and after.
+
+- **The runbook** (§2): `deploy-plan.md` had no steps for switching a shop off or on.
+  - It reuses F-01's dashboard path (Table Editor → `shops`) and the re-enable statement of `scripts/e2e-local-db.mjs`, limited to `super-pharm`.
+  - It switches the row back on only after Workers Builds has deployed the new key, so the old key's 403 can't stop the shop again.
+  - It quotes both stop texts from `shop-messages.ts`, and ends with the way back (§4).
+  - `disabled_reason` is 'HTTP 403' as planned: `shop-gate.ts` sends that detail, and `report_shop_block` stores it.
+  - A pointer to it joins "Decided after the deploy", as S-07's section has.
+- **The research note** (§3):
+  - §1's new Auth cell is 32 characters, so Prettier doesn't reflow the whole table;
+  - §6 step 6 gains a sentence, so the note doesn't contradict step 4;
+  - §2.3 also records the 2026-10-05 re-check (7 requests from the developer machine and 4 through the app) and the `badges` field;
+  - §2.3 also notes that Algolia's 403 for a rejected key comes from its API specification and issue threads, never recorded for this app.
+- **The test plan, beyond §6.6:**
+  - §6.3's seeding bullets say `addMatchedProduct` leaves Hebe and Super-Pharm undecided, and give `matchShop`'s Super-Pharm id shape and options;
+  - its reference specs add `phone-four-shops.spec.ts`;
+  - the §6.6 note records two moved §2 citations: `prd.md:151` is now `:154`, and `polish-drugstore-price-apis.md:290` is now `:315`.
+- **The roadmap:** besides the risk line and the "Built" note, the carry-over from `hebe-in-comparison` is marked done in this slice. S-06's open question (PRD Open Question 2) has the owner's answer: they buy at Super-Pharm sometimes (2026-10-05).
+- **The PRD:** FR-006's note credits the tap, "Do sprawdzenia" and the candidate order to the owner, and states "never automatic" as the unchanged rule. There's no FR-007 note, since S-05's covers any undecided matched shop.
+- **Row 5.4:** the owner confirmed production's `super-pharm` row enabled on 2026-10-05. The gate reads only `enabled` (`polite_shop_access.sql:65`), so `disabled_reason` is only a note.
+
 ## References
 
 - Research, with probe results: `context/changes/super-pharm-in-comparison/research.md`
@@ -914,27 +944,27 @@ What each page view and action costs Super-Pharm (`context/foundation/lessons.md
 
 #### Automated
 
-- [x] 4.1 All unit tests, lint, types and the token contrast check pass
-- [x] 4.2 The build passes, fonts included
-- [x] 4.3 The e2e suite passes with the new four-shop spec
-- [x] 4.4 Smoke and the database checks pass against the local stack
-- [x] 4.5 Break-checks turn the four-shop spec red: Super-Pharm switched off again, and looked up on a plain view
-- [ ] 4.6 CI (`ci`, `smoke`, `e2e`) is green on the phase's commit
+- [x] 4.1 All unit tests, lint, types and the token contrast check pass — 97dca02
+- [x] 4.2 The build passes, fonts included — 97dca02
+- [x] 4.3 The e2e suite passes with the new four-shop spec — 97dca02
+- [x] 4.4 Smoke and the database checks pass against the local stack — 97dca02
+- [x] 4.5 Break-checks turn the four-shop spec red: Super-Pharm switched off again, and looked up on a plain view — 97dca02
+- [x] 4.6 CI (`ci`, `smoke`, `e2e`) is green on the phase's commit — 97dca02
 
 #### Manual
 
-- [x] 4.7 The kitchen sinks show Super-Pharm's states, in light and dark at 390 px and 1280 px
-- [x] 4.8 The live check stays within 10 Super-Pharm requests, with the count proven and matching the cost table
+- [x] 4.7 The kitchen sinks show Super-Pharm's states, in light and dark at 390 px and 1280 px — 97dca02
+- [x] 4.8 The live check stays within 10 Super-Pharm requests, with the count proven and matching the cost table — 97dca02
 
 ### Phase 5: Docs and rollout
 
 #### Automated
 
-- [ ] 5.1 Prettier passes on every changed Markdown file, and `npm run lint` is clean
-- [ ] 5.2 CLAUDE.md's course block is byte-identical (sha256 before and after)
+- [x] 5.1 Prettier passes on every changed Markdown file, and `npm run lint` is clean
+- [x] 5.2 CLAUDE.md's course block is byte-identical (sha256 before and after)
 - [ ] 5.3 CI (`ci`, `smoke`, `e2e`) is green on the final commit
 
 #### Manual
 
-- [ ] 5.4 The owner confirms production's `super-pharm` row is enabled with no disabled reason before the merge
+- [x] 5.4 The owner confirms production's `super-pharm` row is enabled with no disabled reason before the merge
 - [ ] 5.5 After the merge, the owner's phone check on production passes
