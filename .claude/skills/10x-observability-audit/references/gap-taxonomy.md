@@ -59,11 +59,25 @@ No route/operation tag, no user or tenant id, no entity id (order, lesson,
 document), no request/trace id, no stage within a multi-step flow; or
 over-redaction removing the only identifier with no hashed/id replacement.
 
-### config — the tracker/logger setup degrades every event
-No release/version, no environment (preview and prod mixed), source maps or
-symbols not uploaded, sampling that drops errors, scrubbing hooks that
-rewrite stack frames/breadcrumbs/fields they shouldn't, ignore lists that
-match first-party errors, DSN/keys disabled in some deploy targets.
+### config — tracker/logger setup *in code* degrades every event
+Only for settings you can cite in the repo that actively make events worse:
+sampling in code that drops errors, scrubbing hooks that rewrite stack
+frames/breadcrumbs/fields they shouldn't, ignore lists that match
+first-party errors, init code that passes no release/environment when the
+SDK needs it from code, an `enabled`/DSN gate in code that turns reporting
+off in a production deploy target.
+
+**Not a finding:** a platform or vendor setting that is absent from the
+repo, such as log collection not enabled in the deploy config
+(`wrangler.toml`, `vercel.json`, `serverless.yml`, Helm values), no log
+forwarding, no alert rules, no source-map/symbol upload step you can see,
+or a tracker key missing from the example env file. These are often set in a
+dashboard. List them under the report's *Assumptions*. Never use them as a
+root cause or rate them above `low`, and even `low` only when the user
+confirmed the setting is really off.
+
+`config` is the least important category in this audit. Most runs should
+have few or none.
 
 ### noise — expected conditions drown real signal
 Validation errors, user cancellations, aborted requests, optimistic
@@ -73,7 +87,10 @@ with ids) creating one issue per entity.
 
 ## Severity rubric
 
-Judge severity by the flow's importance and by what a responder would get.
+Judge severity by the flow's importance and by what a responder would get,
+**assuming the monitoring pipeline is on in production**. A gap is
+critical because of what the code does with the error, never because a
+dashboard setting might be off.
 
 | Severity | Meaning |
 |---|---|

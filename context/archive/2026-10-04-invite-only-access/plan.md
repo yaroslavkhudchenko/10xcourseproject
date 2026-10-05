@@ -906,6 +906,22 @@ The "Deferred" item "Sign-up page" is marked done. The end-to-end verification i
 - **F5, fixed: two removed pages weren't pinned.** Smoke gained `GET /auth/signup` and `GET /auth/confirm-email` answering 404, so CLAUDE.md's and README's "the removed pages' 404s" hold. Phase 1's note on smoke's sign-up message is corrected.
 - **F6, Fix A: an anti-framing header and `httpOnly` session cookies are a follow-up.** Both are app-wide and older than S-07, so they wait for a hardening change of their own with its own checks. It's recorded on the roadmap's S-07 block and in `follow-ups/review-fixes.md`, which also lists the accepted risks.
 
+### Production rollout
+
+- **Merged on 2026-10-05** as `8758136` (PR #25), after the implementation review's fixes (`71e375b`).
+  - No migration was needed. The change touched only the local stack's `supabase/config.toml`, and nothing was pushed to production's database or configuration.
+  - Workers Builds reported the deploy at 16:13 UTC, and `ci`, `smoke` and `e2e` passed on `main`.
+  - Production then answered `/` with a redirect to sign-in and `/auth/signup` with a 404, and its sign-in page read "Logowanie" (checked by the agent over HTTP).
+- **The owner's production steps** (confirmed on 2026-10-05):
+  - 4.5: "Email OTP expiration" 86400 seconds and "Email OTP length" 10, set in the dashboard before any link.
+  - 4.6: the read-only check showed sign-up refused and the email provider on. Only the owner can run it, since it needs the publishable key from their password manager.
+  - 4.7: the phone check on production passed.
+- **Left for later changes:**
+  - F6's anti-framing header and `httpOnly` session cookies, on the roadmap's S-07 block and in `follow-ups/review-fixes.md`.
+  - The price-track overlap seen in 2.9 (Phase 2's notes) is being fixed separately, on `fix/price-track-labels`.
+  - An observability audit of this change's head (2026-10-05, on `docs/observability-audit`) found that the sign-in flow writes no log line. In particular, the middleware drops `getUser`'s error, so an Auth outage looks like everyone being signed out. Its findings S1–S8 are for a change of their own.
+  - README's stale starter lines (Phase 4's notes) wait for the rules-file slimming of Module 4, Lesson 1.
+
 ## References
 
 - Research: `context/changes/invite-only-access/research.md`
@@ -985,6 +1001,6 @@ The "Deferred" item "Sign-up page" is marked done. The end-to-end verification i
 
 #### Manual
 
-- [ ] 4.5 The owner sets production's Email OTP Expiration and Email OTP Length before the first link
-- [ ] 4.6 After the merge, the owner's read-only check shows sign-up refused and the email provider on
-- [ ] 4.7 After the merge, the owner's phone check on production
+- [x] 4.5 The owner sets production's Email OTP Expiration and Email OTP Length before the first link — 8758136
+- [x] 4.6 After the merge, the owner's read-only check shows sign-up refused and the email provider on — 8758136
+- [x] 4.7 After the merge, the owner's phone check on production — 8758136
