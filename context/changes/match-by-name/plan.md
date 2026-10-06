@@ -685,8 +685,8 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [ ] 5.1 Prettier leaves the edited documents as they are
-- [ ] 5.2 Lint, type check and the whole unit suite pass
+- [x] 5.1 Prettier leaves the edited documents as they are — 4d96759
+- [x] 5.2 Lint, type check and the whole unit suite pass — 4d96759
 
 #### Manual
 
