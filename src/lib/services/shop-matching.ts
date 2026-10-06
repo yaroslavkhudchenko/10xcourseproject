@@ -12,7 +12,7 @@ import {
   type MatchView,
 } from "@/lib/services/match-view";
 import { recordLookup, type MatchesRead } from "@/lib/services/matches";
-import { judge, pickMatch, type MatchPick, type MatchProduct } from "@/lib/services/matching";
+import { judge, pickMatch, type MatchPick, type NamedProduct } from "@/lib/services/matching";
 import {
   MATCH_MODES,
   MATCHED_SHOPS,
@@ -49,16 +49,21 @@ const EAN = /^\d{8,14}$/;
 // The most candidates a choice for changing a decision offers: the EAN search's first, then the name search's.
 const CHOICES = 6;
 
-/** A watched product, as a shop lookup needs it. */
-export interface LookupProduct extends MatchProduct {
-  name: string;
+/**
+ * A watched product, as a shop lookup needs it: what the matching rule compares, its name and caption included, and
+ * its size as text, which the search by name asks for.
+ */
+export interface LookupProduct extends NamedProduct {
   sizeText: string | null;
 }
 
 /**
  * Looks a watched product up in a shop with as few requests as possible: by its EAN first, then with one search by its
  * brand, name and size only when the EAN finds nothing. A shop whose search can't find an EAN (`on-request`) gets the
- * search by name alone. When the shop can't be asked, it makes no further request and says why. It never throws.
+ * search by name alone. Each search's candidates go to the matching rule (pickMatch), which accepts one that shares an
+ * EAN and the size, or, where EANs can't decide, as for every Super-Pharm item, one that passes its name check against
+ * the product's name and caption; otherwise the user chooses. When the shop can't be asked, it makes no further request
+ * and says why. It never throws.
  */
 export async function lookupInShop(shop: MatchableShop, gate: ShopGate, product: LookupProduct): Promise<ShopLookup> {
   const { search: searchShop } = SHOP_ADAPTERS[shop];

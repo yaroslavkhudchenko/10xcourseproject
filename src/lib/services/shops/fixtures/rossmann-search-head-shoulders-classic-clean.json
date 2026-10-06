@@ -1,0 +1,619 @@
+{
+  "data": {
+    "filters": {
+      "categories": [
+        {
+          "id": 13174,
+          "name": "Włosy",
+          "priority": 3,
+          "productsCount": 4,
+          "children": [
+            {
+              "id": 13175,
+              "name": "Mycie włosów",
+              "priority": 1,
+              "productsCount": 4,
+              "children": [
+                {
+                  "id": 13176,
+                  "name": "Szampony do włosów",
+                  "priority": 1,
+                  "productsCount": 4,
+                  "children": [
+                    {
+                      "id": 13177,
+                      "name": "Szampony w płynie",
+                      "priority": 1,
+                      "productsCount": 4,
+                      "children": [],
+                      "faqs": []
+                    }
+                  ],
+                  "faqs": []
+                }
+              ],
+              "faqs": []
+            }
+          ],
+          "faqs": []
+        },
+        {
+          "id": 19245,
+          "name": "Lifestyle",
+          "priority": 11,
+          "productsCount": 1,
+          "children": [
+            {
+              "id": 19246,
+              "name": "Podróż",
+              "priority": 1,
+              "productsCount": 1,
+              "children": [
+                {
+                  "id": 19247,
+                  "name": "Minikosmetyki",
+                  "priority": 1,
+                  "productsCount": 1,
+                  "children": [],
+                  "faqs": []
+                }
+              ],
+              "faqs": []
+            }
+          ],
+          "faqs": []
+        }
+      ],
+      "price": {
+        "min": 13,
+        "max": 48
+      },
+      "facets": [
+        {
+          "key": "brands",
+          "name": "Marka",
+          "values": [
+            {
+              "key": "10266",
+              "name": "Head & Shoulders",
+              "productCount": 4
+            }
+          ]
+        },
+        {
+          "key": "recommended",
+          "name": "Polecane",
+          "values": [
+            {
+              "key": "onlyOnline",
+              "name": "Tylko online",
+              "productCount": 1
+            }
+          ]
+        },
+        {
+          "key": "promotions",
+          "name": "Promocje",
+          "values": [
+            {
+              "key": "mega",
+              "name": "Mega",
+              "productCount": 1
+            },
+            {
+              "key": "promotion",
+              "name": "Promocja",
+              "productCount": 1
+            }
+          ]
+        },
+        {
+          "key": "przeznaczenie",
+          "name": "Przeznaczenie",
+          "type": 0,
+          "values": [
+            {
+              "key": "przeznaczenie^skóra głowy",
+              "name": "Skóra głowy",
+              "productCount": 3
+            },
+            {
+              "key": "przeznaczenie^włosy",
+              "name": "Włosy",
+              "productCount": 4
+            }
+          ]
+        },
+        {
+          "key": "dla kogo",
+          "name": "Dla kogo",
+          "type": 0,
+          "values": [
+            {
+              "key": "dla kogo^kobieta",
+              "name": "Kobieta",
+              "productCount": 4
+            },
+            {
+              "key": "dla kogo^mężczyzna",
+              "name": "Mężczyzna",
+              "productCount": 2
+            }
+          ]
+        },
+        {
+          "key": "format",
+          "name": "Format",
+          "type": 0,
+          "values": [
+            {
+              "key": "format^mini",
+              "name": "Mini",
+              "productCount": 1
+            },
+            {
+              "key": "format^w płynie",
+              "name": "W płynie",
+              "productCount": 3
+            }
+          ]
+        },
+        {
+          "key": "problem",
+          "name": "Problem",
+          "type": 0,
+          "values": [
+            {
+              "key": "problem^łupież",
+              "name": "Łupież",
+              "productCount": 4
+            }
+          ]
+        },
+        {
+          "key": "typ włosów",
+          "name": "Typ włosów",
+          "type": 0,
+          "values": [
+            {
+              "key": "typ włosów^wszystkie typy włosów",
+              "name": "Wszystkie typy włosów",
+              "productCount": 3
+            }
+          ]
+        }
+      ]
+    },
+    "items": [
+      {
+        "brand": "Head & Shoulders",
+        "brandId": 10266,
+        "caption": "szampon do włosów, przeciwłupieżowy",
+        "fallbackName": "Szampon do włosów",
+        "fallbackCaption": "przeciwłupieżowy",
+        "unit": "400 ml",
+        "averageRating": 4.86,
+        "totalReviews": 261,
+        "id": 46632,
+        "rossnetId": 101315,
+        "eanNumber": ["5011321336049", "5011321332812"],
+        "navigateUrl": "/Produkt/Szampony-w-plynie/Head-Shoulders-Classic-Clean-szampon-do-wlosow-przeciwlupiezowy-400-ml,46632,13177",
+        "name": "Classic Clean ",
+        "price": 24.49,
+        "pricePerUnit": "100 ml = 6,12 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/46632_55_71_1785511325.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/46632_360_350_1785511327.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/46632_338_190_1785511326.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/46632_1280_720_1785511337.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/46632_340_340_1785511339.png",
+            "type": 1,
+            "alt": "Biała butelka szamponu Head & Shoulders Classic Clean z niebieskim korkiem, widok z przodu, z etykietą Microbiome Balance.",
+            "side": "Front"
+          },
+          {
+            "id": 11,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_mini/46632_55_71_1753793483.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_medium/46632_360_350_1753793489.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_small/46632_338_190_1753793484.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_large/46632_1280_720_1753793495.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_square/46632_340_340_1753793496.png",
+            "type": 0,
+            "alt": "Biała butelka szamponu Head & Shoulders Classic Clean z niebieskim korkiem, widoczny napis 'do 100% BEZ ŁUPIEŻU' na niebieskim tle.",
+            "side": "Rc1"
+          },
+          {
+            "id": 12,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_mini/46632_55_71_1753793501.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_medium/46632_360_350_1753793508.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_small/46632_338_190_1753793503.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_large/46632_1280_720_1753793513.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_square/46632_340_340_1753793514.png",
+            "type": 0,
+            "alt": "Zbliżenie na szampon przeciwłupieżowy Head & Shoulders Classic Clean, biała butelka, niebieskie akcenty, piana.",
+            "side": "Rc2"
+          },
+          {
+            "id": 13,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_mini/46632_55_71_1753793519.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_medium/46632_360_350_1753793525.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_small/46632_338_190_1753793521.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_large/46632_1280_720_1753793531.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_square/46632_340_340_1753793532.png",
+            "type": 0,
+            "alt": "Szampon przeciwłupieżowy Head & Shoulders Classic Clean. Pipeta w probówce, tekst: '2x więcej składników ochronnych'.",
+            "side": "Rc3"
+          },
+          {
+            "id": 14,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_mini/46632_55_71_1753793536.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_medium/46632_360_350_1753793540.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_small/46632_338_190_1753793539.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_large/46632_1280_720_1753793546.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_square/46632_340_340_1753793547.png",
+            "type": 0,
+            "alt": "Head & Shoulders: porownanie, skóra głowy z łupieżem (przed) i czysta (po użyciu szamponu), ciemne włosy.",
+            "side": "Rc4"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/46632_55_71_1753793471.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/46632_360_350_1753793473.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/46632_338_190_1753793472.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/46632_1280_720_1753793478.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/46632_340_340_1753793474.png",
+            "type": 0,
+            "alt": "Tył białej butelki szamponu Head & Shoulders Classic Clean z niebieskim korkiem, etykieta z polskim opisem, kod kreskowy, 400 ml.",
+            "side": "Back"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Włosy-Mycie włosów-Szampony do włosów-Szampony w płynie",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Head & Shoulders",
+        "brandId": 10266,
+        "caption": "szampon do włosów, przeciwłupieżowy",
+        "fallbackName": "Szampon do włosów",
+        "fallbackCaption": "przeciwłupieżowy",
+        "unit": "95 ml",
+        "averageRating": 4.81,
+        "totalReviews": 53,
+        "id": 256834,
+        "rossnetId": 402968,
+        "eanNumber": ["8700216164238", "8001090098269"],
+        "navigateUrl": "/Produkt/Szampony-w-plynie/Head-Shoulders-Classic-Clean-szampon-do-wlosow-przeciwlupiezowy-95-ml,256834,13177",
+        "name": "Classic Clean ",
+        "price": 13.99,
+        "pricePerUnit": "100 ml = 14,73 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/256834_55_71_1785533787.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/256834_360_350_1785533790.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/256834_338_190_1785533789.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/256834_1280_720_1785533801.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/256834_340_340_1785533803.png",
+            "type": 1,
+            "alt": "Szampon Head & Shoulders Classic Clean, biała butelka z niebieskim korkiem, widok z przodu, z hasłem 100% DANDRUFF FREE.",
+            "side": "Front"
+          },
+          {
+            "id": 11,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_mini/256834_55_71_1753450015.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_medium/256834_360_350_1753450021.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_small/256834_338_190_1753450017.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_large/256834_1280_720_1753450026.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_square/256834_340_340_1753450028.png",
+            "type": 0,
+            "alt": "Szampon Head & Shoulders Classic Clean, biała butelka, niebieski kapsel, na niebieskim tle z informacją \"100% bez łupieżu\".",
+            "side": "Rc1"
+          },
+          {
+            "id": 12,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_mini/256834_55_71_1753450033.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_medium/256834_360_350_1753450040.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_small/256834_338_190_1753450035.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_large/256834_1280_720_1753450045.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_square/256834_340_340_1753450046.png",
+            "type": 0,
+            "alt": "Head & Shoulders Classic Clean szampon, biała butelka z pianą, z napisami o testach dermatologicznych i łagodności.",
+            "side": "Rc2"
+          },
+          {
+            "id": 13,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_mini/256834_55_71_1753450053.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_medium/256834_360_350_1753450060.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_small/256834_338_190_1753450055.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_large/256834_1280_720_1753450065.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_square/256834_340_340_1753450066.png",
+            "type": 0,
+            "alt": "Szampon H&S Classic Clean. Zbliżenie: probówka z niebieskim płynem i kroplomierzem. Tekst: 2x więcej składników ochronnych.",
+            "side": "Rc3"
+          },
+          {
+            "id": 14,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_mini/256834_55_71_1753450070.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_medium/256834_360_350_1753450075.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_small/256834_338_190_1753450072.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_large/256834_1280_720_1753450080.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_square/256834_340_340_1753450081.png",
+            "type": 0,
+            "alt": "Skóra głowy przed i po użyciu szamponu Head & Shoulders: po lewej łupież, po prawej czysta, zdrowa skóra.",
+            "side": "Rc4"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/256834_55_71_1753450002.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/256834_360_350_1753450004.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/256834_338_190_1753450002.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/256834_1280_720_1753450009.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/256834_340_340_1753450006.png",
+            "type": 0,
+            "alt": "Tył białej butelki szamponu przeciwłupieżowego Head & Shoulders Classic Clean z niebieską nakrętką, składniki, 95ml.",
+            "side": "Back"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Włosy-Mycie włosów-Szampony do włosów-Szampony w płynie",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Head & Shoulders",
+        "brandId": 10266,
+        "caption": "szampon do włosów, przeciwłupieżowy",
+        "fallbackName": "Szampon do włosów",
+        "fallbackCaption": "przeciwłupieżowy",
+        "unit": "800 ml",
+        "averageRating": 0,
+        "totalReviews": 0,
+        "id": 2117710,
+        "rossnetId": 0,
+        "eanNumber": ["8700216156134"],
+        "navigateUrl": "/Produkt/Szampony-w-plynie/Head-Shoulders-Classic-Clean-szampon-do-wlosow-przeciwlupiezowy-800-ml,2117710,13177",
+        "name": "Classic Clean ",
+        "price": 47.99,
+        "pricePerUnit": "100 ml = 6,00 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/2117710_55_71_1785519789.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/2117710_360_350_1785519792.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/2117710_338_190_1785519790.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/2117710_1280_720_1785519797.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/2117710_340_340_1785519799.png",
+            "type": 1,
+            "alt": "Szampon Head & Shoulders Classic Clean XXL, biała butelka z niebieską pompką, widok z przodu.",
+            "side": "Front"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/2117710_55_71_1761644949.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/2117710_360_350_1761644953.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/2117710_338_190_1761644951.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/2117710_1280_720_1761644961.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/2117710_340_340_1761644955.png",
+            "type": 0,
+            "alt": "Tył białej butelki szamponu Head & Shoulders przeciwłupieżowego z niebieską pompką, widoczne etykiety i kod kreskowy.",
+            "side": "Back"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Włosy-Mycie włosów-Szampony do włosów-Szampony w płynie",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "onlyOnline",
+            "name": "TYLKO ONLINE",
+            "redirectUrl": "/produkty?Statuses=onlyOnline",
+            "attributes": [
+              {
+                "id": "a5f0ed04-ad32-4696-826e-59a5847a1c43",
+                "text": "Ten produkt jest dostępny wyłącznie online. \r"
+              },
+              {
+                "id": "ea595686-f37a-4672-b8b7-8a92dd3962a0",
+                "text": "Możesz go zamówić z dostawą do domu, do automatu Paczkomat, punktu odbioru DHL lub Orlen Paczka."
+              }
+            ]
+          }
+        ],
+        "badges": [
+          {
+            "type": "onlyOnline",
+            "name": "TYLKO ONLINE",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Statuses=onlyOnline",
+              "relative": "/produkty?Statuses=onlyOnline"
+            },
+            "attributes": [
+              {
+                "id": "8c3955e3-9ddd-4666-9c24-2ffc5c3b76ce",
+                "text": "Ten produkt jest dostępny wyłącznie online. \r"
+              },
+              {
+                "id": "682ddefa-065f-4c8c-bb42-de05506aef17",
+                "text": "Możesz go zamówić z dostawą do domu, do automatu Paczkomat, punktu odbioru DHL lub Orlen Paczka."
+              }
+            ]
+          }
+        ],
+        "isInOut": false
+      },
+      {
+        "brand": "Head & Shoulders",
+        "brandId": 10266,
+        "caption": "szampon do włosów, przeciwłupieżowy",
+        "fallbackName": "Szampon do włosów",
+        "fallbackCaption": "przeciwłupieżowy",
+        "unit": "625 ml",
+        "averageRating": 4.78,
+        "totalReviews": 54,
+        "id": 2128516,
+        "rossnetId": 0,
+        "eanNumber": ["8006530029292"],
+        "navigateUrl": "/Produkt/Szampony-w-plynie/Head-Shoulders-Classic-Clean-szampon-do-wlosow-przeciwlupiezowy-625-ml,2128516,13177",
+        "name": "Classic Clean ",
+        "oldPrice": 37.99,
+        "price": 26.99,
+        "pricePerUnit": "100 ml = 4,32 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/2128516_55_71_1785543084.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/2128516_360_350_1785543086.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/2128516_338_190_1785543085.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/2128516_1280_720_1785543092.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/2128516_340_340_1785543094.png",
+            "type": 1,
+            "alt": "Head & Shoulders Classic Clean szampon przeciwłupieżowy z 3X Protect, biała butelka, niebieska zakrętka, przód.",
+            "side": "Front"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/2128516_55_71_1769521617.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/2128516_360_350_1769521620.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/2128516_338_190_1769521618.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/2128516_1280_720_1769521625.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/2128516_340_340_1769521622.png",
+            "type": 0,
+            "alt": "Tył białej butelki szamponu Head & Shoulders Classic Clean z niebieską nakrętką, widoczne etykiety i kod kreskowy.",
+            "side": "Back"
+          }
+        ],
+        "promotion": {
+          "type": "mega",
+          "redirectUrl": "/produkty?Statuses=mega"
+        },
+        "promotionFrom": "2026-10-01T00:00:00",
+        "promotionTo": "2026-10-14T00:00:00",
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Włosy-Mycie włosów-Szampony do włosów-Szampony w płynie",
+        "attributes": [
+          {
+            "type": "mega",
+            "redirectUrl": "/produkty?Statuses=mega"
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "promoAll",
+            "redirectUrl": "/produkty?Statuses=promoAll"
+          },
+          {
+            "type": "promoNew",
+            "redirectUrl": "/produkty?Statuses=promoNew"
+          }
+        ],
+        "lastLowestPrice": 37.99,
+        "lastLowestPriceType": "basic",
+        "lastLowestPriceV2": 37.99,
+        "lastLowestPriceTypeV2": "basic",
+        "badges": [
+          {
+            "type": "mega",
+            "name": "MEGA!",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Discounts=mega",
+              "relative": "/produkty?Discounts=mega"
+            }
+          }
+        ],
+        "isInOut": false
+      }
+    ],
+    "recommendedProducts": [],
+    "totalPages": 1,
+    "totalCount": 4,
+    "correlationId": "6550efcf005291a2f50a887a462c84ff",
+    "spellCheckHint": ""
+  }
+}

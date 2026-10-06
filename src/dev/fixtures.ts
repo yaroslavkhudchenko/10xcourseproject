@@ -264,8 +264,9 @@ const HEBE_DECLINED_VIEW = hebeOf(storedView("hebe", HEBE_DECLINED, PRODUCT, LIN
 const HEBE_UNREAD = hebeOf({ kind: "read-failed" });
 
 /**
- * The product's item in Super-Pharm: its size and brand, as Super-Pharm writes them, and no EAN, which Super-Pharm's
- * index doesn't hold, so no lookup accepts it on its own: a match there is always the user's pick.
+ * The product's item in Super-Pharm: its size and brand, as Super-Pharm writes them, a name of only the product's
+ * words, its brand's and the packaging's, and no EAN, which Super-Pharm's index doesn't hold, so the matching rule
+ * accepts it by its name.
  */
 const SUPER_PHARM_ITEM: MatchedItem = {
   shopItemId: SUPER_PHARM_ITEM_ID,
@@ -280,6 +281,13 @@ const SUPER_PHARM_ITEM: MatchedItem = {
 // A decision stored for the product in Super-Pharm, at the same time as Natura's.
 const SUPER_PHARM_DECISION = { ...DECISION, shop: "super-pharm" } as const;
 
+// The rule's match in Super-Pharm, accepted by the item's name, as it's stored: it shares no EAN with the product.
+const SUPER_PHARM_AUTO_MATCHED: RepinnableMatch = {
+  ...SUPER_PHARM_DECISION,
+  decidedBy: "auto",
+  state: "matched",
+  item: SUPER_PHARM_ITEM,
+};
 // The user's pick in Super-Pharm, as it's stored; its re-pin's state opens its choice.
 const SUPER_PHARM_PICKED: RepinnableMatch = {
   ...SUPER_PHARM_DECISION,
@@ -582,7 +590,7 @@ function leftToUser(candidates: ShopCandidate[]): CandidateOption[] {
   const pick = pickMatch(PRODUCT, candidates);
   if (pick.kind !== "choose") {
     // The page never offers a choice the rule settles itself, so neither does the kitchen sink.
-    throw new Error(`The kitchen sink's Natura candidates must be left to the user; the rule answered ${pick.kind}.`);
+    throw new Error(`The kitchen sink's candidates must be left to the user; the rule answered ${pick.kind}.`);
   }
   return pick.options;
 }
@@ -1028,9 +1036,10 @@ const THREE_SHOP_STATES: AreaState[] = [
 
 export const THREE_SHOP_FIXTURES: PriceFixture[] = THREE_SHOP_STATES.map(areaFixture);
 
-// What Super-Pharm's one search, by the product's name, returned. None shares the product's EAN, since Super-Pharm's
-// index holds none, so the matching rule leaves the choice to the user, the product's size and brand first.
-const SUPER_PHARM_CANDIDATES: ShopCandidate[] = [
+// What Super-Pharm's one search, by the product's name, returned, in Super-Pharm's order. None shares the product's
+// EAN, since Super-Pharm's index holds none, so the matching rule accepts only by its name check: the product's item,
+// the one whose name holds nothing the product's lacks.
+const SUPER_PHARM_FOUND: ShopCandidate[] = [
   // Another size, of the product's brand, which Super-Pharm lists first.
   {
     ...SUPER_PHARM_ITEM,
@@ -1043,6 +1052,14 @@ const SUPER_PHARM_CANDIDATES: ShopCandidate[] = [
   },
   // The product's item, of its size and brand, on sale without its regular price, which Super-Pharm's record leaves out.
   { ...SUPER_PHARM_ITEM, shop: "super-pharm", offer: offer(19.49, { lowestPrice30d: 33.99 }) },
+  // A sibling in the product's size and brand, whose name adds a sun filter the product's lacks: another product.
+  {
+    ...SUPER_PHARM_ITEM,
+    shop: "super-pharm",
+    shopItemId: "990004",
+    name: "Przykład Krem nawilżający do twarzy i ciała SPF 30 (Pudełko)",
+    offer: offer(24.99),
+  },
   // Another brand, in the product's size, which Super-Pharm sells only in its shops just now.
   {
     ...SUPER_PHARM_ITEM,
@@ -1054,6 +1071,10 @@ const SUPER_PHARM_CANDIDATES: ShopCandidate[] = [
   },
 ];
 
+// The same search's other items, which the matching rule leaves to the user, as a search without the product's item
+// would bring them: the sibling first, the best name fit in the product's size and brand, then the rest.
+const SUPER_PHARM_CANDIDATES = SUPER_PHARM_FOUND.filter(({ shopItemId }) => shopItemId !== SUPER_PHARM_ITEM_ID);
+
 // Super-Pharm's candidates to choose from after a tap on its button, as the page's view holds them for its choice below
 // the island; Super-Pharm's card gets the view without them.
 const SUPER_PHARM_CHOICE = choiceOf(
@@ -1064,7 +1085,7 @@ const SUPER_PHARM_CHOICE = choiceOf(
 // Super-Pharm's order, the one they picked marked.
 const SUPER_PHARM_FOUND_BY_NAME: ShopChoices = {
   kind: "choices",
-  options: judged(SUPER_PHARM_CANDIDATES),
+  options: judged(SUPER_PHARM_FOUND),
   via: "name",
   incomplete: null,
 };
@@ -1257,6 +1278,15 @@ export const SUPER_PHARM_FIXTURES: SuperPharmFixture[] = [
     idPrefix: "super-pharm-choose",
     superPharm: superPharmOf(SUPER_PHARM_CHOICE),
     state: island(CHECKED_WITH_HEBE),
+  },
+  {
+    code: "matched",
+    text:
+      "dopasowane automatycznie po nazwie, bez wspólnego EAN: karta z ceną Super-Pharmu, a stopka nazywa pozycję, " +
+      "mówi „po nazwie”, bez ostrzeżeń, z „Zmień”",
+    idPrefix: "super-pharm-auto",
+    superPharm: superPharmOf(storedView("super-pharm", SUPER_PHARM_AUTO_MATCHED, PRODUCT, LINKS)),
+    state: island([...CHECKED_WITH_HEBE, SUPER_PHARM_SALE]),
   },
   {
     code: "matched + notice",

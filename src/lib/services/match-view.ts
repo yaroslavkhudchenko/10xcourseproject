@@ -1,6 +1,6 @@
 import { DECISION_CODES, DECISION_NOTICES, ERROR_PARAM, REPIN_PARAM, RETRY_PARAM, SHOP_PARAM } from "@/lib/notices";
 import { matchErrorMessage, replacesFieldOf } from "@/lib/services/matches";
-import { matchDifferences } from "@/lib/services/matching";
+import { matchDifferences, sharesAnEan } from "@/lib/services/matching";
 import {
   formatPrice,
   MATCH_MODES,
@@ -49,8 +49,11 @@ type Branded = Pick<MatchedItem, "brand">;
 /** A shop's item as its card shows it: its photo, its name and size, and its page in the shop. */
 export type MatchItemSummary = Pick<MatchedItem, "brand" | "name" | "sizeText" | "imageUrl" | "productUrl">;
 
-/** The watched product, as far as the views look at it: the id their links lead to, its brand and its size. */
-export type MatchProduct = Pick<WatchlistProduct, "id" | "brand" | "sizeText" | "size">;
+/**
+ * The watched product, as far as the views look at it: the id their links lead to, its brand, its size, and its EANs,
+ * which tell an automatic match by EAN from one by name.
+ */
+export type MatchProduct = Pick<WatchlistProduct, "id" | "brand" | "sizeText" | "size" | "eans">;
 
 /** A short flag on a candidate: a shared EAN, or a warning about its size or its brand. */
 export interface CandidateFlag {
@@ -189,14 +192,14 @@ function actionOf(
 }
 
 /**
- * A match in `shop`: how it was decided, its item, and a warning for each thing that definitely differs from the
- * product (matchDifferences), its size, then its brand. A match the page couldn't save (`unsaved`) has no price row, so
- * its card shows the item's photo and page too, and has no action, since there's no decision to change yet; a saved or
- * stored match has them in its price row, and "Zmień", or "Anuluj" while its choice is open (`repinning`).
+ * A match in `shop`: how it was decided (noteOf), its item, and a warning for each thing that definitely differs from
+ * the product (matchDifferences), its size, then its brand. A match the page couldn't save (`unsaved`) has no price row,
+ * so its card shows the item's photo and page too, and has no action, since there's no decision to change yet; a saved
+ * or stored match has them in its price row, and "Zmień", or "Anuluj" while its choice is open (`repinning`).
  */
 export function matchedView(
   shop: MatchableShop,
-  item: MatchItemSummary & Sized,
+  item: MatchItemSummary & Sized & Pick<MatchedItem, "eans">,
   decidedBy: "auto" | "user",
   own: MatchProduct,
   { unsaved = false, ...options }: StoredViewOptions & { unsaved?: boolean },
@@ -209,16 +212,29 @@ export function matchedView(
   if (differences.brand) {
     warnings.push(otherBrand(item, own));
   }
-  const note = decidedBy === "auto" ? "Dopasowano automatycznie: ten sam EAN i rozmiar." : "Potwierdzone przez Ciebie.";
   const { brand, name, sizeText, imageUrl, productUrl } = item;
   return {
     kind: "matched",
-    note,
+    note: noteOf(decidedBy, item, own),
     warnings,
     item: { brand, name, sizeText, imageUrl, productUrl },
     unsaved,
     action: unsaved ? null : actionOf(shop, own, options),
   };
+}
+
+/**
+ * How a match was decided, as its card says it: the user's, or the rule's by EAN when the item carries one of the
+ * product's EANs, and by name when it carries none. The rule accepts by name only where EANs can't decide, and never
+ * between two items that share an EAN (pickMatch), so no column needs to say which way it accepted a match.
+ */
+function noteOf(decidedBy: "auto" | "user", item: Pick<MatchedItem, "eans">, own: MatchProduct): string {
+  if (decidedBy === "user") {
+    return "Potwierdzone przez Ciebie.";
+  }
+  return sharesAnEan(own, item)
+    ? "Dopasowano automatycznie: ten sam EAN i rozmiar."
+    : "Dopasowano automatycznie po nazwie.";
 }
 
 /** A lookup in `shop` that found nothing at `checkedAt`, with the link that looks the product up there again. */

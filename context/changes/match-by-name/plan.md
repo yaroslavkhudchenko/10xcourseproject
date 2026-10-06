@@ -567,6 +567,27 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
   - The other 69 of the 71 recorded hits send 1.
   - The research note's §2.3 records it in Phase 5.
 
+### Phase 2
+
+- **Comments in `shop-matching.ts`** (contract item 2). The cited lines (:58-61, :147-151) never said Super-Pharm doesn't match on its own. The name check is documented on `lookupInShop` and `LookupProduct` instead. `lookupEan`'s comment stays for Phase 3, which rewrites the function.
+- **Shared helpers in `matching.ts`** (lesson 6):
+  - `sharesAnEan` serves both `judge` and the card's note, so the note and the rule compare the same lists;
+  - `folded` serves both `brandKey` and the word splitter;
+  - Phase 3's choice-order helper is `orderChoice(product, candidates)`, which returns every candidate judged and ordered; `pickMatch` cuts it to `limit`.
+- **The size pattern has no lookbehind:** `matching.ts` runs in the islands, and Safari before 16.4 can't parse one.
+- **The dev sample page** (contract item 4):
+  - Super-Pharm's whole answer is `SUPER_PHARM_FOUND`, and the choice, `SUPER_PHARM_CANDIDATES`, is that answer without the accepted item.
+  - The choice has one same-size, same-brand sibling („…SPF 30 (Pudełko)”), so the label's size and brand warnings still fit in the 3 offered.
+  - A new "matched" fixture shows the automatic match by name.
+  - `SUPER_PHARM_ITEM`'s doc comment is reworded now, not in Phase 4, since this phase makes "always the user's pick" false.
+- **How the recorded tests read their products:**
+  - `super-pharm.test.ts` reads the 14 recorded products through Rossmann's own adapter, over a real gate and the replay, with every URL spelled out. The two `pageSize=10` recordings are served for the adapter's `pageSize=24` request, as the earlier probes are; they hold all their items.
+  - `natura.test.ts` and `hebe.test.ts` use hand-written products that name their recording.
+- **Tests whose expectations changed by the plan's order:**
+  - In `matching.test.ts`, an EAN-less look-alike now leads the choice ahead of EAN-bearing ones.
+  - `shop-matching.test.ts`'s `spCream` keeps its choice: its name, „krem” with no caption, leaves 10132's words unexplained.
+  - A new `runMatchSteps` test stores an automatic match by name, with its first price and „Dopasowano automatycznie po nazwie.”.
+
 ## References
 
 - Research: `context/changes/match-by-name/research.md`
@@ -584,22 +605,22 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 1.1 Super-Pharm's adapter tests pass, sizes read from names included
-- [x] 1.2 Break-checks turn named tests red: a set's trailing size, and the name's size over `capacity`
-- [x] 1.3 Lint, type check and the whole unit suite pass
+- [x] 1.1 Super-Pharm's adapter tests pass, sizes read from names included — ec93c3e
+- [x] 1.2 Break-checks turn named tests red: a set's trailing size, and the name's size over `capacity` — ec93c3e
+- [x] 1.3 Lint, type check and the whole unit suite pass — ec93c3e
 
 ### Phase 2: The name check
 
 #### Automated
 
-- [ ] 2.1 The rule's tests pass, the name check's boundaries included
-- [ ] 2.2 The recorded cases pass in the adapters' tests
-- [ ] 2.3 Break-checks turn named tests red: numbers ignored, one shared word, EAN-bearing items eligible, a covered candidate accepted, the name check beside an EAN match
-- [ ] 2.4 Lint, type check and the whole unit suite pass
+- [x] 2.1 The rule's tests pass, the name check's boundaries included
+- [x] 2.2 The recorded cases pass in the adapters' tests
+- [x] 2.3 Break-checks turn named tests red: numbers ignored, one shared word, EAN-bearing items eligible, a covered candidate accepted, the name check beside an EAN match
+- [x] 2.4 Lint, type check and the whole unit suite pass
 
 #### Manual
 
-- [ ] 2.5 `/dev/product-page` loads under `astro dev` and shows Super-Pharm's automatic match by name and its choice
+- [x] 2.5 `/dev/product-page` loads under `astro dev` and shows Super-Pharm's automatic match by name and its choice
 
 ### Phase 3: Super-Pharm looked up on view
 

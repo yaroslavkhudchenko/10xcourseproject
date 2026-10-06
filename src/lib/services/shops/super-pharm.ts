@@ -319,8 +319,8 @@ function toCandidate(raw: unknown): ShopCandidate | null {
     name: name.slice(0, PRODUCT_LIMITS.name),
     sizeText,
     size,
-    // The index holds no EAN, so no candidate shares one with the product, and the matching rule never accepts one on
-    // its own (FR-006).
+    // The index holds no EAN, so no candidate shares one with the product, and the matching rule accepts one on its own
+    // only by its name check (FR-006).
     eans: [],
     productUrl: productUrl !== null && isSuperPharmProductUrl(productUrl) ? productUrl : null,
     imageUrl: imageUrl !== null && isSuperPharmImage(imageUrl) ? imageUrl : null,
