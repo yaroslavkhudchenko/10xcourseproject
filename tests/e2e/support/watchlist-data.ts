@@ -139,9 +139,8 @@ export async function addRossmannProduct({ name }: { name: string }): Promise<Se
 
 /**
  * Adds a product from Rossmann matched in Natura, the shape every spec compares: its name, ids and Natura's SKU. It has
- * no decision in Hebe, so its page, opened by the user, looks it up there, which the stopped shop refuses, nor in
- * Super-Pharm, whose card then offers only its button; a spec that needs either settled matches it there too
- * (matchShop).
+ * no decision in Hebe or Super-Pharm, so its page, opened by the user, looks it up in both, which the stopped shops
+ * refuse; a spec that needs either settled matches it there too (matchShop).
  */
 export async function addMatchedProduct(name: string): Promise<SeededProduct & { sku: string }> {
   const product = await addRossmannProduct({ name });
@@ -153,8 +152,8 @@ export interface SeededMatch {
   /** The matched item's name, to which the run's token is added. */
   name: string;
   /**
-   * Who decided: the matching rule on its own (`auto`, the default), or the user (`user`), whose pick is the only way a
-   * Super-Pharm match is made, since Super-Pharm's items carry no EAN.
+   * Who decided: the matching rule on its own (`auto`, the default), or the user (`user`). The rule accepts a
+   * Super-Pharm item, which carries no EAN, only by its name.
    */
   decidedBy?: "auto" | "user";
   /** The item's page in the shop, which its card links to as "Zobacz w sklepie"; none by default. */

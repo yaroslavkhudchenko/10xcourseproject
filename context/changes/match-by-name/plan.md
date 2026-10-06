@@ -588,6 +588,20 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
   - `shop-matching.test.ts`'s `spCream` keeps its choice: its name, „krem” with no caption, leaves 10132's words unexplained.
   - A new `runMatchSteps` test stores an automatic match by name, with its first price and „Dopasowano automatycznie po nazwie.”.
 
+### Phase 3
+
+- **Criterion 3.2's grep is word-bounded.** `on-request` is a substring of `json-request`, so the plan's `grep -rn "MATCH_MODES\|MatchMode\|on-request" src` always prints 4 lines (`price-comparison-state.ts`, `json-request.test.ts`, `pages/api/watchlist/prices.ts` ×2). The gate runs `grep -rnE "MATCH_MODES|MatchMode|(^|[^a-zA-Z])on-request" src`, which prints nothing.
+- **Comments the contract cited that said something else:**
+  - `super-pharm.ts:21-23` never mentioned the button. It now says the lookups search Super-Pharm by name alone, and names `searchesByEan`.
+  - `notices.test.ts`, which isn't in the plan's list, had a comment calling `?retry=super-pharm` "the tap on the button"; its assertions are unchanged.
+- **No recording answers Super-Pharm's search for the product the plain-view tests use** (`softInBoth`, „nivea soft”). Those tests give Super-Pharm's exact body a status-only 500 entry. Super-Pharm is still asked once, with one reservation and its body asserted, and shows „chwilowo niedostępna”.
+- **The accepted-by-name path is a plain view** of a product whose Natura and Hebe decisions are stored, served by the real P3 recording. "Gives Super-Pharm only its button" is gone, and "asks no shop" gained a stored Super-Pharm decline.
+- **`lookupChoicesInShop` orders by fit, then cuts to 6,** as `pickMatch` orders, then cuts to its limit.
+- **e2e:** step 4 is gone, so the old step 5 is now numbered 4. The unused `waitForIsland` import is removed.
+- **Criteria 3.4 and 3.5 can't run here** (no Docker, no local Supabase):
+  - 3.4 runs in CI's `e2e` job on draft PR #32 after this phase is pushed.
+  - 3.5 is covered by Phase 5's check 5.4 in production after the deploy (the owner's call, 2026-10-06), and is ticked with it.
+
 ## References
 
 - Research: `context/changes/match-by-name/research.md`
@@ -613,22 +627,22 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 2.1 The rule's tests pass, the name check's boundaries included
-- [x] 2.2 The recorded cases pass in the adapters' tests
-- [x] 2.3 Break-checks turn named tests red: numbers ignored, one shared word, EAN-bearing items eligible, a covered candidate accepted, the name check beside an EAN match
-- [x] 2.4 Lint, type check and the whole unit suite pass
+- [x] 2.1 The rule's tests pass, the name check's boundaries included — 64bc832
+- [x] 2.2 The recorded cases pass in the adapters' tests — 64bc832
+- [x] 2.3 Break-checks turn named tests red: numbers ignored, one shared word, EAN-bearing items eligible, a covered candidate accepted, the name check beside an EAN match — 64bc832
+- [x] 2.4 Lint, type check and the whole unit suite pass — 64bc832
 
 #### Manual
 
-- [x] 2.5 `/dev/product-page` loads under `astro dev` and shows Super-Pharm's automatic match by name and its choice
+- [x] 2.5 `/dev/product-page` loads under `astro dev` and shows Super-Pharm's automatic match by name and its choice — 64bc832
 
 ### Phase 3: Super-Pharm looked up on view
 
 #### Automated
 
-- [ ] 3.1 The step, view, card and lookup tests pass
-- [ ] 3.2 Nothing in `src/` refers to `MATCH_MODES`, `MatchMode` or `on-request`
-- [ ] 3.3 Lint, type check, the unit suite and the build pass
+- [x] 3.1 The step, view, card and lookup tests pass
+- [x] 3.2 Nothing in `src/` refers to `MATCH_MODES`, `MatchMode` or `on-request`
+- [x] 3.3 Lint, type check, the unit suite and the build pass
 - [ ] 3.4 `phone-four-shops` passes against the held shops
 
 #### Manual

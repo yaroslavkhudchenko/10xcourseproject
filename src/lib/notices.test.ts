@@ -270,7 +270,7 @@ describe("withoutNotices, which both pages' address-bar scripts forget their not
   });
 
   it("drops a retry's parameter and keeps the filter, so going back to its lookup or reloading it asks the shop nothing", () => {
-    // The tap on the button of a shop looked up on request, which usually opens a choice and stores nothing.
+    // "Szukaj ponownie" over Super-Pharm's stored "not found", whose lookup may only open a choice and store nothing.
     expect(withoutNotices(`${BASE}/watchlist/x?f=check&retry=super-pharm`, NOTICE_PARAMS)).toBe(
       `${BASE}/watchlist/x?f=check`,
     );

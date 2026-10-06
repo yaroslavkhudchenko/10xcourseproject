@@ -110,11 +110,10 @@ export const LIST_PRICES_PARAM = "list-prices";
 export const REPIN_PARAM = "repin";
 
 /**
- * The parameter that looks the product up in one shop on its product's page, holding the shop (`?retry=natura`): again
- * over a stored "not found", from "Szukaj ponownie", or at all in a shop looked up only on request, from its card's
- * button. A retry that stored its outcome goes back to the plain page, and the page's address bar forgets the
- * parameter once the page has rendered, so going back to the page or reloading it asks the shop nothing, also after a
- * lookup that only opened a choice, which stores nothing.
+ * The parameter that looks a shop's stored "not found" up again on its product's page, holding the shop
+ * (`?retry=natura`), from "Szukaj ponownie". A retry that stored its outcome goes back to the plain page, and the
+ * page's address bar forgets the parameter once the page has rendered, so going back to the page or reloading it asks
+ * the shop nothing, also after a lookup that only opened a choice, which stores nothing.
  */
 export const RETRY_PARAM = "retry";
 

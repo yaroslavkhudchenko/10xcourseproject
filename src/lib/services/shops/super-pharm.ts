@@ -18,10 +18,11 @@ import { parseSize, trailingSizeText } from "@/lib/services/size";
 import type { GateOutcome, PriceCheck, ShopCandidate, ShopOffer, ShopSearch, ShopUnavailable, Size } from "@/types";
 
 // Super-Pharm's product search runs on Algolia (research note §2.3): a POST to one index's query URL, whose body holds
-// the search's parameters, answered with hits. Its index holds no EAN, so a candidate never shares one with the product
-// and is found by name. The same URL answers a filter by `objectID` with an empty query, which fetches several pinned
-// items' prices at once, by the rules every shop's pinned prices follow (pinned-prices.ts). This module maps
-// Super-Pharm's record, as its answers recorded on 2026-10-05 and 2026-10-06 show it.
+// the search's parameters, answered with hits. Its index holds no EAN, so a candidate never shares one with the
+// product, and the lookups search it by name alone (`searchesByEan` in the registry). The same URL answers a filter by
+// `objectID` with an empty query, which fetches several pinned items' prices at once, by the rules every shop's pinned
+// prices follow (pinned-prices.ts). This module maps Super-Pharm's record, as its answers recorded on 2026-10-05 and
+// 2026-10-06 show it.
 
 /** The Algolia application of Super-Pharm's search, as every superpharm.pl page names it (research note §2.3). */
 const APP_ID = "EP43QPDX9Q";

@@ -287,25 +287,38 @@ describe("matchCardOf for another matched shop: every text from the shop's label
   });
 });
 
-describe("matchCardOf for a shop looked up on request", () => {
-  // Super-Pharm, which no visit looks up on its own: only its card's button does. Its lookup found nothing, and that
-  // couldn't be stored.
+describe("matchCardOf for Super-Pharm, looked up on view like the other shops", () => {
+  // Super-Pharm's lookup on the user's own navigation, whose outcome couldn't be stored: a match its name check
+  // accepted, which then has no price row, or nothing found.
+  const byName: MatchView = {
+    kind: "matched",
+    note: "Dopasowano automatycznie po nazwie.",
+    warnings: [],
+    item: {
+      brand: "Nivea",
+      name: "Nivea Soft Krem nawilżający (Pudełko)",
+      sizeText: "300 ml",
+      imageUrl: null,
+      productUrl: "https://www.superpharm.pl/nivea-soft-krem-nawilzajacy-pudelko-39477",
+    },
+    unsaved: true,
+    action: null,
+  };
   const notFound: MatchView = {
     kind: "not-found",
     text: "Nie znaleziono w Super-Pharmie (sprawdzono 28.09, 14:00).",
     href: `/watchlist/${ITEM_ID}?f=check&retry=super-pharm`,
   };
 
-  it("points to the card's button above when its lookup's outcome couldn't be stored, never to the next visit", () => {
-    const card = matchCardOf({ shop: "super-pharm", view: notFound, ...quiet, unsaved: true });
-
-    // The button the alert points to stands above it, in the card's own part.
-    expect(card).toMatchObject({ kind: "not-found", link: { label: "Szukaj ponownie", href: notFound.href } });
-    expect(card.alerts).toEqual([
-      {
-        tone: "warning",
-        text: "Nie udało się zapisać wyniku. Sklep Super-Pharm zostanie sprawdzony ponownie, gdy użyjesz przycisku powyżej.",
-      },
-    ]);
-  });
+  it.each([byName, notFound])(
+    "says the next visit looks Super-Pharm up again when its lookup's outcome couldn't be stored ($kind)",
+    (view) => {
+      expect(matchCardOf({ shop: "super-pharm", view, ...quiet, unsaved: true }).alerts).toEqual([
+        {
+          tone: "warning",
+          text: "Nie udało się zapisać wyniku. Przy następnym otwarciu produktu sklep Super-Pharm zostanie sprawdzony ponownie.",
+        },
+      ]);
+    },
+  );
 });

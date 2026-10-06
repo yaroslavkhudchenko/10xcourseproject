@@ -347,8 +347,13 @@ describe("the views' links keep the list's filter", () => {
       href: `${PAGE}?f=check&retry=natura`,
     },
     {
-      view: "the button of a shop looked up on request",
+      view: "Super-Pharm's lookup button",
       built: promptView("super-pharm", product, false, "check"),
+      href: `${PAGE}?f=check`,
+    },
+    {
+      view: "Super-Pharm's retry's lookup button",
+      built: promptView("super-pharm", product, true, "check"),
       href: `${PAGE}?f=check&retry=super-pharm`,
     },
     { view: "the link to a decision stored meanwhile", built: decidedView(product, "check"), href: `${PAGE}?f=check` },
@@ -562,15 +567,13 @@ describe("promptView", () => {
     expect(promptView("natura", product, true, "all")).toEqual({ kind: "prompt", href: `${PAGE}?retry=natura` });
   });
 
-  it.each([false, true])(
-    "always names a shop looked up on request, which no other page looks up (retrying: %s)",
-    (retrying) => {
-      expect(promptView("super-pharm", product, retrying, "all")).toEqual({
-        kind: "prompt",
-        href: `${PAGE}?retry=super-pharm`,
-      });
-    },
-  );
+  it("names Super-Pharm only for a retry, as any shop: the plain page looks it up like the others", () => {
+    expect(promptView("super-pharm", product, false, "all")).toEqual({ kind: "prompt", href: PAGE });
+    expect(promptView("super-pharm", product, true, "all")).toEqual({
+      kind: "prompt",
+      href: `${PAGE}?retry=super-pharm`,
+    });
+  });
 });
 
 describe("decidedView", () => {
