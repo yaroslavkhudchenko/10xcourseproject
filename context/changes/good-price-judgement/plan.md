@@ -375,6 +375,26 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
   - counting history as enough a day early turned the 30-day boundary test red.
   - The implementer's own 9 mutations were all caught.
 
+### Phase 2
+
+- **The view builds on `latest_price_observations`,** naming its 10 columns, and adds a `left join lateral` aggregate. So the latest check is defined once, and F4's later rework of that view reaches this one.
+- **The read:** in `prices.ts`, `readLatestRows` takes a view descriptor (`LIST_VIEW` and `PAGE_VIEW`: name, columns, parse) instead of one constant, and `toLatestPrice` takes the history. `[id].astro`, the island's state and `PriceComparison.tsx` are unchanged, since Phase 1's `LatestPrice.history` already reaches the island.
+- **A stricter parse than the contract:** a low without days, or days without a low, also makes the row unreadable. This is the file's own "a row in between is odd" rule, and the view never produces either.
+- **The database check's placement:**
+  - Its last backdate moves the item's checks back by the current Warsaw hour plus 12 h, and each earlier one by another 24 h. So every check lands near noon on its intended day, at any hour and across clock changes.
+  - The expected values are computed from the rows' real `observed_at` in Warsaw.
+  - The check now needs the local database container (through `backdateChecks`, `scripts/e2e-local-db.mjs`) and a local `SUPABASE_URL` in `.env` and `.dev.vars`. CI writes both before the step, and Phase 4 documents it.
+- **Database checks beyond the contract:**
+  - anon gets 42501 on `price_summaries`;
+  - a regular price and a 30-day low of 99999.99 are accepted;
+  - the new view's latest columns equal `latest_price_observations`' for the item.
+- **Names:** `price_observations_regular_price_bounded`, `price_observations_lowest_price_30d_bounded` and `price_observations_priced_item_observed_at_idx`. `PRICE_LIMITS`' comment now says the database bounds all three amounts, and names both migrations.
+- **Left with F4's leftovers:** filtering the product page's read by `shop_id`, which this change doesn't need.
+- **The gates:**
+  - They ran on the worktree with Phase 3's files in progress beside Phase 2's, and all were green: lint, `astro check`, 2316 unit tests. Phase 2's files depend on nothing of Phase 3's.
+  - Breaking the history parse, by accepting any `history_days`, turned 3 tests red.
+- **Not checked here:** the SQL and the database check can't run here (no Docker). CI's `smoke` job is their first run, as 2.2 says.
+
 ## References
 
 - Research: `context/changes/good-price-judgement/research.md`
@@ -390,8 +410,8 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [ ] 1.1 The rule's tests pass
-- [ ] 1.2 Lint, type check and the whole unit suite pass
+- [x] 1.1 The rule's tests pass — 22eeff2
+- [x] 1.2 Lint, type check and the whole unit suite pass — 22eeff2
 
 ### Phase 2: History in the database
 

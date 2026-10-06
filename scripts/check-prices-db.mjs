@@ -2,12 +2,17 @@
 // else, that no one can change or delete one or set its time, source or recording user, and that the latest-price view
 // keeps to the same rules. It also proves S-03's follow-ups on S-02's tables: stricter EAN checks, and an update grant
 // on shop matches that covers only the decision. Since S-08 it proves that removing a product deletes no observation,
-// and that a re-pin changes which item a user watches.
+// and that a re-pin changes which item a user watches. Since S-04 it proves that the product page's view
+// (price_summaries) gives each item's history, its orderable prices of the 30 days in Poland before today, to the
+// item's watchers only, and that the regular price and the 30-day low are bounded as the price is.
 // Run: SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=<anon key> node scripts/check-prices-db.mjs
 // Each run signs up two fresh users and uses shop item ids of its own, so it can run again without resetting the
-// database, and it never adds a price to a real product's shared history.
+// database, and it never adds a price to a real product's shared history. The history checks move checks back in time
+// as the local superuser, through Docker (scripts/e2e-local-db.mjs), so the run also needs the local stack's database
+// container, and .env and .dev.vars pointing at the local stack.
 
 import { createClient } from "@supabase/supabase-js";
+import { assertLocalSupabase, backdateChecks } from "./e2e-local-db.mjs";
 
 const { SUPABASE_URL, SUPABASE_KEY } = process.env;
 if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -18,6 +23,14 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 const { hostname } = new URL(SUPABASE_URL);
 if (hostname !== "127.0.0.1" && hostname !== "localhost") {
   console.log(`FAIL  refusing to run against ${hostname}: point SUPABASE_URL at the local Supabase`);
+  process.exit(1);
+}
+// The superuser's helper refuses unless the environment, .env and .dev.vars all name the local stack: checked before
+// anything is written, so a refusal leaves nothing behind.
+try {
+  assertLocalSupabase();
+} catch (error) {
+  console.log(`FAIL  the history checks act as the local superuser, whose helper says: ${error.message}`);
   process.exit(1);
 }
 
@@ -102,15 +115,65 @@ const missingRow = (shopId, shopItemId) => ({
 
 const table = (client) => client.from("price_observations");
 const view = (client) => client.from("latest_price_observations");
+// The product page's view: the latest-price view's columns and each item's history (src/lib/services/prices.ts).
+const summaries = (client) => client.from("price_summaries");
 const LATEST_COLUMNS =
   "shop_id, shop_item_id, last_checked_at, last_status, price, regular_price, lowest_price_30d, promo_ends_on, " +
   "available, priced_at";
+const SUMMARY_COLUMNS = `${LATEST_COLUMNS}, history_low, history_days`;
 
 // A product on a user's list makes its Rossmann item watched.
 async function addProduct(user, label, sourceItemId) {
   const product = await user.client.from("watchlist_items").insert(rossmannItem(sourceItemId)).select("id").single();
   check(`user ${label} adds Rossmann item ${sourceItemId}`, Boolean(product.data?.id), show(product));
   return product.data?.id;
+}
+
+// Moves every check of a Rossmann item back by whole hours as the local superuser (scripts/e2e-local-db.mjs): the
+// database stamps each check's time, which no user may set. Gives how many checks moved, and stops the run when the
+// superuser can't be reached.
+function backdate(shopItemId, hours) {
+  try {
+    return backdateChecks("rossmann", shopItemId, hours);
+  } catch (error) {
+    check(`move the checks of ${shopItemId} back ${hours} hours as the local superuser`, false, error.message);
+    process.exit(1);
+  }
+}
+
+// A time's day in Poland, as YYYY-MM-DD, and its hour there: the calendar the product page's view keeps history by.
+const polishClock = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Warsaw",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  hourCycle: "h23",
+});
+function inPoland(time) {
+  const parts = Object.fromEntries(polishClock.formatToParts(new Date(time)).map(({ type, value }) => [type, value]));
+  return { day: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
+}
+
+// The day a number of whole days after a day, both as YYYY-MM-DD.
+function addDays(day, days) {
+  const [year, month, date] = day.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, date + days)).toISOString().slice(0, 10);
+}
+
+// What the product page's view gives for an item's checks when read on `today`, by the migration's rule: the checks
+// that found the item orderable online in the 30 days in Poland before today, their lowest price, and their days, each
+// once and in order; no low and no day without one.
+function expectedHistory(checks, today) {
+  const counted = checks.filter((row) => {
+    const { day } = inPoland(row.observed_at);
+    return row.status === "price" && row.available === true && day >= addDays(today, -30) && day < today;
+  });
+  const prices = counted.map((row) => row.price);
+  return {
+    low: prices.length === 0 ? null : Math.min(...prices),
+    days: [...new Set(counted.map((row) => inPoland(row.observed_at).day))].sort(),
+  };
 }
 
 const a = await signUpUser("a");
@@ -186,10 +249,11 @@ check(
 );
 const anonTable = await table(anon).select("id");
 const anonView = await view(anon).select("shop_item_id");
+const anonSummaries = await summaries(anon).select("shop_item_id");
 check(
   "anon can't read observations",
-  anonTable.error?.code === "42501" && anonView.error?.code === "42501",
-  `table ${show(anonTable)}, view ${show(anonView)}`,
+  anonTable.error?.code === "42501" && anonView.error?.code === "42501" && anonSummaries.error?.code === "42501",
+  `table ${show(anonTable)}, view ${show(anonView)}, product page's view ${show(anonSummaries)}`,
 );
 const anonWrite = await table(anon).insert(priceRow("rossmann", itemX));
 check("anon can't record a price", anonWrite.error?.code === "42501", show(anonWrite));
@@ -238,10 +302,14 @@ check(
 );
 
 // 7. Bounds and shapes, each row breaking exactly one. RLS runs before a table's checks, so every observation is for an
-// item user A watches, '..' included: watchlist_items still accepts it as a product's id.
+// item user A watches, '..' included: watchlist_items still accepts it as a product's id. Since S-04 (F6) the regular
+// price and the 30-day low stay below 100000 as the price does, within PRICE_LIMITS
+// (src/lib/services/product-limits.ts).
 await addProduct(a, "A", "..");
 const observationRefusals = [
   ["a price of 0", priceRow("rossmann", itemX, { price: 0 })],
+  ["a regular price of 100000", priceRow("rossmann", itemX, { regular_price: 100000 })],
+  ["a 30-day low of 100000", priceRow("rossmann", itemX, { lowest_price_30d: 100000 })],
   ["a missing item that carries a price", { ...missingRow("rossmann", itemX), price: 26.99 }],
   ["a shop item id of '..'", priceRow("rossmann", "..")],
 ];
@@ -249,6 +317,13 @@ for (const [what, row] of observationRefusals) {
   const result = await table(a.client).insert(row);
   check(`price_observations refuses ${what}`, result.error?.code === "23514", show(result));
 }
+// The highest amounts PRICE_LIMITS allows are still stored, for an item of its own: X's checks are counted in 9.
+const itemAtBound = rossmannId(6);
+await addProduct(a, "A", itemAtBound);
+const atBound = await table(a.client).insert(
+  priceRow("rossmann", itemAtBound, { price: 99999.98, regular_price: 99999.99, lowest_price_30d: 99999.99 }),
+);
+check("price_observations accepts a regular price and a 30-day low of 99999.99", !atBound.error, show(atBound));
 // S-02's EAN rule joined the elements with commas, so it read an element holding a comma, or a two-dimensional array
 // (written as the literal Postgres reads it from), as a list of EANs.
 const eanShapes = [
@@ -347,6 +422,79 @@ check(
   "a user who removed their product no longer reads or adds its prices",
   aTableAfter.data?.length === 0 && aViewAfter.data?.length === 0 && aWriteAfter.error?.code === "42501",
   `table ${show(aTableAfter)}, view ${show(aViewAfter)}, insert ${show(aWriteAfter)}`,
+);
+
+// 10. The product page's view (S-04) gives each item's latest check, as latest_price_observations does, with its
+// history: the lowest price a check found the item orderable online at in the 30 days in Poland before today, and the
+// days of those checks, each once. No user can set a check's time, so the checks of a fresh item H are moved back as
+// the local superuser, and a move shifts every check of the item. So they're added oldest first: three days ago a
+// missing item and an unorderable 5,99 zł, two days ago 23,99 and 21,99 zł, yesterday 22,99 zł, and today 9,99 zł,
+// below them all. The last move lands yesterday's check at about noon in Poland, whatever the hour, and the older ones
+// whole days before it, so none lands near a midnight, even across a change of clocks.
+const itemH = rossmannId(5);
+await addProduct(a, "A", itemH);
+const hInserts = [];
+const recordH = async (row) => hInserts.push(await table(a.client).insert(row));
+const hMoves = [];
+const moveH = (hours) => hMoves.push(backdate(itemH, hours));
+await recordH(missingRow("rossmann", itemH));
+await recordH(priceRow("rossmann", itemH, { price: 5.99, available: false }));
+moveH(24);
+await recordH(priceRow("rossmann", itemH, { price: 23.99 }));
+await recordH(priceRow("rossmann", itemH, { price: 21.99 }));
+moveH(24);
+await recordH(priceRow("rossmann", itemH, { price: 22.99 }));
+// From any hour of today in Poland, that hour and 12 more back is about noon yesterday.
+moveH(inPoland(Date.now()).hour + 12);
+await recordH(priceRow("rossmann", itemH, { price: 9.99 }));
+check(
+  "user A records six checks of H, all but today's moved back to the days before",
+  hInserts.length === 6 && hInserts.every((result) => !result.error) && hMoves.join() === "2,4,5",
+  `inserts ${hInserts.map(show).join(", ")}, moved ${hMoves.join(", ")}`,
+);
+
+// The view takes today by the database's clock when it's read. The expected history is worked out by the same rule
+// from where each check landed, for the day the newest check was stamped on and for the day just after the read, which
+// differ only when the read came after a midnight in Poland, so the check holds at any hour.
+const hSummary = await summaries(a.client).select(SUMMARY_COLUMNS).eq("shop_item_id", itemH);
+const readOn = inPoland(Date.now()).day;
+const hLatest = await view(a.client).select(LATEST_COLUMNS).eq("shop_item_id", itemH);
+const hChecks = await table(a.client).select("status, price, available, observed_at").eq("shop_item_id", itemH);
+const summaryH = hSummary.data?.[0];
+const latestH = hLatest.data?.[0];
+check(
+  "the product page's view gives user A one row for H, with the latest check latest_price_observations gives",
+  hSummary.data?.length === 1 &&
+    hLatest.data?.length === 1 &&
+    LATEST_COLUMNS.split(", ").every((column) => summaryH[column] === latestH[column]) &&
+    summaryH.price === 9.99,
+  `price_summaries ${show(hSummary)}, latest_price_observations ${show(hLatest)}`,
+);
+const checksH = hChecks.data ?? [];
+const stamps = checksH.map((row) => Date.parse(row.observed_at));
+const stampedOn = stamps.length === 0 ? [] : [inPoland(Math.max(...stamps)).day];
+const expected = [...new Set([...stampedOn, readOn])].map((today) => expectedHistory(checksH, today));
+const historyH = { low: summaryH?.history_low, days: summaryH?.history_days };
+check(
+  "its history counts H's orderable prices before today only, not today's, the missing item's or the unorderable one's",
+  checksH.length === 6 && expected.some((each) => JSON.stringify(each) === JSON.stringify(historyH)),
+  `history ${JSON.stringify(historyH)}, expected ${JSON.stringify(expected)}, checks ${show(hChecks)}`,
+);
+// The two orderable checks of two days ago.
+const pairDays = new Set(
+  checksH.filter((row) => row.price === 23.99 || row.price === 21.99).map((row) => inPoland(row.observed_at).day),
+);
+const [pairDay] = pairDays;
+check(
+  "two checks on one past day count as one date",
+  pairDays.size === 1 && summaryH?.history_days?.filter((day) => day === pairDay).length === 1,
+  `checks on ${[...pairDays].join(", ")}, history days ${JSON.stringify(summaryH?.history_days)}`,
+);
+const bSummaryH = await summaries(b.client).select("shop_item_id, history_low, history_days").eq("shop_item_id", itemH);
+check(
+  "user B, who doesn't watch H, reads no row of the product page's view for it",
+  bSummaryH.data?.length === 0,
+  show(bSummaryH),
 );
 
 console.log(failed ? `\n${failed} check(s) failed` : "\nAll price observations database checks passed");

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "astro/zod";
 import { keyText, PRICED_SHOPS } from "@/lib/services/price-comparison";
-import { SHOP_IDS, type LatestPrice, type PriceCheck, type PriceKey, type ShopId } from "@/types";
+import { SHOP_IDS, type LatestPrice, type PriceCheck, type PriceHistory, type PriceKey, type ShopId } from "@/types";
 
 // Every price check of a shop item (public.price_observations), shared by the item's watchers: a user reads and adds
 // only observations of items they watch, and nobody changes or removes one. Every read and write goes through the
@@ -9,7 +9,6 @@ import { SHOP_IDS, type LatestPrice, type PriceCheck, type PriceKey, type ShopId
 // rows back and every read names its columns. Each call gives up after 2 s, like the watchlist's.
 const DATABASE_TIMEOUT_MS = 2000;
 const TABLE = "price_observations";
-const LATEST_VIEW = "latest_price_observations";
 
 /** What storing checks came to. `none`: no check was a price or a missing item, so nothing was sent. */
 export type PriceRecordResult = "saved" | "failed" | "none";
@@ -81,7 +80,7 @@ export async function recordPriceChecks(
   return "saved";
 }
 
-// Only the columns the pages show; the view names no recording user.
+// Only the columns the pages show; the views name no recording user.
 const LATEST_COLUMNS =
   "shop_id, shop_item_id, last_checked_at, last_status, price, regular_price, lowest_price_30d, promo_ends_on, " +
   "available, priced_at";
@@ -126,6 +125,47 @@ const latestRowSchema = z.union([
   }),
 ]);
 
+// An item's prices in the 30 days in Poland before today, as price_summaries gives them: the lowest one a check found
+// it orderable online at, and the days of those checks as YYYY-MM-DD; or no low and no day, when no check did. A low
+// without a day, or a day without a low, is odd.
+const historyColumnsSchema = z.union([
+  z.object({ history_low: z.number().positive(), history_days: z.array(z.iso.date()).min(1) }),
+  z.object({ history_low: z.null(), history_days: z.array(z.iso.date()).max(0) }),
+]);
+
+/** A view the latest prices are read from: its name, the columns a read names, and one row as a price, null if odd. */
+interface LatestView {
+  name: string;
+  columns: string;
+  parse: (raw: unknown) => LatestPrice | null;
+}
+
+// The list's view, each item's latest check without its history, which the list doesn't judge a price by: its prices
+// say their history wasn't read.
+const LIST_VIEW: LatestView = {
+  name: "latest_price_observations",
+  columns: LATEST_COLUMNS,
+  parse: (raw) => {
+    const row = latestRowSchema.safeParse(raw);
+    return row.success ? toLatestPrice(row.data, null) : null;
+  },
+};
+
+// The product page's view, the same latest check with the item's history, which the page judges today's price by
+// (judgementOf in price-comparison.ts). A row whose history can't be read is odd, as one with any other odd column is,
+// so the page never judges a price by a history it couldn't read.
+const PAGE_VIEW: LatestView = {
+  name: "price_summaries",
+  columns: `${LATEST_COLUMNS}, history_low, history_days`,
+  parse: (raw) => {
+    const row = latestRowSchema.safeParse(raw);
+    const history = historyColumnsSchema.safeParse(raw);
+    return row.success && history.success
+      ? toLatestPrice(row.data, { low: history.data.history_low, days: history.data.history_days })
+      : null;
+  },
+};
+
 /**
  * The latest prices a read found, and the items whose rows came back odd, so a page never shows such an item as one
  * that was never checked.
@@ -151,13 +191,13 @@ const listShopSchema = z.enum(PRICED_SHOPS);
 const oddItemSchema = z.object({ shop_item_id: z.string() });
 
 /**
- * The latest state of every shop item the user watches, as RLS lets them see it, for the list: their prices, the items
- * whose rows came back odd, and how many odd rows couldn't say which item they're about, which never empties the list.
- * An odd row of a shop whose prices the list doesn't compare is left out. Odd rows are logged. Null only when the
- * prices couldn't be read at all.
+ * The latest state of every shop item the user watches, as RLS lets them see it, for the list: their prices, without
+ * their history, which the list doesn't read (`history: null`), the items whose rows came back odd, and how many odd
+ * rows couldn't say which item they're about, which never empties the list. An odd row of a shop whose prices the list
+ * doesn't compare is left out. Odd rows are logged. Null only when the prices couldn't be read at all.
  */
 export async function listLatestPrices(supabase: SupabaseClient): Promise<ListPricesRead | null> {
-  const rows = await readLatestRows(supabase);
+  const rows = await readLatestRows(supabase, LIST_VIEW);
   if (rows === null) {
     return null;
   }
@@ -183,16 +223,17 @@ export async function listLatestPrices(supabase: SupabaseClient): Promise<ListPr
 }
 
 /**
- * The latest state of the given shop items, as a product's page needs it: their prices, and the items whose rows came
- * back odd, so the page never shows such an item as one that was never checked. Odd rows are logged. Null when the
- * prices couldn't be read, and when an odd row can't even say which item it's about, since it could be any of them:
- * the read is one product's, so that empties nothing else.
+ * The latest state of the given shop items, as a product's page needs it: their prices, each with the item's history
+ * of the 30 days in Poland before today (`{ low: null, days: [] }` when it has none), and the items whose rows came
+ * back odd, a history that can't be read included, so the page never shows such an item as one that was never checked.
+ * Odd rows are logged. Null when the prices couldn't be read, and when an odd row can't even say which item it's
+ * about, since it could be any of them: the read is one product's, so that empties nothing else.
  */
 export async function readLatestPrices(supabase: SupabaseClient, keys: PriceKey[]): Promise<LatestPricesRead | null> {
   if (keys.length === 0) {
     return { prices: [], unread: [] };
   }
-  const rows = await readLatestRows(supabase, keys);
+  const rows = await readLatestRows(supabase, PAGE_VIEW, keys);
   if (rows === null) {
     return null;
   }
@@ -221,13 +262,17 @@ interface LatestRows {
 }
 
 /**
- * Reads the latest rows of the given items, or of every item RLS lets the user see without `keys`, in one query within
- * a time limit. Each row is checked on its own, so one odd row doesn't hide the other prices. Null when the rows
- * couldn't be read at all.
+ * Reads the latest rows of the given items, or of every item RLS lets the user see without `keys`, from `view`, in one
+ * query within a time limit. Each row is checked on its own, so one odd row doesn't hide the other prices. Null when
+ * the rows couldn't be read at all.
  */
-async function readLatestRows(supabase: SupabaseClient, keys?: PriceKey[]): Promise<LatestRows | null> {
+async function readLatestRows(
+  supabase: SupabaseClient,
+  view: LatestView,
+  keys?: PriceKey[],
+): Promise<LatestRows | null> {
   // The filter is on the item id alone, which two shops could share, so each row is matched to its key below.
-  const select = supabase.from(LATEST_VIEW).select(LATEST_COLUMNS);
+  const select = supabase.from(view.name).select(view.columns);
   const itemIds = keys?.map((key) => key.shopItemId);
   const query = itemIds === undefined ? select : select.in("shop_item_id", [...new Set(itemIds)]);
   const { data, error } = await query.abortSignal(AbortSignal.timeout(DATABASE_TIMEOUT_MS));
@@ -243,12 +288,11 @@ async function readLatestRows(supabase: SupabaseClient, keys?: PriceKey[]): Prom
   const wanted = keys === undefined ? null : new Set(keys.map(keyText));
   const read: LatestRows = { prices: [], odd: [] };
   for (const raw of rows) {
-    const row = latestRowSchema.safeParse(raw);
-    if (!row.success) {
+    const latest = view.parse(raw);
+    if (latest === null) {
       read.odd.push(raw);
       continue;
     }
-    const latest = toLatestPrice(row.data);
     if (wanted === null || wanted.has(keyText(latest))) {
       read.prices.push(latest);
     }
@@ -259,14 +303,14 @@ async function readLatestRows(supabase: SupabaseClient, keys?: PriceKey[]): Prom
   return read;
 }
 
-function toLatestPrice(row: z.infer<typeof latestRowSchema>): LatestPrice {
+/** A readable row as a latest price, with the item's history: null when the read didn't bring one. */
+function toLatestPrice(row: z.infer<typeof latestRowSchema>, history: PriceHistory | null): LatestPrice {
   const latest = {
     shop: row.shop_id,
     shopItemId: row.shop_item_id,
     lastCheckedAt: row.last_checked_at,
     lastStatus: row.last_status,
-    // The view gives each item's latest check only, without its price history.
-    history: null,
+    history,
   };
   if (row.price === null) {
     return { ...latest, offer: null };
