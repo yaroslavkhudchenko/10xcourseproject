@@ -6,12 +6,15 @@
 // and the stopped shop refuses the one search before any request: Super-Pharm's card says the search is stopped, with
 // no button to tap, and no shop request is reserved. A product whose Super-Pharm match, the user's pick, has the lowest
 // fresh price shows it on Super-Pharm's card with its source, its age and "Zobacz w sklepie", marked cheapest on the
-// page and on the list.
+// page and on the list. A product whose Super-Pharm match the rule accepted on its own, sharing no EAN with the
+// product, is out of "Do sprawdzenia", and its Super-Pharm card says it was matched by name, with "Zmień"; opening it
+// asks no shop.
 // expected values: the S-06 decision that an undecided Super-Pharm counts in "Do sprawdzenia"
-// (context/changes/super-pharm-in-comparison/plan.md), the match-by-name decision that the user's own navigation to a
-// product with no Super-Pharm decision looks it up there by name, as it does Natura and Hebe
-// (context/changes/match-by-name/plan.md), FR-011 and US-01 (context/foundation/prd.md: the cheapest shop today is
-// marked, and every price shows its source and age), and the S-03 decision
+// (context/changes/super-pharm-in-comparison/plan.md), the match-by-name decisions that the user's own navigation to a
+// product with no Super-Pharm decision looks it up there by name, as it does Natura and Hebe, and that a match accepted
+// by name says "Dopasowano automatycznie po nazwie." with "Zmień" and takes the product out of "Do sprawdzenia"
+// (context/changes/match-by-name/change.md and plan.md), FR-011 and US-01 (context/foundation/prd.md: the cheapest shop
+// today is marked, and every price shows its source and age), and the S-03 decision
 // (context/archive/2026-09-28-cheapest-shop-today: only fresh prices the shop sells online can win): Super-Pharm's
 // 18,49 zł is the lowest of four fresh, orderable prices. The texts are the running app's. None of it is read off the
 // matching or comparison code.
@@ -40,7 +43,7 @@ test.afterEach(async () => {
 // and no step follows the link.
 const SUPER_PHARM_PAGE = "https://www.superpharm.pl/e2e-balsam-w-czterech-sklepach";
 
-test("#7: on a phone, opening a product looks Super-Pharm up, the stopped shop refuses it, and its picked price shows", async ({
+test("#7: on a phone, opening a product looks Super-Pharm up, the stopped shop refuses it, a picked price shows, and a match by name says so", async ({
   page,
 }) => {
   // The shop request log as the test starts: every shop is stopped, so nothing the test does may move it.
@@ -66,6 +69,19 @@ test("#7: on a phone, opening a product looks Super-Pharm up, the stopped shop r
   await recordPrice("natura", picked.sku, { price: 20.49, available: true });
   await recordPrice("hebe", pickedHebe, { price: 19.99, available: true });
   await recordPrice("super-pharm", pickedSuperPharm, { price: 18.49, available: true });
+  // P3: the same in Natura and Hebe, and matched in Super-Pharm by the rule on its own. Neither the product nor the
+  // matched item carries an EAN, so they share none, as a match accepted by name doesn't. Its four prices were checked
+  // just now, so its page asks no shop for one.
+  const byName = await addMatchedProduct("Żel w czterech sklepach");
+  const byNameHebe = await matchShop("hebe", byName.productId, { name: "Hebe Żel w czterech sklepach" });
+  const byNameSuperPharm = await matchShop("super-pharm", byName.productId, {
+    name: "Super-Pharm Żel w czterech sklepach",
+    decidedBy: "auto",
+  });
+  await recordPrice("rossmann", byName.itemId, { price: 14.99, available: true });
+  await recordPrice("natura", byName.sku, { price: 13.99, available: true });
+  await recordPrice("hebe", byNameHebe, { price: 13.49, available: true });
+  await recordPrice("super-pharm", byNameSuperPharm, { price: 12.99, available: true });
   // What the pages ask the shops for, through the island's price requests (lessons: "Bound what each page view and
   // action costs every shop"). Every price is fresh, so no page asks any.
   const priceCalls = recordPriceCalls(page);
@@ -83,7 +99,8 @@ test("#7: on a phone, opening a product looks Super-Pharm up, the stopped shop r
   );
   await expect(rowOf(page, picked).getByText(new RegExp(String.raw`^Super-Pharm · ${JUST_NOW}$`))).toBeVisible();
 
-  // 2. Tap "Do sprawdzenia": it holds P1, still to match in Super-Pharm, and not P2, settled in every shop.
+  // 2. Tap "Do sprawdzenia": it holds P1, still to match in Super-Pharm, and neither P2 nor P3, each settled in every
+  // shop, P3's Super-Pharm by the rule on its own.
   await page
     .getByRole("navigation", { name: "Filtry listy" })
     .getByRole("link", { name: /^Do sprawdzenia/ })
@@ -91,6 +108,7 @@ test("#7: on a phone, opening a product looks Super-Pharm up, the stopped shop r
   await expect(page).toHaveURL(/\/watchlist\?f=check$/);
   await expect(rowOf(page, waiting)).toBeVisible();
   await expect(rowOf(page, picked)).toHaveCount(0);
+  await expect(rowOf(page, byName)).toHaveCount(0);
 
   // 3. Open P1: the page looks Super-Pharm up, by name, and the stopped shop refuses its one search before any request,
   // so Super-Pharm's card says its search is stopped, with no button to tap. The other shops' prices are fresh, so the
@@ -118,6 +136,14 @@ test("#7: on a phone, opening a product looks Super-Pharm up, the stopped shop r
     - text: /18,49\szł/
     - paragraph: w Super-Pharmie
   `);
+
+  // 5. Open P3 from the list: Super-Pharm's card says the rule matched its item on its own, by name, and offers
+  // "Zmień". Every decision is stored, so the page looks no shop up, and every price is fresh, so the island asks none.
+  await page.goto("/watchlist");
+  await openFromList(page, byName);
+  const byNameCard = cardOf(page, "Super-Pharm");
+  await expect(byNameCard.getByText("Dopasowano automatycznie po nazwie.", { exact: true })).toBeVisible();
+  await expect(byNameCard.getByRole("link", { name: "Zmień" })).toBeVisible();
 
   // No page asked a shop for a price, and no shop request was reserved.
   expect(priceCalls, "no page of the flow asks a shop for a price").toEqual([]);

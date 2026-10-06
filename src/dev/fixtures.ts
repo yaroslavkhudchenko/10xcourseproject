@@ -7,10 +7,12 @@
 // stand with Rossmann's price alone, each beside another of Natura's kinds. Three shops' states follow: the cheapest of
 // three, Hebe's price that can't win, Hebe's decision that couldn't be read, both shops still to match, Hebe's button
 // beside Natura's open choice, and two choices at once. Then four shops' states: Super-Pharm the cheapest, one price in
-// all four, and Rossmann's price alone while Super-Pharm waits for the user's tap. Natura's own states, Hebe's and
-// Super-Pharm's include the choice that changes a stored decision, Natura's in each of the outcomes its searches can
-// have, and the product's removal at the page's foot is drawn closed, open and after a failure. Nothing here is real
-// user data, and nothing here asks Supabase or a shop.
+// all four, Super-Pharm's button on a page opened from a link, beside Rossmann's price alone and beside three shops
+// still to match, and Super-Pharm's first choice, which its lookup on the product's opening leaves to the user. Natura's
+// own states, Hebe's and Super-Pharm's include the choice that changes a stored decision, Natura's in each of the
+// outcomes its searches can have, and Super-Pharm's from its automatic match by name and from the user's pick, and the
+// product's removal at the page's foot is drawn closed, open and after a failure. Nothing here is real user data, and
+// nothing here asks Supabase or a shop.
 import { unreadableShopsOf, type MatchedShopView } from "@/components/watchlist/match-card";
 import type { PriceSize } from "@/components/watchlist/Price";
 import type { TitleProduct } from "@/components/watchlist/ProductTitle";
@@ -38,7 +40,7 @@ import {
   type MatchView,
 } from "@/lib/services/match-view";
 import { matchErrorMessage } from "@/lib/services/matches";
-import { judge, pickMatch } from "@/lib/services/matching";
+import { judge, orderChoice, pickMatch } from "@/lib/services/matching";
 import { SHOP_LABELS, STALE_AFTER_MS, type MatchedShop, type PricedShop } from "@/lib/services/price-comparison";
 import { parseSize } from "@/lib/services/size";
 import { removalErrorMessage, removalGoneNotice } from "@/lib/services/watchlist";
@@ -281,7 +283,8 @@ const SUPER_PHARM_ITEM: MatchedItem = {
 // A decision stored for the product in Super-Pharm, at the same time as Natura's.
 const SUPER_PHARM_DECISION = { ...DECISION, shop: "super-pharm" } as const;
 
-// The rule's match in Super-Pharm, accepted by the item's name, as it's stored: it shares no EAN with the product.
+// The rule's match in Super-Pharm, accepted by the item's name, as it's stored: it shares no EAN with the product. Its
+// re-pin's state opens its choice.
 const SUPER_PHARM_AUTO_MATCHED: RepinnableMatch = {
   ...SUPER_PHARM_DECISION,
   decidedBy: "auto",
@@ -308,7 +311,9 @@ const SUPER_PHARM_MATCHED = superPharmOf(storedView("super-pharm", SUPER_PHARM_P
 // Super-Pharm declined by the user: the Super-Pharm every state of Natura and of three shops stands beside, with no
 // price row and no wait.
 const SUPER_PHARM_DECLINED_VIEW = superPharmOf(storedView("super-pharm", SUPER_PHARM_DECLINED, PRODUCT, LINKS));
-// Super-Pharm with no decision: its card's button, which alone looks it up (`?retry=super-pharm`), on every view.
+// Super-Pharm with no decision on a page that may not look it up, one opened from a link or for another shop's choice
+// or retry: its card's button, which leads to the plain page, as Natura's and Hebe's do. The user's own navigation to
+// the plain page looks Super-Pharm up by name.
 const SUPER_PHARM_PROMPT = superPharmOf(promptView("super-pharm", PRODUCT, false, "all"));
 
 /** A matched shop's choice below the island: its first candidates, or the ones that change its stored decision. */
@@ -1036,9 +1041,9 @@ const THREE_SHOP_STATES: AreaState[] = [
 
 export const THREE_SHOP_FIXTURES: PriceFixture[] = THREE_SHOP_STATES.map(areaFixture);
 
-// What Super-Pharm's one search, by the product's name, returned, in Super-Pharm's order. None shares the product's
-// EAN, since Super-Pharm's index holds none, so the matching rule accepts only by its name check: the product's item,
-// the one whose name holds nothing the product's lacks.
+// What Super-Pharm's one search, by the product's name, returned when the user opened the product, in Super-Pharm's
+// order. None shares the product's EAN, since Super-Pharm's index holds none, so the matching rule accepts only by its
+// name check: the product's item, the one whose name holds nothing the product's lacks.
 const SUPER_PHARM_FOUND: ShopCandidate[] = [
   // Another size, of the product's brand, which Super-Pharm lists first.
   {
@@ -1075,25 +1080,27 @@ const SUPER_PHARM_FOUND: ShopCandidate[] = [
 // would bring them: the sibling first, the best name fit in the product's size and brand, then the rest.
 const SUPER_PHARM_CANDIDATES = SUPER_PHARM_FOUND.filter(({ shopItemId }) => shopItemId !== SUPER_PHARM_ITEM_ID);
 
-// Super-Pharm's candidates to choose from after a tap on its button, as the page's view holds them for its choice below
-// the island; Super-Pharm's card gets the view without them.
+// Super-Pharm's candidates to choose from when its lookup on the product's opening accepts none, as the page's view
+// holds them for its choice below the island; Super-Pharm's card gets the view without them.
 const SUPER_PHARM_CHOICE = choiceOf(
   chooseView("super-pharm", leftToUser(SUPER_PHARM_CANDIDATES), "name", new Date(NOW), PRODUCT),
 );
 
-// What Super-Pharm's search by name found again when the user opened the choice to change their pick: every item, in
-// Super-Pharm's order, the one they picked marked.
+// What Super-Pharm's search by name found again when the user opened the choice to change its match: every item, in
+// the choice's order, the best name fit first, as the re-pin's lookup offers them in a shop whose search can't find an
+// EAN (orderChoice). The choice marks the current match.
 const SUPER_PHARM_FOUND_BY_NAME: ShopChoices = {
   kind: "choices",
-  options: judged(SUPER_PHARM_FOUND),
+  options: orderChoice(PRODUCT, SUPER_PHARM_FOUND),
   via: "name",
   incomplete: null,
 };
 
 /**
  * The four shops' states: Super-Pharm, matched by the user's pick, the cheapest, and one price in all four; then the
- * states of a Super-Pharm still to match, which waits for the user's tap on its button: beside Rossmann's price alone,
- * beside three shops still to match, and its first choice open below the island once tapped.
+ * states of a Super-Pharm still to match: its button, on a page opened from a link, beside Rossmann's price alone and
+ * beside three shops still to match, and its first choice open below the island, when its lookup on the product's
+ * opening accepts none.
  */
 const FOUR_SHOP_STATES: AreaState[] = [
   {
@@ -1124,7 +1131,9 @@ const FOUR_SHOP_STATES: AreaState[] = [
   },
   {
     code: "four-super-pharm-waiting",
-    text: "jedna cena, w Rossmannie; Natura i Hebe odrzucone, a Super-Pharm czeka na przycisk: hero i podpowiedź nazywają go",
+    text:
+      "jedna cena, w Rossmannie; Natura i Hebe odrzucone, a Super-Pharm bez decyzji ma na stronie otwartej z linku " +
+      "tylko przycisk: hero i podpowiedź nazywają go",
     state: island([ROSSMANN_CHECKED]),
     natura: naturaOf(storedView("natura", DECLINED, PRODUCT, LINKS)),
     superPharm: SUPER_PHARM_PROMPT,
@@ -1139,7 +1148,9 @@ const FOUR_SHOP_STATES: AreaState[] = [
   },
   {
     code: "four-super-pharm-choice",
-    text: "po „Dopasuj w Super-Pharmie”: kandydaci znalezieni po nazwie czekają na wybór pod kartami, obok cen trzech sklepów",
+    text:
+      "Super-Pharm szukany po nazwie przy otwarciu produktu, gdy żaden kandydat nie przeszedł sprawdzenia nazwy: " +
+      "kandydaci czekają na wybór pod kartami, najlepiej pasujący najpierw, obok cen trzech sklepów",
     state: island(CHECKED_WITH_HEBE),
     natura: MATCHED,
     hebe: HEBE_MATCHED,
@@ -1265,7 +1276,9 @@ const SUPER_PHARM_SALE = priced("super-pharm", offer(19.49, { lowestPrice30d: 33
 export const SUPER_PHARM_FIXTURES: SuperPharmFixture[] = [
   {
     code: "prompt",
-    text: "bez decyzji, na każdym widoku: przycisk „Dopasuj w Super-Pharmie”, bo tylko on szuka (?retry=super-pharm)",
+    text:
+      "bez decyzji, strona otwarta z linku albo dla innego sklepu („Zmień”, „Szukaj ponownie”): przycisk zamiast " +
+      "wyszukiwania, jak w Naturze i Hebe, prowadzący do samej strony produktu",
     idPrefix: "super-pharm-prompt",
     superPharm: SUPER_PHARM_PROMPT,
     state: island(CHECKED_WITH_HEBE),
@@ -1273,8 +1286,9 @@ export const SUPER_PHARM_FIXTURES: SuperPharmFixture[] = [
   {
     code: "choose",
     text:
-      "po dotknięciu przycisku: kandydaci znalezieni po nazwie, najpierw w rozmiarze i marce produktu, z ostrzeżeniem " +
-      "o innym rozmiarze i innej marce, a bez „Ten sam EAN”: karta wskazuje wybór poniżej",
+      "wyszukiwanie przy otwarciu produktu, gdy żaden kandydat nie przeszedł sprawdzenia nazwy: kandydaci znalezieni " +
+      "po nazwie, najpierw najlepiej pasujący w rozmiarze i marce produktu, potem ci z ostrzeżeniem o innym rozmiarze " +
+      "i innej marce, a bez „Ten sam EAN”: karta wskazuje wybór poniżej",
     idPrefix: "super-pharm-choose",
     superPharm: superPharmOf(SUPER_PHARM_CHOICE),
     state: island(CHECKED_WITH_HEBE),
@@ -1316,9 +1330,19 @@ export const SUPER_PHARM_FIXTURES: SuperPharmFixture[] = [
   {
     code: "matched + repin",
     text:
-      "po „Zmień”: karta ma „Anuluj”, a wybór z wyszukiwania po nazwie oznacza Twój wybór, którego nie daje potwierdzić " +
-      "ponownie",
+      "po „Zmień” przy dopasowaniu automatycznym po nazwie: karta ma „Anuluj”, a wybór z wyszukiwania po nazwie, " +
+      "najlepiej pasujący najpierw, oznacza obecne dopasowanie i daje je potwierdzić („To ten produkt”)",
     idPrefix: "super-pharm-repin",
+    superPharm: superPharmOf(storedView("super-pharm", SUPER_PHARM_AUTO_MATCHED, PRODUCT, REPINNING)),
+    state: island([...CHECKED_WITH_HEBE, SUPER_PHARM_SALE]),
+    repin: repinView("super-pharm", SUPER_PHARM_FOUND_BY_NAME, SUPER_PHARM_AUTO_MATCHED, new Date(NOW), PRODUCT, "all"),
+  },
+  {
+    code: "picked + repin",
+    text:
+      "po „Zmień” przy Twoim wyborze: karta ma „Anuluj”, a wybór z wyszukiwania po nazwie oznacza Twój wybór, którego " +
+      "nie daje potwierdzić ponownie",
+    idPrefix: "super-pharm-picked-repin",
     superPharm: superPharmOf(storedView("super-pharm", SUPER_PHARM_PICKED, PRODUCT, REPINNING)),
     state: island([...CHECKED_WITH_HEBE, SUPER_PHARM_SALE]),
     repin: repinView("super-pharm", SUPER_PHARM_FOUND_BY_NAME, SUPER_PHARM_PICKED, new Date(NOW), PRODUCT, "all"),
@@ -1332,7 +1356,9 @@ export const SUPER_PHARM_FIXTURES: SuperPharmFixture[] = [
   },
   {
     code: "not-found + unsaved",
-    text: "świeże „nie znaleziono”, którego nie udało się zapisać: alert wskazuje przycisk powyżej, a nie następną wizytę",
+    text:
+      "świeże „nie znaleziono”, którego nie udało się zapisać: alert mówi, że przy następnym otwarciu produktu " +
+      "Super-Pharm zostanie sprawdzony ponownie, jak każdy sklep",
     idPrefix: "super-pharm-unsaved",
     superPharm: superPharmOf(notFoundView("super-pharm", new Date(NOW), PRODUCT, "all"), { unsaved: true }),
     state: island(CHECKED_WITH_HEBE),

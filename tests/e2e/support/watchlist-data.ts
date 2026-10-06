@@ -162,7 +162,9 @@ export interface SeededMatch {
 
 /**
  * Stores a match in a matched shop for the product, to a fresh item id there (Natura's `E2E-` SKU, Hebe's 18 digits,
- * Super-Pharm's 12), so its page doesn't look the product up in that shop. Returns the matched item's id.
+ * Super-Pharm's 12), so its page doesn't look the product up in that shop. Returns the matched item's id. The matched
+ * item carries no EAN, and neither does a product addRossmannProduct adds, so they share none, and an automatic match's
+ * card says it was matched by name, as a match the rule accepts by name does.
  */
 export async function matchShop(
   shop: MatchedShop,

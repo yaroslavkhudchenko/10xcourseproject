@@ -254,7 +254,8 @@ const [HEBE_UNREAD_ROW] = listRowsOf(
   NOW_MS,
 );
 
-// Super-Pharm's rows. A body lotion priced in all four shops, cheapest in Super-Pharm, where the user picked its item.
+// Super-Pharm's rows. A body lotion priced in all four shops, cheapest in Super-Pharm, whose item is matched there, by
+// its name or by the user's pick alike: the row doesn't tell them apart.
 const CETAPHIL = product(21, {
   brand: "Cetaphil",
   name: "Balsam nawilżający",
@@ -267,7 +268,8 @@ const FOUR_SHOPS = [
   shop("hebe", checked(5 * MINUTE, 36.99)),
   shop("super-pharm", checked(5 * MINUTE, 34.49)),
 ];
-// A body balm matched in Natura and Hebe, and still to match in Super-Pharm, whose button nobody has tapped yet.
+// A body balm matched in Natura and Hebe, and still to match in Super-Pharm: the lookup there, when the product was
+// opened, accepted none of its candidates, and the user hasn't chosen among them yet.
 const EVELINE_BODY = product(22, {
   brand: "Eveline",
   name: "Balsam do ciała",
@@ -399,8 +401,8 @@ export const ROW_FIXTURES: RowFixture[] = [
   {
     code: "super-pharm-none",
     text:
-      "Super-Pharm do dopasowania, czeka na przycisk na stronie produktu: wiersz liczy się w „Do sprawdzenia”, a " +
-      heard(SUPER_PHARM_NONE_ROW),
+      "Super-Pharm do dopasowania, bo jego kandydaci czekają na Twój wybór na stronie produktu: wiersz liczy się w " +
+      `„Do sprawdzenia”, a ${heard(SUPER_PHARM_NONE_ROW)}`,
     row: SUPER_PHARM_NONE_ROW,
   },
 ];

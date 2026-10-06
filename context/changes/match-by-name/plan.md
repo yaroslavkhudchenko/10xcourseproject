@@ -602,6 +602,14 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
   - 3.4 runs in CI's `e2e` job on draft PR #32 after this phase is pushed.
   - 3.5 is covered by Phase 5's check 5.4 in production after the deploy (the owner's call, 2026-10-06), and is ticked with it.
 
+### Phase 4
+
+- **Two Super-Pharm re-pins on the sample page.** The new re-pin of the automatic match by name takes the code `matched + repin`, and the re-pin of the user's pick, which had that code, is now `picked + repin` (`super-pharm-picked-repin`), as Natura's pair is `matched + repin` and `confirmed + repin`. The legend's "default" names all three Super-Pharm states.
+- **The re-pin's candidates are in the choice's order** (`orderChoice(PRODUCT, SUPER_PHARM_FOUND)`), not Super-Pharm's, since Phase 3 offers a shop that can't search by EAN its best name fit first.
+- **Texts the contract cited that said something else:** `watchlist.astro:212-219` never mentioned a button, so only its Super-Pharm sentence changed to match the reworded rows. `fixtures.ts:266-269` was already reworded in Phase 2.
+- **The e2e product matched by name (P3)** has a fresh price in all four shops, not only Super-Pharm, since the island refetches any shop never checked. Step 2 also shows "Do sprawdzenia" leaves P3 out, the owner's call that a match by name settles the shop. `watchlist-data.ts` changed only in `matchShop`'s doc: seeded products and matches carry no EAN, so a seeded automatic match reads as one by name.
+- **4.1 runs only in CI's `e2e` job** (no Docker here), so its deliberate break can't run here either. The assertion is the exact note, inside Super-Pharm's card, so another note or none fails it; the note's rule has its unit tests from Phase 2.
+
 ## References
 
 - Research: `context/changes/match-by-name/research.md`
@@ -640,10 +648,10 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 3.1 The step, view, card and lookup tests pass
-- [x] 3.2 Nothing in `src/` refers to `MATCH_MODES`, `MatchMode` or `on-request`
-- [x] 3.3 Lint, type check, the unit suite and the build pass
-- [ ] 3.4 `phone-four-shops` passes against the held shops
+- [x] 3.1 The step, view, card and lookup tests pass — bcf9487
+- [x] 3.2 Nothing in `src/` refers to `MATCH_MODES`, `MatchMode` or `on-request` — bcf9487
+- [x] 3.3 Lint, type check, the unit suite and the build pass — bcf9487
+- [x] 3.4 `phone-four-shops` passes against the held shops — bcf9487
 
 #### Manual
 
