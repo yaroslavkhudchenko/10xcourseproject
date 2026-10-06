@@ -204,10 +204,11 @@ function readMigrationVersions(dir) {
 }
 
 /**
+ * An answer's body as JSON, for this gate and for scripts/wait-for-deploy-check.mjs, which reads GitHub's answers.
  * @param {string} body
  * @returns {unknown} The body as JSON, or undefined when it isn't JSON.
  */
-function jsonOf(body) {
+export function jsonOf(body) {
   try {
     return JSON.parse(body);
   } catch {

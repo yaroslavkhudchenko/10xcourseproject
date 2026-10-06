@@ -82,10 +82,9 @@ The checks live in dependency-free Node scripts that can reach a hosted project 
 
 **Prerequisites:**
 
-- The owner pushes this change's migration before the merge.
-- After the merge, the owner sets the build variables and the deploy command.
+- Nothing from the owner until the merge. Then, in one sitting of about 10 minutes, the owner pulls `main`, pushes this change's migration (`npx supabase db push`), sets the three build variables and the deploy command, and starts one build. This change's own migration may follow its merge, since nothing calls it until the deploy command switches.
 
-**Estimated effort:** ~3 sessions across 4 phases, plus the owner's 15-minute Cloudflare setup.
+**Estimated effort:** ~3 sessions across 4 phases, plus the owner's one sitting after the merge, about 10 minutes.
 
 ## Open Risks & Assumptions
 

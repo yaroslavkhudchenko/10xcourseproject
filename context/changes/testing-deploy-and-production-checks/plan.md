@@ -73,7 +73,7 @@ From `context/changes/testing-deploy-and-production-checks/research.md`:
 ## Critical Implementation Details
 
 - **Ordering of the rollout:**
-  1. This change's own migration must be on production before its merge. The deployed code doesn't call the function, so the old rule applies: `db push`, then confirm.
+  1. This change's own migration reaches production in the owner's one sitting after the merge, before the deploy command switches (the owner's call, 2026-10-06). That is safe because the merged code calls the function only from the deploy command, which the owner switches after the push. Every later migration keeps the rule: `db push` before its merge, which the gate now enforces.
   2. The deploy command must switch to `npm run deploy:checked` only after the merge, so the script exists, and after the three build variables are set. The script refuses without them, by the owner's fail-closed call, so switching first fails every build.
 - **The origin check:** a same-origin POST must send `Origin` equal to `CHECK_APP_URL`, because Astro's origin check compares it with the Worker's own `https://` origin. Every request uses `redirect: "manual"`.
 - **The publishable key** goes only in the `apikey` header, never in `Authorization: Bearer`, both to PostgREST and to Auth.
@@ -225,7 +225,7 @@ Production tells the publishable key which migrations it has, and a check compar
 
 #### Manual Verification:
 
-- Before the merge, the owner runs `npx supabase db push`, and `npx supabase migration list --linked` shows the new migration's remote version
+- In the sitting after the merge, the owner runs `npx supabase db push`, and `npx supabase migration list --linked` shows the new migration's remote version
 
 **Implementation Note**: After completing this phase and all automated verification passes, pause here for manual confirmation from the human that the manual testing was successful before proceeding to the next phase.
 
@@ -404,8 +404,10 @@ The documents describe the gate, the check, the alert and their failures, and th
 
 ### Manual Testing Steps:
 
-1. Before the merge, push the migration with `npx supabase db push`, and confirm its remote version with `npx supabase migration list --linked`.
-2. After the merge, set the three build variables (secrets), switch the deploy command to `npm run deploy:checked`, and start a build of `main`. The log shows the gate, the deploy and the check passing, and both GitHub checks are green.
+The owner does steps 1-2 in one sitting after the merge, in their usual checkout:
+
+1. Pull `main`, push the migration with `npx supabase db push`, and confirm its remote version with `npx supabase migration list --linked`. If the CLI says the project isn't linked, run `npx supabase link --project-ref <ref>` first.
+2. Set the three build variables (secrets), switch the deploy command to `npm run deploy:checked`, and start a build of `main`. The log shows the gate, the deploy and the check passing, and both GitHub checks are green.
 3. Set `CHECK_APP_URL` to a wrong origin and start a build: it turns red after redeploying the same version. Run the Deploy check workflow by hand for that commit: it fails. Restore the variable and start a build: green.
 
 ## Performance Considerations
@@ -414,7 +416,7 @@ A deploy gains one PostgREST call before `wrangler deploy`, then 10 s and about 
 
 ## Migration Notes
 
-`applied_migrations()` is additive and unused by the deployed code, so it is safe in the mixed state where the database is ahead of the code. It must reach production before the merge, by the rule it replaces. The deploy gate starts guarding only when the owner switches the deploy command. Its removal would be one `drop function` migration.
+`applied_migrations()` is additive and unused by the deployed code, so it is safe in the mixed state where the database is ahead of the code. It reaches production in the owner's sitting after the merge, before the deploy command switches. No deployed code calls it before that switch. The deploy gate starts guarding only when the owner switches the deploy command. Its removal would be one `drop function` migration.
 
 ## Implementation Notes
 
@@ -460,7 +462,32 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
   - `checkMigrationsApplied` over temporary directories: no request on a bad file name or an unreadable directory, and no body, URL or key printed.
 - **No retry:** a request with no answer fails the gate closed, and a new build of `main` retries it. The check retries once; the gate's refusal is the safer side.
 - **No database check of a signed-in caller.** `authenticated` loses execute, but the function guards no data, and anon, its one caller, sees only the repository's public versions.
-- **2.4 is the owner's `db push`** of `20261006183345_applied_migrations.sql`, before the merge.
+- **2.4 is the owner's `db push`** of `20261006183345_applied_migrations.sql`, in one sitting after the merge with the Cloudflare setup (the owner's call, 2026-10-06). That's safe for this change: the merged code calls the function only from `npm run deploy:checked`, which the owner switches to after the push.
+
+### Phase 3
+
+- **The gate step calls Phase 2's `checkMigrationsApplied`,** which wraps `readAppliedMigrations` and `missingMigrations`. It refuses with the runbook's pointer when an answer can't be read, not only when a version is missing.
+- **Exports for tests:** `deployChecked(env, steps)` takes its gate, deploy, pause and check as injectable steps, with `wranglerDeployCommand`, `deployExitCodeOf`, `PAUSE_MS` and `RUNBOOK`. `scripts/deploy-checked.test.mjs`, a file beyond the list, pins:
+  - the order: a refusal or a gate refusal never deploys, a failed deploy returns wrangler's code without checking, a failed check returns 1;
+  - that no key or Supabase URL is printed;
+  - the commands on Windows and elsewhere.
+- **On Windows, wrangler starts as one shell command line,** since Node 24 warns (DEP0190) about an args array with `shell: true`. A wrangler killed by a signal, or never started, exits 1.
+- **Both scripts refuse any command-line argument,** so `npm run deploy:checked -- --dry-run` can't deploy for real unnoticed.
+- **Shared helpers:** `check-migrations-applied.mjs` (a file beyond the list) exports its `jsonOf` for the wait script, and the wait script imports `RUNBOOK`, so neither is copied.
+- **Reading the checks:**
+  - `main`'s head is read only when it can decide, that is no run after at least 2 minutes, not on every poll.
+  - A poll that can't read the check runs reaches `deployVerdict` as `{ run: null, isHead: null }`, so the 20-minute rule lives in one place. Only a head read as another commit is `superseded`, so an unread poll never is.
+  - An answer without `check_runs`, without a whole-number `total_count`, or listing fewer runs than `total_count`, is a failure to read, never "no run".
+  - GitHub requests follow no redirect.
+- **Output:**
+  - A printed name, status or conclusion must match `^[\w .:-]{1,100}$`, else it shows "(unreadable)", so no line can carry a URL, a newline or a workflow command into the public logs.
+  - The first line names the repository, the SHA and whether a token is used. On `fail`, the last line goes to stderr with the hint and the runbook, and no URL.
+- **Inputs:** `readWaitEnv` trims values, falls back to `GITHUB_SHA` for a blank `DEPLOY_CHECK_SHA`, lower-cases an upper-case SHA, and refuses a repository part that is `.` or `..`. Its refusals name the variable, never the value.
+- **The run selection** reads `id` and `started_at`, so the test runs carry made-up ids, though no URL or account id. A run with a readable `started_at` counts as later than one without.
+- **Accepted by the contract:**
+  - a `cancelled` build reads as `fail`; research saw a superseded commit get no run at all, never a cancelled one;
+  - a SHA never on `main`, typed into `workflow_dispatch`, reads as `superseded`.
+- **3.3** ran against `2c6adc5`, without a token, with one request: "Workers Builds: drogeria-radar completed success -> pass", exit 0.
 
 ## References
 
@@ -488,9 +515,9 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [ ] 2.1 Lint, type check and the whole unit suite pass
-- [ ] 2.2 The gate refuses before any request on a missing variable or a secret key
-- [ ] 2.3 CI's `smoke` job passes, the gate passing on the local stack and refusing a copy with a version it lacks
+- [x] 2.1 Lint, type check and the whole unit suite pass — de0103f
+- [x] 2.2 The gate refuses before any request on a missing variable or a secret key — de0103f
+- [x] 2.3 CI's `smoke` job passes, the gate passing on the local stack and refusing a copy with a version it lacks — de0103f
 
 #### Manual
 
