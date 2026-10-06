@@ -73,10 +73,14 @@ const astroConfig = defineConfig({
   },
 });
 
+// The scripts run in Node and name each global they use; any other comes from a node: module. AbortSignal gives a
+// request its timeout (scripts/check-production.mjs).
 const scriptsConfig = defineConfig({
   files: ["scripts/**/*.mjs"],
   extends: [tseslint.configs.disableTypeChecked],
-  languageOptions: { globals: { console: true, process: true, fetch: true, URL: true, URLSearchParams: true } },
+  languageOptions: {
+    globals: { console: true, process: true, fetch: true, URL: true, URLSearchParams: true, AbortSignal: true },
+  },
   rules: { "no-console": "off" },
 });
 

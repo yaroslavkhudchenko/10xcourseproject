@@ -26,6 +26,7 @@ Approved on 2026-09-23. Checkboxes track execution; the Deployment record at the
 - Changes reach `main` only through pull requests. The `preventFailedDeploy` ruleset is active, with `ci` and `smoke` required, and every merge deploys. Since 2026-10-02 it requires `e2e` too, the Playwright suite added by `testing-critical-browser-flows`.
 - Since 2026-10-05 (S-07, `invite-only-access`) the app has no sign-up page and sends no email. You add a person as a dashboard account or with an invite or recovery link, and a read-only check after each deploy shows that production still refuses sign-up: see "Accounts and links (S-07)".
 - Since S-06 (`super-pharm-in-comparison`, 2026-10-05) Super-Pharm is the fourth shop, priced through its Algolia search with the public key the app keeps in its code. If Super-Pharm changes that key, the old one's 403 stops the shop for everyone until you follow "Super-Pharm stopped with HTTP 403".
+- From rollout Phase 4 of the test plan (`testing-deploy-and-production-checks`, 2026-10-06), once you switch its deploy command, Workers Builds deploys with `npm run deploy:checked`. It refuses code whose migration production lacks, checks production signed out after the deploy, and the `Deploy check` workflow emails you about a red build: see "Checked deploys (rollout Phase 4)".
 
 ## Context
 
@@ -112,7 +113,8 @@ Legend: **[agent]** Claude runs it (shell commands in Git Bash) · **[you]** in 
   - no hooks or commands
   - run `/reload-plugins` to load it
   - The plan still drives production through wrangler; the MCP server is for live-state queries.
-- [ ] 0.7 [you, later] Supabase CLI: `npx supabase login` and `npx supabase link --project-ref <ref>` are needed from the first migration on. Never run `supabase config push` to production (see decision 5).
+- [x] 0.7 [you] Supabase CLI: `npx supabase login` and `npx supabase link --project-ref <ref>` are needed from the first migration on. Never run `supabase config push` to production (see decision 5).
+  - **Done:** your machine is logged in and linked. A new machine needs both commands once; in PowerShell, write `npx.cmd` (see "Checked deploys (rollout Phase 4)").
 
 ## Phase 1: Production Supabase project [you]
 
@@ -290,11 +292,11 @@ This replaces step 5 of Getting Started in `infrastructure.md`.
 
 - [x] 8.1 [agent] Fill in the Deployment record and set `status: deployed`. Commit and push; it's docs-only, so Workers Builds redeploys identical code.
 - [x] 8.2 [agent] Update the project memory, including the full production URL (local only).
-- [x] 8.3 [you, optional] **Done 2026-09-24:** ruleset `preventFailedDeploy`, enforcement **Active**. On `main`: no deletion, no force-push, PR required, `ci` and `smoke` required. Turn on branch protection for `main`, requiring the CI checks. Workers Builds deploys every push to `main` whether or not GitHub Actions passed, so from here on merge through PRs with green CI.
+- [x] 8.3 [you, optional] **Done 2026-09-24:** ruleset `preventFailedDeploy`, enforcement **Active**. On `main`: no deletion, no force-push, PR required, and three checks required: `ci` and `smoke`, and `e2e` since 2026-10-02. Turn on branch protection for `main`, requiring the CI checks. Workers Builds deploys every push to `main` whether or not GitHub Actions passed, so from here on merge through PRs with green CI. The `Deploy check` workflow isn't required: it runs after a merge and only reports (see "Checked deploys (rollout Phase 4)").
 
 ## Operations after this plan
 
-- **Deploy:** merge a pull request into `main`. The ruleset requires green `ci`, `smoke` and `e2e`, and the merge deploys through Workers Builds. A manual `wrangler deploy` is for emergencies only, and only from a clean, up-to-date `main`: `git status` clean, then `npm ci`, `npm run build`, `npx wrangler deploy`. After each deploy, run the read-only sign-up check in "Accounts and links (S-07)" until test-plan rollout Phase 4 automates it.
+- **Deploy:** merge a pull request into `main`. The ruleset requires green `ci`, `smoke` and `e2e`, and the merge deploys through Workers Builds with `npm run deploy:checked`. It refuses code whose migration production lacks, deploys, then checks production signed out, the read-only sign-up check included (see "Checked deploys (rollout Phase 4)"). The manual sign-up check in "Accounts and links (S-07)" stays as a fallback. A manual `wrangler deploy` is for emergencies only, and only from a clean, up-to-date `main`: `git status` clean, then `npm ci`, `npm run build`, `npx wrangler deploy`. It skips the gate and the check, so run both by hand around it (the emergency path in "Checked deploys (rollout Phase 4)").
 - **Rollback [you]:** run `npx wrangler versions list --name drogeria-radar`, then `npx wrangler rollback <version-id> --message "<why>"`.
   - Then revert the bad commit on `main`, or the next push redeploys it.
   - A version carries its secret set, and wrangler asks you to confirm when the sets differ. So never roll back to the Phase 3 version `d25099a4` (no secrets) or the 4.1 version `b06bf8cc` (URL only), and never past a key rotation.
@@ -302,6 +304,90 @@ This replaces step 5 of Getting Started in `infrastructure.md`.
 - **Non-interactive shells:** wrangler answers its own confirmation prompts with **yes** in non-interactive shells (agents, CI). This applies to `delete` and to rollback's secret-change warning. So destructive commands run only when a human asks, always with an explicit name, and after `--dry-run` where it exists.
 - **Secrets:** `secret put` fails with API error 10215 while an undeployed version is the latest. Deploy first, or use `npx wrangler versions secret put`.
 - **Logs:** `npx wrangler tail drogeria-radar --format json --status error`, or Workers Logs in the dashboard. Retention and event limits depend on the Workers plan; the Free plan kept 3 days.
+
+## Checked deploys (rollout Phase 4)
+
+From rollout Phase 4 of the test plan (`testing-deploy-and-production-checks`, 2026-10-06), Workers Builds deploys with `npm run deploy:checked` (`scripts/deploy-checked.mjs`) instead of `npx wrangler deploy`, once you switch its deploy command in the sitting below. It refuses code whose migration production lacks, deploys, then checks production signed out, and any failure turns the build red. The `Deploy check` workflow then fails on GitHub, which emails you. Nothing goes into GitHub's secrets, and the checks write nothing to production: their one Auth call is a sign-in for an address no one has, which Auth refuses.
+
+**Windows:** your PC's PowerShell blocks `npx.ps1`, so the commands here are written `npx.cmd`; in Command Prompt or Git Bash, plain `npx` works. The Supabase CLI comes with the project (2.117.0). A new machine needs `npx.cmd supabase login` and `npx.cmd supabase link --project-ref <ref>` once (0.7), and yours has both.
+
+### What a deploy does
+
+`npm run deploy:checked` prints one line per step, and stops at the first that fails:
+
+1. `deploy-checked: 1/5 reading CHECK_APP_URL, CHECK_SUPABASE_URL and CHECK_SUPABASE_KEY`. It refuses when one is missing, when a URL isn't https (plain http only for `localhost` or `127.0.0.1`) or the app's has a path, and when the key is a secret one.
+2. `deploy-checked: 2/5 migration gate: every migration in supabase/migrations must be on the database`. It asks production's `applied_migrations()` with the publishable key, then prints `All <n> migrations are applied`, or `Missing on the database: <versions>` and refuses.
+3. `deploy-checked: 3/5 npx wrangler deploy`, then wrangler's own lines. The new version takes all traffic at once.
+4. `deploy-checked: 4/5 waiting 10 s for the new version to answer`. No answer of the app says which version gave it, so in that window the check could still meet the old one.
+5. `deploy-checked: 5/5 production check of <app origin>, every group`: one `PASS` or `FAIL` line per step of `npm run check:production`, then "All production check steps passed" and `deploy-checked: deployed, and production passed its check`.
+
+A refusal at 1/5 or 2/5 deploys nothing. A missing or wrong variable refuses the deploy, so the gate is never silently off (your call: fail closed). No line holds the key or the Supabase URL. The app's origin appears, in a log only the Cloudflare account can read.
+
+Its three build variables, all saved as secrets, so each is hidden once saved:
+
+- `CHECK_APP_URL`: the app's https origin with no path, `https://drogeria-radar.<subdomain>.workers.dev`.
+- `CHECK_SUPABASE_URL`: the Project URL, `https://<ref>.supabase.co` (1.5).
+- `CHECK_SUPABASE_KEY`: the publishable key, `sb_publishable_…` (1.5), never a secret one: a `sb_secret_…` or `service_role` key is refused.
+
+No file holds them (your call). The scripts read only their environment: Workers Builds' build variables, or values set inline for a run by hand.
+
+### One sitting after the merge
+
+After this change's pull request merges, do these in one sitting, in this order. No check runs against production before step 4: Workers Builds' build there is the first run (your call).
+
+1. [you] `git pull` in your usual checkout, on `main`.
+2. [you] `npx.cmd supabase db push`. It lists `20261006183345_applied_migrations.sql`, asks you to confirm, and asks for the database password (1.1). Then `npx.cmd supabase migration list --linked` must show its remote version.
+   - This change's own migration goes after its merge, unlike any other. That is safe: only `npm run deploy:checked` calls the function, and you switch to it in step 3, after the push. Every later migration is pushed before its merge, which the gate now enforces ("Later migrations" below).
+3. [you] Cloudflare dashboard → Workers & Pages → `drogeria-radar` → Settings → Build:
+   - under "Build Variables and Secrets", add the three variables above, each as a secret. They belong there, not under the Worker's own "Variables and Secrets", which the build doesn't see;
+   - then change the deploy command from `npx wrangler deploy` to `npm run deploy:checked`. Switch it only after step 2 and with the variables set: before the push the gate refuses every deploy, and without the variables the script does.
+4. Start a build of `main`: retry the latest build from the Worker's build history ("View build history" on the Deployments tab). If the dashboard offers no retry, create a Deploy Hook for `main` under the build settings and POST to it once: `curl -X POST <hook URL>`. The hook's URL starts a build for anyone who has it, so keep it private, like a key.
+5. Check the build's log: the five step lines, `PASS` on every check step, and "All production check steps passed". On GitHub, the commit's `Workers Builds: drogeria-radar` check must be green. Then run the `Deploy check` workflow by hand (Actions → Deploy check → Run workflow, the commit left empty for `main`'s head), since a retried build has no push to start it. It must pass.
+   - A log without `deploy-checked:` lines means the retry kept the old deploy command: start the build with a Deploy Hook instead.
+   - A refusal at 1/5, `set CHECK_APP_URL, CHECK_SUPABASE_URL, CHECK_SUPABASE_KEY in this command's environment`, means build variables don't reach the deploy command. Nothing was deployed: switch the command back to `npx wrangler deploy`.
+6. The failure path, once: set `CHECK_APP_URL` to `http://127.0.0.1:4321`, an address the script accepts but where nothing listens in the build, and start a build. It redeploys the same version, which is harmless, then the check's steps against the app fail with `no answer (ECONNREFUSED)`, and the build turns red. When it has finished, run `Deploy check` by hand: it fails, and GitHub emails you. Then set `CHECK_APP_URL` back to the app's origin and start a build: green.
+   - If the build stays green although its log shows `FAIL` lines, a failure after the deploy doesn't turn a build red: the gate still refuses before a deploy, but a failed check would reach no one.
+
+### What a red build means
+
+The GitHub check says only that the build is red; its log in the dashboard says where it stopped. CI runs the same check against the preview on every pull request, so a step that fails only on production most likely points at production's settings, not at the code.
+
+- **1/5, a variable refused** (`set … in this command's environment`, `CHECK_APP_URL isn't the app's https origin …`, `CHECK_SUPABASE_URL isn't the project's https URL …` or `CHECK_SUPABASE_KEY is a secret key …`): fix it under Build Variables and Secrets, then start a build. Nothing was deployed.
+- **2/5, `Missing on the database: <versions>`:** a merged migration isn't on production. Push it with `npx.cmd supabase db push`, confirm it with `npx.cmd supabase migration list --linked`, then start a build of `main`. Nothing was deployed, so production stays on the previous version.
+- **2/5, `the database has no applied_migrations() (PGRST202)`:** this change's own migration isn't pushed. Do step 2 of the sitting, then start a build. Nothing was deployed.
+- **2/5, any other failure** (`applied_migrations() answered HTTP <status>`, `asking applied_migrations() failed: …`): the gate couldn't read production. Check that the project isn't paused (Phase 1's Free-plan note) and that `CHECK_SUPABASE_URL` and `CHECK_SUPABASE_KEY` name it, then start a build. Nothing was deployed.
+- **3/5, `npx wrangler deploy failed (exit <n>)`:** as before this change; wrangler's lines above say why. Nothing was checked.
+- **5/5, `<n> production check step(s) failed`:** the new version **is** live, and nothing rolls back on its own (your call). Read each `FAIL` line and the `expected` line under it. If production is broken, roll back as the "Rollback" bullet in "Operations after this plan" says, then revert the commit on `main`. The likely causes:
+  - the sign-in page `holding 'funkcje uwierzytelniania są wyłączone'`: the Worker lacks `SUPABASE_URL` or `SUPABASE_KEY`, so put it again (Phase 4: Secrets);
+  - the sign-in probe `302 /auth/signin?error=failed`: the Worker's key no longer works, so put the current publishable key (Phase 4: Secrets); `?error=busy` means Auth limited sign-ins, so start a build later;
+  - the settings step `disable_signup=false`: sign-up is open, so redo 1.2; `email=false`: the email provider is off, so switch it on (1.2); an HTTP status instead: `CHECK_SUPABASE_URL` or `CHECK_SUPABASE_KEY` is wrong;
+  - the steps against the app `no answer (…)` or `timed out after 10 s`: check `CHECK_APP_URL`, then Workers Logs.
+
+### The emergency path
+
+When the checked deploy is in the way, either switch the deploy command back to `npx wrangler deploy` in the dashboard and start a build, or deploy by hand from a clean, up-to-date `main` after `npm run build` (the "Deploy" bullet in "Operations after this plan"). Both skip the gate and the check. So when you can, run them by hand around the deploy, in Git Bash, with the variables inline for that run:
+
+```bash
+CHECK_SUPABASE_URL=<project URL> CHECK_SUPABASE_KEY=<publishable key> node scripts/check-migrations-applied.mjs
+# deploy, then:
+CHECK_APP_URL=<app origin> CHECK_SUPABASE_URL=<project URL> CHECK_SUPABASE_KEY=<publishable key> npm run check:production
+```
+
+Switch the deploy command back to `npm run deploy:checked` once the emergency is over.
+
+### The alert
+
+- The `Deploy check` workflow (`.github/workflows/deploy-check.yml`) runs on every push to `main`. It waits up to 20 minutes for the commit's `Workers Builds: drogeria-radar` check, and fails when that build failed or when no build of the commit completed in time; then look in the Worker's build history, and start a build of `main` if none ran. It passes when the build succeeded, and when the commit got no build but `main` moved past it, since a burst of merges can build only the newest commit.
+- A failed run makes GitHub email whoever triggered it: for a push, whoever merged, which is you. The email depends on your GitHub notification settings for Actions (Settings → Notifications → Actions), which must email you about failed workflows.
+- It holds no secret, only its read-only `GITHUB_TOKEN`. Its log is public, so it names the check and its conclusion, never a link; the `FAIL` lines are in the build's log in Cloudflare.
+- A retried build, or one a Deploy Hook started, has no push, so no `Deploy check` runs for it: once the build has finished, run it by hand (Actions → Deploy check → Run workflow), with the commit's SHA, or none for `main`'s head.
+- It isn't a required check: it runs after the merge and only reports.
+- A failure at runtime, such as a shop stopped by a 403, still alerts no one ("Super-Pharm stopped with HTTP 403").
+- There are no scheduled checks between deploys (your call): a setting changed in a dashboard shows at the next deploy, or when you run `npm run check:production` by hand.
+
+### Later migrations
+
+Push each migration with `npx.cmd supabase db push` before its pull request merges, as always (`CLAUDE.md`, "Data"), and confirm it with `npx.cmd supabase migration list --linked`. If you forget, the gate refuses the deploy and the `Deploy check` emails you, while production stays on the previous version: push the migration, then start a build of `main`.
 
 ## Accounts and links (S-07)
 
@@ -340,7 +426,7 @@ Since S-07 (`invite-only-access`, 2026-10-05) the app has no sign-up page and se
   - "Email OTP length": **10** digits, which keeps a link unguessable for that long.
   - Both are the fields' maximums. They affect only email codes and links, and the app sends none. Local `supabase/config.toml` has the same values.
   - Set them in the dashboard only. Never run `supabase config push` (decision 5).
-- **Read-only check that sign-up stays refused [you]:** after the S-07 merge, and after each later deploy until test-plan rollout Phase 4 automates it. Put the Project URL and the publishable key from your password manager (1.5) into your shell's environment, then run:
+- **Read-only check that sign-up stays refused:** every checked deploy runs it, as the `settings` group of its production check ("Checked deploys (rollout Phase 4)"). By hand [you], it's the fallback, after a deploy that skipped the check: put the Project URL and the publishable key from your password manager (1.5) into your shell's environment, then run:
 
   ```bash
   curl -s "$SUPABASE_URL/auth/v1/settings" -H "apikey: $SUPABASE_PUBLISHABLE_KEY"
@@ -357,7 +443,7 @@ Since S-06 (`super-pharm-in-comparison`) Super-Pharm's prices come from its Algo
 - **How a stop shows:**
   - Super-Pharm's cards say the shop blocked the app. Opening a product with no Super-Pharm decision, which looks Super-Pharm up since `match-by-name` (2026-10-06), or a tap on "Zmień" on its match, reads "Wyszukiwanie w sklepie Super-Pharm jest wyłączone, bo sklep zablokował zapytania. Właściciel musi je ponownie włączyć.", and a matched card whose price is due for a refetch reads "Odświeżanie cen w sklepie Super-Pharm jest wyłączone, bo sklep zablokował zapytania." beside its last price. The other shops carry on.
   - Production's `public.shops` row `super-pharm` has `enabled` false and `disabled_reason` 'HTTP 403', with the stop's time in `disabled_at`: Table Editor → `shops`, or in the SQL editor `select id, enabled, disabled_reason, disabled_at from public.shops where id = 'super-pharm';`. Any other reason, such as `challenge`, is a real block: leave the shop off.
-  - Nothing tells you. There is no alert until the observability audit's alert fix lands (`context/audits/observability/2026-10-05_1626-prices-sign-in-watchlist-writes.md`, §6 step 2). Until then you learn it from the cards, and Workers Logs keep the gate's line for the 403 (`"event":"shop-gate"`, `"shopId":"super-pharm"`, outcome `blocked` with status 403).
+  - Nothing tells you of the stop. A red deploy now emails you through the `Deploy check` workflow ("Checked deploys (rollout Phase 4)"), but a failure at runtime, like this stop, alerts no one until the observability audit's alert fix lands (`context/audits/observability/2026-10-05_1626-prices-sign-in-watchlist-writes.md`, §6 step 2). Until then you learn it from the cards, and Workers Logs keep the gate's line for the 403 (`"event":"shop-gate"`, `"shopId":"super-pharm"`, outcome `blocked` with status 403).
 - **The steps:**
   1. [you] Open `https://www.superpharm.pl/` in your browser, view the page's source and find `algoliaConfig`. Its `apiKey` is the key the shop's own search uses today.
   2. If it differs from `SUPER_PHARM_SEARCH_KEY`, the key has changed:
@@ -384,19 +470,19 @@ Since S-06 (`super-pharm-in-comparison`) Super-Pharm's prices come from its Algo
 
 ## Deployment record (filled in during execution)
 
-| Item                          | Value                                                                                                                                                                         |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Deployed on                   | 2026-09-23 (first deploy 21:27 UTC, manual)                                                                                                                                   |
-| Worker / URL                  | `drogeria-radar` / `https://drogeria-radar.<subdomain>.workers.dev`                                                                                                           |
-| Bindings                      | `ASSETS` only                                                                                                                                                                 |
-| First version (Phase 3)       | `d25099a4-4f91-4e32-8f8b-67b63eb0233e` (tag `468c9cb`, no secrets)                                                                                                            |
-| Workers Builds version/commit | `a95a6036` from `96ee2e2` (build `0951c850`, 2026-09-23 22:11 UTC); later pushes to `main` deploy the same way                                                                |
-| Secrets (names only)          | `SUPABASE_URL`, `SUPABASE_KEY`, set 21:49–21:50 UTC (versions `b06bf8cc`, `32248307`)                                                                                         |
-| Supabase                      | project `drogeria-radar`, Central EU (Frankfurt), sign-up off (verified `signup_disabled`), owner account created, Data API on, new tables not auto-exposed, automatic RLS on |
-| Workers Builds                | branch `main`, `npm run build`, `npx wrangler deploy`, preview builds off; checks on GitHub                                                                                   |
-| Preview URLs                  | off (`preview_urls: false`; version URL returns 404)                                                                                                                          |
-| Workers plan                  | Paid since 2026-09-27; on Free, CPU per request was 2–12 ms against the 10 ms cap                                                                                             |
-| Egress probe                  | 2026-09-23 from WAW: Rossmann, Hebe, Super-Pharm, Natura OK; **dm 403** (research §9)                                                                                         |
+| Item                          | Value                                                                                                                                                                                                                                                         |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Deployed on                   | 2026-09-23 (first deploy 21:27 UTC, manual)                                                                                                                                                                                                                   |
+| Worker / URL                  | `drogeria-radar` / `https://drogeria-radar.<subdomain>.workers.dev`                                                                                                                                                                                           |
+| Bindings                      | `ASSETS` only                                                                                                                                                                                                                                                 |
+| First version (Phase 3)       | `d25099a4-4f91-4e32-8f8b-67b63eb0233e` (tag `468c9cb`, no secrets)                                                                                                                                                                                            |
+| Workers Builds version/commit | `a95a6036` from `96ee2e2` (build `0951c850`, 2026-09-23 22:11 UTC); later pushes to `main` deploy the same way                                                                                                                                                |
+| Secrets (names only)          | `SUPABASE_URL`, `SUPABASE_KEY`, set 21:49–21:50 UTC (versions `b06bf8cc`, `32248307`)                                                                                                                                                                         |
+| Supabase                      | project `drogeria-radar`, Central EU (Frankfurt), sign-up off (verified `signup_disabled`), owner account created, Data API on, new tables not auto-exposed, automatic RLS on                                                                                 |
+| Workers Builds                | branch `main`, `npm run build`, then `npx wrangler deploy` until rollout Phase 4's switch and `npm run deploy:checked` after it, with three build secrets (`CHECK_APP_URL`, `CHECK_SUPABASE_URL`, `CHECK_SUPABASE_KEY`); preview builds off; checks on GitHub |
+| Preview URLs                  | off (`preview_urls: false`; version URL returns 404)                                                                                                                                                                                                          |
+| Workers plan                  | Paid since 2026-09-27; on Free, CPU per request was 2–12 ms against the 10 ms cap                                                                                                                                                                             |
+| Egress probe                  | 2026-09-23 from WAW: Rossmann, Hebe, Super-Pharm, Natura OK; **dm 403** (research §9)                                                                                                                                                                         |
 
 ## Verification (end to end)
 
@@ -404,6 +490,7 @@ The plan is done when all of these hold:
 
 - CI is green on `main`.
 - `wrangler deployments list` shows a Workers Builds version from the latest `main` commit.
+- A checked deploy works: a build of `main` with `npm run deploy:checked` is green, its log shows the five steps and "All production check steps passed", and its `Deploy check` run is green.
 - The production URL renders without the config banner.
 - `/watchlist` redirects to the Polish sign-in when signed out, and renders on a phone once signed in.
 - The read-only check in "Accounts and links (S-07)" shows `disable_signup` true with the email provider on.

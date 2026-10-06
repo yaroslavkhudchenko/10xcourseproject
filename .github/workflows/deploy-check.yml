@@ -1,0 +1,41 @@
+# Deploy check: on each push to main, waits for the build Cloudflare's Workers Builds runs for the same commit, which
+# GitHub shows as the check "Workers Builds: drogeria-radar", and fails when that build failed: its migration gate
+# refused the deploy, wrangler deploy failed, or the production check after the deploy failed
+# (scripts/deploy-checked.mjs). GitHub emails whoever triggered a failed run, so a red deploy reaches the person who
+# merged it. The job holds no secret: it reads only the commit's check runs and main's head, with its own read-only
+# token, while the build's variables and logs stay in Cloudflare, and it prints no link of the check's, since those
+# carry the Cloudflare account id and these logs are public (scripts/wait-for-deploy-check.mjs). Run it by hand to
+# re-read a commit after its build was retried, with the commit's SHA, or none for the branch's head.
+name: Deploy check
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit to re-read; the run's commit by default
+        required: false
+        type: string
+
+permissions:
+  checks: read
+  contents: read
+
+jobs:
+  deploy-check:
+    runs-on: ubuntu-latest
+    # The script fails after 20 minutes without a completed build; the rest leaves room for the setup and its last poll.
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      # The script has no dependency, so nothing is installed.
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Wait for the commit's Workers Builds check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          # Only through the environment, so a typed input never becomes part of the command line.
+          DEPLOY_CHECK_SHA: ${{ inputs.sha || github.sha }}
+        run: node scripts/wait-for-deploy-check.mjs

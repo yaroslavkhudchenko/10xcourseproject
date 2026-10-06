@@ -20,8 +20,8 @@
 // refuses every bad input before it creates a client or asks anything, prints neither the key nor Auth's error
 // objects, and writes no file.
 
-import { Buffer } from "node:buffer";
 import { createClient } from "@supabase/supabase-js";
+import { appOriginOf, isSecretKey, isSecureUrl } from "./hosted-env.mjs";
 
 const USAGE =
   "Usage: read -rs SUPABASE_SECRET_KEY && export SUPABASE_SECRET_KEY, then SUPABASE_URL=<project URL> APP_URL=<app origin> node scripts/owner-link.mjs <invite|recovery> <email>";
@@ -46,57 +46,6 @@ const HINTS = {
 function refuse(reason) {
   console.error(`owner-link: ${reason}\n${USAGE}`);
   process.exit(1);
-}
-
-// The hosts that may be reached over plain http: this machine, where the local stack and the dev server run.
-const LOCAL_HOSTS = ["localhost", "127.0.0.1"];
-
-/**
- * Whether `value` is an https URL, or an http one on this machine (LOCAL_HOSTS). Any other http URL is refused, so a
- * typo such as http://<ref>.supabase.co can't send the secret key in clear, nor an APP_URL print a link that opens
- * over plain http.
- * @param {string} value
- * @returns {boolean}
- */
-function isSecureUrl(value) {
-  try {
-    const { protocol, hostname } = new URL(value);
-    return protocol === "https:" || (protocol === "http:" && LOCAL_HOSTS.includes(hostname));
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Whether `key` is a secret key, which the admin API needs: a new `sb_secret_…` key, or a legacy JWT whose role is
- * service_role. A publishable key (`sb_publishable_…`), an anon JWT and anything else aren't. The JWT is only read
- * here, not verified: Auth verifies it.
- * @param {string} key
- * @returns {boolean}
- */
-function isSecretKey(key) {
-  if (key.startsWith("sb_secret_")) return true;
-  if (key.startsWith("sb_publishable_")) return false;
-  const parts = key.split(".");
-  if (parts.length !== 3) return false;
-  try {
-    return JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"))?.role === "service_role";
-  } catch {
-    return false;
-  }
-}
-
-/**
- * The app's origin, from an APP_URL that is exactly an https origin, or an http one on this machine such as
- * http://localhost:4321 (isSecureUrl), with at most a trailing slash; null for one with a path, a query, a hash or
- * credentials.
- * @param {string} value
- * @returns {string | null}
- */
-function appOriginOf(value) {
-  if (!isSecureUrl(value)) return null;
-  const url = new URL(value);
-  return url.href === `${url.origin}/` ? url.origin : null;
 }
 
 const args = process.argv.slice(2);

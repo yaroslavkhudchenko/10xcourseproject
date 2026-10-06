@@ -62,12 +62,47 @@ jobs:
         run: |
           source supabase.env
           SUPABASE_URL="$API_URL" SUPABASE_KEY="$ANON_KEY" node scripts/check-prices-db.mjs
+      - name: Check the deploy gate against the local stack
+        run: |
+          source supabase.env
+          export CHECK_SUPABASE_URL="$API_URL" CHECK_SUPABASE_KEY="$ANON_KEY"
+          # The local stack has every migration, so the gate passes, which also proves that anon may execute
+          # applied_migrations().
+          node scripts/check-migrations-applied.mjs
+          # A copy of the migrations with one the database lacks must be refused, naming that version as missing: a run
+          # that fails for another reason names no missing version.
+          migrations_copy="$RUNNER_TEMP/migrations-with-one-unapplied"
+          mkdir -p "$migrations_copy"
+          cp supabase/migrations/*.sql "$migrations_copy/"
+          touch "$migrations_copy/29991231235959_never_applied.sql"
+          gate_log="$RUNNER_TEMP/deploy-gate-missing.log"
+          if node scripts/check-migrations-applied.mjs --migrations-dir="$migrations_copy" > "$gate_log" 2>&1; then
+            cat "$gate_log"
+            echo "FAIL  the deploy gate passed although the database lacks 29991231235959"
+            exit 1
+          fi
+          cat "$gate_log"
+          grep -q "Missing on the database: 29991231235959" "$gate_log" || { echo "FAIL  the deploy gate failed without naming 29991231235959 as missing"; exit 1; }
       - run: npm run build
-      - name: Run smoke test against production preview
+      - name: Run smoke test and production check against production preview
         run: |
           npm run preview -- --port 4321 &
           for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:4321/ && break; sleep 1; done
           BASE_URL=http://localhost:4321 npm run smoke
+          source supabase.env
+          export CHECK_APP_URL=http://localhost:4321 CHECK_SUPABASE_URL="$API_URL" CHECK_SUPABASE_KEY="$ANON_KEY"
+          # The production check, signed out: its pages and its sign-in probe pass against the preview.
+          node scripts/check-production.mjs --skip=settings
+          # Its settings group must fail here, where local sign-up stays on (supabase/config.toml), and on the answer
+          # it read: a run that got no answer names no disable_signup=false.
+          settings_log="$RUNNER_TEMP/production-check-settings.log"
+          if node scripts/check-production.mjs --only=settings > "$settings_log" 2>&1; then
+            cat "$settings_log"
+            echo "FAIL  the settings group passed although local sign-up is on"
+            exit 1
+          fi
+          cat "$settings_log"
+          grep -q "disable_signup=false" "$settings_log" || { echo "FAIL  the settings group failed without reading disable_signup=false"; exit 1; }
       - if: always()
         run: supabase stop --no-backup
 
