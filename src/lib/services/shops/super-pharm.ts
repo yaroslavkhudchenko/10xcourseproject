@@ -14,14 +14,14 @@ import { parsePolishPrice } from "@/lib/services/shops/price-text";
 import { storableOffer } from "@/lib/services/shops/shop-offer";
 import { gateUnavailable } from "@/lib/services/shops/shop-outcome";
 import { httpsHost, textOf, within } from "@/lib/services/shops/shop-values";
-import { parseSize } from "@/lib/services/size";
+import { parseSize, trailingSizeText } from "@/lib/services/size";
 import type { GateOutcome, PriceCheck, ShopCandidate, ShopOffer, ShopSearch, ShopUnavailable, Size } from "@/types";
 
 // Super-Pharm's product search runs on Algolia (research note §2.3): a POST to one index's query URL, whose body holds
 // the search's parameters, answered with hits. Its index holds no EAN, so a candidate never shares one with the product
 // and is found by name. The same URL answers a filter by `objectID` with an empty query, which fetches several pinned
 // items' prices at once, by the rules every shop's pinned prices follow (pinned-prices.ts). This module maps
-// Super-Pharm's record, as its answers recorded on 2026-10-05 show it.
+// Super-Pharm's record, as its answers recorded on 2026-10-05 and 2026-10-06 show it.
 
 /** The Algolia application of Super-Pharm's search, as every superpharm.pl page names it (research note §2.3). */
 const APP_ID = "EP43QPDX9Q";
@@ -53,6 +53,9 @@ const ITEM_ID = /^\d{1,12}$/;
 // The one host Super-Pharm's product pages are on, and the one its images are on.
 const PRODUCT_HOST = "www.superpharm.pl";
 const IMAGE_HOST = "media.superpharm.eu";
+// A set's name, which says "zestaw" in any case or joins its items with "+", as in "Nivea Zestaw You Got This: Deo AP
+// 50 ml + … + Płyn mic. 200 ml": it ends with one of its items' sizes, never the set's.
+const SET_NAME = /zestaw|\+/i;
 const SEARCH_EVENT = "super-pharm-search";
 const PRICES_EVENT = "super-pharm-prices";
 const isoDate = z.iso.date();
@@ -83,7 +86,7 @@ const offerHitSchema = z.object({
   inStoreOnly: z.unknown().optional(),
 });
 // A search's hit, with the fields a candidate shows, each read on its own too. `farmax_capacity` isn't read: the size
-// is `capacity`, the text Super-Pharm shows with its unit.
+// is `capacity`, the text Super-Pharm shows with its unit, else the one the name ends with (readSize).
 const candidateHitSchema = offerHitSchema.extend({
   name: z.unknown().optional(),
   brand: z.unknown().optional(),
@@ -306,7 +309,7 @@ function toCandidate(raw: unknown): ShopCandidate | null {
   if (name === null) {
     return null;
   }
-  const { sizeText, size } = readSize(hit.capacity);
+  const { sizeText, size } = readSize(hit.capacity, name);
   const productUrl = within(textOf(hit.url), PRODUCT_LIMITS.productUrl);
   const imageUrl = within(textOf(hit.thumbnail_url), PRODUCT_LIMITS.imageUrl);
   return {
@@ -474,11 +477,24 @@ function hasOddAvailability(hit: unknown): boolean {
 }
 
 /**
- * Super-Pharm's size: `capacity`, such as "300 ml", with the size it stands for, which parseSize reads back the same
- * when a form posts the text. A size that doesn't parse, or text over its limit, gives neither.
+ * Super-Pharm's size as text, with the size it stands for, which parseSize reads back the same when a form posts the
+ * text. It's `capacity`, such as "300 ml", whenever the record has one. Many records have none (27 of the 47 hits the
+ * lookups recorded on 2026-10-06), and their names often end with the size, as in "…Classic Clean, 400 ml", so then
+ * it's the size the name ends with (trailingSizeText), unless the name is a set's (SET_NAME). A `capacity` that doesn't
+ * parse, such as a multipack's "2 x 50 ml", gives none rather than the name's, which could be one item's. No such size,
+ * or text over its limit, gives neither.
  */
-function readSize(capacity: unknown): { sizeText: string | null; size: Size | null } {
-  const sizeText = within(textOf(capacity), PRODUCT_LIMITS.sizeText);
+function readSize(capacity: unknown, name: string): { sizeText: string | null; size: Size | null } {
+  const shown = textOf(capacity);
+  if (shown !== null) {
+    return sizeOf(shown);
+  }
+  return sizeOf(SET_NAME.test(name) ? null : trailingSizeText(name));
+}
+
+/** Size text within its limit, with the size it stands for; neither when it doesn't parse or is over its limit. */
+function sizeOf(text: string | null): { sizeText: string | null; size: Size | null } {
+  const sizeText = within(text, PRODUCT_LIMITS.sizeText);
   const size = parseSize(sizeText);
   return size === null ? { sizeText: null, size: null } : { sizeText, size };
 }

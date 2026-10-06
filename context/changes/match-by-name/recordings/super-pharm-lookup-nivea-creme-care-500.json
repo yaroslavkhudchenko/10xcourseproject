@@ -1,0 +1,43 @@
+{
+  "hits": [
+    {
+      "name": "Nivea Żel pod prysznic Creme Care",
+      "url": "https://www.superpharm.pl/nivea-zel-pod-prysznic-creme-care-101244",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/7/17206201_T1.jpg",
+      "in_stock": false,
+      "price": {
+        "PLN": {
+          "default": 11.99,
+          "default_formated": "11,99 zł",
+          "default_historical_min_price_formated": "19,99 zł",
+          "special_from_date": 1604102400,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "capacity": "500 ml",
+      "inStoreOnly": 1,
+      "objectID": "20369"
+    }
+  ],
+  "nbHits": 1,
+  "page": 0,
+  "nbPages": 1,
+  "hitsPerPage": 10,
+  "exhaustiveNbHits": true,
+  "exhaustiveTypo": true,
+  "exhaustive": {
+    "nbHits": true,
+    "typo": true
+  },
+  "query": "NIVEA Creme Care 500 ml",
+  "params": "query=NIVEA+Creme+Care+500+ml&hitsPerPage=10&analytics=false&attributesToRetrieve=name%2Cbrand%2Ccapacity%2Curl%2Cthumbnail_url%2Cprice%2Cin_stock%2CinStoreOnly&attributesToHighlight=%5B%5D&tagFilters=",
+  "processingTimeMS": 1,
+  "processingTimingsMS": {
+    "_request": {
+      "roundTrip": 42
+    },
+    "total": 1
+  },
+  "serverTimeMS": 2
+}

@@ -1,0 +1,119 @@
+{
+  "hits": [
+    {
+      "name": "Nivea Zestaw You Got This: Deo AP 50 ml + SG 250 ml + Pomadka 4,8 g + Płyn mic. 200 ml",
+      "url": "https://www.superpharm.pl/nivea-zestaw-you-got-this-deo-ap-50-ml-sg-250-ml-pomadka-48-g-plyn-mic-200-ml-218333",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/9/5/95703-01995-00_NIVEA_XMAS_You_Got_This_2025.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 86.99,
+          "default_formated": "86,99 zł",
+          "default_recommended_price_formated": "99,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "163029"
+    },
+    {
+      "name": "Nivea Disney Edition Pielęgnująca Pomadka do ust Watermelon Shine, 4,8 g",
+      "url": "https://www.superpharm.pl/nivea-disney-edition-pielegnujaca-pomadka-do-ust-watermelon-shine-48-g-231015",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/7/17197074_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 14.99,
+          "default_formated": "14,99 zł",
+          "default_recommended_price_formated": "15,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "193471"
+    },
+    {
+      "name": "Nivea Disney Edition Pielęgnująca Pomadka do ust Blossom Cherry, 4,8 g",
+      "url": "https://www.superpharm.pl/nivea-disney-edition-pielegnujaca-pomadka-do-ust-blossom-cherry-48-g-231013",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/7/17197070_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 14.99,
+          "default_formated": "14,99 zł",
+          "default_recommended_price_formated": "15,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "193469"
+    },
+    {
+      "name": "Nivea Disney Edition Pielęgnująca Pomadka do ust Buttercream Vanilla, 4,8 g",
+      "url": "https://www.superpharm.pl/nivea-disney-edition-pielegnujaca-pomadka-do-ust-buttercream-vanilla-48-g-231016",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/7/17197075_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 14.99,
+          "default_formated": "14,99 zł",
+          "default_recommended_price_formated": "15,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "193472"
+    },
+    {
+      "name": "Nivea Disney Edition Pielęgnująca Pomadka do ust Tropical Mango, 4,8 g ",
+      "url": "https://www.superpharm.pl/nivea-disney-edition-pielegnujaca-pomadka-do-ust-tropical-mango-48-g-231014",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/7/17197067_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 14.99,
+          "default_formated": "14,99 zł",
+          "default_recommended_price_formated": "15,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "193470"
+    }
+  ],
+  "nbHits": 5,
+  "page": 0,
+  "nbPages": 1,
+  "hitsPerPage": 10,
+  "exhaustiveNbHits": true,
+  "exhaustiveTypo": true,
+  "exhaustive": {
+    "nbHits": true,
+    "typo": true
+  },
+  "query": "NIVEA Balsam do ust 4,8 g",
+  "params": "query=NIVEA+Balsam+do+ust+4%2C8+g&hitsPerPage=10&analytics=false&attributesToRetrieve=name%2Cbrand%2Ccapacity%2Curl%2Cthumbnail_url%2Cprice%2Cin_stock%2CinStoreOnly&attributesToHighlight=%5B%5D&tagFilters=",
+  "processingTimeMS": 1,
+  "processingTimingsMS": {
+    "_request": {
+      "roundTrip": 39
+    },
+    "total": 1
+  },
+  "serverTimeMS": 2
+}

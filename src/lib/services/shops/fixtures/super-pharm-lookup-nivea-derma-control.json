@@ -1,0 +1,211 @@
+{
+  "hits": [
+    {
+      "name": "Nivea Deo Derma Control Sensitive spray 150 ml",
+      "url": "https://www.superpharm.pl/nivea-deo-derma-control-sensitive-spray-150-ml-213713",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/6/16920023_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 11.99,
+          "default_formated": "11,99 zł",
+          "default_recommended_price_formated": "16,99 zł",
+          "default_historical_min_price_formated": "13,99 zł",
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "148287"
+    },
+    {
+      "name": "Nivea Deo Derma Control Defend spray 150 ml",
+      "url": "https://www.superpharm.pl/nivea-deo-derma-control-defend-spray-150-ml-213703",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/7/17029777_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 11.99,
+          "default_formated": "11,99 zł",
+          "default_historical_min_price_formated": "18,99 zł",
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "148111"
+    },
+    {
+      "name": "Nivea Derma Control Restore Antyperspirant w sprayu, 150 ml",
+      "url": "https://www.superpharm.pl/nivea-derma-control-restore-antyperspirant-w-sprayu-150-ml-213706",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/7/17029392_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 11.99,
+          "default_formated": "11,99 zł",
+          "default_historical_min_price_formated": "21,99 zł",
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "148395"
+    },
+    {
+      "name": "Nivea Deo Derma Control Defend spray  250 ml ",
+      "url": "https://www.superpharm.pl/nivea-deo-derma-control-defend-spray-250-ml-213709",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/7/17029601_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 26.99,
+          "default_formated": "26,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "148282"
+    },
+    {
+      "name": "Nivea Derma Control Restore Antyperspirant w sprayu, 250 ml",
+      "url": "https://www.superpharm.pl/nivea-derma-control-restore-antyperspirant-w-sprayu-250-ml-213710",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/7/17029605_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 28.99,
+          "default_formated": "28,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "148288"
+    },
+    {
+      "name": "Nivea Derma Skin Clear żel oczyszczający ",
+      "url": "https://www.superpharm.pl/nivea-derma-skin-clear-zel-oczyszczajacy-170141",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/7/17029717_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 17.99,
+          "default_formated": "17,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": 1674518400,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "capacity": "150 ml",
+      "inStoreOnly": 0,
+      "objectID": "99381"
+    },
+    {
+      "name": "Nivea Derma Control Defend Żel pod prysznic ",
+      "url": "https://www.superpharm.pl/nivea-derma-control-defend-zel-pod-prysznic-214034",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/7/17206199_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 11.99,
+          "default_formated": "11,99 zł",
+          "default_historical_min_price_formated": "19,99 zł",
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "148881"
+    },
+    {
+      "name": "Nivea Derma Control Restore Antyperspirant w sztyfcie",
+      "url": "https://www.superpharm.pl/nivea-derma-control-restore-antyperspirant-w-sztyfcie-213708",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/7/17029515_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 16.99,
+          "default_formated": "16,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "148394"
+    },
+    {
+      "name": "Nivea Derma Control Restore Żel pod prysznic",
+      "url": "https://www.superpharm.pl/nivea-derma-control-restore-zel-pod-prysznic-214035",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/9/0/9005800389967-Nivea-Derma-Control-Restore-_el-pod-prysznic.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 11.99,
+          "default_formated": "11,99 zł",
+          "default_historical_min_price_formated": "19,99 zł",
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "148882"
+    },
+    {
+      "name": "NIVEA Derma Control Defend Antyperspirant w sztyfcie",
+      "url": "https://www.superpharm.pl/nivea-derma-control-defend-antyperspirant-w-sztyfcie-213705",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/7/17029762_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 16.99,
+          "default_formated": "16,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "148388"
+    }
+  ],
+  "nbHits": 1812,
+  "page": 0,
+  "nbPages": 100,
+  "hitsPerPage": 10,
+  "exhaustiveNbHits": true,
+  "exhaustiveTypo": true,
+  "exhaustive": {
+    "nbHits": true,
+    "typo": true
+  },
+  "query": "NIVEA Derma Control Clinical 150 ml",
+  "params": "query=NIVEA+Derma+Control+Clinical+150+ml&hitsPerPage=10&analytics=false&attributesToRetrieve=name%2Cbrand%2Ccapacity%2Curl%2Cthumbnail_url%2Cprice%2Cin_stock%2CinStoreOnly&attributesToHighlight=%5B%5D&tagFilters=",
+  "processingTimeMS": 3,
+  "processingTimingsMS": {
+    "_request": {
+      "roundTrip": 43
+    },
+    "fetch": {
+      "query": 1,
+      "scanning": 1,
+      "total": 3
+    },
+    "total": 3
+  },
+  "serverTimeMS": 5
+}
