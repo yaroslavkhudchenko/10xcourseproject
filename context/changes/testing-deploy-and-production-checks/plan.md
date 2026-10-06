@@ -36,7 +36,7 @@ From `context/changes/testing-deploy-and-production-checks/research.md`:
   4. It waits 10 s, then runs the production check, and exits non-zero on any failure, which turns the `Workers Builds: drogeria-radar` check red.
 - **The alert:** the `Deploy check` workflow runs on every push to `main`. It fails when that commit's `Workers Builds` check fails, and passes when a newer build superseded the commit.
 - **Checks by hand and in CI:**
-  - `npm run check:production` runs the same check by hand from the owner's gitignored `.env.production`.
+  - `npm run check:production` runs the same check by hand, with the three variables set on the command line. No file holds them.
   - `node scripts/check-migrations-applied.mjs` confirms a pushed migration before a merge.
   - CI's `smoke` job runs both against the local stack and the preview. The `pages` and `sign-in` groups must pass, the `settings` group must fail on local open sign-up, and the gate must refuse a migration the database lacks.
 - **The documents:** the deploy plan's runbook, `CLAUDE.md` and the test plan (§2 risk #2, §4, §5, §6.5, §6.6) describe the gate, the check, the alert and the emergency path.
@@ -51,7 +51,7 @@ From `context/changes/testing-deploy-and-production-checks/research.md`:
 - Existing security-definer functions revoke `PUBLIC` and grant one role explicitly, with `set search_path = ''` (`supabase/migrations/20260926112205_polite_shop_access.sql:51-52`, `:126-130`).
 - `scripts/owner-link.mjs:52-100` holds `isSecureUrl`, `isSecretKey` and `appOriginOf`, which the new scripts need too (lesson "Define shared constants and helpers once").
 - Smoke's signed-out steps fix the expected answers: Locations exact or by prefix, origin 403s, removed pages' 404s and the confirm page's headers (`scripts/smoke.mjs:126-192`, `:332`).
-- Vitest includes only `src/**/*.test.ts` (`vitest.config.ts:9-11`). ESLint covers `scripts/**/*.mjs` (`eslint.config.js:76-81`). `.env.production` is gitignored (`.gitignore:18`).
+- Vitest includes only `src/**/*.test.ts` (`vitest.config.ts:9-11`). ESLint covers `scripts/**/*.mjs` (`eslint.config.js:76-81`).
 - CI's smoke step starts the preview in the background and runs smoke in the same `run` block (`ci.yml:66-70`), so the new runs against the preview belong in that block.
 
 ## What We're NOT Doing
@@ -83,7 +83,7 @@ From `context/changes/testing-deploy-and-production-checks/research.md`:
 
 ### Overview
 
-A signed-out, read-only check of any deployment of the app, run against the local preview in CI and against production by hand, with the shared URL and key helpers moved into one module.
+A signed-out, read-only check of any deployment of the app, run against the local preview in CI and after each deploy against production, with the shared URL and key helpers moved into one module.
 
 ### Changes Required:
 
@@ -136,11 +136,11 @@ A signed-out, read-only check of any deployment of the app, run against the loca
 
 **File**: `package.json`, `vitest.config.ts`, `.github/workflows/ci.yml`, `scripts/hosted-env.test.mjs` (new)
 
-**Intent**: The owner runs it by hand from `.env.production`, its pure rules are unit-tested, and CI runs it against the preview on every PR, the settings group expected to fail.
+**Intent**: It runs by hand with its variables set on the command line, its pure rules are unit-tested, and CI runs it against the preview on every PR, the settings group expected to fail.
 
 **Contract**:
 
-- **`package.json`:** `"check:production": "node --env-file-if-exists=.env.production scripts/check-production.mjs"`.
+- **`package.json`:** `"check:production": "node scripts/check-production.mjs"`, reading only its environment.
 - **`vitest.config.ts`:** `include` gains `scripts/**/*.test.mjs`.
 - **`hosted-env.test.mjs`:** covers `readCheckEnv`'s refusals and the moved helpers' boundaries:
   - plain http only on `localhost` and `127.0.0.1`;
@@ -158,10 +158,6 @@ A signed-out, read-only check of any deployment of the app, run against the loca
 - The check refuses before any request: a missing variable, `CHECK_APP_URL=http://example.com` and a `sb_secret_x` key each exit 1, naming the variable and printing no value
 - Against a local production preview with no Supabase configured, `--only=pages` fails on the configuration banner
 - CI's `smoke` job passes on the PR, with `pages` and `sign-in` passing against the preview and `settings` failing as expected
-
-#### Manual Verification:
-
-- The owner runs `npm run check:production` against production from `.env.production`, and every group passes
 
 **Implementation Note**: After completing this phase and all automated verification passes, pause here for manual confirmation from the human that the manual testing was successful before proceeding to the next phase.
 
@@ -230,7 +226,6 @@ Production tells the publishable key which migrations it has, and a check compar
 #### Manual Verification:
 
 - Before the merge, the owner runs `npx supabase db push`, and `npx supabase migration list --linked` shows the new migration's remote version
-- The owner runs `node --env-file=.env.production scripts/check-migrations-applied.mjs` against production, and it passes
 
 **Implementation Note**: After completing this phase and all automated verification passes, pause here for manual confirmation from the human that the manual testing was successful before proceeding to the next phase.
 
@@ -252,7 +247,7 @@ One deploy script chains the gate, `wrangler deploy` and the check for Workers B
 
 **Contract**:
 
-- `"deploy:checked": "node --env-file-if-exists=.env.production scripts/deploy-checked.mjs"`, so the owner can run the same checked deploy by hand.
+- `"deploy:checked": "node scripts/deploy-checked.mjs"`, reading only its environment: Workers Builds' build variables, or values set on the command line.
 - Its steps, each printing its own line:
   1. `readCheckEnv` for all three variables, exiting 1 before any request on a refusal.
   2. The gate (`readAppliedMigrations` and `missingMigrations`), exiting 1 on a missing version, with the runbook's pointer.
@@ -409,7 +404,7 @@ The documents describe the gate, the check, the alert and their failures, and th
 
 ### Manual Testing Steps:
 
-1. Before the merge, push the migration, then run `npm run check:production` and `node --env-file=.env.production scripts/check-migrations-applied.mjs` against production: both pass.
+1. Before the merge, push the migration with `npx supabase db push`, and confirm its remote version with `npx supabase migration list --linked`.
 2. After the merge, set the three build variables (secrets), switch the deploy command to `npm run deploy:checked`, and start a build of `main`. The log shows the gate, the deploy and the check passing, and both GitHub checks are green.
 3. Set `CHECK_APP_URL` to a wrong origin and start a build: it turns red after redeploying the same version. Run the Deploy check workflow by hand for that commit: it fails. Restore the variable and start a build: green.
 
@@ -442,7 +437,30 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **Arguments:** `selectGroups` also refuses `--only` with `--skip`, a repeated flag, an empty list and a bare argument. No refusal repeats an argument, which could be a pasted key.
 - **For Phase 3:** `runCheck(groups, settings)` is exported, returning the number of failed steps, so the deploy script can run the check in-process.
 - **1.3's local run** against a preview with no Supabase also failed the sign-out step: the route then answers a plain `/auth/signin` (`src/pages/api/auth/signout.ts`), a second signal of a missing configuration. Every other `pages` step passed on workerd.
-- **1.4 runs only in CI's `smoke` job** (no Docker here), on this branch's draft PR.
+- **1.4 runs only in CI's `smoke` job** (no Docker here), on this branch's draft PR. It passed on `ff8e16e`: every `pages` step and the sign-in probe passed against the workerd preview, and `settings` failed with `disable_signup=false` on local open sign-up.
+- **No manual runs against production, and no env file** (the owner's call, 2026-10-06). Checks 1.5 and 2.5 are dropped, and the first run against production is Workers Builds' build after the merge (4.4). `npm run check:production` no longer reads `.env.production`: the scripts read only their environment. The change to Phase 1's files (`package.json`, the check's usage text, a test comment) lands in Phase 2's commit.
+
+### Phase 2
+
+- **Shared with the check:** `scripts/check-production.mjs` (a file beyond the list) exports `TIMEOUT_MS`. The gate reuses it and `failureOf`, so its request has the same 10 s and shows a request with no answer the same way.
+- **Exports beyond the contract's three:**
+  - `MIGRATIONS_DIR`, `listMigrationVersions`, `appliedVersionsOf(status, body)` (the pure answer handling), and `migrationsDirOf(args)`. `migrationsDirOf` refuses an unknown, repeated or empty argument without repeating it.
+  - `checkMigrationsApplied(settings, migrationsDir)`, for Phase 3. It reads the files before any request, prints its own lines, and returns `{ ok: true, count }`, `{ ok: false, missing }` or `{ ok: false, failure }`; it never rejects.
+- **Fail closed beyond the contract:**
+  - a directory with no `.sql` file is a failure, not "All 0 migrations are applied";
+  - a `.SQL` file, which the CLI would skip, is refused, not ignored;
+  - subdirectories are skipped.
+- **Messages:**
+  - A non-200 answer shows only PostgREST's code (`PGRSTnnn` or a SQLSTATE), never the body.
+  - The missing-function message and the "Missing on the database" hint name both `npx supabase db push` (production) and `npx supabase migration up --local`, so a local run never points at a push to production.
+  - Results go to stdout; refusals and failures go to stderr.
+- **CI's negative run greps `Missing on the database: 29991231235959`,** so a run that fails for another reason but prints the file name can't pass. This is Phase 1's `disable_signup=false` precedent.
+- **The tests go further than the contract:**
+  - `readAppliedMigrations`' request through a stubbed fetch: POST `{}`, exactly `apikey` and `Content-Type`, `redirect: "manual"`, a signal.
+  - `checkMigrationsApplied` over temporary directories: no request on a bad file name or an unreadable directory, and no body, URL or key printed.
+- **No retry:** a request with no answer fails the gate closed, and a new build of `main` retries it. The check retries once; the gate's refusal is the safer side.
+- **No database check of a signed-in caller.** `authenticated` loses execute, but the function guards no data, and anon, its one caller, sees only the repository's public versions.
+- **2.4 is the owner's `db push`** of `20261006183345_applied_migrations.sql`, before the merge.
 
 ## References
 
@@ -461,14 +479,10 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [ ] 1.1 Lint, type check and the whole unit suite pass, the new script tests included
-- [ ] 1.2 The check refuses before any request on a missing variable, an insecure URL and a secret key
-- [ ] 1.3 Against a local preview with no Supabase configured, `--only=pages` fails on the configuration banner
-- [ ] 1.4 CI's `smoke` job passes, with `pages` and `sign-in` passing against the preview and `settings` failing as expected
-
-#### Manual
-
-- [ ] 1.5 The owner's `npm run check:production` against production passes every group
+- [x] 1.1 Lint, type check and the whole unit suite pass, the new script tests included — ff8e16e
+- [x] 1.2 The check refuses before any request on a missing variable, an insecure URL and a secret key — ff8e16e
+- [x] 1.3 Against a local preview with no Supabase configured, `--only=pages` fails on the configuration banner — ff8e16e
+- [x] 1.4 CI's `smoke` job passes, with `pages` and `sign-in` passing against the preview and `settings` failing as expected — ff8e16e
 
 ### Phase 2: The migration gate
 
@@ -481,7 +495,6 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 #### Manual
 
 - [ ] 2.4 The owner's `db push` lands the migration, and `migration list --linked` shows its remote version
-- [ ] 2.5 The owner's `check-migrations-applied` against production passes
 
 ### Phase 3: The checked deploy and its alert
 

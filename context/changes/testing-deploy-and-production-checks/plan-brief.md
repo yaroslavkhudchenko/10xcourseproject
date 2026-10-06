@@ -43,6 +43,7 @@ A `Deploy check` workflow on `main` fails when that build is red, so GitHub emai
 | Missing build variables          | Refuse to deploy (fail closed)                                                                              | The gate can never be silently off; emergencies use the manual `npx wrangler deploy`                  | Plan            |
 | Alert                            | A `Deploy check` workflow on `main` that fails when the commit's `Workers Builds` check is red              | GitHub emails the owner about a failed run; it reads only check runs, with no secret                  | Plan            |
 | Between deploys                  | No scheduled checks                                                                                         | No new infrastructure; drift shows at the next deploy or a manual run                                 | Plan            |
+| Manual runs against production   | None; the first run is Workers Builds' build after the merge, and no file holds production's values         | The owner's call: nothing about production stored on a machine                                        | Plan            |
 | Test plan §2                     | Backport risk #2's correction now                                                                           | §2 and §5 agree in the same PR that moves the gate                                                    | Plan            |
 
 ## Scope
@@ -82,13 +83,13 @@ The checks live in dependency-free Node scripts that can reach a hosted project 
 **Prerequisites:**
 
 - The owner pushes this change's migration before the merge.
-- The owner has `.env.production` with the three `CHECK_*` values for the manual runs.
 - After the merge, the owner sets the build variables and the deploy command.
 
 **Estimated effort:** ~3 sessions across 4 phases, plus the owner's 15-minute Cloudflare setup.
 
 ## Open Risks & Assumptions
 
+- **No run against production before the switch:** a step whose expected answer differs on production first shows as a red build, after which the owner can switch the deploy command back.
 - **Undocumented in Workers Builds:** whether build variables reach the deploy command, and whether a failure after `wrangler deploy` turns the build red. Phase 4 verifies both, and the fail-closed refusal would show the first at once.
 - **The check can't tell which version answered,** and runs 10 s after the deploy, so in that window it could meet the old version.
 - **GitHub's email for a failed run** depends on the owner's notification settings for Actions.

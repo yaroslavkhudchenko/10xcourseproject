@@ -5,12 +5,12 @@
 // scripts/smoke.mjs, whose signed-out steps fix most of the answers expected here. Smoke signs a user up, so it only
 // ever runs against the local stack; this check runs against any deployment, production included.
 //
-//   npm run check:production
 //   CHECK_APP_URL=<app origin> CHECK_SUPABASE_URL=<project URL> CHECK_SUPABASE_KEY=<publishable key> \
 //     node scripts/check-production.mjs [--only=<groups> | --skip=<groups>]
 //
-// `npm run check:production` runs every group, with the three variables from .env.production when it's there. The
-// groups, in the order they run, which --only and --skip take as a comma-separated list:
+// It reads the three variables from its environment only: Workers Builds' build variables after a deploy, or values set
+// on the command line for a run by hand. `npm run check:production` runs every group. The groups, in the order they
+// run, which --only and --skip take as a comma-separated list:
 // - pages: the front door, the protected pages and routes, another site's form post, the removed pages, the sign-in
 //   page and its first font, a handed-over link's page, and sign-out. Needs CHECK_APP_URL.
 // - sign-in: one sign-in for production-check@example.com, whose answer shows that the Worker's Supabase key works.
@@ -29,13 +29,14 @@ import { fileURLToPath } from "node:url";
 import { readCheckEnv } from "./hosted-env.mjs";
 
 const USAGE =
-  "Usage: CHECK_APP_URL=<app origin> CHECK_SUPABASE_URL=<project URL> CHECK_SUPABASE_KEY=<publishable key> node scripts/check-production.mjs [--only=<groups> | --skip=<groups>], the groups being pages, sign-in and settings; npm run check:production reads the variables from .env.production";
+  "Usage: CHECK_APP_URL=<app origin> CHECK_SUPABASE_URL=<project URL> CHECK_SUPABASE_KEY=<publishable key> node scripts/check-production.mjs [--only=<groups> | --skip=<groups>], the groups being pages, sign-in and settings";
 
 /** The check's groups, in the order it runs them. */
 export const GROUPS = ["pages", "sign-in", "settings"];
 
-// How long a request may take, its body included, and the pause before its one more try when no answer came.
-const TIMEOUT_MS = 10_000;
+// How long a request may take, its body included, and the pause before its one more try when no answer came. The
+// migration gate (scripts/check-migrations-applied.mjs) gives its request the same time, which failureOf names.
+export const TIMEOUT_MS = 10_000;
 const RETRY_PAUSE_MS = 1_000;
 
 // An error's name or code is shown only in this shape: an identifier, never a message, which can hold a URL or a key.

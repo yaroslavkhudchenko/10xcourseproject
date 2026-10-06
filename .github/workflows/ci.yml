@@ -62,6 +62,27 @@ jobs:
         run: |
           source supabase.env
           SUPABASE_URL="$API_URL" SUPABASE_KEY="$ANON_KEY" node scripts/check-prices-db.mjs
+      - name: Check the deploy gate against the local stack
+        run: |
+          source supabase.env
+          export CHECK_SUPABASE_URL="$API_URL" CHECK_SUPABASE_KEY="$ANON_KEY"
+          # The local stack has every migration, so the gate passes, which also proves that anon may execute
+          # applied_migrations().
+          node scripts/check-migrations-applied.mjs
+          # A copy of the migrations with one the database lacks must be refused, naming that version as missing: a run
+          # that fails for another reason names no missing version.
+          migrations_copy="$RUNNER_TEMP/migrations-with-one-unapplied"
+          mkdir -p "$migrations_copy"
+          cp supabase/migrations/*.sql "$migrations_copy/"
+          touch "$migrations_copy/29991231235959_never_applied.sql"
+          gate_log="$RUNNER_TEMP/deploy-gate-missing.log"
+          if node scripts/check-migrations-applied.mjs --migrations-dir="$migrations_copy" > "$gate_log" 2>&1; then
+            cat "$gate_log"
+            echo "FAIL  the deploy gate passed although the database lacks 29991231235959"
+            exit 1
+          fi
+          cat "$gate_log"
+          grep -q "Missing on the database: 29991231235959" "$gate_log" || { echo "FAIL  the deploy gate failed without naming 29991231235959 as missing"; exit 1; }
       - run: npm run build
       - name: Run smoke test and production check against production preview
         run: |

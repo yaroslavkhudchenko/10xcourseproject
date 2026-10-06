@@ -85,7 +85,7 @@ describe("appOriginOf, the app's origin", () => {
   });
 });
 
-// A deployment's settings as the owner's .env.production or the build's variables hold them.
+// A deployment's settings as the build's variables, or a run by hand, hold them.
 const ENV = {
   CHECK_APP_URL: "https://drogeria.example",
   CHECK_SUPABASE_URL: "https://abcdefghijklmnop.supabase.co",
