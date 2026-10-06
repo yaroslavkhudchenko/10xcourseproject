@@ -610,6 +610,18 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **The e2e product matched by name (P3)** has a fresh price in all four shops, not only Super-Pharm, since the island refetches any shop never checked. Step 2 also shows "Do sprawdzenia" leaves P3 out, the owner's call that a match by name settles the shop. `watchlist-data.ts` changed only in `matchShop`'s doc: seeded products and matches carry no EAN, so a seeded automatic match reads as one by name.
 - **4.1 runs only in CI's `e2e` job** (no Docker here), so its deliberate break can't run here either. The assertion is the exact note, inside Super-Pharm's card, so another note or none fails it; the note's rule has its unit tests from Phase 2.
 
+### Phase 5
+
+- **The test plan, beyond its contract:**
+  - §6.3 says seeds carry no EAN, so a seeded automatic match reads as one by name.
+  - §6.6 gets a `match-by-name` entry: risk #6's tests, the four-shop spec with Phase 4's note check, and the Workers path moved to check 5.4.
+  - Risk #6's "Must challenge" cell is left to `/10x-test-plan --refresh`, as §1–§5 change only there, and the entry names it as a follow-up.
+- **CLAUDE.md, beyond its contract:**
+  - It states why the card's note needs no column: a match by name shares no EAN with its product, so the name check must never choose between candidates that share an EAN.
+  - `lookupInShop`'s name search runs when the EAN search finds nothing or doesn't run.
+- **The research note's `in_stock` count is the committed fixtures': 58 of 60 hits send 1.** Phase 1's "69 of 71" included the 11 hits of `context/changes/add-from-other-shops/recordings/`, which isn't committed. The sentence it replaces, "Every recorded hit has `in_stock` 1", was false.
+- **The roadmap** also marks S-06's carry-over ("unless S-06 adds one") as done by this change. S-06 stays `in-progress`: its open phone check of the tap is moot, which only its archive can record.
+
 ## References
 
 - Research: `context/changes/match-by-name/research.md`
@@ -661,13 +673,13 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [ ] 4.1 The whole e2e suite passes, the note's check included
-- [ ] 4.2 Lint, type check and the whole unit suite pass
+- [x] 4.1 The whole e2e suite passes, the note's check included — 65252b7
+- [x] 4.2 Lint, type check and the whole unit suite pass — 65252b7
 
 #### Manual
 
-- [ ] 4.3 `/dev/product-page` shows every Super-Pharm state with true wording, in light and dark
-- [ ] 4.4 `/dev/watchlist`'s Super-Pharm rows read true
+- [x] 4.3 `/dev/product-page` shows every Super-Pharm state with true wording, in light and dark — 65252b7
+- [x] 4.4 `/dev/watchlist`'s Super-Pharm rows read true — 65252b7
 
 ### Phase 5: Docs and rollout
 
