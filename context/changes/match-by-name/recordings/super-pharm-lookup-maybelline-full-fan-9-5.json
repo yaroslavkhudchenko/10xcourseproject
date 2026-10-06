@@ -1,0 +1,223 @@
+{
+  "hits": [
+    {
+      "name": "Maybelline Lash Sensational Tusz do rzęs 06 Burgundy Brown",
+      "url": "https://www.superpharm.pl/maybelline-lash-sensational-tusz-do-rzes-06-burgundy-brown-145979",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/m/a/maybelline-lash-sensational-06-burgundy-rose-maskara-9_5ml-1_1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 33.99,
+          "default_formated": "33,99 zł",
+          "default_recommended_price_formated": "49,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": 1604102400,
+          "special_to_date": false
+        }
+      },
+      "brand": "Maybelline",
+      "capacity": "9.5 ml",
+      "inStoreOnly": 0,
+      "objectID": "62293"
+    },
+    {
+      "name": "Maybelline Mascara Lash Sensational Black ",
+      "url": "https://www.superpharm.pl/maybelline-mascara-lash-sensational-black-108001",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/8/9/892057_3.png",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 28.99,
+          "default_formated": "28,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": 1604102400,
+          "special_to_date": false
+        }
+      },
+      "brand": "Maybelline",
+      "capacity": "9.5 ml",
+      "inStoreOnly": 0,
+      "objectID": "30050"
+    },
+    {
+      "name": "Maybelline Mascara Lash Sensational Intense Black ",
+      "url": "https://www.superpharm.pl/maybelline-mascara-lash-sensational-intense-black-114389",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/m/a/maybelline-lash-sensational-intense-black-maskara-do-rzes-9_5ml-1_2.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 28.99,
+          "default_formated": "28,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": 1604102400,
+          "special_to_date": false
+        }
+      },
+      "brand": "Maybelline",
+      "capacity": "9.5 ml",
+      "inStoreOnly": 0,
+      "objectID": "30469"
+    },
+    {
+      "name": "Maybelline New York Lash Sensational Firework Tusz do rzęs, Electro Black ",
+      "url": "https://www.superpharm.pl/maybelline-new-york-lash-sensational-firework-tusz-do-rzes-electro-black-206289",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/m/a/maybelline-sensational-fireworks-electro-black.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 57.99,
+          "default_formated": "57,99 zł",
+          "default_recommended_price_formated": "74,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Maybelline",
+      "inStoreOnly": 0,
+      "objectID": "143176"
+    },
+    {
+      "name": "Maybelline Maskara Lash Sensational Body, Brick Brown, 9,65 ml",
+      "url": "https://www.superpharm.pl/maybelline-maskara-lash-sensational-body-brick-brown-965-ml-226605",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/3/6/3600531724894-Maybelline-Maskara-Lash-Sensational-Body_-Brick-Brown_-9_65-ml-_1_.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 62.99,
+          "default_formated": "62,99 zł",
+          "default_recommended_price_formated": "65,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Maybelline",
+      "inStoreOnly": 0,
+      "objectID": "186285"
+    },
+    {
+      "name": "Maybelline Maskara Lash Sensational Body, Mocha Brown, 9,65 ml",
+      "url": "https://www.superpharm.pl/maybelline-maskara-lash-sensational-body-mocha-brown-965-ml-226604",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/3/6/3600531724863-Maybelline-Maskara-Lash-Sensational-Body_-Mocha-Brown_-9_65-ml-_2_.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 62.99,
+          "default_formated": "62,99 zł",
+          "default_recommended_price_formated": "65,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Maybelline",
+      "inStoreOnly": 0,
+      "objectID": "186284"
+    },
+    {
+      "name": "Maybelline Lash Sensational Sky High Tusz do rzęs Black",
+      "url": "https://www.superpharm.pl/maybelline-lash-sensational-sky-high-tusz-do-rzes-black-148462",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/2/e/2efe32aaa72b3ec1df551d0799f52254f9ef0b8d_2.png",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 32.99,
+          "default_formated": "32,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": 1614988800,
+          "special_to_date": false
+        }
+      },
+      "brand": "Maybelline",
+      "capacity": "7.2 ml",
+      "inStoreOnly": 0,
+      "objectID": "67655"
+    },
+    {
+      "name": "Maybelline Lash Sensational Sky High Tinted Primer Baza pod tusz do rzęs ",
+      "url": "https://www.superpharm.pl/maybelline-lash-sensational-sky-high-tinted-primer-baza-pod-tusz-do-rzes-170351",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/m/a/maybelline-lash-sensational-sky-high-tinted-primer-baza-pod_tusz-do-rz_s-7_2ml-1_2.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 39.99,
+          "default_formated": "39,99 zł",
+          "default_recommended_price_formated": "62,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": 1675123200,
+          "special_to_date": false
+        }
+      },
+      "brand": "Maybelline",
+      "capacity": "7.2 ml",
+      "inStoreOnly": 0,
+      "objectID": "99683"
+    },
+    {
+      "name": "Maybelline Lash Sensational Firework Mascara Wodoodporna ",
+      "url": "https://www.superpharm.pl/maybelline-lash-sensational-firework-mascara-wodoodporna-196074",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/m/a/maybelline_lash_sensational_firework_-_mascara_wodoodporna_10ml_2.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 63.99,
+          "default_formated": "63,99 zł",
+          "default_recommended_price_formated": "74,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": 1718150400,
+          "special_to_date": false
+        }
+      },
+      "brand": "Maybelline",
+      "capacity": "10 ml",
+      "inStoreOnly": 0,
+      "objectID": "134473"
+    },
+    {
+      "name": "Rimmel Kind & Free Lash Loader Maskara, 001 Black",
+      "url": "https://www.superpharm.pl/rimmel-kind-free-lash-loader-maskara-001-black-196357",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/2/1215827.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 28.99,
+          "default_formated": "28,99 zł",
+          "default_recommended_price_formated": "52,99 zł",
+          "default_historical_min_price_formated": "37,99 zł",
+          "special_from_date": 1719273600,
+          "special_to_date": false
+        }
+      },
+      "brand": "Rimmel",
+      "capacity": "9.5 ml",
+      "inStoreOnly": 0,
+      "objectID": "134836"
+    }
+  ],
+  "nbHits": 1094,
+  "page": 0,
+  "nbPages": 100,
+  "hitsPerPage": 10,
+  "exhaustiveNbHits": true,
+  "exhaustiveTypo": true,
+  "exhaustive": {
+    "nbHits": true,
+    "typo": true
+  },
+  "query": "Maybelline New York Lash Sensational Full Fan Effect 9,5 ml",
+  "params": "query=Maybelline+New+York+Lash+Sensational+Full+Fan+Effect+9%2C5+ml&hitsPerPage=10&analytics=false&attributesToRetrieve=name%2Cbrand%2Ccapacity%2Curl%2Cthumbnail_url%2Cprice%2Cin_stock%2CinStoreOnly&attributesToHighlight=%5B%5D&tagFilters=",
+  "processingTimeMS": 8,
+  "processingTimingsMS": {
+    "_request": {
+      "roundTrip": 44
+    },
+    "fetch": {
+      "query": 6,
+      "scanning": 1,
+      "total": 8
+    },
+    "total": 8
+  },
+  "serverTimeMS": 10
+}

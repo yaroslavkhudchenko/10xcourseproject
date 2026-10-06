@@ -1,18 +1,23 @@
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
+import { pickMatch, type NamedProduct } from "@/lib/services/matching";
 import { createShopGate, type ShopGate } from "@/lib/services/shop-gate";
 import { fetchNaturaPrices, isNaturaImage, isNaturaProductUrl, searchNatura } from "@/lib/services/shops/natura";
 import { parseSize } from "@/lib/services/size";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
-import type { PriceCheck, ShopOffer } from "@/types";
+import type { PriceCheck, ShopCandidate, ShopOffer } from "@/types";
 import eanHit from "@/lib/services/shops/fixtures/natura-ean-hit.json";
 import eanMiss from "@/lib/services/shops/fixtures/natura-ean-miss.json";
 import nameSearch from "@/lib/services/shops/fixtures/natura-name-search.json";
+import niveaSoftSearch from "@/lib/services/shops/fixtures/natura-search-nivea-soft.json";
 import skuUnknown from "@/lib/services/shops/fixtures/natura-sku-unknown.json";
 import oneSku from "@/lib/services/shops/fixtures/natura-sku.json";
 import twoSkus from "@/lib/services/shops/fixtures/natura-skus.json";
 import unknownTracker from "@/lib/services/shops/fixtures/natura-unknown-tracker.json";
 
 // The fixtures are real Luigi's Box answers for Natura, recorded once with curl; no test reaches the live search.
+// natura-search-nivea-soft.json is the search for "nivea soft", size 10, recorded on 2026-10-06 at 10:37:39 UTC from
+// the developer machine, with the gate's User-Agent and `Accept: application/json`, following no redirect, and cut to
+// its first 5 hits, all products: Nivea Soft in 300, 200 and 100 ml, Creme Soft's shower gel and a 50 ml Soft cream.
 const searchUrl = (query: string, size: number) =>
   `https://live.luigisbox.com/search?tracker_id=703598-939363&q=${encodeURIComponent(query)}&size=${size}`;
 // A price request, spelled out as the natura-sku*.json recordings were made: products only, one repeated f[] per SKU,
@@ -82,6 +87,24 @@ function softWith(attributes: Record<string, unknown>): Hit {
   const [soft] = hitsOf(eanHit);
   return { ...soft, attributes: { ...soft.attributes, ...attributes } };
 }
+
+// Rossmann's Nivea Soft 300 ml (26900) and Soft Daily UV 100 ml (2103263), as Rossmann's search for "nivea soft"
+// recorded them on 2026-10-06 (rossmann-search-nivea-soft.json), with their EANs hidden, as a product without an EAN
+// would come: only the name check may then accept a Natura item for them.
+const SOFT_WITHOUT_EAN: NamedProduct = {
+  brand: "NIVEA",
+  name: "Soft",
+  caption: "krem do twarzy, ciała i dłoni, nawilżający",
+  eans: [],
+  size: { value: 300, unit: "ml" },
+};
+const DAILY_UV_WITHOUT_EAN: NamedProduct = {
+  brand: "NIVEA",
+  name: "Soft Daily UV",
+  caption: "krem uniwersalny, nawilżający, SPF15",
+  eans: [],
+  size: { value: 100, unit: "ml" },
+};
 
 /** Searches by name against a body built from the given hits, and returns the candidates. */
 async function candidatesFrom(hits: unknown[]) {
@@ -332,6 +355,52 @@ describe("Natura search: what it keeps out", () => {
 
     expect(candidates.map((candidate) => candidate.shopItemId)).toEqual(["JM00370"]);
   });
+});
+
+describe("Natura search: the matching rule on its candidates (FR-006)", () => {
+  /** The candidates of the recorded search for "nivea soft", served for the request the adapter makes. */
+  async function niveaSoftCandidates(): Promise<ShopCandidate[]> {
+    const url = searchUrl("nivea soft", 10);
+    const { gate, fetchMock } = setup([{ url, status: 200, body: JSON.stringify(niveaSoftSearch) }]);
+    const search = await searchNatura(gate, "nivea soft", 10);
+    expect(requestedUrls(fetchMock)).toEqual([url]);
+    if (search.kind !== "results") {
+      throw new Error(`expected results, got ${search.kind}`);
+    }
+    return search.candidates;
+  }
+
+  it("accepts Natura's Nivea Soft 300 ml by the EAN it shares with the product", async () => {
+    const candidates = await niveaSoftCandidates();
+
+    expect(pickMatch({ ...SOFT_WITHOUT_EAN, eans: [SOFT_EAN] }, candidates)).toMatchObject({
+      kind: "accepted",
+      candidate: { shopItemId: "NV89063", eans: [SOFT_EAN] },
+    });
+  });
+
+  it.each([
+    { product: "Nivea Soft 300 ml (26900)", own: SOFT_WITHOUT_EAN, item: "NV89063" },
+    { product: "Soft Daily UV 100 ml (2103263)", own: DAILY_UV_WITHOUT_EAN, item: "NV89059" },
+  ])(
+    "never accepts $item by name for $product without an EAN: its „intensywnie” is a word the product lacks",
+    async ({ own, item }) => {
+      const candidates = await niveaSoftCandidates();
+
+      const pick = pickMatch(own, candidates);
+
+      // Natura's only item in the product's size leads the choice, with nothing that warns, yet the user decides.
+      if (pick.kind !== "choose") {
+        throw new Error(`expected choose, got ${pick.kind}`);
+      }
+      const [first] = pick.options;
+      expect(first).toMatchObject({
+        candidate: { shopItemId: item },
+        verdict: { sharesEan: false, size: "equal", brand: "agrees" },
+      });
+      expect(first.candidate.name).toContain("intensywnie");
+    },
+  );
 });
 
 describe("Natura search: why it's unavailable", () => {

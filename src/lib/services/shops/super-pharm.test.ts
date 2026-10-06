@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
-import { pickMatch, type MatchProduct } from "@/lib/services/matching";
+import { pickMatch, type NamedProduct } from "@/lib/services/matching";
 import { createShopGate, type ShopGate, type ShopGateDeps, type ShopGateLogEntry } from "@/lib/services/shop-gate";
+import { searchRossmann } from "@/lib/services/shops/rossmann";
 import {
   fetchSuperPharmPrices,
   isSuperPharmImage,
@@ -11,6 +12,18 @@ import {
 import { parseSize } from "@/lib/services/size";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
 import type { PriceCheck, ShopCandidate, ShopOffer } from "@/types";
+import rossmannAaLaab from "@/lib/services/shops/fixtures/rossmann-search-aa-laab.json";
+import rossmannShampoos from "@/lib/services/shops/fixtures/rossmann-search-head-shoulders-classic-clean.json";
+import rossmannMascaras from "@/lib/services/shops/fixtures/rossmann-search-maybelline-lash-sensational.json";
+import rossmannShowerGels from "@/lib/services/shops/fixtures/rossmann-search-nivea-creme-soft-zel.json";
+import rossmannNiveaSoft from "@/lib/services/shops/fixtures/rossmann-search-nivea-soft.json";
+import lookupAaLaab from "@/lib/services/shops/fixtures/super-pharm-lookup-aa-laab-150.json";
+import lookupShampoo from "@/lib/services/shops/fixtures/super-pharm-lookup-head-shoulders-classic-clean-400.json";
+import lookupFullFan from "@/lib/services/shops/fixtures/super-pharm-lookup-maybelline-full-fan-9-5.json";
+import lookupSkyHigh from "@/lib/services/shops/fixtures/super-pharm-lookup-maybelline-sky-high-7-2.json";
+import lookupLipBalm from "@/lib/services/shops/fixtures/super-pharm-lookup-nivea-balsam-do-ust.json";
+import lookupCremeCare from "@/lib/services/shops/fixtures/super-pharm-lookup-nivea-creme-care-500.json";
+import lookupDermaControl from "@/lib/services/shops/fixtures/super-pharm-lookup-nivea-derma-control.json";
 import nameSearchOne from "@/lib/services/shops/fixtures/super-pharm-name-search-one.json";
 import nameSearch from "@/lib/services/shops/fixtures/super-pharm-name-search.json";
 import pinnedOne from "@/lib/services/shops/fixtures/super-pharm-pinned-one.json";
@@ -19,9 +32,9 @@ import pinned from "@/lib/services/shops/fixtures/super-pharm-pinned.json";
 import searchEmpty from "@/lib/services/shops/fixtures/super-pharm-search-empty.json";
 
 // The fixtures are real Algolia answers for Super-Pharm, recorded once with curl from the developer machine on
-// 2026-10-05 (UTC), with the gate's User-Agent and the adapter's headers, at least 2.5 s apart and following no
-// redirect; no test reaches the live search. Every request is a POST to one URL, so each recording is served for the
-// exact body it answers (`requestBody`), spelled out below.
+// 2026-10-05 and 2026-10-06 (UTC), with the gate's User-Agent and the adapter's headers, at least 2.5 s apart and
+// following no redirect; no test reaches the live search. Every request is a POST to one URL, so each recording is
+// served for the exact body it answers (`requestBody`), spelled out below. On 2026-10-05:
 // - super-pharm-name-search.json (18:51 UTC): the adapter's own name search for "NIVEA krem", 10 hits, cut to its first
 //   5 of 134. Each hit has `in_stock` 1 and `inStoreOnly` 0, and two have a 30-day low.
 // - super-pharm-pinned-rules-off.json (22:24 UTC, 00:24 on 2026-10-06 in Poland): the adapter's own price request for
@@ -42,8 +55,39 @@ import searchEmpty from "@/lib/services/shops/fixtures/super-pharm-search-empty.
 // The probes' requests differ from the adapter's only in parameters that trim an answer or order its text, so each is
 // served for the adapter's own request for the same search. The two earlier price recordings, super-pharm-pinned.json
 // and probe P6's, were sent without `enableRules=false`, and are served for the adapter's body all the same: the
-// rules-off answer holds the same hits at the same prices. The broken answers below each change one thing in a copy of
-// these, or stand in a page where the JSON was.
+// rules-off answer holds the same hits at the same prices.
+// On 2026-10-06, 3 s apart, the name searches a product's lookup sends, each for a Rossmann product's brand, name and
+// size with 10 hits, kept whole:
+// - super-pharm-lookup-aa-laab-150.json (11:49:24 UTC): "AA LAAB Skin Barrier Protection 150 ml", 10 of 1,969 hits.
+//   7 have no `capacity`, and of those only Apis's tonic's name ends with a size, 150 ml.
+// - super-pharm-lookup-nivea-balsam-do-ust.json (11:49:27 UTC): "NIVEA Balsam do ust 4,8 g", its 5 hits, none with a
+//   `capacity`: a set, whose name ends with one of its items' sizes, and four Disney lip balms ending with 4,8 g.
+// - super-pharm-lookup-nivea-derma-control.json (11:49:30 UTC): "NIVEA Derma Control Clinical 150 ml", 10 of 1,812
+//   hits. 9 have no `capacity`, and five sprays' names end with 150 ml or 250 ml.
+// - super-pharm-lookup-nivea-creme-care-500.json (11:49:34 UTC): "NIVEA Creme Care 500 ml", its one hit, with a
+//   `capacity` and sold only in the shops (`inStoreOnly` 1).
+// - super-pharm-lookup-head-shoulders-classic-clean-400.json (11:49:37 UTC): "Head & Shoulders Classic Clean 400 ml",
+//   its one hit, with no `capacity` and a name that ends with 400 ml.
+// - super-pharm-lookup-maybelline-sky-high-7-2.json (11:49:40 UTC): "Maybelline New York Lash Sensational Sky High
+//   7,2 ml", 10 of 1,044 hits. 2 have no `capacity`, and neither name ends with a size.
+// - super-pharm-lookup-maybelline-full-fan-9-5.json (11:49:43 UTC): "Maybelline New York Lash Sensational Full Fan
+//   Effect 9,5 ml", 10 of 1,094 hits. 3 have no `capacity`, and two of their names end with 9,65 ml.
+// The Creme Care and Head & Shoulders hits carry `in_stock: false`, which isn't a 1 or a 0, so the adapter reads them as
+// not orderable and counts them in a log line. The broken answers below each change one thing in a copy of these
+// recordings, or stand in a page where the JSON was.
+// The watched products the lookups were made for are Rossmann's, as its adapter reads them from its own searches,
+// recorded on 2026-10-06 with curl from the developer machine, with the gate's User-Agent and `Accept:
+// application/json`, 3 s apart and following no redirect, each kept whole:
+// - rossmann-search-nivea-soft.json (10:37:35 UTC): "nivea soft", its 5 items, the Soft Rose lip balm (11790) and the
+//   women's Derma Control spray (2126586) among them.
+// - rossmann-search-aa-laab.json (10:37:49 UTC): "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający", its 2
+//   items: the face wash in 75 ml (2132081) and in 150 ml (419343).
+// - rossmann-search-nivea-creme-soft-zel.json (11:48:17 UTC): "nivea creme soft żel pod prysznic", its 3 items.
+// - rossmann-search-head-shoulders-classic-clean.json (11:48:21 UTC): "head & shoulders classic clean", its 4 items.
+// - rossmann-search-maybelline-lash-sensational.json (11:48:24 UTC): "maybelline lash sensational", its 19 items,
+//   which keep each mascara's shade in its caption.
+// The first two asked for 10 items a page, where the adapter asks for 24, and each holds every item its search
+// matched, so each is served for the adapter's own request.
 const QUERY_URL = "https://ep43qpdx9q-dsn.algolia.net/1/indexes/spprod_drugstore_pl_simple_products/query";
 // Super-Pharm's Algolia application and the public search-only key its pages carry: every request carries both.
 const APP_ID = "EP43QPDX9Q";
@@ -69,6 +113,65 @@ const priceBody = (ids: string[]) =>
 const SOFT_SEARCH = { query: "NIVEA Soft 300 ml", size: 10, body: searchBody("NIVEA+Soft+300+ml", 10) };
 const NAME_SEARCH = { query: "NIVEA krem", size: 10, body: searchBody("NIVEA+krem", 10) };
 const EAN_SEARCH = { query: "4005900009319", size: 5, body: searchBody("4005900009319", 5) };
+/** A lookup's name search, with the 10 hits a lookup asks for, and its query as the body sends it, form-encoded. */
+const lookupSearch = (query: string, encodedQuery: string) => ({ query, size: 10, body: searchBody(encodedQuery, 10) });
+const AA_LAAB_SEARCH = lookupSearch("AA LAAB Skin Barrier Protection 150 ml", "AA+LAAB+Skin+Barrier+Protection+150+ml");
+const LIP_BALM_SEARCH = lookupSearch("NIVEA Balsam do ust 4,8 g", "NIVEA+Balsam+do+ust+4%2C8+g");
+const DERMA_CONTROL_SEARCH = lookupSearch("NIVEA Derma Control Clinical 150 ml", "NIVEA+Derma+Control+Clinical+150+ml");
+const CREME_CARE_SEARCH = lookupSearch("NIVEA Creme Care 500 ml", "NIVEA+Creme+Care+500+ml");
+const SHAMPOO_SEARCH = lookupSearch("Head & Shoulders Classic Clean 400 ml", "Head+%26+Shoulders+Classic+Clean+400+ml");
+const SKY_HIGH_SEARCH = lookupSearch(
+  "Maybelline New York Lash Sensational Sky High 7,2 ml",
+  "Maybelline+New+York+Lash+Sensational+Sky+High+7%2C2+ml",
+);
+const FULL_FAN_SEARCH = lookupSearch(
+  "Maybelline New York Lash Sensational Full Fan Effect 9,5 ml",
+  "Maybelline+New+York+Lash+Sensational+Full+Fan+Effect+9%2C5+ml",
+);
+// The seven lookups, each with its recorded answer.
+const AA_LAAB_LOOKUP = { search: AA_LAAB_SEARCH, answer: lookupAaLaab };
+const LIP_BALM_LOOKUP = { search: LIP_BALM_SEARCH, answer: lookupLipBalm };
+const DERMA_CONTROL_LOOKUP = { search: DERMA_CONTROL_SEARCH, answer: lookupDermaControl };
+const CREME_CARE_LOOKUP = { search: CREME_CARE_SEARCH, answer: lookupCremeCare };
+const SHAMPOO_LOOKUP = { search: SHAMPOO_SEARCH, answer: lookupShampoo };
+const SKY_HIGH_LOOKUP = { search: SKY_HIGH_SEARCH, answer: lookupSkyHigh };
+const FULL_FAN_LOOKUP = { search: FULL_FAN_SEARCH, answer: lookupFullFan };
+const LOOKUPS = [
+  AA_LAAB_LOOKUP,
+  LIP_BALM_LOOKUP,
+  DERMA_CONTROL_LOOKUP,
+  CREME_CARE_LOOKUP,
+  SHAMPOO_LOOKUP,
+  SKY_HIGH_LOOKUP,
+  FULL_FAN_LOOKUP,
+];
+/** A Rossmann search a recording answers: its text, its URL as the adapter asks it, the text spelled out as sent. */
+const rossmannSearch = (query: string, encodedQuery: string, answer: object) => ({
+  query,
+  url: `https://www.rossmann.pl/products/v4/api/Products?search=${encodedQuery}&page=1&pageSize=24`,
+  answer,
+});
+const ROSSMANN_NIVEA_SOFT = rossmannSearch("nivea soft", "nivea%20soft", rossmannNiveaSoft);
+const ROSSMANN_AA_LAAB = rossmannSearch(
+  "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający",
+  "AA%20LAAB%20100%25%20Centella%20B12%20%C5%BBel%20do%20mycia%20twarzy%20nawil%C5%BCaj%C4%85cy",
+  rossmannAaLaab,
+);
+const ROSSMANN_SHOWER_GELS = rossmannSearch(
+  "nivea creme soft żel pod prysznic",
+  "nivea%20creme%20soft%20%C5%BCel%20pod%20prysznic",
+  rossmannShowerGels,
+);
+const ROSSMANN_SHAMPOOS = rossmannSearch(
+  "head & shoulders classic clean",
+  "head%20%26%20shoulders%20classic%20clean",
+  rossmannShampoos,
+);
+const ROSSMANN_MASCARAS = rossmannSearch(
+  "maybelline lash sensational",
+  "maybelline%20lash%20sensational",
+  rossmannMascaras,
+);
 // Nivea Soft 300 ml, which every recording holds, and an id Super-Pharm doesn't have.
 const SOFT = "10132";
 const UNKNOWN_ID = "999999999";
@@ -107,9 +210,12 @@ const manyIds = [SOFT, ...Array.from({ length: 20 }, (_, i) => `9${String(i).pad
 const firstBatch = priceBody(manyIds.slice(0, 20));
 const secondBatch = priceBody(manyIds.slice(20));
 
-// The watched product as the matching rule reads it: rossmann-search-results.json's Nivea Soft 300 ml (26900).
-const ROSSMANN_SOFT: MatchProduct = {
+// The watched product as the matching rule reads it: rossmann-search-results.json's Nivea Soft 300 ml (26900), with the
+// caption Rossmann wrote for it then.
+const ROSSMANN_SOFT: NamedProduct = {
   brand: "NIVEA",
+  name: "Soft",
+  caption: "krem uniwersalny, nawilżający",
   eans: ["4005900009319", "4005808890637", "5900017001234"],
   size: { value: 300, unit: "ml" },
 };
@@ -231,6 +337,39 @@ async function recordedCandidates(
     throw new Error(`expected results, got ${result.kind}`);
   }
   return result.candidates;
+}
+
+/** A recorded search answer's candidate for the given item, served for the request the adapter makes. */
+async function recordedCandidate(
+  search: { query: string; size: number; body: string },
+  fixture: object,
+  objectID: string,
+): Promise<ShopCandidate> {
+  const candidate = (await recordedCandidates(search, fixture)).find((each) => each.shopItemId === objectID);
+  if (candidate === undefined) {
+    throw new Error(`no candidate for ${objectID}`);
+  }
+  return candidate;
+}
+
+/**
+ * A watched product, by its id, as Rossmann's adapter maps it from the recorded search it was picked in, through a
+ * real gate that answers only that search's URL.
+ */
+async function rossmannProduct(
+  search: { query: string; url: string; answer: object },
+  id: string,
+): Promise<NamedProduct> {
+  const { gate, fetchMock } = setup([{ url: search.url, status: 200, body: JSON.stringify(search.answer) }]);
+  const result = await searchRossmann(gate, search.query);
+  expect(fetchMock.mock.calls.map(([input]) => (input instanceof Request ? input.url : new URL(input).href))).toEqual([
+    search.url,
+  ]);
+  const product = result.kind === "results" ? result.candidates.find((each) => each.sourceItemId === id) : undefined;
+  if (product === undefined) {
+    throw new Error(`no Rossmann product ${id}`);
+  }
+  return product;
 }
 
 /** The one log line a test expects, parsed. */
@@ -367,7 +506,7 @@ describe("Super-Pharm search: recorded answers", () => {
   });
 
   it("reads the size from capacity, never from farmax_capacity", async () => {
-    // The probe's hit carries farmax_capacity, 300 without a unit, beside capacity.
+    // The probe's hit carries farmax_capacity, 300 without a unit, beside capacity, and its name ends with no size.
     const [full] = hitsOf(nameSearchOne);
 
     const candidates = await candidatesFrom([
@@ -398,6 +537,7 @@ describe("Super-Pharm search: recorded answers", () => {
 });
 
 describe("Super-Pharm search: sizes and names", () => {
+  // On Nivea Soft's hit, whose name ends with no size, so a capacity that doesn't parse gives none.
   it.each([
     { capacity: "0,5 l", expected: { sizeText: "0,5 l", size: { value: 500, unit: "ml" } } },
     { capacity: "4,8 g", expected: { sizeText: "4,8 g", size: { value: 4.8, unit: "g" } } },
@@ -435,6 +575,172 @@ describe("Super-Pharm search: sizes and names", () => {
 
     expect(candidate.brand).toHaveLength(120);
     expect(candidate.name).toHaveLength(300);
+  });
+});
+
+describe("Super-Pharm search: sizes read from names", () => {
+  // The Watermelon Shine lip balm's recorded hit: no capacity, and a name that ends with 4,8 g.
+  const lipBalm = () => hitFor(lookupLipBalm, "193471");
+
+  it.each([
+    {
+      items: "Head & Shoulders' shampoo",
+      search: SHAMPOO_SEARCH,
+      answer: lookupShampoo,
+      ids: ["150930"],
+      sizeText: "400 ml",
+      size: { value: 400, unit: "ml" },
+    },
+    {
+      items: "three Derma Control sprays",
+      search: DERMA_CONTROL_SEARCH,
+      answer: lookupDermaControl,
+      ids: ["148287", "148111", "148395"],
+      sizeText: "150 ml",
+      size: { value: 150, unit: "ml" },
+    },
+    {
+      items: "two Derma Control sprays",
+      search: DERMA_CONTROL_SEARCH,
+      answer: lookupDermaControl,
+      ids: ["148282", "148288"],
+      sizeText: "250 ml",
+      size: { value: 250, unit: "ml" },
+    },
+    {
+      items: "the four Disney lip balms",
+      search: LIP_BALM_SEARCH,
+      answer: lookupLipBalm,
+      ids: ["193471", "193469", "193472", "193470"],
+      sizeText: "4,8 g",
+      size: { value: 4.8, unit: "g" },
+    },
+  ])(
+    "reads $sizeText from the end of the name for $items, with no capacity on record",
+    async ({ search, answer, ids, sizeText, size }) => {
+      // Head & Shoulders' `in_stock: false` is counted in a log line.
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+      const candidates = await recordedCandidates(search, answer);
+
+      for (const id of ids) {
+        const candidate = candidates.find((each) => each.shopItemId === id);
+        expect(hitFor(answer, id).capacity, id).toBeUndefined();
+        expect(candidate, id).toMatchObject({ sizeText, size });
+      }
+    },
+  );
+
+  it("reads no size from the recorded set's name, which ends with its micellar water's 200 ml", async () => {
+    const candidate = await recordedCandidate(LIP_BALM_SEARCH, lookupLipBalm, "163029");
+
+    expect(candidate).toMatchObject({
+      name: "Nivea Zestaw You Got This: Deo AP 50 ml + SG 250 ml + Pomadka 4,8 g + Płyn mic. 200 ml",
+      sizeText: null,
+      size: null,
+    });
+  });
+
+  it.each([
+    { why: "says ZESTAW, in capitals, without a +", name: "NIVEA ZESTAW Disney Edition Pomadki do ust, 4,8 g" },
+    {
+      why: "joins its items with a +, without the word",
+      name: "Nivea Pomadka do ust Watermelon Shine 4,8 g + Krem do rąk 30 ml",
+    },
+  ])("reads no size from a set's name that $why", async ({ name }) => {
+    const [candidate] = await candidatesFrom([withFields(lipBalm(), { name })]);
+
+    expect(candidate).toMatchObject({ name, sizeText: null, size: null });
+  });
+
+  it("keeps capacity's size, never the name's, when the name ends with another", async () => {
+    // Nivea Soft 300 ml's recorded hit, its name ending with 200 ml, as its image's file name already does.
+    const name = "Nivea Soft Krem nawilżający, 200 ml";
+
+    const [candidate] = await candidatesFrom([withFields(soft(), { name })]);
+
+    expect(candidate).toMatchObject({ shopItemId: SOFT, name, sizeText: "300 ml", size: { value: 300, unit: "ml" } });
+  });
+
+  it.each([
+    {
+      item: "AA LAAB's face wash 105870",
+      search: AA_LAAB_SEARCH,
+      answer: lookupAaLaab,
+      id: "105870",
+      sizeText: "150 ml",
+      size: { value: 150, unit: "ml" },
+    },
+    {
+      item: "Sky High Black 67655",
+      search: SKY_HIGH_SEARCH,
+      answer: lookupSkyHigh,
+      id: "67655",
+      sizeText: "7.2 ml",
+      size: { value: 7.2, unit: "ml" },
+    },
+  ])("keeps $item's capacity, $sizeText, as recorded", async ({ search, answer, id, sizeText, size }) => {
+    expect(await recordedCandidate(search, answer, id)).toMatchObject({ sizeText, size });
+  });
+
+  it.each([
+    {
+      item: "Sky High Plum Twilight 141707",
+      ending: "a word",
+      search: SKY_HIGH_SEARCH,
+      answer: lookupSkyHigh,
+      id: "141707",
+    },
+    {
+      item: "the AA LAAB SPF 50 gel 143288",
+      ending: "a number without a unit",
+      search: AA_LAAB_SEARCH,
+      answer: lookupAaLaab,
+      id: "143288",
+    },
+  ])("reads no size for $item, with no capacity and a name that ends with $ending", async ({ search, answer, id }) => {
+    expect(hitFor(answer, id).capacity).toBeUndefined();
+    expect(await recordedCandidate(search, answer, id)).toMatchObject({ sizeText: null, size: null });
+  });
+
+  it.each([
+    { why: "a multipack's", capacity: "2 x 4,8 g" },
+    { why: "one without a unit", capacity: "4,8" },
+  ])(
+    "reads no size when capacity is there but doesn't parse, as $why, though the name ends with one",
+    async ({ capacity }) => {
+      const [candidate] = await candidatesFrom([withFields(lipBalm(), { capacity })]);
+
+      expect(candidate).toMatchObject({ sizeText: null, size: null });
+    },
+  );
+
+  it("reads the name's size when capacity is blank, as when it's missing", async () => {
+    const [candidate] = await candidatesFrom([withFields(lipBalm(), { capacity: "   " })]);
+
+    expect(candidate).toMatchObject({ sizeText: "4,8 g", size: { value: 4.8, unit: "g" } });
+  });
+
+  it("reads no size from a name that ends with one over its limit", async () => {
+    const [candidate] = await candidatesFrom([withFields(lipBalm(), { name: `Nivea Pomadka, ${"1".repeat(38)} ml` })]);
+
+    expect(candidate).toMatchObject({ sizeText: null, size: null });
+  });
+
+  it("writes every size the lookups recorded as text that parses back to the same size", async () => {
+    // The Creme Care and Head & Shoulders hits' `in_stock: false` are counted in log lines.
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    const candidates = (
+      await Promise.all(LOOKUPS.map(({ search, answer }) => recordedCandidates(search, answer)))
+    ).flat();
+
+    // Every hit is kept, and 33 have a size: 20 their capacity, 13 the one their names end with.
+    expect(candidates).toHaveLength(47);
+    expect(candidates.filter((candidate) => candidate.size !== null)).toHaveLength(33);
+    for (const candidate of candidates) {
+      expect(parseSize(candidate.sizeText), candidate.shopItemId).toEqual(candidate.size);
+    }
   });
 });
 
@@ -726,33 +1032,174 @@ describe("Super-Pharm search: what it keeps out", () => {
   });
 });
 
+// The recorded lookups' cases (research.md §5): each watched product, as Rossmann's adapter reads it from its recorded
+// search, against Super-Pharm's answer to the search by name its lookup sends. The right item is judged by reading the
+// names: Super-Pharm's "Lash Sensational" is the Full Fan Effect line, and its "Burgundy Haze" and "Tinted Primer" are
+// Rossmann's "Burgundy" and "baza".
+const ACCEPTED = [
+  {
+    product: "AA LAAB's face wash 150 ml (419343)",
+    rossmann: ROSSMANN_AA_LAAB,
+    id: "419343",
+    lookup: AA_LAAB_LOOKUP,
+    item: "105870",
+  },
+  {
+    product: "Creme Care 500 ml (196779)",
+    rossmann: ROSSMANN_SHOWER_GELS,
+    id: "196779",
+    lookup: CREME_CARE_LOOKUP,
+    item: "20369",
+  },
+  {
+    product: "Head & Shoulders Classic Clean 400 ml (46632)",
+    rossmann: ROSSMANN_SHAMPOOS,
+    id: "46632",
+    lookup: SHAMPOO_LOOKUP,
+    item: "150930",
+  },
+  {
+    product: "Sky High Black (366692)",
+    rossmann: ROSSMANN_MASCARAS,
+    id: "366692",
+    lookup: SKY_HIGH_LOOKUP,
+    item: "67655",
+  },
+  {
+    product: "Sky High Cosmic Black (390594)",
+    rossmann: ROSSMANN_MASCARAS,
+    id: "390594",
+    lookup: SKY_HIGH_LOOKUP,
+    item: "84422",
+  },
+  {
+    product: "Sky High Brown (415613)",
+    rossmann: ROSSMANN_MASCARAS,
+    id: "415613",
+    lookup: SKY_HIGH_LOOKUP,
+    item: "99681",
+  },
+  {
+    product: "Sky High Blue Mist (2075152)",
+    rossmann: ROSSMANN_MASCARAS,
+    id: "2075152",
+    lookup: SKY_HIGH_LOOKUP,
+    item: "122681",
+  },
+  {
+    product: "Full Fan Effect Black (218841)",
+    rossmann: ROSSMANN_MASCARAS,
+    id: "218841",
+    lookup: FULL_FAN_LOOKUP,
+    item: "30050",
+  },
+  {
+    product: "Full Fan Effect Intense Black (233593)",
+    rossmann: ROSSMANN_MASCARAS,
+    id: "233593",
+    lookup: FULL_FAN_LOOKUP,
+    item: "30469",
+  },
+];
+
+// The right item's name has a word the product's lacks, so the user picks it, from the top of the choice.
+const LEFT_TO_USER = [
+  {
+    product: "Sky High Burgundy (2079826)",
+    why: "„Haze”",
+    id: "2079826",
+    lookup: SKY_HIGH_LOOKUP,
+    chosen: ["134305", "67655", "99681"],
+  },
+  {
+    product: "Sky High's base (415614)",
+    why: "„Tinted Primer”",
+    id: "415614",
+    lookup: SKY_HIGH_LOOKUP,
+    chosen: ["99683", "67655", "99681"],
+  },
+  {
+    product: "Full Fan Effect Burgundy Brown (342570)",
+    why: "its shade's number, „06”",
+    id: "342570",
+    lookup: FULL_FAN_LOOKUP,
+    chosen: ["62293", "30050", "30469"],
+  },
+];
+
+// Super-Pharm's answer doesn't hold the product: every item of its size and brand there is another one.
+const NOT_IN_THE_ANSWER = [
+  {
+    product: "the Soft Rose lip balm 4,8 g (11790)",
+    id: "11790",
+    lookup: LIP_BALM_LOOKUP,
+    chosen: ["193471", "193469", "193472"],
+  },
+  {
+    product: "the women's Derma Control Clinical spray 150 ml (2126586)",
+    id: "2126586",
+    lookup: DERMA_CONTROL_LOOKUP,
+    chosen: ["148395", "148287", "148111"],
+  },
+];
+
 describe("Super-Pharm search: the matching rule on its candidates (FR-006)", () => {
-  it("never accepts Nivea Soft 300 ml on its own, though its size and brand agree: it shares no EAN", async () => {
+  it("accepts Nivea Soft 300 ml by its name, with no EAN: every word but the brand's and „(Pudełko)” is the product's", async () => {
     const candidates = await recordedCandidates(SOFT_SEARCH, nameSearchOne);
 
-    expect(pickMatch(ROSSMANN_SOFT, candidates)).toEqual({
-      kind: "choose",
-      options: [{ candidate: candidates[0], verdict: { sharesEan: false, size: "equal", brand: "agrees" } }],
-    });
+    expect(pickMatch(ROSSMANN_SOFT, candidates)).toEqual({ kind: "accepted", candidate: candidates[0] });
   });
 
-  it("asks the user among the name search's items, each with its size and brand flags", async () => {
+  it("accepts Nivea Soft 300 ml among the hand creams the search for NIVEA krem found before it", async () => {
     const candidates = await recordedCandidates(NAME_SEARCH, nameSearch);
 
-    const pick = pickMatch(ROSSMANN_SOFT, candidates);
-
-    if (pick.kind !== "choose") {
-      throw new Error(`expected choose, got ${pick.kind}`);
-    }
-    // Which three, and in what order, is pickMatch's to decide; each comes with how it compares, and none shares an EAN.
-    expect(new Map(pick.options.map(({ candidate, verdict }) => [candidate.shopItemId, verdict]))).toEqual(
-      new Map([
-        [HAND_CREAM, { sharesEan: false, size: "differs", brand: "agrees" }],
-        [LUMINOUS, { sharesEan: false, size: "differs", brand: "agrees" }],
-        [SOFT, { sharesEan: false, size: "equal", brand: "agrees" }],
-      ]),
-    );
+    expect(pickMatch(ROSSMANN_SOFT, candidates)).toMatchObject({ kind: "accepted", candidate: { shopItemId: SOFT } });
   });
+
+  it.each(ACCEPTED)("accepts $item for $product by its name", async ({ rossmann, id, lookup, item }) => {
+    // The Creme Care and Head & Shoulders hits' `in_stock: false` are counted in log lines.
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const product = await rossmannProduct(rossmann, id);
+    const candidates = await recordedCandidates(lookup.search, lookup.answer);
+
+    expect(pickMatch(product, candidates)).toMatchObject({ kind: "accepted", candidate: { shopItemId: item } });
+  });
+
+  it.each(LEFT_TO_USER)(
+    "leaves $product to the user, the right item first, though its name adds $why",
+    async ({ id, lookup, chosen }) => {
+      const product = await rossmannProduct(ROSSMANN_MASCARAS, id);
+      const candidates = await recordedCandidates(lookup.search, lookup.answer);
+
+      const pick = pickMatch(product, candidates);
+
+      if (pick.kind !== "choose") {
+        throw new Error(`expected choose, got ${pick.kind}`);
+      }
+      // The best name fits in the product's size and brand, none sharing an EAN.
+      expect(pick.options.map(({ candidate, verdict }) => [candidate.shopItemId, verdict])).toEqual(
+        chosen.map((each) => [each, { sharesEan: false, size: "equal", brand: "agrees" }]),
+      );
+    },
+  );
+
+  it.each(NOT_IN_THE_ANSWER)(
+    "accepts nothing for $product, which the answer doesn't hold",
+    async ({ id, lookup, chosen }) => {
+      const product = await rossmannProduct(ROSSMANN_NIVEA_SOFT, id);
+      const candidates = await recordedCandidates(lookup.search, lookup.answer);
+
+      const pick = pickMatch(product, candidates);
+
+      if (pick.kind !== "choose") {
+        throw new Error(`expected choose, got ${pick.kind}`);
+      }
+      // Look-alikes of its size and brand, each with a word the product lacks.
+      expect(pick.options.map(({ candidate, verdict }) => [candidate.shopItemId, verdict])).toEqual(
+        chosen.map((each) => [each, { sharesEan: false, size: "equal", brand: "agrees" }]),
+      );
+    },
+  );
 });
 
 describe("Super-Pharm search: broken copies give a gap, never 'not found'", () => {
@@ -1295,6 +1742,14 @@ describe("Super-Pharm: the shop every request is charged to", () => {
         '&attributesToHighlight=%5B%5D&enableRules=false"}',
     );
   });
+
+  it.each(LOOKUPS)(
+    "spells the lookup for $search.query as it was sent, which its recorded answer echoes",
+    ({ search, answer }) => {
+      // Algolia echoes the parameters it ran, followed by the search key's own tag filter, which is empty.
+      expect(search.body).toBe(`{"params":"${answer.params.replace(/&tagFilters=$/, "")}"}`);
+    },
+  );
 
   it("keeps a search text's own characters inside its query, where they add no parameter", async () => {
     const query = "Dove Men+Care & Co mydło";

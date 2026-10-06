@@ -1,0 +1,553 @@
+{
+  "data": {
+    "filters": {
+      "categories": [
+        {
+          "id": 12001,
+          "name": "Pielęgnacja i higiena",
+          "priority": 2,
+          "productsCount": 3,
+          "children": [
+            {
+              "id": 13093,
+              "name": "Ciało",
+              "priority": 2,
+              "productsCount": 3,
+              "children": [
+                {
+                  "id": 13101,
+                  "name": "Prysznic i kąpiel",
+                  "priority": 2,
+                  "productsCount": 3,
+                  "children": [
+                    {
+                      "id": 13102,
+                      "name": "Żele i pianki pod prysznic",
+                      "priority": 1,
+                      "productsCount": 3,
+                      "children": [],
+                      "faqs": []
+                    }
+                  ],
+                  "faqs": []
+                }
+              ],
+              "faqs": []
+            }
+          ],
+          "faqs": []
+        }
+      ],
+      "price": {
+        "min": 11,
+        "max": 25
+      },
+      "facets": [
+        {
+          "key": "brands",
+          "name": "Marka",
+          "values": [
+            {
+              "key": "5500",
+              "name": "NIVEA",
+              "productCount": 3
+            }
+          ]
+        },
+        {
+          "key": "promotions",
+          "name": "Promocje",
+          "values": [
+            {
+              "key": "mega",
+              "name": "Mega",
+              "productCount": 2
+            },
+            {
+              "key": "promotion",
+              "name": "Promocja",
+              "productCount": 2
+            }
+          ]
+        },
+        {
+          "key": "właściwości",
+          "name": "Właściwości",
+          "type": 0,
+          "values": [
+            {
+              "key": "właściwości^nawilżające",
+              "name": "Nawilżające",
+              "productCount": 2
+            },
+            {
+              "key": "właściwości^odżywcze",
+              "name": "Odżywcze",
+              "productCount": 1
+            }
+          ]
+        },
+        {
+          "key": "przeznaczenie",
+          "name": "Przeznaczenie",
+          "type": 0,
+          "values": [
+            {
+              "key": "przeznaczenie^ciało",
+              "name": "Ciało",
+              "productCount": 3
+            }
+          ]
+        },
+        {
+          "key": "zastosowanie",
+          "name": "Zastosowanie",
+          "type": 0,
+          "values": [
+            {
+              "key": "zastosowanie^prysznic",
+              "name": "Prysznic",
+              "productCount": 3
+            }
+          ]
+        }
+      ]
+    },
+    "items": [
+      {
+        "brand": "NIVEA",
+        "brandId": 5500,
+        "caption": "żel pod prysznic, pielegnujący, kremowy",
+        "fallbackName": "Żel pod prysznic",
+        "fallbackCaption": "pielegnujący, kremowy",
+        "unit": "500 ml",
+        "averageRating": 4.89,
+        "totalReviews": 205,
+        "id": 196779,
+        "rossnetId": 340746,
+        "eanNumber": ["9005800282497", "5900017036007"],
+        "navigateUrl": "/Produkt/Zele-i-pianki-pod-prysznic/NIVEA-Creme-Care-zel-pod-prysznic-pielegnujacy-kremowy-500-ml,196779,13102",
+        "name": "Creme Care ",
+        "oldPrice": 17.99,
+        "price": 11.99,
+        "pricePerUnit": "100 ml = 2,40 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/196779_55_71_1785523642.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/196779_360_350_1785523645.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/196779_338_190_1785523643.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/196779_1280_720_1785523654.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/196779_340_340_1785523655.png",
+            "type": 1,
+            "alt": "NIVEA Creme Care kremowy żel pod prysznic w niebieskiej butelce, widok z przodu, z ikonami witamin i olejków.",
+            "side": "Front"
+          },
+          {
+            "id": 11,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_mini/196779_55_71_1727703846.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_medium/196779_360_350_1727703849.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_small/196779_338_190_1727703847.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_large/196779_1280_720_1727703850.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_square/196779_340_340_1727703850.png",
+            "type": 0,
+            "alt": "Ciemnoniebieska butelka żelu NIVEA Creme Care z olejkiem i prowitaminą B5, widok z przodu, otoczona pianą.",
+            "side": "Rc1"
+          },
+          {
+            "id": 12,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_mini/196779_55_71_1727703845.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_medium/196779_360_350_1727703847.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_small/196779_338_190_1727703846.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_large/196779_1280_720_1727703849.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_square/196779_340_340_1727703849.png",
+            "type": 0,
+            "alt": "Niebieski żel NIVEA Creme Care w dłoni kobiety pod prysznicem, obiecujący natychmiastową gładkość skóry.",
+            "side": "Rc2"
+          },
+          {
+            "id": 13,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_mini/196779_55_71_1727703845.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_medium/196779_360_350_1727703846.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_small/196779_338_190_1727703845.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_large/196779_1280_720_1727703848.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_square/196779_340_340_1727703848.png",
+            "type": 0,
+            "alt": "NIVEA Creme Care żel pod prysznic, niebieska butelka z białym logiem. Eko-cechy: 99% biodegradowalny, 98% z recyklingu.",
+            "side": "Rc3"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/196779_55_71_1727703847.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/196779_360_350_1727703847.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/196779_338_190_1727703847.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/196779_1280_720_1727703848.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/196779_340_340_1727703847.png",
+            "type": 0,
+            "alt": "Tył ciemnoniebieskiego kremowego żelu pod prysznic NIVEA Creme Care 500ml, widoczna etykieta, kod kreskowy.",
+            "side": "Back"
+          }
+        ],
+        "promotion": {
+          "type": "mega",
+          "redirectUrl": "/produkty?Statuses=mega"
+        },
+        "promotionFrom": "2026-10-01T00:00:00",
+        "promotionTo": "2026-10-14T00:00:00",
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Pielęgnacja i higiena-Ciało-Prysznic i kąpiel-Żele i pianki pod prysznic",
+        "attributes": [
+          {
+            "type": "mega",
+            "redirectUrl": "/produkty?Statuses=mega"
+          },
+          {
+            "type": "seasonal",
+            "name": "DARMOWA DOSTAWA",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": [
+              {
+                "id": "a13bf777-a996-4aac-adb6-747c86489a5a",
+                "text": "<span style=\"font-size:11.0pt\"><span style=\"font-family:&quot;ROSSMANN Sans PL iOS&quot;\"><span style=\"font-weight:bold\">Darmowa dostawa przy zakupie produkt&oacute;w marki NIVEA oznaczonych etykietą &quot;Darmowa dostawa&quot; za min. 59 zł.</span>&nbsp;Akcja trwa w dniach 01-07.10.2026. Dotyczy dostaw do Paczkomat&reg; InPost, punkt&oacute;w DHL, Orlen Paczki lub kurierem.</span></span>"
+              }
+            ]
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "promoAll",
+            "redirectUrl": "/produkty?Statuses=promoAll"
+          },
+          {
+            "type": "promoNew",
+            "redirectUrl": "/produkty?Statuses=promoNew"
+          }
+        ],
+        "lastLowestPrice": 17.99,
+        "lastLowestPriceType": "basic",
+        "lastLowestPriceV2": 17.99,
+        "lastLowestPriceTypeV2": "basic",
+        "badges": [
+          {
+            "type": "mega",
+            "name": "MEGA!",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Discounts=mega",
+              "relative": "/produkty?Discounts=mega"
+            }
+          },
+          {
+            "type": "seasonal",
+            "name": "DARMOWA DOSTAWA",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Campaign=DARMOWA DOSTAWA&Statuses=aeabd5f8-90da-42a3-b467-f7c77937d4d9",
+              "relative": "/produkty?Campaign=DARMOWA%20DOSTAWA&Statuses=aeabd5f8-90da-42a3-b467-f7c77937d4d9"
+            },
+            "attributes": [
+              {
+                "id": "7dae80f2-5e91-4636-acd4-64f521b5dcfc",
+                "text": "<span style=\"font-size:11.0pt\"><span style=\"font-family:&quot;ROSSMANN Sans PL iOS&quot;\"><span style=\"font-weight:bold\">Darmowa dostawa przy zakupie produkt&oacute;w marki NIVEA oznaczonych etykietą &quot;Darmowa dostawa&quot; za min. 59 zł.</span>&nbsp;Akcja trwa w dniach 01-07.10.2026. Dotyczy dostaw do Paczkomat&reg; InPost, punkt&oacute;w DHL, Orlen Paczki lub kurierem.</span></span>"
+              }
+            ]
+          }
+        ],
+        "isInOut": false
+      },
+      {
+        "brand": "NIVEA",
+        "brandId": 5500,
+        "caption": "żel pod prysznic, pielęgnujący, kremowy",
+        "fallbackName": "Żel pod prysznic",
+        "fallbackCaption": "pielęgnujący, kremowy",
+        "unit": "750 ml",
+        "averageRating": 4.87,
+        "totalReviews": 321,
+        "id": 211846,
+        "rossnetId": 354620,
+        "eanNumber": ["9005800223063", "5900017036038"],
+        "navigateUrl": "/Produkt/Zele-i-pianki-pod-prysznic/NIVEA-Creme-Care-zel-pod-prysznic-pielegnujacy-kremowy-750-ml,211846,13102",
+        "name": "Creme Care ",
+        "price": 24.99,
+        "pricePerUnit": "100 ml = 3,33 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/211846_55_71_1785542202.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/211846_360_350_1785542206.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/211846_338_190_1785542205.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/211846_1280_720_1785542217.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/211846_340_340_1785542218.png",
+            "type": 1,
+            "alt": "Granatowy żel NIVEA Creme Care z witaminami, olejkami i zapachem kremu NIVEA, widok z przodu.",
+            "side": "Front"
+          },
+          {
+            "id": 11,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_mini/211846_55_71_1727701788.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_medium/211846_360_350_1727701790.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_small/211846_338_190_1727701789.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_large/211846_1280_720_1727701791.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_square/211846_340_340_1727701791.png",
+            "type": 0,
+            "alt": "Nivea Creme Care żel pod prysznic, ciemnoniebieska butelka, z pianą na niebieskim tle, o zapachu kremu Nivea.",
+            "side": "Rc1"
+          },
+          {
+            "id": 12,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_mini/211846_55_71_1727701787.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_medium/211846_360_350_1727701789.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_small/211846_338_190_1727701788.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_large/211846_1280_720_1727701791.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_square/211846_340_340_1727701791.png",
+            "type": 0,
+            "alt": "Kobieta wylewa niebieski żel NIVEA Creme Care z butelki na dłoń, dla natychmiastowej gładkości skóry.",
+            "side": "Rc2"
+          },
+          {
+            "id": 13,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_mini/211846_55_71_1727701788.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_medium/211846_360_350_1727701789.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_small/211846_338_190_1727701788.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_large/211846_1280_720_1727701790.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_square/211846_340_340_1727701791.png",
+            "type": 0,
+            "alt": "Nivea Creme Care żel pod prysznic, niebieska butelka. Obok ikony: 99% biodegradalna, 0% mikroplastiku, 98% recyklingu.",
+            "side": "Rc3"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_mini/211846_55_71_1727701787.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_medium/211846_360_350_1727701787.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_small/211846_338_190_1727701787.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_large/211846_1280_720_1727701789.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_square/211846_340_340_1727701788.png",
+            "type": 0,
+            "alt": "Tył ciemnoniebieskiego żelu pod prysznic NIVEA Creme Care 750ml, z widoczną etykietą, składem i kodem kreskowym.",
+            "side": "Back"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "name": "DARMOWA DOSTAWA",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": [
+            {
+              "id": "9ae30e5c-1e20-4572-93f3-09988d4416ce",
+              "text": "<span style=\"font-size:11.0pt\"><span style=\"font-family:&quot;ROSSMANN Sans PL iOS&quot;\"><span style=\"font-weight:bold\">Darmowa dostawa przy zakupie produkt&oacute;w marki NIVEA oznaczonych etykietą &quot;Darmowa dostawa&quot; za min. 59 zł.</span>&nbsp;Akcja trwa w dniach 01-07.10.2026. Dotyczy dostaw do Paczkomat&reg; InPost, punkt&oacute;w DHL, Orlen Paczki lub kurierem.</span></span>"
+            }
+          ]
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Pielęgnacja i higiena-Ciało-Prysznic i kąpiel-Żele i pianki pod prysznic",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "name": "DARMOWA DOSTAWA",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": [
+              {
+                "id": "5b27f3d1-c649-45fe-877d-99a864694bbd",
+                "text": "<span style=\"font-size:11.0pt\"><span style=\"font-family:&quot;ROSSMANN Sans PL iOS&quot;\"><span style=\"font-weight:bold\">Darmowa dostawa przy zakupie produkt&oacute;w marki NIVEA oznaczonych etykietą &quot;Darmowa dostawa&quot; za min. 59 zł.</span>&nbsp;Akcja trwa w dniach 01-07.10.2026. Dotyczy dostaw do Paczkomat&reg; InPost, punkt&oacute;w DHL, Orlen Paczki lub kurierem.</span></span>"
+              }
+            ]
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [
+          {
+            "type": "seasonal",
+            "name": "DARMOWA DOSTAWA",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Campaign=DARMOWA DOSTAWA&Statuses=aeabd5f8-90da-42a3-b467-f7c77937d4d9",
+              "relative": "/produkty?Campaign=DARMOWA%20DOSTAWA&Statuses=aeabd5f8-90da-42a3-b467-f7c77937d4d9"
+            },
+            "attributes": [
+              {
+                "id": "5b06d361-9276-416a-b181-3157d0fe9b95",
+                "text": "<span style=\"font-size:11.0pt\"><span style=\"font-family:&quot;ROSSMANN Sans PL iOS&quot;\"><span style=\"font-weight:bold\">Darmowa dostawa przy zakupie produkt&oacute;w marki NIVEA oznaczonych etykietą &quot;Darmowa dostawa&quot; za min. 59 zł.</span>&nbsp;Akcja trwa w dniach 01-07.10.2026. Dotyczy dostaw do Paczkomat&reg; InPost, punkt&oacute;w DHL, Orlen Paczki lub kurierem.</span></span>"
+              }
+            ]
+          }
+        ],
+        "isInOut": false
+      },
+      {
+        "brand": "NIVEA",
+        "brandId": 5500,
+        "caption": "żel pod prysznic, pielęgnujący, z Masłem Shea",
+        "fallbackName": "Żel pod prysznic",
+        "fallbackCaption": "pielęgnujący, z Masłem Shea",
+        "unit": "500 ml",
+        "averageRating": 4.87,
+        "totalReviews": 123,
+        "id": 218981,
+        "rossnetId": 360849,
+        "eanNumber": ["9005800243788", "5900017043258"],
+        "navigateUrl": "/Produkt/Zele-i-pianki-pod-prysznic/NIVEA-Creme-Smooth-zel-pod-prysznic-pielegnujacy-z-Maslem-Shea-500-ml,218981,13102",
+        "name": "Creme Smooth ",
+        "oldPrice": 17.99,
+        "price": 11.99,
+        "pricePerUnit": "100 ml = 2,40 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/218981_55_71_1785570541.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/218981_360_350_1785570543.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/218981_338_190_1785570542.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/218981_1280_720_1785570552.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/218981_340_340_1785570554.png",
+            "type": 1,
+            "alt": "Jasnoniebieski żel pod prysznic Nivea Creme Smooth z masłem shea i witaminami, butelka widok z przodu.",
+            "side": "Front"
+          },
+          {
+            "id": 11,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_mini/218981_55_71_1727701870.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_medium/218981_360_350_1727701872.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_small/218981_338_190_1727701871.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_large/218981_1280_720_1727701873.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_square/218981_340_340_1727701874.png",
+            "type": 0,
+            "alt": "Fioletowy żel pod prysznic Nivea Creme Smooth z masłem Shea, butelka z przodu na błękitnym tle z pianą.",
+            "side": "Rc1"
+          },
+          {
+            "id": 12,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_mini/218981_55_71_1727701870.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_medium/218981_360_350_1727701872.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_small/218981_338_190_1727701871.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_large/218981_1280_720_1727701873.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_square/218981_340_340_1727701873.png",
+            "type": 0,
+            "alt": "Kobieta pod prysznicem wylewa NIVEA Creme Smooth żel z jasnoniebieskiej butelki, dla gładkiej skóry.",
+            "side": "Rc2"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/218981_55_71_1727701872.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/218981_360_350_1727701873.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/218981_338_190_1727701872.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/218981_1280_720_1727701874.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/218981_340_340_1727701873.png",
+            "type": 0,
+            "alt": "Niebieski żel pod prysznic NIVEA Creme Smooth, tył opakowania z etykietą, kodem kreskowym, 500 ml.",
+            "side": "Back"
+          }
+        ],
+        "promotion": {
+          "type": "mega",
+          "redirectUrl": "/produkty?Statuses=mega"
+        },
+        "promotionFrom": "2026-10-01T00:00:00",
+        "promotionTo": "2026-10-14T00:00:00",
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Pielęgnacja i higiena-Ciało-Prysznic i kąpiel-Żele i pianki pod prysznic",
+        "attributes": [
+          {
+            "type": "mega",
+            "redirectUrl": "/produkty?Statuses=mega"
+          },
+          {
+            "type": "seasonal",
+            "name": "DARMOWA DOSTAWA",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": [
+              {
+                "id": "798e2100-6c0a-40fb-9ce0-b0988808cf55",
+                "text": "<span style=\"font-size:11.0pt\"><span style=\"font-family:&quot;ROSSMANN Sans PL iOS&quot;\"><span style=\"font-weight:bold\">Darmowa dostawa przy zakupie produkt&oacute;w marki NIVEA oznaczonych etykietą &quot;Darmowa dostawa&quot; za min. 59 zł.</span>&nbsp;Akcja trwa w dniach 01-07.10.2026. Dotyczy dostaw do Paczkomat&reg; InPost, punkt&oacute;w DHL, Orlen Paczki lub kurierem.</span></span>"
+              }
+            ]
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "promoAll",
+            "redirectUrl": "/produkty?Statuses=promoAll"
+          },
+          {
+            "type": "promoNew",
+            "redirectUrl": "/produkty?Statuses=promoNew"
+          }
+        ],
+        "lastLowestPrice": 17.99,
+        "lastLowestPriceType": "basic",
+        "lastLowestPriceV2": 17.99,
+        "lastLowestPriceTypeV2": "basic",
+        "badges": [
+          {
+            "type": "mega",
+            "name": "MEGA!",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Discounts=mega",
+              "relative": "/produkty?Discounts=mega"
+            }
+          },
+          {
+            "type": "seasonal",
+            "name": "DARMOWA DOSTAWA",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Campaign=DARMOWA DOSTAWA&Statuses=aeabd5f8-90da-42a3-b467-f7c77937d4d9",
+              "relative": "/produkty?Campaign=DARMOWA%20DOSTAWA&Statuses=aeabd5f8-90da-42a3-b467-f7c77937d4d9"
+            },
+            "attributes": [
+              {
+                "id": "bca055c5-3080-4b12-9ea9-bbc3c1d5d784",
+                "text": "<span style=\"font-size:11.0pt\"><span style=\"font-family:&quot;ROSSMANN Sans PL iOS&quot;\"><span style=\"font-weight:bold\">Darmowa dostawa przy zakupie produkt&oacute;w marki NIVEA oznaczonych etykietą &quot;Darmowa dostawa&quot; za min. 59 zł.</span>&nbsp;Akcja trwa w dniach 01-07.10.2026. Dotyczy dostaw do Paczkomat&reg; InPost, punkt&oacute;w DHL, Orlen Paczki lub kurierem.</span></span>"
+              }
+            ]
+          }
+        ],
+        "isInOut": false
+      }
+    ],
+    "recommendedProducts": [],
+    "totalPages": 1,
+    "totalCount": 3,
+    "correlationId": "d9204430c7bd545506a1a3d301d1ca3c",
+    "spellCheckHint": ""
+  }
+}

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
-import { pickMatch, type MatchProduct } from "@/lib/services/matching";
+import { pickMatch, type NamedProduct } from "@/lib/services/matching";
 import { createShopGate, type ShopGateDeps } from "@/lib/services/shop-gate";
 import { fetchHebePrices, isHebeImage, isHebeProductUrl, searchHebe } from "@/lib/services/shops/hebe";
 import { parseSize } from "@/lib/services/size";
@@ -10,6 +10,7 @@ import eanOnline from "@/lib/services/shops/fixtures/hebe-ean-online.json";
 import idUnknown from "@/lib/services/shops/fixtures/hebe-id-unknown.json";
 import twoIds from "@/lib/services/shops/fixtures/hebe-ids.json";
 import nameSearch from "@/lib/services/shops/fixtures/hebe-name-search.json";
+import aaLaabSearch from "@/lib/services/shops/fixtures/hebe-search-aa-laab.json";
 import unknownTracker from "@/lib/services/shops/fixtures/natura-unknown-tracker.json";
 
 // The fixtures are real Luigi's Box answers for Hebe, recorded once with curl from the developer machine, with the
@@ -24,6 +25,9 @@ import unknownTracker from "@/lib/services/shops/fixtures/natura-unknown-tracker
 //   adapter's, so its hit carries a few attributes more. Only 218807 came back: without a query the tracker adds
 //   `searchable:true`, and 251798 isn't sold online.
 // - hebe-id-unknown.json (2026-10-02): the price request for an id Hebe doesn't have, with no hits.
+// - hebe-search-aa-laab.json (2026-10-06, 10:37:56 UTC, with `Accept: application/json` too): the search for "AA LAAB
+//   100% Centella B12 Żel do mycia twarzy nawilżający", size 10, kept whole: 10 of AA LAAB's items, its face wash in
+//   150 ml (450251) first, with the EAN Rossmann lists for its own (419343).
 // natura-unknown-tracker.json is Luigi's Box's answer to a tracker id it doesn't know, which names no shop. The broken
 // answers below each change one thing in a copy of these, or stand in a page where the JSON was.
 const searchUrl = (query: string, size: number) =>
@@ -63,19 +67,41 @@ const secondBatch = priceUrl(manyIds.slice(50));
 
 // Watched products as the matching rule reads them. Rossmann's two are rossmann-search-results.json's recordings:
 // Nivea Soft 300 ml (26900) and the Soft Rose lip balm, 4,8 g (11790), whose first EAN Hebe's 5,5 ml lip balm carries
-// too.
-const ROSSMANN_SOFT: MatchProduct = {
+// too. Rossmann sent the lip balm's name empty, so its name is the fallback name, as Rossmann's adapter reads it.
+const ROSSMANN_SOFT: NamedProduct = {
   brand: "NIVEA",
+  name: "Soft",
+  caption: "krem uniwersalny, nawilżający",
   eans: [SOFT_300_EAN, "4005808890637", "5900017001234"],
   size: { value: 300, unit: "ml" },
 };
-const ROSSMANN_SOFT_ROSE: MatchProduct = {
+const ROSSMANN_SOFT_ROSE: NamedProduct = {
   brand: "NIVEA",
+  name: "Balsam do ust",
+  caption: "balsam do ust, Soft Rose",
   eans: ["9005800362939", "4005808369713", "4005808314935", "4005808850662"],
   size: { value: 4.8, unit: "g" },
 };
-// Nivea Soft 200 ml, the product whose EAN hebe-ean-online.json searched for, with its brand written as Rossmann does.
-const SOFT_200_PRODUCT: MatchProduct = { brand: "NIVEA", eans: [SOFT_200_EAN], size: { value: 200, unit: "ml" } };
+// Nivea Soft 200 ml, the product whose EAN hebe-ean-online.json searched for, with its brand and name written as
+// Rossmann writes Soft's, and no caption.
+const SOFT_200_PRODUCT: NamedProduct = {
+  brand: "NIVEA",
+  name: "Soft",
+  caption: null,
+  eans: [SOFT_200_EAN],
+  size: { value: 200, unit: "ml" },
+};
+// AA LAAB's face wash, 150 ml (419343), as Rossmann's search for it recorded it on 2026-10-06
+// (rossmann-search-aa-laab.json), with its EAN hidden, as a product without an EAN would come: only the name check may
+// then accept a Hebe item for it.
+const AA_LAAB_WITHOUT_EAN: NamedProduct = {
+  brand: "AA",
+  name: "LAAB Skin Barrier Protection",
+  caption: "żel do mycia twarzy nawilżający, 100% Centella B12",
+  eans: [],
+  size: { value: 150, unit: "ml" },
+};
+const AA_LAAB_QUERY = "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający";
 
 /**
  * A real gate that gives every reservation the same answer, allowed by default, over a fetch that answers only the
@@ -523,6 +549,23 @@ describe("Hebe search: the matching rule on its candidates (FR-006)", () => {
     expect(pickMatch(SOFT_200_PRODUCT, candidates)).toMatchObject({
       kind: "accepted",
       candidate: { shopItemId: SOFT_200 },
+    });
+  });
+
+  it("accepts AA LAAB's face wash by name for the product without an EAN: every word of its legal name is the product's", async () => {
+    const candidates = await recordedCandidates(AA_LAAB_QUERY, 10, aaLaabSearch);
+
+    // Its make-up balm, the other item in 150 ml, names words the product lacks.
+    expect(candidates.filter(({ size }) => size?.value === 150).map(({ shopItemId }) => shopItemId)).toEqual([
+      "000000000000450251",
+      "000000000000450257",
+    ]);
+    expect(pickMatch(AA_LAAB_WITHOUT_EAN, candidates)).toMatchObject({
+      kind: "accepted",
+      candidate: {
+        shopItemId: "000000000000450251",
+        name: "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający 150 ml",
+      },
     });
   });
 });

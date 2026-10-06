@@ -37,8 +37,16 @@ const REPIN = { kind: "repin", href: `${PAGE}?repin=natura` } as const;
 // How the page was opened: from the whole list, or from its "Do sprawdzenia" chip.
 const ALL = { filter: "all" } as const;
 const CHECK = { filter: "check" } as const;
-// Rossmann's Nivea Soft 300 ml, as the page hands it to the builders.
-const product: MatchProduct = { id: ITEM_ID, brand: "NIVEA", sizeText: "300 ml", size: parseSize("300 ml") };
+// Rossmann's Nivea Soft 300 ml, as the page hands it to the builders, with its EANs, the first of which Natura's item
+// carries too.
+const SOFT_EAN = "4005900009319";
+const product: MatchProduct = {
+  id: ITEM_ID,
+  brand: "NIVEA",
+  sizeText: "300 ml",
+  size: parseSize("300 ml"),
+  eans: [SOFT_EAN, "4005808890637", "5900017001234"],
+};
 // 12:00 UTC is 14:00 in Poland (summer time).
 const FETCHED_AT = new Date("2026-09-28T12:00:00.000Z");
 // Intl writes Polish prices with a no-break space before "zł".
@@ -55,7 +63,7 @@ function item(sizeText: string | null, brand: string | null = "NIVEA"): MatchedI
     name: "NIVEA SOFT krem intensywnie nawilżający",
     sizeText,
     size: parseSize(sizeText),
-    eans: ["4005900009319"],
+    eans: [SOFT_EAN],
     productUrl: "https://www.drogerienatura.pl/nivea-soft",
     imageUrl: null,
   };
@@ -157,6 +165,64 @@ describe("notFoundView", () => {
       kind: "not-found",
       text: "Nie znaleziono w Naturze (sprawdzono 28.09, 14:00).",
       href: `${PAGE}?retry=natura`,
+    });
+  });
+});
+
+describe("matchedView: how it was decided", () => {
+  // Super-Pharm's item for the product, whose index holds no EAN, as an automatic match by name stores it.
+  const byName: MatchedItem = { ...item("300 ml"), shopItemId: "10132", eans: [] };
+
+  it.each<{ why: string; decidedBy: "auto" | "user"; own: MatchProduct; matched: MatchedItem; note: string }>([
+    {
+      why: "the rule's, with an EAN in common",
+      decidedBy: "auto",
+      own: product,
+      matched: item("300 ml"),
+      note: "Dopasowano automatycznie: ten sam EAN i rozmiar.",
+    },
+    {
+      why: "the rule's, with the product's second EAN in common",
+      decidedBy: "auto",
+      own: product,
+      matched: { ...item("300 ml"), eans: ["4005808890637"] },
+      note: "Dopasowano automatycznie: ten sam EAN i rozmiar.",
+    },
+    {
+      why: "the rule's, for an item without an EAN",
+      decidedBy: "auto",
+      own: product,
+      matched: byName,
+      note: "Dopasowano automatycznie po nazwie.",
+    },
+    {
+      why: "the rule's, for a product without an EAN",
+      decidedBy: "auto",
+      own: { ...product, eans: [] },
+      matched: item("300 ml"),
+      note: "Dopasowano automatycznie po nazwie.",
+    },
+    {
+      why: "the user's, without an EAN in common",
+      decidedBy: "user",
+      own: product,
+      matched: byName,
+      note: "Potwierdzone przez Ciebie.",
+    },
+  ])("says how a match was decided: $why", ({ decidedBy, own, matched, note }) => {
+    expect(matchedView("super-pharm", matched, decidedBy, own, ALL)).toMatchObject({ kind: "matched", note });
+  });
+
+  it("says a stored automatic match without an EAN in common was matched by name, with its item and Zmień", () => {
+    const match: ShopMatch = { ...decision, shop: "super-pharm", decidedBy: "auto", state: "matched", item: byName };
+
+    expect(storedView("super-pharm", match, product, ALL)).toEqual({
+      kind: "matched",
+      note: "Dopasowano automatycznie po nazwie.",
+      warnings: [],
+      item: summary("300 ml"),
+      unsaved: false,
+      action: { kind: "repin", href: `${PAGE}?repin=super-pharm` },
     });
   });
 });
@@ -281,8 +347,13 @@ describe("the views' links keep the list's filter", () => {
       href: `${PAGE}?f=check&retry=natura`,
     },
     {
-      view: "the button of a shop looked up on request",
+      view: "Super-Pharm's lookup button",
       built: promptView("super-pharm", product, false, "check"),
+      href: `${PAGE}?f=check`,
+    },
+    {
+      view: "Super-Pharm's retry's lookup button",
+      built: promptView("super-pharm", product, true, "check"),
       href: `${PAGE}?f=check&retry=super-pharm`,
     },
     { view: "the link to a decision stored meanwhile", built: decidedView(product, "check"), href: `${PAGE}?f=check` },
@@ -496,15 +567,13 @@ describe("promptView", () => {
     expect(promptView("natura", product, true, "all")).toEqual({ kind: "prompt", href: `${PAGE}?retry=natura` });
   });
 
-  it.each([false, true])(
-    "always names a shop looked up on request, which no other page looks up (retrying: %s)",
-    (retrying) => {
-      expect(promptView("super-pharm", product, retrying, "all")).toEqual({
-        kind: "prompt",
-        href: `${PAGE}?retry=super-pharm`,
-      });
-    },
-  );
+  it("names Super-Pharm only for a retry, as any shop: the plain page looks it up like the others", () => {
+    expect(promptView("super-pharm", product, false, "all")).toEqual({ kind: "prompt", href: PAGE });
+    expect(promptView("super-pharm", product, true, "all")).toEqual({
+      kind: "prompt",
+      href: `${PAGE}?retry=super-pharm`,
+    });
+  });
 });
 
 describe("decidedView", () => {

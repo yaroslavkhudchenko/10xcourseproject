@@ -69,8 +69,9 @@ const COPIES = [
 
 // Every state of the product area, in five groups: with Natura's price, which a saved match brings; with Rossmann's
 // price alone, beside each other kind of Natura; the three shops, Hebe matched or waiting beside Natura; the four
-// shops, Super-Pharm matched or waiting for its button beside them; and the handoff's samples. Hebe stands declined
-// beside every state of the first two groups and the samples, and Super-Pharm beside every state but the four shops'.
+// shops, Super-Pharm matched, with its button on a page opened from a link, or with the first choice its lookup on the
+// product's opening leaves to the user, beside them; and the handoff's samples. Hebe stands declined beside every state
+// of the first two groups and the samples, and Super-Pharm beside every state but the four shops'.
 const AREA_GROUPS = [
   { id: "area-matched", heading: "Z ceną Natury: zapisane dopasowanie", fixtures: PRICE_FIXTURES },
   { id: "area-alone", heading: "Sama cena Rossmanna: Natura w każdym innym rodzaju", fixtures: ALONE_FIXTURES },
@@ -177,11 +178,14 @@ const LINK_BUTTONS = [
               <code>unmatched + repin</code>. Karta Hebe w każdym rodzaju, obok cen Rossmanna i Natury: sekcja Hebe.
               Trzy sklepy z Hebe najtańszą: Obszar produktu › <code>three-cheapest</code>, przycisk Hebe obok otwartego
               wyboru Natury: <code>three-natura-repin</code>, a dwa wybory naraz: <code>three-two-choices</code>. Karta
-              Super-Pharmu w każdym rodzaju, obok cen trzech sklepów: sekcja Super-Pharm. Cztery sklepy z Super-Pharmem
-              najtańszym: Obszar produktu › <code>four-cheapest</code>, jedna cena we wszystkich czterech:{" "}
-              <code>four-tie</code>, a Super-Pharm czekający na swój przycisk: <code>four-super-pharm-waiting</code>.
-              „Usuń z listy” na dole strony, zamknięte i otwarte: Usuń z listy › <code>closed</code> i <code>open</code>
-              .
+              Super-Pharmu w każdym rodzaju, obok cen trzech sklepów: sekcja Super-Pharm. Jego dopasowanie automatyczne
+              po nazwie, ze stopką „Dopasowano automatycznie po nazwie.” i „Zmień”: Super-Pharm › <code>matched</code>,
+              a wybór, który je zmienia, z obecnym dopasowaniem oznaczonym i z „To ten produkt”: Super-Pharm ›{" "}
+              <code>matched + repin</code>, a przy Twoim wyborze, tylko oznaczonym: <code>picked + repin</code>. Cztery
+              sklepy z Super-Pharmem najtańszym: Obszar produktu › <code>four-cheapest</code>, jedna cena we wszystkich
+              czterech: <code>four-tie</code>, a Super-Pharm bez decyzji, z przyciskiem na stronie otwartej z linku:{" "}
+              <code>four-super-pharm-waiting</code>. „Usuń z listy” na dole strony, zamknięte i otwarte: Usuń z listy ›{" "}
+              <code>closed</code> i <code>open</code>.
             </dd>
           </div>
           <div class="flex flex-col gap-1">
@@ -284,8 +288,9 @@ const LINK_BUTTONS = [
           trzeciej i trzy ceny blisko siebie, ale z miejscem na trzy podpisy, cena Hebe, która nie może wygrać,
           nieodczytana decyzja Hebe, oba sklepy czekające na dopasowanie, przycisk Hebe obok otwartego wyboru Natury i
           dwa wybory naraz. Czwarta grupa to cztery sklepy: Super-Pharm najtańszy, ta sama cena we wszystkich czterech,
-          Super-Pharm czekający na swój przycisk obok samej ceny Rossmanna, trzy sklepy czekające na dopasowanie i wybór
-          Super-Pharmu po dotknięciu przycisku. Na końcu próbki z projektu.
+          przycisk Super-Pharmu na stronie otwartej z linku obok samej ceny Rossmanna, trzy sklepy czekające na
+          dopasowanie i wybór Super-Pharmu, gdy wyszukiwanie przy otwarciu produktu nie dopasowało go po nazwie. Na
+          końcu próbki z projektu.
         </p>
         <p class="text-sm text-muted-foreground" style={COLUMN_STYLE}>
           Układ zależy od szerokości okna, nie ramki: od 1280 px jak w projekcie, z ceną obok tekstu w hero i kartami w
@@ -460,11 +465,13 @@ const LINK_BUTTONS = [
         </h2>
         <p class="text-sm text-muted-foreground" style={COLUMN_STYLE}>
           Karta Super-Pharmu wśród kart sklepów (<code>ShopGrid</code>, <code>matchCardOf</code>) w każdym rodzaju
-          widoku, obok cen Rossmanna, Natury i Hebe i ich kart: z ceną Super-Pharmu, gdy Twój wybór jest zapisany, a bez
-          niej w każdym innym rodzaju, z komunikatem o zapisie. Indeks Super-Pharmu nie ma kodów EAN, więc strona nie
-          szuka w nim sama: bez decyzji karta ma przycisk „Dopasuj w Super-Pharmie”, który jako jedyny szuka, po nazwie,
-          a dopasowanie jest zawsze Twoim wyborem. Przy wyborze kandydatów, także przy wyborze, który zmienia zapisane
-          dopasowanie, pod kartami stoi sekcja wyboru Super-Pharmu (<code>MatchChoice</code>). Lawendowa kropka
+          widoku, obok cen Rossmanna, Natury i Hebe i ich kart: z ceną Super-Pharmu, gdy jego dopasowanie jest zapisane,
+          automatyczne po nazwie albo Twój wybór, a bez niej w każdym innym rodzaju, z komunikatem o zapisie. Indeks
+          Super-Pharmu nie ma kodów EAN, więc strona szuka w nim tylko po nazwie. Szuka, gdy otwierasz produkt, tak jak
+          w Naturze i Hebe: pozycję, która przechodzi sprawdzenie nazwy, dopasowuje sama, a w innym razie zostawia wybór
+          Tobie, najlepiej pasujące najpierw. Przycisk „Dopasuj w Super-Pharmie” jest tylko tam, gdzie przycisk Natury:
+          na stronie otwartej z linku albo dla innego sklepu. Przy wyborze kandydatów, także przy wyborze, który zmienia
+          zapisane dopasowanie, pod kartami stoi sekcja wyboru Super-Pharmu (<code>MatchChoice</code>). Lawendowa kropka
           Super-Pharmu stoi obok niebieskiej Rossmanna, miętowej Natury i różowej Hebe, na kartach i na pasku cen. Każdy
           stan jest dwa razy: w jasnym motywie i w ciemnym.
         </p>

@@ -29,6 +29,11 @@ export interface ShopAdapter {
    * most `size` hits: the candidates (possibly none), or why the shop gave no answer.
    */
   search: (gate: ShopGate, query: string, size: number) => Promise<ShopSearch>;
+  /**
+   * Whether the shop's search finds an item by its EAN. Super-Pharm's index holds none (research note §2.3), so its
+   * lookups search it by name alone: an EAN search there would spend a request to learn nothing.
+   */
+  searchesByEan: boolean;
   /** Fetches the offers of pinned items by the shop's own ids through the gate: a check for every id given. */
   fetchPrices: (gate: ShopGate, ids: string[]) => Promise<Map<string, PriceCheck>>;
   /** True for an id the shop's own items can have: the only ids a decision can pin, or name as the match it replaces. */
@@ -42,6 +47,7 @@ export interface ShopAdapter {
 export const SHOP_ADAPTERS: Record<MatchableShop, ShopAdapter> = {
   natura: {
     search: searchNatura,
+    searchesByEan: true,
     fetchPrices: fetchNaturaPrices,
     isItemId: isNaturaItemId,
     isProductUrl: isNaturaProductUrl,
@@ -49,6 +55,7 @@ export const SHOP_ADAPTERS: Record<MatchableShop, ShopAdapter> = {
   },
   hebe: {
     search: searchHebe,
+    searchesByEan: true,
     fetchPrices: fetchHebePrices,
     isItemId: isHebeItemId,
     isProductUrl: isHebeProductUrl,
@@ -56,6 +63,7 @@ export const SHOP_ADAPTERS: Record<MatchableShop, ShopAdapter> = {
   },
   "super-pharm": {
     search: searchSuperPharm,
+    searchesByEan: false,
     fetchPrices: fetchSuperPharmPrices,
     isItemId: isSuperPharmItemId,
     isProductUrl: isSuperPharmProductUrl,

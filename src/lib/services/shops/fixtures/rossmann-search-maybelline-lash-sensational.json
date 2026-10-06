@@ -1,0 +1,1756 @@
+{
+  "data": {
+    "filters": {
+      "categories": [
+        {
+          "id": 12000,
+          "name": "Makijaż i paznokcie",
+          "priority": 1,
+          "productsCount": 19,
+          "children": [
+            {
+              "id": 13000,
+              "name": "Oczy",
+              "priority": 2,
+              "productsCount": 19,
+              "children": [
+                {
+                  "id": 13001,
+                  "name": "Tusze do rzęs",
+                  "priority": 1,
+                  "productsCount": 18,
+                  "children": [],
+                  "faqs": []
+                },
+                {
+                  "id": 13007,
+                  "name": "Odżywki do rzęs",
+                  "priority": 7,
+                  "productsCount": 1,
+                  "children": [],
+                  "faqs": []
+                }
+              ],
+              "faqs": []
+            }
+          ],
+          "faqs": []
+        }
+      ],
+      "price": {
+        "min": 39,
+        "max": 72
+      },
+      "facets": [
+        {
+          "key": "brands",
+          "name": "Marka",
+          "values": [
+            {
+              "key": "5237",
+              "name": "Maybelline New York",
+              "productCount": 19
+            }
+          ]
+        },
+        {
+          "key": "promotions",
+          "name": "Promocje",
+          "values": [
+            {
+              "key": "promotion",
+              "name": "Promocja",
+              "productCount": 2
+            }
+          ]
+        },
+        {
+          "key": "kolor",
+          "name": "Kolor",
+          "type": 1,
+          "values": [
+            {
+              "key": "kolor^brązowy",
+              "name": "Brązowy",
+              "type": 1,
+              "colorHex": ["#a2603d"],
+              "productCount": 3
+            },
+            {
+              "key": "kolor^czarny",
+              "name": "Czarny",
+              "type": 1,
+              "colorHex": ["#1c1d22"],
+              "productCount": 6
+            },
+            {
+              "key": "kolor^czerwony",
+              "name": "Czerwony",
+              "type": 1,
+              "colorHex": ["#e82d38"],
+              "productCount": 1
+            },
+            {
+              "key": "kolor^fioletowy",
+              "name": "Fioletowy",
+              "type": 1,
+              "colorHex": ["#c56ffc"],
+              "productCount": 1
+            },
+            {
+              "key": "kolor^niebieski",
+              "name": "Niebieski",
+              "type": 1,
+              "colorHex": ["#0f90ec"],
+              "productCount": 2
+            },
+            {
+              "key": "kolor^szary",
+              "name": "Szary",
+              "type": 1,
+              "colorHex": ["#d7d7d7"],
+              "productCount": 2
+            }
+          ]
+        },
+        {
+          "key": "właściwości",
+          "name": "Właściwości",
+          "type": 0,
+          "values": [
+            {
+              "key": "właściwości^podkręcające",
+              "name": "Podkręcające",
+              "productCount": 3
+            },
+            {
+              "key": "właściwości^pogrubiające",
+              "name": "Pogrubiające",
+              "productCount": 13
+            },
+            {
+              "key": "właściwości^wydłużające",
+              "name": "Wydłużające",
+              "productCount": 12
+            }
+          ]
+        },
+        {
+          "key": "format",
+          "name": "Format",
+          "type": 0,
+          "values": [
+            {
+              "key": "format^szczoteczka silikonowa",
+              "name": "Szczoteczka silikonowa",
+              "productCount": 18
+            },
+            {
+              "key": "format^w płynie / w kremie",
+              "name": "W płynie / w kremie",
+              "productCount": 1
+            }
+          ]
+        },
+        {
+          "key": "formuła",
+          "name": "Formuła",
+          "type": 0,
+          "values": [
+            {
+              "key": "formuła^wodoodporna",
+              "name": "Wodoodporna",
+              "productCount": 3
+            }
+          ]
+        },
+        {
+          "key": "przeznaczenie",
+          "name": "Przeznaczenie",
+          "type": 0,
+          "values": [
+            {
+              "key": "przeznaczenie^rzęsy",
+              "name": "Rzęsy",
+              "productCount": 1
+            }
+          ]
+        }
+      ]
+    },
+    "items": [
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "tusz do rzęs, efekt wachlarza rzęs, Intense Black",
+        "fallbackName": "Tusz do rzęs",
+        "fallbackCaption": "efekt wachlarza rzęs, Intense Black",
+        "unit": "9,5 ml",
+        "averageRating": 4.91,
+        "totalReviews": 617,
+        "id": 233593,
+        "rossnetId": 376561,
+        "eanNumber": ["3600531230906"],
+        "navigateUrl": "/Produkt/Tusze-do-rzes/Maybelline-New-York-Lash-Sensational-Full-Fan-Effect-tusz-do-rzes-efekt-wachlarza-rzes-Intense-Bla,233593,13001",
+        "name": "Lash Sensational Full Fan Effect",
+        "price": 39.99,
+        "pricePerUnit": "100 ml = 420,95 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/233593_55_71_1782404027.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/233593_360_350_1782404029.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/233593_338_190_1782404028.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/233593_1280_720_1782404038.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/233593_340_340_1782404039.png",
+            "type": 2,
+            "alt": "Maybelline Lash Sensational Intense Black mascara: różowo-złote opakowanie z wyjętą, zakrzywioną szczoteczką.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 10,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_mini/233593_55_71_1788997422.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_medium/233593_360_350_1788997426.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_small/233593_338_190_1788997423.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_large/233593_1280_720_1788997429.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_square/233593_340_340_1788997435.png",
+            "type": 0,
+            "alt": "Gęsta, czarna smuga tuszu Maybelline Lash Sensational Intense Black, podkreślająca głębię koloru i objętość.",
+            "side": "Promotional"
+          },
+          {
+            "id": 11,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_mini/233593_55_71_1727386081.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_medium/233593_360_350_1727386082.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_small/233593_338_190_1727386081.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_large/233593_1280_720_1727386084.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_square/233593_340_340_1727386084.png",
+            "type": 0,
+            "alt": "Aplikacja Maybelline Lash Sensational Intense Black: zbliżenie oka z fanning brush na rzęsach.",
+            "side": "Rc1"
+          },
+          {
+            "id": 14,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/233593_55_71_1727386085.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/233593_360_350_1727386086.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/233593_338_190_1727386086.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/233593_1280_720_1727386088.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/233593_340_340_1727386088.png",
+            "type": 0,
+            "alt": "Rzęsy przed i po: tusz Maybelline Lash Sensational Intense Black, duża objętość, efekt wachlarza rzęs.",
+            "side": "Rc4"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/233593_55_71_1788997411.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/233593_360_350_1788997412.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/233593_338_190_1788997412.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/233593_1280_720_1788997415.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/233593_340_340_1788997416.png",
+            "type": 1,
+            "alt": "Maybelline Lash Sensational Intense Black mascara w różowozłotej tubce, pełny widok z przodu, czarne napisy.",
+            "side": "Front"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Tusze do rzęs",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "tusz do rzęs, z efektem wachlarza, Black",
+        "fallbackName": "Tusz do rzęs",
+        "fallbackCaption": "z efektem wachlarza, Black",
+        "unit": "9,5 ml",
+        "averageRating": 4.9,
+        "totalReviews": 338,
+        "id": 218841,
+        "rossnetId": 359023,
+        "eanNumber": ["3600531143459"],
+        "navigateUrl": "/Produkt/Tusze-do-rzes/Maybelline-New-York-Lash-Sensational-Full-Fan-Effect-tusz-do-rzes-z-efektem-wachlarza-Black-9-5-m,218841,13001",
+        "name": "Lash Sensational Full Fan Effect",
+        "price": 39.99,
+        "pricePerUnit": "100 ml = 420,95 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/218841_55_71_1782403613.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/218841_360_350_1782403615.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/218841_338_190_1782403615.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/218841_1280_720_1782403625.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/218841_340_340_1782403627.png",
+            "type": 2,
+            "alt": "Różowa mascara Maybelline Lash Sensational z wyciągniętą czarną zakrzywioną szczoteczką, widok z przodu.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 11,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_mini/218841_55_71_1727333689.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_medium/218841_360_350_1727333691.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_small/218841_338_190_1727333690.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_large/218841_1280_720_1727333692.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_square/218841_340_340_1727333692.png",
+            "type": 0,
+            "alt": "Maybelline Lash Sensational mascara w różowej tubce, ze szczoteczką i czarnym swatche, z efektem wachlarza rzęs.",
+            "side": "Rc1"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/218841_55_71_1788970326.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/218841_360_350_1788970327.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/218841_338_190_1788970327.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/218841_1280_720_1788970330.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/218841_340_340_1788970335.png",
+            "type": 1,
+            "alt": "Różowo-złota, metaliczna mascara Maybelline Lash Sensational Full Fan Effect, widok z przodu.",
+            "side": "Front"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Tusze do rzęs",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "tusz do rzęs, wydłużający, Black",
+        "fallbackName": "Tusz do rzęs",
+        "fallbackCaption": "wydłużający, Black",
+        "unit": "7,2 ml",
+        "averageRating": 4.82,
+        "totalReviews": 768,
+        "id": 366692,
+        "rossnetId": 500985,
+        "eanNumber": ["30166967"],
+        "navigateUrl": "/Produkt/Tusze-do-rzes/Maybelline-New-York-Lash-Sensational-Sky-High-tusz-do-rzes-wydluzajacy-Black-7-2-ml,366692,13001",
+        "name": "Lash Sensational Sky High",
+        "price": 54.99,
+        "pricePerUnit": "100 ml = 763,75 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/366692_55_71_1782457758.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/366692_360_350_1782457761.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/366692_338_190_1782457760.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/366692_1280_720_1782457770.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/366692_340_340_1782457771.png",
+            "type": 2,
+            "alt": "Maybelline Lash Sensational Sky High mascara, otwarta, różowo-złota tuba z napisem i różową szczoteczką.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 6,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_6_mini/366692_55_71_1727481236.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_6_medium/366692_360_350_1727481237.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_6_small/366692_338_190_1727481236.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_6_large/366692_1280_720_1727481239.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_6_square/366692_340_340_1727481240.png",
+            "type": 0,
+            "alt": "Aplikacja tuszu Maybelline Lash Sensational Sky High na rzęsy. Szczoteczka precyzyjnie pokrywa każdą rzęsę.",
+            "side": "Compositional1"
+          },
+          {
+            "id": 10,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_mini/366692_55_71_1788993764.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_medium/366692_360_350_1788993766.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_small/366692_338_190_1788993765.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_large/366692_1280_720_1788993768.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_square/366692_340_340_1788993773.png",
+            "type": 0,
+            "alt": "Mascara Lash Sensational Sky High: zbliżenie na pionową próbkę brązowej, wydłużającej tekstury z włóknami.",
+            "side": "Promotional"
+          },
+          {
+            "id": 5,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_mini/366692_55_71_1727439849.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_medium/366692_360_350_1727439849.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_small/366692_338_190_1727439849.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_large/366692_1280_720_1727439850.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_square/366692_340_340_1727439850.png",
+            "type": 0,
+            "alt": "Różowo-srebrna, elastyczna szczoteczka tuszu Maybelline Sky High, z drobnymi, gęstymi włoskami ułożonymi spiralnie.",
+            "side": "FromSupplier"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/366692_55_71_1788993755.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/366692_360_350_1788993756.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/366692_338_190_1788993755.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/366692_1280_720_1788993761.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/366692_340_340_1788993762.png",
+            "type": 1,
+            "alt": "Pionowy różowo-złoty tusz do rzęs Maybelline Lash Sensational Sky High, widok z przodu opakowania.",
+            "side": "Front"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Tusze do rzęs",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "tusz do rzęs, efekt wachlarza rzęs, Burgundy Brown",
+        "fallbackName": "Tusz do rzęs",
+        "fallbackCaption": "efekt wachlarza rzęs, Burgundy Brown",
+        "unit": "9,5 ml",
+        "averageRating": 4.87,
+        "totalReviews": 99,
+        "id": 342570,
+        "rossnetId": 476844,
+        "eanNumber": ["3600531608729"],
+        "navigateUrl": "/Produkt/Tusze-do-rzes/Maybelline-New-York-Lash-Sensational-Full-Fan-Effect-tusz-do-rzes-efekt-wachlarza-rzes-Burgundy-Br,342570,13001",
+        "name": "Lash Sensational Full Fan Effect",
+        "price": 39.99,
+        "pricePerUnit": "100 ml = 420,95 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/342570_55_71_1782463429.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/342570_360_350_1782463431.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/342570_338_190_1782463431.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/342570_1280_720_1782463440.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/342570_340_340_1782463443.png",
+            "type": 2,
+            "alt": "Maybelline Lash Sensational: różowozłoty tusz do rzęs z czarną, wachlarzową szczoteczką, otwarte opakowanie.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 11,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_mini/342570_55_71_1727388550.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_medium/342570_360_350_1727388552.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_small/342570_338_190_1727388551.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_large/342570_1280_720_1727388553.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_square/342570_340_340_1727388553.png",
+            "type": 0,
+            "alt": "Tusz Maybelline Lash Sensational w różowej tubie z czarną szczoteczką, brązowy swatch i tekst 'EFEKT WACHLARZA RZĘS'.",
+            "side": "Rc1"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/342570_55_71_1788990269.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/342570_360_350_1788990271.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/342570_338_190_1788990270.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/342570_1280_720_1788990275.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/342570_340_340_1788990276.png",
+            "type": 1,
+            "alt": "Maybelline Lash Sensational tusz do rzęs w różowozłotej, metalicznej butelce, z napisem Full Fan Effect, widok z przodu.",
+            "side": "Front"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Tusze do rzęs",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "tusz do rzęs, wydłużający, Cosmic Black",
+        "fallbackName": "Tusz do rzęs",
+        "fallbackCaption": "wydłużający, Cosmic Black",
+        "unit": "7,2 ml",
+        "averageRating": 4.87,
+        "totalReviews": 537,
+        "id": 390594,
+        "rossnetId": 524659,
+        "eanNumber": ["30152830"],
+        "navigateUrl": "/Produkt/Tusze-do-rzes/Maybelline-New-York-Lash-Sensational-Sky-High-tusz-do-rzes-wydluzajacy-Cosmic-Black-7-2-ml,390594,13001",
+        "name": "Lash Sensational Sky High",
+        "price": 54.99,
+        "pricePerUnit": "100 ml = 763,75 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/390594_55_71_1782457927.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/390594_360_350_1782457929.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/390594_338_190_1782457928.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/390594_1280_720_1782457938.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/390594_340_340_1782457939.png",
+            "type": 2,
+            "alt": "Maybelline Lash Sensational Sky High, wydłużający tusz w czarnej tubce z różową szczoteczką obok opakowania.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/390594_55_71_1788991559.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/390594_360_350_1788991560.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/390594_338_190_1788991560.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/390594_1280_720_1788991565.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/390594_340_340_1788991565.png",
+            "type": 1,
+            "alt": "Czarny tusz do rzęs Maybelline Lash Sensational Sky High Cosmic Black, z różowym napisem, widok z przodu.",
+            "side": "Front"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/390594_55_71_1727375753.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/390594_360_350_1727375754.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/390594_338_190_1727375754.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/390594_1280_720_1727375754.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/390594_340_340_1727375754.png",
+            "type": 0,
+            "alt": "Czarny tusz Maybelline Sky High Cosmic Black wydłużający, różowe napisy i gwiazdki, widok z przodu.",
+            "side": "Back"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Tusze do rzęs",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "tusz do rzęs, Brown",
+        "fallbackName": "Tusz do rzęs",
+        "fallbackCaption": "Brown",
+        "unit": "7,2 ml",
+        "averageRating": 4.83,
+        "totalReviews": 169,
+        "id": 415613,
+        "rossnetId": 549888,
+        "eanNumber": ["30147317"],
+        "navigateUrl": "/Produkt/Tusze-do-rzes/Maybelline-New-York-Lash-Sensational-Sky-High-tusz-do-rzes-Brown-7-2-ml,415613,13001",
+        "name": "Lash Sensational Sky High",
+        "price": 54.99,
+        "pricePerUnit": "100 ml = 763,75 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/415613_55_71_1782411603.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/415613_360_350_1782411605.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/415613_338_190_1782411605.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/415613_1280_720_1782411613.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/415613_340_340_1782411615.png",
+            "type": 2,
+            "alt": "Maybelline Lash Sensational Sky High tusz do rzęs. Różowe opakowanie, otwarty z aplikatorem i napisem SKY HIGH.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 10,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_mini/415613_55_71_1788986112.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_medium/415613_360_350_1788986113.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_small/415613_338_190_1788986113.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_large/415613_1280_720_1788986117.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_square/415613_340_340_1788986120.png",
+            "type": 0,
+            "alt": "Swatch brązowej maskary Maybelline Sky High Brown z efektem wydłużenia rzęs, pionowe smugi, gęsta tekstura.",
+            "side": "Promotional"
+          },
+          {
+            "id": 5,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_mini/415613_55_71_1727375337.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_medium/415613_360_350_1727375337.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_small/415613_338_190_1727375337.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_large/415613_1280_720_1727375338.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_square/415613_340_340_1727375338.png",
+            "type": 0,
+            "alt": "Pionowe zbliżenie na różową szczoteczkę tuszu Sky High Brown, o kształcie wieży, z gęstymi wypustkami.",
+            "side": "FromSupplier"
+          },
+          {
+            "id": 11,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_mini/415613_55_71_1727375333.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_medium/415613_360_350_1727375334.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_small/415613_338_190_1727375333.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_large/415613_1280_720_1727375335.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_square/415613_340_340_1727375336.png",
+            "type": 0,
+            "alt": "Różowa, elastyczna szczoteczka Flex Tower tuszu Lash Sensational Sky High nanosi brązową mascarę na rzęsy.",
+            "side": "Rc1"
+          },
+          {
+            "id": 12,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_mini/415613_55_71_1727375521.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_medium/415613_360_350_1727375522.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_small/415613_338_190_1727375521.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_large/415613_1280_720_1727375523.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_square/415613_340_340_1727375523.png",
+            "type": 0,
+            "alt": "Brązowa, smużysta tekstura tuszu Sky High Brown mascara, z napisem 'FORMULA WITH BAMBOO EXTRACT'.",
+            "side": "Rc2"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/415613_55_71_1788986122.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/415613_360_350_1788986124.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/415613_338_190_1788986123.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/415613_1280_720_1788986134.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/415613_340_340_1788986135.png",
+            "type": 1,
+            "alt": "Maybelline Sky High brązowy tusz do rzęs w podłużnej rose gold tubie z napisem \"Sky High\", widok z przodu.",
+            "side": "Front"
+          },
+          {
+            "id": 8,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/415613_55_71_1727375530.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/415613_360_350_1727375532.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/415613_338_190_1727375531.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/415613_1280_720_1727375533.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/415613_340_340_1727375533.png",
+            "type": 0,
+            "alt": "Zbliżenie na oko. Przed i po zastosowaniu brązowej mascary Sky High Brown: rzęsy wyraźnie wydłużone i pogrubione.",
+            "side": "Bottom"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Tusze do rzęs",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "tusz do rzęs, wydłużający, wodoodporny, Black",
+        "fallbackName": "Tusz do rzęs",
+        "fallbackCaption": "wydłużający, wodoodporny, Black",
+        "unit": "6,0 ml",
+        "averageRating": 4.74,
+        "totalReviews": 227,
+        "id": 390701,
+        "rossnetId": 524766,
+        "eanNumber": ["30167223"],
+        "navigateUrl": "/Produkt/Tusze-do-rzes/Maybelline-New-York-Lash-Sensational-Sky-High-tusz-do-rzes-wydluzajacy-wodoodporny-Black-6-0-ml,390701,13001",
+        "name": "Lash Sensational Sky High",
+        "price": 54.99,
+        "pricePerUnit": "100 ml = 916,50 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/390701_55_71_1782442771.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/390701_360_350_1782442773.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/390701_338_190_1782442773.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/390701_1280_720_1782442783.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/390701_340_340_1782442785.png",
+            "type": 2,
+            "alt": "Maybelline Lash Sensational Sky High tusz do rzęs w różowej, metalicznej butelce, z wyciągniętym aplikatorem.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/390701_55_71_1788975247.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/390701_360_350_1788975248.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/390701_338_190_1788975248.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/390701_1280_720_1788975255.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/390701_340_340_1788975256.png",
+            "type": 1,
+            "alt": "Rose gold metallic lengthening Maybelline Sky High Cosmic Black mascara, full tube with embossed text.",
+            "side": "Front"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/390701_55_71_1727436967.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/390701_360_350_1727436967.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/390701_338_190_1727436967.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/390701_1280_720_1727436968.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/390701_340_340_1727436967.png",
+            "type": 0,
+            "alt": "Wydłużający tusz Maybelline Sky High Cosmic Black w metalicznej rose gold tubie, pionowo, z niebieskim napisem.",
+            "side": "Back"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Tusze do rzęs",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "tusz do rzęs, pogrubiający, Mocha Brown",
+        "fallbackName": "Tusz do rzęs",
+        "fallbackCaption": "pogrubiający, Mocha Brown",
+        "unit": "9,75 ml",
+        "averageRating": 5,
+        "totalReviews": 3,
+        "id": 2132733,
+        "rossnetId": 0,
+        "eanNumber": ["3600531724863"],
+        "navigateUrl": "/Produkt/Tusze-do-rzes/Maybelline-New-York-Body-Lash-Sensational-tusz-do-rzes-pogrubiajacy-Mocha-Brown-9-75-ml,2132733,13001",
+        "name": "Body Lash Sensational ",
+        "oldPrice": 79.99,
+        "price": 55.99,
+        "pricePerUnit": "100 ml = 574,26 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_mini/2132733_55_71_1781080045.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_medium/2132733_360_350_1781080048.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_small/2132733_338_190_1781080047.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_large/2132733_1280_720_1781080057.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_square/2132733_340_340_1781080059.png",
+            "type": 2,
+            "alt": "Maybelline Lash Sensational Mocha Brown mascara. Brązowa tubka z miedzianym akcentem, z wyjętą szczoteczką.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/2132733_55_71_1781080036.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/2132733_360_350_1781080037.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/2132733_338_190_1781080036.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/2132733_1280_720_1781080040.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/2132733_340_340_1781080042.png",
+            "type": 1,
+            "alt": "Maybelline Lash Sensational Mascara Body w odcieniu Mocha Brown, brązowy tusz z metalicznym napisem. Widok z przodu.",
+            "side": "Front"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "promotionFrom": "2026-10-01T00:00:00",
+        "promotionTo": "2026-10-14T00:00:00",
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Tusze do rzęs",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "promoAll",
+            "redirectUrl": "/produkty?Statuses=promoAll"
+          },
+          {
+            "type": "promoNew",
+            "redirectUrl": "/produkty?Statuses=promoNew"
+          }
+        ],
+        "lastLowestPrice": 79.99,
+        "lastLowestPriceType": "basic",
+        "lastLowestPriceV2": 79.99,
+        "lastLowestPriceTypeV2": "basic",
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "tusz do rzęs, pogrubiający, Brick Brown",
+        "fallbackName": "Tusz do rzęs",
+        "fallbackCaption": "pogrubiający, Brick Brown",
+        "unit": "9,75 ml",
+        "averageRating": 5,
+        "totalReviews": 1,
+        "id": 2132732,
+        "rossnetId": 0,
+        "eanNumber": ["3600531724894"],
+        "navigateUrl": "/Produkt/Tusze-do-rzes/Maybelline-New-York-Body-Lash-Sensational-tusz-do-rzes-pogrubiajacy-Brick-Brown-9-75-ml,2132732,13001",
+        "name": "Body Lash Sensational ",
+        "oldPrice": 79.99,
+        "price": 55.99,
+        "pricePerUnit": "100 ml = 574,26 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_mini/2132732_55_71_1781080090.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_medium/2132732_360_350_1781080094.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_small/2132732_338_190_1781080092.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_large/2132732_1280_720_1781080104.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_square/2132732_340_340_1781080107.png",
+            "type": 2,
+            "alt": "Maybelline Lash Sensational Body mascara Brick Brown, otwarta, z wyciągniętą beżową silikonową szczoteczką.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/2132732_55_71_1781080080.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/2132732_360_350_1781080081.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/2132732_338_190_1781080080.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/2132732_1280_720_1781080086.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/2132732_340_340_1781080087.png",
+            "type": 1,
+            "alt": "Tusz Maybelline Body Lash Sensational Brick Brown, brązowa pionowa buteleczka, widok z przodu opakowania.",
+            "side": "Front"
+          }
+        ],
+        "promotion": {
+          "type": "promoAll",
+          "redirectUrl": "/produkty?Statuses=promoAll"
+        },
+        "promotionFrom": "2026-10-01T00:00:00",
+        "promotionTo": "2026-10-14T00:00:00",
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Tusze do rzęs",
+        "attributes": [
+          {
+            "type": "promoAll",
+            "redirectUrl": "/produkty?Statuses=promoAll"
+          },
+          {
+            "type": "promoNew",
+            "redirectUrl": "/produkty?Statuses=promoNew"
+          }
+        ],
+        "lastLowestPrice": 79.99,
+        "lastLowestPriceType": "basic",
+        "lastLowestPriceV2": 79.99,
+        "lastLowestPriceTypeV2": "basic",
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "tusz do rzęs, pogrubiający, wodoodporny",
+        "fallbackName": "Tusz do rzęs",
+        "fallbackCaption": "pogrubiający, wodoodporny",
+        "unit": "10 ml",
+        "averageRating": 5,
+        "totalReviews": 7,
+        "id": 2083101,
+        "rossnetId": 0,
+        "eanNumber": ["30144187"],
+        "navigateUrl": "/Produkt/Tusze-do-rzes/Maybelline-New-York-Lash-Sensational-Firework-tusz-do-rzes-pogrubiajacy-wodoodporny-10-ml,2083101,13001",
+        "name": "Lash Sensational Firework",
+        "price": 71.99,
+        "pricePerUnit": "100 ml = 719,90 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/2083101_55_71_1782423542.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/2083101_360_350_1782423545.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/2083101_338_190_1782423544.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/2083101_1280_720_1782423555.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/2083101_340_340_1782423558.png",
+            "type": 2,
+            "alt": "Maybelline New York Lash Sensational Firework tusz, różowa tubka z niebieskimi wzorami, otwarta ze szczoteczką obok.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/2083101_55_71_1789080235.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/2083101_360_350_1789080239.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/2083101_338_190_1789080236.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/2083101_1280_720_1789080241.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/2083101_340_340_1789080242.png",
+            "type": 1,
+            "alt": "R3%fowy tusz do rz%B9s Maybelline New York Lash Sensational Firework z niebieskimi napisami, widok z przodu.",
+            "side": "Front"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Tusze do rzęs",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "tusz do rzęs, Burgundy",
+        "fallbackName": "Tusz do rzęs",
+        "fallbackCaption": "Burgundy",
+        "unit": "7,2 ml",
+        "averageRating": 4.54,
+        "totalReviews": 100,
+        "id": 2079826,
+        "rossnetId": 0,
+        "eanNumber": ["30144552"],
+        "navigateUrl": "/Produkt/Tusze-do-rzes/Maybelline-New-York-Lash-Sensational-Sky-High-tusz-do-rzes-Burgundy-7-2-ml,2079826,13001",
+        "name": "Lash Sensational Sky High",
+        "price": 54.99,
+        "pricePerUnit": "100 ml = 763,75 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/2079826_55_71_1785461595.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/2079826_360_350_1785461599.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/2079826_338_190_1785461597.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/2079826_1280_720_1785461609.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/2079826_340_340_1785461612.png",
+            "type": 1,
+            "alt": "Otwarty tusz Maybelline Lash Sensational Sky High Burgundy Haze, burgundowa butelka z wysuniętą różową szczoteczką.",
+            "side": "Front"
+          },
+          {
+            "id": 10,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_mini/2079826_55_71_1785461578.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_medium/2079826_360_350_1785461580.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_small/2079826_338_190_1785461578.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_large/2079826_1280_720_1785461584.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_square/2079826_340_340_1785461589.png",
+            "type": 0,
+            "alt": "Maybelline Lash Sensational Sky High Burgundy Haze: burgundowa formuła tuszu na czarnym tle, symulująca długie rzęsy.",
+            "side": "Promotional"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Tusze do rzęs",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "tusz do rzęs, wydłużający, Plum Twilight",
+        "fallbackName": "Tusz do rzęs",
+        "fallbackCaption": "wydłużający, Plum Twilight",
+        "unit": "7 ml",
+        "averageRating": 4.63,
+        "totalReviews": 60,
+        "id": 2096377,
+        "rossnetId": 0,
+        "eanNumber": ["30189355"],
+        "navigateUrl": "/Produkt/Tusze-do-rzes/Maybelline-New-York-Lash-Sensational-Sky-High-tusz-do-rzes-wydluzajacy-Plum-Twilight-7-ml,2096377,13001",
+        "name": "Lash Sensational Sky High",
+        "price": 54.99,
+        "pricePerUnit": "100 ml = 785,57 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/2096377_55_71_1782450292.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/2096377_360_350_1782450296.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/2096377_338_190_1782450295.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/2096377_1280_720_1782450306.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/2096377_340_340_1782450308.png",
+            "type": 2,
+            "alt": "Wydłużający tusz Maybelline Lash Sensational Sky High Plum Twilight. Fioletowa tubka z wyjętą różową szczoteczką.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 15,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_15_mini/2096377_55_71_1734352592.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_15_medium/2096377_360_350_1734352593.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_15_small/2096377_338_190_1734352592.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_15_large/2096377_1280_720_1734352594.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_15_square/2096377_340_340_1734352594.png",
+            "type": 0,
+            "alt": "Porównanie: oko bez tuszu (dół) i oko z tuszem Maybelline Sky High Plum Twilight (góra). Wydłużone rzęsy.",
+            "side": "Compositional3"
+          },
+          {
+            "id": 11,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_mini/2096377_55_71_1734352591.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_medium/2096377_360_350_1734352592.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_small/2096377_338_190_1734352591.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_large/2096377_1280_720_1734352594.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_square/2096377_340_340_1734352594.png",
+            "type": 0,
+            "alt": "Blondynka trzyma Maybelline Lash Sensational Sky High Plum Twilight, tusz wydłużający, na tle gwiezdnego kosmosu.",
+            "side": "Rc1"
+          },
+          {
+            "id": 12,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_mini/2096377_55_71_1734352595.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_medium/2096377_360_350_1734352596.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_small/2096377_338_190_1734352596.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_large/2096377_1280_720_1734352598.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_square/2096377_340_340_1734352598.png",
+            "type": 0,
+            "alt": "Promocyjny emblemat tuszu Maybelline Lash Sensational Sky High: \"Mascara Nr 1 w Polsce\" z pięcioma gwiazdkami na tle kosmosu.",
+            "side": "Rc2"
+          },
+          {
+            "id": 13,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_mini/2096377_55_71_1734352599.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_medium/2096377_360_350_1734352600.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_small/2096377_338_190_1734352599.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_large/2096377_1280_720_1734352602.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_square/2096377_340_340_1734352602.png",
+            "type": 0,
+            "alt": "Trzy tusze Maybelline Sky High: śliwkowy Plum Twilight, zielony Green Altitude i perłowy Space Diamond.",
+            "side": "Rc3"
+          },
+          {
+            "id": 14,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_mini/2096377_55_71_1734352593.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_medium/2096377_360_350_1734352594.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_small/2096377_338_190_1734352593.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_large/2096377_1280_720_1734352595.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_square/2096377_340_340_1734352596.png",
+            "type": 0,
+            "alt": "Maybelline Lash Sensational Sky High: różowa, wieżowa szczoteczka tuszu na tle kosmosu i Ziemi.",
+            "side": "Rc4"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/2096377_55_71_1789070760.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/2096377_360_350_1789070761.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/2096377_338_190_1789070760.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/2096377_1280_720_1789070764.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/2096377_340_340_1789070767.png",
+            "type": 1,
+            "alt": "Pionowy tusz Maybelline Lash Sensational Sky High Plum Twilight w ciemnofioletowej tubie z różowo-złotym napisem.",
+            "side": "Front"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Tusze do rzęs",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "tusz do rzęs, Space Diamond",
+        "fallbackName": "Tusz do rzęs",
+        "fallbackCaption": "Space Diamond",
+        "unit": "8 ml",
+        "averageRating": 4.38,
+        "totalReviews": 23,
+        "id": 2096376,
+        "rossnetId": 0,
+        "eanNumber": ["30189195"],
+        "navigateUrl": "/Produkt/Tusze-do-rzes/Maybelline-New-York-Lash-Sensational-Sky-High-tusz-do-rzes-Space-Diamond-8-ml,2096376,13001",
+        "name": "Lash Sensational Sky High",
+        "price": 54.99,
+        "pricePerUnit": "100 ml = 687,38 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/2096376_55_71_1785424399.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/2096376_360_350_1785424400.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/2096376_338_190_1785424400.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/2096376_1280_720_1785424404.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/2096376_340_340_1785424404.png",
+            "type": 1,
+            "alt": "Pionowy widok srebrnego tuszu Maybelline Lash Sensational Sky High z metalicznymi różowymi napisami.",
+            "side": "Front"
+          },
+          {
+            "id": 10,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_mini/2096376_55_71_1785424394.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_medium/2096376_360_350_1785424395.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_small/2096376_338_190_1785424394.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_large/2096376_1280_720_1785424396.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_square/2096376_340_340_1785424398.png",
+            "type": 0,
+            "alt": "Biała, pionowa grafika symbolizująca spektakularne wydłużenie rzęs tuszem Maybelline Lash Sensational Sky High, efekt kaskady.",
+            "side": "Promotional"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/2096376_55_71_1731495166.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/2096376_360_350_1731495167.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/2096376_338_190_1731495166.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/2096376_1280_720_1731495168.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/2096376_340_340_1731495167.png",
+            "type": 0,
+            "alt": "Srebrny tusz Maybelline Lash Sensational Sky High z brokatem, różowymi detalami, otwarty z wyciągniętą szczoteczką.",
+            "side": "Back"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Tusze do rzęs",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "tusz do rzęs, Green Altitude",
+        "fallbackName": "Tusz do rzęs",
+        "fallbackCaption": "Green Altitude",
+        "unit": "7 ml",
+        "averageRating": 4.92,
+        "totalReviews": 48,
+        "id": 2102409,
+        "rossnetId": 0,
+        "eanNumber": ["30189201"],
+        "navigateUrl": "/Produkt/Tusze-do-rzes/Maybelline-New-York-Lash-Sensational-Sky-High-tusz-do-rzes-Green-Altitude-7-ml,2102409,13001",
+        "name": "Lash Sensational Sky High",
+        "price": 54.99,
+        "pricePerUnit": "100 ml = 785,57 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/2102409_55_71_1782413026.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/2102409_360_350_1782413028.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/2102409_338_190_1782413028.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/2102409_1280_720_1782413038.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/2102409_340_340_1782413040.png",
+            "type": 2,
+            "alt": "Maybelline Lash Sensational Sky High Green Altitude wydłużająca mascara. Zielona butelka, różowe napisy, otwarta, szczoteczka.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/2102409_55_71_1789063345.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/2102409_360_350_1789063346.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/2102409_338_190_1789063345.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/2102409_1280_720_1789063350.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/2102409_340_340_1789063351.png",
+            "type": 1,
+            "alt": "Zielona maskara Maybelline Sky High Lash Sensational, buteleczka z różowymi napisami Sky High, widok z przodu.",
+            "side": "Front"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Tusze do rzęs",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "tusz do rzęs, wydłużająco-podkręcający",
+        "fallbackName": "Tusz do rzęs",
+        "fallbackCaption": "wydłużająco-podkręcający",
+        "unit": "10 ml",
+        "averageRating": 4.86,
+        "totalReviews": 23,
+        "id": 2079352,
+        "rossnetId": 0,
+        "eanNumber": ["30144224"],
+        "navigateUrl": "/Produkt/Tusze-do-rzes/Maybelline-New-York-Lash-Sensational-Firework-tusz-do-rzes-wydluzajaco-podkrecajacy-10-ml,2079352,13001",
+        "name": "Lash Sensational Firework",
+        "price": 71.99,
+        "pricePerUnit": "100 ml = 719,90 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/2079352_55_71_1782458819.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/2079352_360_350_1782458822.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/2079352_338_190_1782458821.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/2079352_1280_720_1782458832.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/2079352_340_340_1782458834.png",
+            "type": 2,
+            "alt": "Różowy tusz Maybelline Lash Sensational Firework, otwarta tubka i różowa silikonowa szczoteczka obok.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 10,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_mini/2079352_55_71_1789052741.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_medium/2079352_360_350_1789052743.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_small/2079352_338_190_1789052741.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_large/2079352_1280_720_1789052744.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_square/2079352_340_340_1789052746.png",
+            "type": 0,
+            "alt": "Czarny, zakrzywiony swatch tuszu do rzęs Maybelline Lash Sensational Firework na białym tle.",
+            "side": "Promotional"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/2079352_55_71_1789052734.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/2079352_360_350_1789052735.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/2079352_338_190_1789052735.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/2079352_1280_720_1789052738.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/2079352_340_340_1789052738.png",
+            "type": 1,
+            "alt": "Różowy tusz Maybelline Lash Sensational Firework, wydłużający, z pionowym napisem, widok z przodu.",
+            "side": "Front"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/2079352_55_71_1727386264.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/2079352_360_350_1727386265.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/2079352_338_190_1727386265.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/2079352_1280_720_1727386266.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/2079352_340_340_1727386265.png",
+            "type": 0,
+            "alt": "Różowy tusz Maybelline Lash Sensational Firework, pionowa tubka z metalicznym napisem, widok z przodu.",
+            "side": "Back"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Tusze do rzęs",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "tusz do rzęs, Electro Black",
+        "fallbackName": "Tusz do rzęs",
+        "fallbackCaption": "Electro Black",
+        "unit": "10 ml",
+        "averageRating": 4.29,
+        "totalReviews": 14,
+        "id": 2102408,
+        "rossnetId": 0,
+        "eanNumber": ["30189218"],
+        "navigateUrl": "/Produkt/Tusze-do-rzes/Maybelline-New-York-Lash-Sensational-Firework-tusz-do-rzes-Electro-Black-10-ml,2102408,13001",
+        "name": "Lash Sensational Firework",
+        "price": 71.99,
+        "pricePerUnit": "100 ml = 719,90 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/2102408_55_71_1782409151.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/2102408_360_350_1782409157.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/2102408_338_190_1782409155.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/2102408_1280_720_1782409168.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/2102408_340_340_1782409169.png",
+            "type": 2,
+            "alt": "Otwarty tusz Maybelline Lash Sensational Firework Electro Black. Różowa szczoteczka obok czarnej tubki na różowym tle.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/2102408_55_71_1789071218.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/2102408_360_350_1789071219.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/2102408_338_190_1789071218.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/2102408_1280_720_1789071223.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/2102408_340_340_1789071224.png",
+            "type": 1,
+            "alt": "Maybelline Lash Sensational Firework, intensywnie czarny tusz w pionowej tubce z różowym napisem.",
+            "side": "Front"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Tusze do rzęs",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "tusz do rzęs, Blue Mist",
+        "fallbackName": "Tusz do rzęs",
+        "fallbackCaption": "Blue Mist",
+        "unit": "7,2 ml",
+        "averageRating": 4.64,
+        "totalReviews": 28,
+        "id": 2075152,
+        "rossnetId": 0,
+        "eanNumber": ["30152229"],
+        "navigateUrl": "/Produkt/Tusze-do-rzes/Maybelline-New-York-Lash-Sensational-Sky-High-tusz-do-rzes-Blue-Mist-7-2-ml,2075152,13001",
+        "name": "Lash Sensational Sky High",
+        "price": 54.99,
+        "pricePerUnit": "100 ml = 763,75 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/2075152_55_71_1782406531.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/2075152_360_350_1782406534.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/2075152_338_190_1782406532.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/2075152_1280_720_1782406544.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/2075152_340_340_1782406546.png",
+            "type": 2,
+            "alt": "Otwarty tusz Maybelline Lash Sensational Sky High Blue Mist, niebieska tubka, różowa szczoteczka.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 10,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_mini/2075152_55_71_1789005889.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_medium/2075152_360_350_1789005890.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_small/2075152_338_190_1789005890.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_large/2075152_1280_720_1789005895.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_square/2075152_340_340_1789005896.png",
+            "type": 0,
+            "alt": "Maybelline Lash Sensational Sky High Blue Mist, zbliżenie na niebieski tusz o wydłużającej formule z włóknami.",
+            "side": "Promotional"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/2075152_55_71_1789005877.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/2075152_360_350_1789005879.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/2075152_338_190_1789005877.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/2075152_1280_720_1789005886.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/2075152_340_340_1789005887.png",
+            "type": 1,
+            "alt": "Niebieska maskara Maybelline Lash Sensational Sky High Blue Mist, pionowy widok z przodu, złote napisy.",
+            "side": "Front"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Tusze do rzęs",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "tusz do rzęs, efekt wachlarza rzęs, wodoodporny, Black",
+        "fallbackName": "Tusz do rzęs",
+        "fallbackCaption": "efekt wachlarza rzęs, wodoodporny, Black",
+        "unit": "9,4 ml",
+        "averageRating": 4.81,
+        "totalReviews": 238,
+        "id": 223537,
+        "rossnetId": 364524,
+        "eanNumber": ["3600531143657"],
+        "navigateUrl": "/Produkt/Tusze-do-rzes/Maybelline-New-York-Lash-Sensational-Full-Fan-Effect-tusz-do-rzes-efekt-wachlarza-rzes-wodoodporny,223537,13001",
+        "name": "Lash Sensational Full Fan Effect",
+        "price": 39.99,
+        "pricePerUnit": "100 ml = 425,43 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/223537_55_71_1782403766.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/223537_360_350_1782403769.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/223537_338_190_1782403768.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/223537_1280_720_1782403778.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/223537_340_340_1782403780.png",
+            "type": 2,
+            "alt": "Różowy tusz Maybelline Lash Sensational Waterproof z otwartym opakowaniem i czarną, wygiętą szczoteczką.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/223537_55_71_1788970337.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/223537_360_350_1788970338.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/223537_338_190_1788970338.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/223537_1280_720_1788970343.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/223537_340_340_1788970347.png",
+            "type": 1,
+            "alt": "Maybelline Lash Sensational, różowo-złota, stożkowa maskara, z niebieskim napisem \"WATERPROOF\", widok z przodu.",
+            "side": "Front"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Tusze do rzęs",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "Maybelline New York",
+        "brandId": 5237,
+        "caption": "baza pod tusz do rzęs",
+        "fallbackName": "Baza pod tusz",
+        "fallbackCaption": "do rzęs",
+        "unit": "7,2 ml",
+        "averageRating": 4.91,
+        "totalReviews": 28,
+        "id": 415614,
+        "rossnetId": 549889,
+        "eanNumber": ["30152434"],
+        "navigateUrl": "/Produkt/Odzywki-do-rzes/Maybelline-New-York-Lash-Sensational-Sky-High-baza-pod-tusz-do-rzes-7-2-ml,415614,13007",
+        "name": "Lash Sensational Sky High",
+        "price": 54.99,
+        "pricePerUnit": "100 ml = 763,75 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/415614_55_71_1782447118.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/415614_360_350_1782447120.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/415614_338_190_1782447120.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/415614_1280_720_1782447126.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/415614_340_340_1782447127.png",
+            "type": 2,
+            "alt": "Maybelline Sky High Lash Sensational mascara: biała tuba otwarta z różową szczoteczką i zamknięta.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 10,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_mini/415614_55_71_1788988444.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_medium/415614_360_350_1788988445.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_small/415614_338_190_1788988445.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_large/415614_1280_720_1788988448.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_10_square/415614_340_340_1788988450.png",
+            "type": 0,
+            "alt": "Czarny swatch Sky High Tinted Primer, baza pod tusz do rzęs, gęsta, mokra smuga z pionowymi liniami.",
+            "side": "Promotional"
+          },
+          {
+            "id": 5,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_mini/415614_55_71_1727375540.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_medium/415614_360_350_1727375541.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_small/415614_338_190_1727375540.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_large/415614_1280_720_1727375542.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_square/415614_340_340_1727375542.png",
+            "type": 0,
+            "alt": "Zbliżenie na różowy aplikator tuszu Sky High Tinted Primer. Elastyczna szczoteczka z gęstymi włoskami.",
+            "side": "FromSupplier"
+          },
+          {
+            "id": 11,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_mini/415614_55_71_1727375525.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_medium/415614_360_350_1727375526.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_small/415614_338_190_1727375525.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_large/415614_1280_720_1727375527.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_square/415614_340_340_1727375528.png",
+            "type": 0,
+            "alt": "Maybelline Sky High Tinted Primer (biała tuba, krok 1) i Mascara (różowa, krok 2) na różowym tle dla wzmocnionego efektu.",
+            "side": "Rc1"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/415614_55_71_1788988439.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/415614_360_350_1788988439.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/415614_338_190_1788988439.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/415614_1280_720_1788988441.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/415614_340_340_1788988442.png",
+            "type": 1,
+            "alt": "Maybelline Sky High Tinted Primer, czarna baza do rzęs, biała tuba z różowym metalicznym napisem \"HIGH SKY\".",
+            "side": "Front"
+          },
+          {
+            "id": 8,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/415614_55_71_1727375339.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/415614_360_350_1727375341.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/415614_338_190_1727375340.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/415614_1280_720_1727375342.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/415614_340_340_1727375342.png",
+            "type": 0,
+            "alt": "Close-up of eye showing lashes: top with primer, bottom with primer+Sky High mascara, for extreme length and volume.",
+            "side": "Bottom"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Makijaż i paznokcie-Oczy-Odżywki do rzęs",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      }
+    ],
+    "recommendedProducts": [],
+    "totalPages": 1,
+    "totalCount": 19,
+    "correlationId": "7045703e28db4e3b3a157067d5922d86",
+    "spellCheckHint": ""
+  }
+}

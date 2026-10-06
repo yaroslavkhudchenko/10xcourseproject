@@ -1,0 +1,45 @@
+{
+  "hits": [
+    {
+      "name": "Head & Shoulders Szampon do włosów Classic Clean, 400 ml",
+      "url": "https://www.superpharm.pl/head-shoulders-szampon-do-wlosow-classicclean-400-ml-215887",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/5/0/5000174990164-classic.jpg",
+      "in_stock": false,
+      "price": {
+        "PLN": {
+          "default": 16.49,
+          "default_formated": "16,49 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Head & Shoulders",
+      "inStoreOnly": 0,
+      "objectID": "150930"
+    }
+  ],
+  "nbHits": 1,
+  "page": 0,
+  "nbPages": 1,
+  "hitsPerPage": 10,
+  "exhaustiveNbHits": true,
+  "exhaustiveTypo": true,
+  "exhaustive": {
+    "nbHits": true,
+    "typo": true
+  },
+  "query": "Head & Shoulders Classic Clean 400 ml",
+  "params": "query=Head+%26+Shoulders+Classic+Clean+400+ml&hitsPerPage=10&analytics=false&attributesToRetrieve=name%2Cbrand%2Ccapacity%2Curl%2Cthumbnail_url%2Cprice%2Cin_stock%2CinStoreOnly&attributesToHighlight=%5B%5D&tagFilters=",
+  "processingTimeMS": 1,
+  "processingTimingsMS": {
+    "_request": {
+      "roundTrip": 51
+    },
+    "fetch": {
+      "total": 1
+    },
+    "total": 1
+  },
+  "serverTimeMS": 3
+}

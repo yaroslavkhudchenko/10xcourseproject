@@ -1,0 +1,1178 @@
+{
+  "data": {
+    "filters": {
+      "categories": [
+        {
+          "id": 12000,
+          "name": "Makijaż i paznokcie",
+          "priority": 1,
+          "productsCount": 1,
+          "children": [
+            {
+              "id": 13012,
+              "name": "Usta",
+              "priority": 4,
+              "productsCount": 1,
+              "children": [
+                {
+                  "id": 19308,
+                  "name": "Pielęgnacja ust",
+                  "priority": 5,
+                  "productsCount": 1,
+                  "children": [],
+                  "faqs": []
+                }
+              ],
+              "faqs": []
+            }
+          ],
+          "faqs": []
+        },
+        {
+          "id": 12001,
+          "name": "Pielęgnacja i higiena",
+          "priority": 2,
+          "productsCount": 4,
+          "children": [
+            {
+              "id": 13047,
+              "name": "Twarz",
+              "priority": 1,
+              "productsCount": 3,
+              "children": [
+                {
+                  "id": 13048,
+                  "name": "Pielęgnacja twarzy",
+                  "priority": 1,
+                  "productsCount": 2,
+                  "children": [
+                    {
+                      "id": 13049,
+                      "name": "Kremy do twarzy",
+                      "priority": 1,
+                      "productsCount": 2,
+                      "children": [],
+                      "faqs": []
+                    },
+                    {
+                      "id": 19372,
+                      "name": "Kosmetyki z SPF",
+                      "priority": 2,
+                      "productsCount": 1,
+                      "children": [],
+                      "faqs": []
+                    }
+                  ],
+                  "faqs": []
+                },
+                {
+                  "id": 13054,
+                  "name": "Pielęgnacja ust",
+                  "priority": 4,
+                  "productsCount": 1,
+                  "children": [
+                    {
+                      "id": 13055,
+                      "name": "Balsamy i pomadki do ust",
+                      "priority": 1,
+                      "productsCount": 1,
+                      "children": [],
+                      "faqs": []
+                    }
+                  ],
+                  "faqs": []
+                }
+              ],
+              "faqs": []
+            },
+            {
+              "id": 13093,
+              "name": "Ciało",
+              "priority": 2,
+              "productsCount": 2,
+              "children": [
+                {
+                  "id": 13094,
+                  "name": "Pielęgnacja ciała",
+                  "priority": 1,
+                  "productsCount": 1,
+                  "children": [
+                    {
+                      "id": 13096,
+                      "name": "Kremy i masła do ciała",
+                      "priority": 2,
+                      "productsCount": 1,
+                      "children": [],
+                      "faqs": []
+                    }
+                  ],
+                  "faqs": []
+                },
+                {
+                  "id": 13118,
+                  "name": "Dezodoranty i antyperspiranty",
+                  "priority": 4,
+                  "productsCount": 1,
+                  "children": [
+                    {
+                      "id": 13120,
+                      "name": "Antyperspiranty",
+                      "priority": 2,
+                      "productsCount": 1,
+                      "children": [],
+                      "faqs": []
+                    }
+                  ],
+                  "faqs": []
+                }
+              ],
+              "faqs": []
+            }
+          ],
+          "faqs": []
+        },
+        {
+          "id": 13224,
+          "name": "Mężczyzna",
+          "priority": 4,
+          "productsCount": 1,
+          "children": [
+            {
+              "id": 13225,
+              "name": "Pielęgnacja",
+              "priority": 3,
+              "productsCount": 1,
+              "children": [
+                {
+                  "id": 13226,
+                  "name": "Pielęgnacja twarzy",
+                  "priority": 1,
+                  "productsCount": 1,
+                  "children": [],
+                  "faqs": []
+                }
+              ],
+              "faqs": []
+            }
+          ],
+          "faqs": []
+        },
+        {
+          "id": 13282,
+          "name": "Dziecko",
+          "priority": 6,
+          "productsCount": 1,
+          "children": [
+            {
+              "id": 14006,
+              "name": "Przewijanie dziecka",
+              "priority": 3,
+              "productsCount": 1,
+              "children": [
+                {
+                  "id": 14013,
+                  "name": "Chusteczki i papiery nawilżane dla dzieci",
+                  "priority": 3,
+                  "productsCount": 1,
+                  "children": [],
+                  "faqs": []
+                }
+              ],
+              "faqs": []
+            }
+          ],
+          "faqs": []
+        }
+      ],
+      "price": {
+        "min": 11,
+        "max": 44
+      },
+      "facets": [
+        {
+          "key": "brands",
+          "name": "Marka",
+          "values": [
+            {
+              "key": "5500",
+              "name": "NIVEA",
+              "productCount": 4
+            },
+            {
+              "key": "10065",
+              "name": "NIVEA BABY",
+              "productCount": 1
+            }
+          ]
+        },
+        {
+          "key": "recommended",
+          "name": "Polecane",
+          "values": [
+            {
+              "key": "rossmann",
+              "name": "Tylko u nas",
+              "productCount": 1
+            }
+          ]
+        },
+        {
+          "key": "promotions",
+          "name": "Promocje",
+          "values": [
+            {
+              "key": "mega",
+              "name": "Mega",
+              "productCount": 1
+            },
+            {
+              "key": "promotion",
+              "name": "Promocja",
+              "productCount": 2
+            }
+          ]
+        },
+        {
+          "key": "przeznaczenie",
+          "name": "Przeznaczenie",
+          "type": 0,
+          "values": [
+            {
+              "key": "przeznaczenie^pachy",
+              "name": "Pachy",
+              "productCount": 1
+            },
+            {
+              "key": "przeznaczenie^strefa intymna",
+              "name": "Strefa intymna",
+              "productCount": 1
+            },
+            {
+              "key": "przeznaczenie^twarz",
+              "name": "Twarz",
+              "productCount": 1
+            },
+            {
+              "key": "przeznaczenie^twarz i ciało",
+              "name": "Twarz i ciało",
+              "productCount": 1
+            }
+          ]
+        },
+        {
+          "key": "składniki",
+          "name": "Składniki",
+          "type": 0,
+          "values": [
+            {
+              "key": "składniki^masło shea",
+              "name": "Masło shea",
+              "productCount": 1
+            },
+            {
+              "key": "składniki^olej jojoba",
+              "name": "Olej jojoba",
+              "productCount": 1
+            },
+            {
+              "key": "składniki^olej migdałowy",
+              "name": "Olej migdałowy",
+              "productCount": 1
+            },
+            {
+              "key": "składniki^witamina e",
+              "name": "Witamina e",
+              "productCount": 1
+            }
+          ]
+        },
+        {
+          "key": "dla kogo",
+          "name": "Dla kogo",
+          "type": 0,
+          "values": [
+            {
+              "key": "dla kogo^dziecko",
+              "name": "Dziecko",
+              "productCount": 1
+            },
+            {
+              "key": "dla kogo^kobieta",
+              "name": "Kobieta",
+              "productCount": 3
+            }
+          ]
+        },
+        {
+          "key": "format",
+          "name": "Format",
+          "type": 0,
+          "values": [
+            {
+              "key": "format^w słoiku",
+              "name": "W słoiku",
+              "productCount": 1
+            },
+            {
+              "key": "format^w sprayu",
+              "name": "W sprayu",
+              "productCount": 1
+            },
+            {
+              "key": "format^w sztyfcie",
+              "name": "W sztyfcie",
+              "productCount": 1
+            }
+          ]
+        },
+        {
+          "key": "właściwości",
+          "name": "Właściwości",
+          "type": 0,
+          "values": [
+            {
+              "key": "właściwości^łagodzące",
+              "name": "Łagodzące",
+              "productCount": 1
+            },
+            {
+              "key": "właściwości^nawilżające",
+              "name": "Nawilżające",
+              "productCount": 2
+            }
+          ]
+        },
+        {
+          "key": "formuła",
+          "name": "Formuła",
+          "type": 0,
+          "values": [
+            {
+              "key": "formuła^bez alkoholu etylowego",
+              "name": "Bez alkoholu etylowego",
+              "productCount": 1
+            },
+            {
+              "key": "formuła^sensitive",
+              "name": "Sensitive",
+              "productCount": 1
+            }
+          ]
+        },
+        {
+          "key": "zastosowanie",
+          "name": "Zastosowanie",
+          "type": 0,
+          "values": [
+            {
+              "key": "zastosowanie^mycie",
+              "name": "Mycie",
+              "productCount": 1
+            },
+            {
+              "key": "zastosowanie^pielęgnacja",
+              "name": "Pielęgnacja",
+              "productCount": 1
+            }
+          ]
+        },
+        {
+          "key": "wegański",
+          "name": "Wegański",
+          "type": 0,
+          "values": [
+            {
+              "key": "wegański^tak",
+              "name": "Tak",
+              "productCount": 2
+            }
+          ]
+        },
+        {
+          "key": "rodzaj skóry",
+          "name": "Rodzaj skóry",
+          "type": 0,
+          "values": [
+            {
+              "key": "rodzaj skóry^każdy rodzaj",
+              "name": "Każdy rodzaj",
+              "productCount": 1
+            }
+          ]
+        },
+        {
+          "key": "spf",
+          "name": "SPF",
+          "type": 0,
+          "values": [
+            {
+              "key": "spf^15",
+              "name": "15",
+              "productCount": 1
+            }
+          ]
+        },
+        {
+          "key": "wykończenie",
+          "name": "Wykończenie",
+          "type": 0,
+          "values": [
+            {
+              "key": "wykończenie^rozświetlające",
+              "name": "Rozświetlające",
+              "productCount": 1
+            }
+          ]
+        }
+      ]
+    },
+    "items": [
+      {
+        "brand": "NIVEA",
+        "brandId": 5500,
+        "caption": "krem do twarzy, ciała i dłoni, nawilżający",
+        "fallbackName": "Krem do twarzy, ciała i dłoni",
+        "fallbackCaption": "nawilżający",
+        "unit": "300 ml",
+        "averageRating": 4.89,
+        "totalReviews": 313,
+        "id": 26900,
+        "rossnetId": 100118,
+        "eanNumber": ["4005900009319", "4005808890637", "5900017001234"],
+        "navigateUrl": "/Produkt/Kremy-do-twarzy/NIVEA-Soft-krem-do-twarzy-ciala-i-dloni-nawilzajacy-300-ml,26900,13049",
+        "name": "Soft ",
+        "oldPrice": 26.99,
+        "price": 15.99,
+        "pricePerUnit": "100 ml = 5,33 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_mini/26900_55_71_1790938780.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_medium/26900_360_350_1790938780.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_small/26900_338_190_1790938780.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_large/26900_1280_720_1790938780.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_square/26900_340_340_1790938780.png",
+            "type": 2,
+            "alt": "NIVEA Soft intensywnie nawilżający krem do ciała i rąk 300 ml w otwartym białym słoiczku z pokrywką.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 11,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_mini/26900_55_71_1790938781.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_medium/26900_360_350_1790938782.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_small/26900_338_190_1790938782.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_large/26900_1280_720_1790938782.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_square/26900_340_340_1790938782.png",
+            "type": 0,
+            "alt": "Biały słoik kremu Nivea Soft Fresh Light Moisturising na niebieskim tle, widok z przodu, z niebieskim logo.",
+            "side": "Rc1"
+          },
+          {
+            "id": 12,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_mini/26900_55_71_1790938784.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_medium/26900_360_350_1790938784.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_small/26900_338_190_1790938784.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_large/26900_1280_720_1790938784.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_square/26900_340_340_1790938785.png",
+            "type": 0,
+            "alt": "NIVEA Soft: dwoje roześmianych młodych ludzi, tekst 'TWARZ, CIAŁO I DŁONIE', symbolizuje uczucie gładkiej skóry.",
+            "side": "Rc2"
+          },
+          {
+            "id": 13,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_mini/26900_55_71_1790938786.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_medium/26900_360_350_1790938786.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_small/26900_338_190_1790938786.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_large/26900_1280_720_1790938787.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_square/26900_340_340_1790938787.png",
+            "type": 0,
+            "alt": "NIVEA Soft krem nawilżający. Biała, lekka formuła z odświeżającym zapachem na niebieskim tle.",
+            "side": "Rc3"
+          },
+          {
+            "id": 14,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_mini/26900_55_71_1790938788.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_medium/26900_360_350_1790938788.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_small/26900_338_190_1790938788.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_large/26900_1280_720_1790938789.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_square/26900_340_340_1790938789.png",
+            "type": 0,
+            "alt": "Grafika: wegański krem NIVEA Soft. Duże krople olejku jojoba i witaminy E na niebieskim tle.",
+            "side": "Rc4"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/26900_55_71_1790938775.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/26900_360_350_1790938776.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/26900_338_190_1790938775.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/26900_1280_720_1790938776.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/26900_340_340_1790938776.png",
+            "type": 1,
+            "alt": "Biały, okrągły słoik kremu NIVEA Soft Fresh Light Moisturizing Cream, z góry. Niebieskie logo, krople wody.",
+            "side": "Front"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/26900_55_71_1790938778.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/26900_360_350_1790938778.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/26900_338_190_1790938778.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/26900_1280_720_1790938778.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/26900_340_340_1790938779.png",
+            "type": 0,
+            "alt": "Tył białego słoika NIVEA Soft 300ml z listą składników, kodem kreskowym i logo Beiersdorf.",
+            "side": "Back"
+          }
+        ],
+        "promotion": {
+          "type": "mega",
+          "redirectUrl": "/produkty?Statuses=mega"
+        },
+        "promotionFrom": "2026-10-01T00:00:00",
+        "promotionTo": "2026-10-14T00:00:00",
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Pielęgnacja i higiena-Twarz-Pielęgnacja twarzy-Kremy do twarzy",
+        "attributes": [
+          {
+            "type": "mega",
+            "redirectUrl": "/produkty?Statuses=mega"
+          },
+          {
+            "type": "seasonal",
+            "name": "DARMOWA DOSTAWA",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": [
+              {
+                "id": "23c0c635-3de3-4b73-a95a-1b598385e3b0",
+                "text": "<span style=\"font-size:11.0pt\"><span style=\"font-family:&quot;ROSSMANN Sans PL iOS&quot;\"><span style=\"font-weight:bold\">Darmowa dostawa przy zakupie produkt&oacute;w marki NIVEA oznaczonych etykietą &quot;Darmowa dostawa&quot; za min. 59 zł.</span>&nbsp;Akcja trwa w dniach 01-07.10.2026. Dotyczy dostaw do Paczkomat&reg; InPost, punkt&oacute;w DHL, Orlen Paczki lub kurierem.</span></span>"
+              }
+            ]
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "promoAll",
+            "redirectUrl": "/produkty?Statuses=promoAll"
+          },
+          {
+            "type": "promoNew",
+            "redirectUrl": "/produkty?Statuses=promoNew"
+          }
+        ],
+        "lastLowestPrice": 26.99,
+        "lastLowestPriceType": "basic",
+        "lastLowestPriceV2": 26.99,
+        "lastLowestPriceTypeV2": "basic",
+        "badges": [
+          {
+            "type": "mega",
+            "name": "MEGA!",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Discounts=mega",
+              "relative": "/produkty?Discounts=mega"
+            }
+          },
+          {
+            "type": "seasonal",
+            "name": "DARMOWA DOSTAWA",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Campaign=DARMOWA DOSTAWA&Statuses=aeabd5f8-90da-42a3-b467-f7c77937d4d9",
+              "relative": "/produkty?Campaign=DARMOWA%20DOSTAWA&Statuses=aeabd5f8-90da-42a3-b467-f7c77937d4d9"
+            },
+            "attributes": [
+              {
+                "id": "9e73cf6a-6549-469d-949e-46a2bd9882fd",
+                "text": "<span style=\"font-size:11.0pt\"><span style=\"font-family:&quot;ROSSMANN Sans PL iOS&quot;\"><span style=\"font-weight:bold\">Darmowa dostawa przy zakupie produkt&oacute;w marki NIVEA oznaczonych etykietą &quot;Darmowa dostawa&quot; za min. 59 zł.</span>&nbsp;Akcja trwa w dniach 01-07.10.2026. Dotyczy dostaw do Paczkomat&reg; InPost, punkt&oacute;w DHL, Orlen Paczki lub kurierem.</span></span>"
+              }
+            ]
+          }
+        ],
+        "isInOut": false
+      },
+      {
+        "brand": "NIVEA",
+        "brandId": 5500,
+        "caption": "antyperspirant w sprayu, dla kobiet, 100h, Ultra Soft",
+        "fallbackName": "Antyperspirant w sprayu",
+        "fallbackCaption": "dla kobiet, 100h, Ultra Soft",
+        "unit": "150 ml",
+        "averageRating": 4.74,
+        "totalReviews": 16,
+        "id": 2126586,
+        "rossnetId": 0,
+        "eanNumber": ["5900017107400"],
+        "navigateUrl": "/Produkt/Antyperspiranty/NIVEA-Derma-Control-Clinical-antyperspirant-w-sprayu-dla-kobiet-100h-Ultra-Soft-150-ml,2126586,13120",
+        "name": "Derma Control Clinical",
+        "price": 22.99,
+        "pricePerUnit": "100 ml = 15,33 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/2126586_55_71_1785562871.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/2126586_360_350_1785562872.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/2126586_338_190_1785562872.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/2126586_1280_720_1785562877.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/2126586_340_340_1785562877.png",
+            "type": 1,
+            "alt": "Biały antyperspirant NIVEA Derma Control Clinical z 2X hialuronem i witaminą E, butelka z różowym korkiem, widok frontalny.",
+            "side": "Front"
+          },
+          {
+            "id": 11,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_mini/2126586_55_71_1774511474.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_medium/2126586_360_350_1774511477.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_small/2126586_338_190_1774511474.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_large/2126586_1280_720_1774511480.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_square/2126586_340_340_1774511483.png",
+            "type": 0,
+            "alt": "Biały NIVEA Derma Control Clinical Ultra Soft antyperspirant w sprayu, 100H ochrony z kwasem hialuronowym, widok pod kątem.",
+            "side": "Rc1"
+          },
+          {
+            "id": 12,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_mini/2126586_55_71_1774511485.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_medium/2126586_360_350_1774511489.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_small/2126586_338_190_1774511487.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_large/2126586_1280_720_1774511492.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_square/2126586_340_340_1774511494.png",
+            "type": 0,
+            "alt": "Kobieta uśmiecha się, podnosząc rękę, z tekstem o 100h ochronie NIVEA przed potem i zapachem na błękitnym tle.",
+            "side": "Rc2"
+          },
+          {
+            "id": 13,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_mini/2126586_55_71_1774511496.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_medium/2126586_360_350_1774511499.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_small/2126586_338_190_1774511497.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_large/2126586_1280_720_1774511503.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_square/2126586_340_340_1774511505.png",
+            "type": 0,
+            "alt": "Niebieska grafika NIVEA Derma Control Ultra Soft: 2x kwas hialuronowy i witamina E. Ultra komfort, koi po goleniu.",
+            "side": "Rc3"
+          },
+          {
+            "id": 14,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_mini/2126586_55_71_1774511507.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_medium/2126586_360_350_1774511510.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_small/2126586_338_190_1774511508.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_large/2126586_1280_720_1774511513.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_square/2126586_340_340_1774511515.png",
+            "type": 0,
+            "alt": "NIVEA Dermo Control antyperspirant spray w białej butelce z liliową nakrętką. Cechy: 0% alkoholu, 100h ochrony.",
+            "side": "Rc4"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/2126586_55_71_1774511468.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/2126586_360_350_1774511469.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/2126586_338_190_1774511469.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/2126586_1280_720_1774511472.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/2126586_340_340_1774511471.png",
+            "type": 0,
+            "alt": "Tył antyperspirantu NIVEA Derma Control Clinical Ultra Soft 150ml, biała butelka z różową nakrętką, szczegółowy tekst.",
+            "side": "Back"
+          }
+        ],
+        "promotion": {
+          "type": "rossmann",
+          "redirectUrl": "/produkty?Statuses=rossmann"
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Pielęgnacja i higiena-Ciało-Dezodoranty i antyperspiranty-Antyperspiranty",
+        "attributes": [
+          {
+            "type": "rossmann",
+            "redirectUrl": "/produkty?Statuses=rossmann"
+          },
+          {
+            "type": "seasonal",
+            "name": "DARMOWA DOSTAWA",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": [
+              {
+                "id": "432c91c3-8d91-4167-ac85-b70b6cf8b079",
+                "text": "<span style=\"font-size:11.0pt\"><span style=\"font-family:&quot;ROSSMANN Sans PL iOS&quot;\"><span style=\"font-weight:bold\">Darmowa dostawa przy zakupie produkt&oacute;w marki NIVEA oznaczonych etykietą &quot;Darmowa dostawa&quot; za min. 59 zł.</span>&nbsp;Akcja trwa w dniach 01-07.10.2026. Dotyczy dostaw do Paczkomat&reg; InPost, punkt&oacute;w DHL, Orlen Paczki lub kurierem.</span></span>"
+              }
+            ]
+          }
+        ],
+        "badges": [
+          {
+            "type": "rossmann",
+            "name": "TYLKO U NAS",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Statuses=rossmann",
+              "relative": "/produkty?Statuses=rossmann"
+            }
+          },
+          {
+            "type": "seasonal",
+            "name": "DARMOWA DOSTAWA",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Campaign=DARMOWA DOSTAWA&Statuses=aeabd5f8-90da-42a3-b467-f7c77937d4d9",
+              "relative": "/produkty?Campaign=DARMOWA%20DOSTAWA&Statuses=aeabd5f8-90da-42a3-b467-f7c77937d4d9"
+            },
+            "attributes": [
+              {
+                "id": "821c082c-6123-4b78-9740-851975f7d681",
+                "text": "<span style=\"font-size:11.0pt\"><span style=\"font-family:&quot;ROSSMANN Sans PL iOS&quot;\"><span style=\"font-weight:bold\">Darmowa dostawa przy zakupie produkt&oacute;w marki NIVEA oznaczonych etykietą &quot;Darmowa dostawa&quot; za min. 59 zł.</span>&nbsp;Akcja trwa w dniach 01-07.10.2026. Dotyczy dostaw do Paczkomat&reg; InPost, punkt&oacute;w DHL, Orlen Paczki lub kurierem.</span></span>"
+              }
+            ]
+          }
+        ],
+        "isInOut": false
+      },
+      {
+        "brand": "NIVEA",
+        "brandId": 5500,
+        "caption": "krem uniwersalny, nawilżający, SPF15",
+        "fallbackName": "Krem uniwersalny",
+        "fallbackCaption": "nawilżający, SPF15",
+        "unit": "100 ml",
+        "averageRating": 4.83,
+        "totalReviews": 103,
+        "id": 2103263,
+        "rossnetId": 0,
+        "eanNumber": ["9005800388267"],
+        "navigateUrl": "/Produkt/Kremy-i-masla-do-ciala/NIVEA-Soft-Daily-UV-krem-uniwersalny-nawilzajacy-SPF15-100-ml,2103263,13096",
+        "name": "Soft Daily UV",
+        "price": 19.49,
+        "pricePerUnit": "100 ml = 19,49 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/2103263_55_71_1782438059.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/2103263_360_350_1782438066.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/2103263_338_190_1782438060.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/2103263_1280_720_1782438072.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/2103263_340_340_1782438078.png",
+            "type": 2,
+            "alt": "Biały okrągły słoik NIVEA Soft daily UV SPF 15, krem nawilżający z filtrem, widok z góry, niebieskie logo.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 11,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_mini/2103263_55_71_1739527897.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_medium/2103263_360_350_1739527899.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_small/2103263_338_190_1739527898.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_large/2103263_1280_720_1739527901.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_square/2103263_340_340_1739527901.png",
+            "type": 0,
+            "alt": "Krem NIVEA Soft Daily UV SPF 15 nawilżający w białym słoiczku, trzymany w dłoni na tle błękitnego nieba.",
+            "side": "Rc1"
+          },
+          {
+            "id": 12,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_mini/2103263_55_71_1739527902.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_medium/2103263_360_350_1739527903.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_small/2103263_338_190_1739527902.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_large/2103263_1280_720_1739527905.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_square/2103263_340_340_1739527905.png",
+            "type": 0,
+            "alt": "NIVEA Soft SPF 15: Zbliżenie na kobietę z kremem na skórze, błękitne niebo. Codzienna ochrona UV z filtrem.",
+            "side": "Rc2"
+          },
+          {
+            "id": 13,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_mini/2103263_55_71_1739527906.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_medium/2103263_360_350_1739527907.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_small/2103263_338_190_1739527906.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_large/2103263_1280_720_1739527908.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_square/2103263_340_340_1739527909.png",
+            "type": 0,
+            "alt": "Grafika NIVEA Soft: \"FORMUŁA Z ZAWARTOŚCIĄ: Witaminy E, Olejku Jojoba, Masła Shea\", na tle kremu i kropli wody.",
+            "side": "Rc3"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/2103263_55_71_1789085397.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/2103263_360_350_1789085399.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/2103263_338_190_1789085397.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/2103263_1280_720_1789085402.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/2103263_340_340_1789085405.png",
+            "type": 1,
+            "alt": "NIVEA Soft SPF15 krem nawilżający daily UV, biały słoik, widok z przodu, z zielonym logo vegan.",
+            "side": "Front"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/2103263_55_71_1739527880.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/2103263_360_350_1739527881.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/2103263_338_190_1739527880.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/2103263_1280_720_1739527882.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/2103263_340_340_1739527882.png",
+            "type": 0,
+            "alt": "NIVEA Soft SPF 15 nawilżający krem, białe dno opakowania z kodem kreskowym i objętością 100 ml.",
+            "side": "Back"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "name": "DARMOWA DOSTAWA",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": [
+            {
+              "id": "aaa3ac26-eda6-4194-9298-19618955deb7",
+              "text": "<span style=\"font-size:11.0pt\"><span style=\"font-family:&quot;ROSSMANN Sans PL iOS&quot;\"><span style=\"font-weight:bold\">Darmowa dostawa przy zakupie produkt&oacute;w marki NIVEA oznaczonych etykietą &quot;Darmowa dostawa&quot; za min. 59 zł.</span>&nbsp;Akcja trwa w dniach 01-07.10.2026. Dotyczy dostaw do Paczkomat&reg; InPost, punkt&oacute;w DHL, Orlen Paczki lub kurierem.</span></span>"
+            }
+          ]
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Pielęgnacja i higiena-Ciało-Pielęgnacja ciała-Kremy i masła do ciała",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "name": "DARMOWA DOSTAWA",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": [
+              {
+                "id": "67de033f-598e-4058-995a-6c717dc4b478",
+                "text": "<span style=\"font-size:11.0pt\"><span style=\"font-family:&quot;ROSSMANN Sans PL iOS&quot;\"><span style=\"font-weight:bold\">Darmowa dostawa przy zakupie produkt&oacute;w marki NIVEA oznaczonych etykietą &quot;Darmowa dostawa&quot; za min. 59 zł.</span>&nbsp;Akcja trwa w dniach 01-07.10.2026. Dotyczy dostaw do Paczkomat&reg; InPost, punkt&oacute;w DHL, Orlen Paczki lub kurierem.</span></span>"
+              }
+            ]
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          }
+        ],
+        "badges": [
+          {
+            "type": "seasonal",
+            "name": "DARMOWA DOSTAWA",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Campaign=DARMOWA DOSTAWA&Statuses=aeabd5f8-90da-42a3-b467-f7c77937d4d9",
+              "relative": "/produkty?Campaign=DARMOWA%20DOSTAWA&Statuses=aeabd5f8-90da-42a3-b467-f7c77937d4d9"
+            },
+            "attributes": [
+              {
+                "id": "c6a595a2-33eb-40b2-93a3-ae12b185e78e",
+                "text": "<span style=\"font-size:11.0pt\"><span style=\"font-family:&quot;ROSSMANN Sans PL iOS&quot;\"><span style=\"font-weight:bold\">Darmowa dostawa przy zakupie produkt&oacute;w marki NIVEA oznaczonych etykietą &quot;Darmowa dostawa&quot; za min. 59 zł.</span>&nbsp;Akcja trwa w dniach 01-07.10.2026. Dotyczy dostaw do Paczkomat&reg; InPost, punkt&oacute;w DHL, Orlen Paczki lub kurierem.</span></span>"
+              }
+            ]
+          }
+        ],
+        "isInOut": false
+      },
+      {
+        "brand": "NIVEA",
+        "brandId": 5500,
+        "caption": "balsam do ust, Soft Rose",
+        "fallbackName": "Balsam do ust",
+        "fallbackCaption": "Soft Rose",
+        "unit": "4,8 g",
+        "averageRating": 4.88,
+        "totalReviews": 66,
+        "id": 11790,
+        "rossnetId": 96563,
+        "eanNumber": ["9005800362939", "4005808369713", "4005808314935", "4005808850662"],
+        "navigateUrl": "/Produkt/Balsamy-i-pomadki-do-ust/NIVEA-balsam-do-ust-Soft-Rose-4-8-g,11790,13055",
+        "name": "",
+        "oldPrice": 13.99,
+        "price": 11.49,
+        "pricePerUnit": "100 g = 239,38 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/11790_55_71_1785551808.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/11790_360_350_1785551811.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/11790_338_190_1785551810.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/11790_1280_720_1785551822.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/11790_340_340_1785551824.png",
+            "type": 1,
+            "alt": "NIVEA Soft Rosé tinted lip balm, 24h moisture, in pink and white packaging with a rose petal graphic, front view.",
+            "side": "Front"
+          },
+          {
+            "id": 6,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_6_mini/11790_55_71_1727444697.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_6_medium/11790_360_350_1727444699.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_6_small/11790_338_190_1727444698.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_6_large/11790_1280_720_1727444700.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_6_square/11790_340_340_1727444700.png",
+            "type": 0,
+            "alt": "NIVEA pomadka do ust, pionowo, różowo-biała. Informacje o naturalnych składnikach, bez olejów, bez testów.",
+            "side": "Compositional1"
+          },
+          {
+            "id": 5,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_mini/11790_55_71_1727444701.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_medium/11790_360_350_1727444703.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_small/11790_338_190_1727444702.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_large/11790_1280_720_1727444704.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_5_square/11790_340_340_1727444704.png",
+            "type": 0,
+            "alt": "Różowa pomadka NIVEA Soft Rose, w zbliżeniu, trzymana przez dłoń przy ustach, z kwiatem róży.",
+            "side": "FromSupplier"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/11790_55_71_1727444712.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/11790_360_350_1727444713.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/11790_338_190_1727444712.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/11790_1280_720_1727444714.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/11790_340_340_1727444713.png",
+            "type": 0,
+            "alt": "Tył opakowania balsamu do ust NIVEA Soft Rosé, widoczne teksty w wielu językach, certyfikaty i skład.",
+            "side": "Back"
+          },
+          {
+            "id": 3,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_mini/11790_55_71_1727444693.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_medium/11790_360_350_1727444694.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_small/11790_338_190_1727444693.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_large/11790_1280_720_1727444696.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_square/11790_340_340_1727444696.png",
+            "type": 0,
+            "alt": "Balsam do ust NIVEA Soft Rose w różowym opakowaniu z białymi płatkami róż i kroplami na jasnoniebieskim tle.",
+            "side": "Left"
+          },
+          {
+            "id": 4,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_4_mini/11790_55_71_1727444706.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_4_medium/11790_360_350_1727444707.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_4_small/11790_338_190_1727444706.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_4_large/11790_1280_720_1727444708.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_4_square/11790_340_340_1727444709.png",
+            "type": 0,
+            "alt": "Nivea Soft Rose pomadka do ust, różowa, z masłem shea i witaminami C+E, pośród składników.",
+            "side": "Right"
+          },
+          {
+            "id": 8,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_mini/11790_55_71_1727473962.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_medium/11790_360_350_1727473963.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_small/11790_338_190_1727473962.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_large/11790_1280_720_1727473964.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_8_square/11790_340_340_1727473965.png",
+            "type": 0,
+            "alt": "NIVEA Soft Rose: Uśmiechnięta kobieta i tekst „24h nawilżenia dla gładkich ust o różanym połysku”.",
+            "side": "Bottom"
+          }
+        ],
+        "promotion": {
+          "type": "promoAll",
+          "redirectUrl": "/produkty?Statuses=promoAll"
+        },
+        "promotionFrom": "2026-10-01T00:00:00",
+        "promotionTo": "2026-10-14T00:00:00",
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Pielęgnacja i higiena-Twarz-Pielęgnacja ust-Balsamy i pomadki do ust",
+        "attributes": [
+          {
+            "type": "promoAll",
+            "redirectUrl": "/produkty?Statuses=promoAll"
+          },
+          {
+            "type": "promoNew",
+            "redirectUrl": "/produkty?Statuses=promoNew"
+          }
+        ],
+        "lastLowestPrice": 13.99,
+        "lastLowestPriceType": "basic",
+        "lastLowestPriceV2": 13.99,
+        "lastLowestPriceTypeV2": "basic",
+        "badges": [],
+        "isInOut": false
+      },
+      {
+        "brand": "NIVEA BABY",
+        "brandId": 10065,
+        "caption": "chusteczki nawilżane, wielopak",
+        "fallbackName": "Chusteczki nawilżane",
+        "fallbackCaption": "wielopak",
+        "unit": "4x57 szt.",
+        "averageRating": 4.88,
+        "totalReviews": 26,
+        "id": 2079205,
+        "rossnetId": 0,
+        "eanNumber": ["9005800374420"],
+        "navigateUrl": "/Produkt/Chusteczki-i-papiery-nawilzane-dla-dzieci/NIVEA-BABY-Soft-Cream-chusteczki-nawilzane-wielopak-4x57-szt,2079205,14013",
+        "name": "Soft & Cream ",
+        "price": 43.99,
+        "pricePerUnit": "1 szt. = 0,19 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/2079205_55_71_1783076373.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/2079205_360_350_1783076377.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/2079205_338_190_1783076374.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/2079205_1280_720_1783076380.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/2079205_340_340_1783076383.png",
+            "type": 1,
+            "alt": "NIVEA BABY Chusteczki nawilżane Soft & Cream z migdałami. Wielopak, biało-niebieskie opakowanie z królikami, widok z przodu.",
+            "side": "Front"
+          },
+          {
+            "id": 11,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_mini/2079205_55_71_1783076432.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_medium/2079205_360_350_1783076437.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_small/2079205_338_190_1783076432.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_large/2079205_1280_720_1783076439.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_square/2079205_340_340_1783076444.png",
+            "type": 0,
+            "alt": "NIVEA BABY Soft & Cream chusteczki nawilżane, białe opakowanie z zającem, widok z przodu, hasło: Pielęgnacja od 1. dnia życia.",
+            "side": "Rc1"
+          },
+          {
+            "id": 12,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_mini/2079205_55_71_1783076447.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_medium/2079205_360_350_1783076450.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_small/2079205_338_190_1783076448.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_large/2079205_1280_720_1783076455.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_square/2079205_340_340_1783076459.png",
+            "type": 0,
+            "alt": "NIVEA BABY reklama: niemowlę w pieluszce, leżące w bouncerze, tekst o delikatnej pielęgnacji od 1. dnia życia.",
+            "side": "Rc2"
+          },
+          {
+            "id": 13,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_mini/2079205_55_71_1783076463.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_medium/2079205_360_350_1783076467.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_small/2079205_338_190_1783076464.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_large/2079205_1280_720_1783076472.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_square/2079205_340_340_1783076475.png",
+            "type": 0,
+            "alt": "NIVEA BABY grafika z zającem, podkreśla: wegańska i biodegradowalna formuła, bez mikroplastiku. Pielęgnacja od 1. dnia.",
+            "side": "Rc3"
+          },
+          {
+            "id": 14,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_mini/2079205_55_71_1783076480.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_medium/2079205_360_350_1783076484.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_small/2079205_338_190_1783076481.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_large/2079205_1280_720_1783076488.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_square/2079205_340_340_1783076493.png",
+            "type": 0,
+            "alt": "NIVEA BABY chusteczki. Ręka wyciera skórę, 100% włókien roślinnych, hipoalergiczne. Zbliżenie.",
+            "side": "Rc4"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/2079205_55_71_1783076387.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/2079205_360_350_1783076390.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/2079205_338_190_1783076388.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/2079205_1280_720_1783076392.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/2079205_340_340_1783076396.png",
+            "type": 0,
+            "alt": "NIVEA BABY Soft & Cream chusteczki, multi-pak, niebiesko-różowe opakowanie z królikami, 100% włókien roślinnych.",
+            "side": "Back"
+          },
+          {
+            "id": 3,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_mini/2079205_55_71_1783076401.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_medium/2079205_360_350_1783076404.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_small/2079205_338_190_1783076402.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_large/2079205_1280_720_1783076408.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_square/2079205_340_340_1783076411.png",
+            "type": 0,
+            "alt": "Tył opakowania Nivea Baby Chusteczek Soft & Cream, niebiesko-białe, z kodem kreskowym i informacjami.",
+            "side": "Left"
+          },
+          {
+            "id": 4,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_4_mini/2079205_55_71_1783076416.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_4_medium/2079205_360_350_1783076419.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_4_small/2079205_338_190_1783076416.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_4_large/2079205_1280_720_1783076423.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_4_square/2079205_340_340_1783076428.png",
+            "type": 0,
+            "alt": "Tył opakowania chusteczek NIVEA BABY Soft & Cream z polskim i niemieckim tekstem, składnikami, na białym tle.",
+            "side": "Right"
+          }
+        ],
+        "promotion": {
+          "type": "rossne",
+          "redirectUrl": "/produkty?Statuses=rossne"
+        },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Dziecko-Przewijanie dziecka-Chusteczki i papiery nawilżane dla dzieci",
+        "attributes": [
+          {
+            "type": "rossne",
+            "redirectUrl": "/produkty?Statuses=rossne"
+          },
+          {
+            "type": "rossnePregnant",
+            "redirectUrl": "/produkty?Statuses=rossnePregnant"
+          },
+          {
+            "type": "rossneBaby",
+            "redirectUrl": "/produkty?Statuses=rossneBaby"
+          },
+          {
+            "type": "rossneChildren",
+            "redirectUrl": "/produkty?Statuses=rossneChildren"
+          },
+          {
+            "type": "rossnePregnantAndBaby",
+            "redirectUrl": "/produkty?Statuses=rossnePregnantAndBaby"
+          },
+          {
+            "type": "rossnePregnantAndJunior",
+            "redirectUrl": "/produkty?Statuses=rossnePregnantAndJunior"
+          },
+          {
+            "type": "rossnePregnantAndChildren",
+            "redirectUrl": "/produkty?Statuses=rossnePregnantAndChildren"
+          }
+        ],
+        "badges": [],
+        "isInOut": false
+      }
+    ],
+    "recommendedProducts": [],
+    "totalPages": 1,
+    "totalCount": 5,
+    "correlationId": "dab421b07bf27457e0ec2e54385269a5",
+    "spellCheckHint": ""
+  }
+}
