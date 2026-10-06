@@ -65,10 +65,17 @@ const offer = (price: number): ShopOffer => ({
   available: true,
 });
 
-/** A stored price, fetched `pricedAgo` before the page was rendered. */
+/** A stored price, fetched `pricedAgo` before the page was rendered, read without its history. */
 function stored(shop: PricedShop, shopItemId: string, price: number, pricedAgo = 20 * MINUTE): LatestPrice {
   const at = ago(pricedAgo);
-  return { shop, shopItemId, lastCheckedAt: at, lastStatus: "price", offer: { ...offer(price), pricedAt: at } };
+  return {
+    shop,
+    shopItemId,
+    lastCheckedAt: at,
+    lastStatus: "price",
+    offer: { ...offer(price), pricedAt: at },
+    history: null,
+  };
 }
 
 const rossmann = (latest: LatestPrice | null = stored("rossmann", "26900", 26.99)): PriceComparisonShop => ({
@@ -165,6 +172,7 @@ describe("price comparison state", () => {
       lastCheckedAt: CHECKED_AT,
       lastStatus: "price",
       offer: { ...offer(16.99), pricedAt: CHECKED_AT },
+      history: null,
     });
     expect(marks(state)).toEqual([
       ["natura", true],
@@ -258,11 +266,31 @@ describe("price comparison state", () => {
       lastCheckedAt: CHECKED_AT,
       lastStatus: "missing",
       offer: rowOf(before, "natura")?.latest?.offer,
+      history: null,
     });
     expect(marks(state)).toEqual([
       ["rossmann", true],
       ["natura", false],
     ]);
+  });
+
+  it("keeps a shop's price history through its answer, since the history covers only the days before today", () => {
+    // Natura's prices on two days before the page was rendered, as the page read them.
+    const history = { low: 15.99, days: ["2026-09-26", "2026-09-27"] };
+    const before = initialState({
+      shops: [rossmann(), natura({ ...stored("natura", "NV89063", 16.99), history })],
+      now: RENDERED,
+    });
+
+    const answered = run(before, start("natura"), done("natura", priceAnswer(17.49), ANSWERED_AT));
+    const gone = run(
+      before,
+      start("natura"),
+      done("natura", { kind: "missing", checkedAt: CHECKED_AT, saved: true }, ANSWERED_AT),
+    );
+
+    expect(rowOf(answered, "natura")?.latest).toMatchObject({ lastCheckedAt: CHECKED_AT, history });
+    expect(rowOf(gone, "natura")?.latest).toMatchObject({ lastStatus: "missing", history });
   });
 
   it("says the session ended, keeping every price, and clears it on the next attempt", () => {
@@ -705,6 +733,7 @@ function checkOf(
     lastCheckedAt: at,
     lastStatus: "price",
     offer: { price, regularPrice: null, lowestPrice30d, promoEndsOn: null, available, pricedAt: at },
+    history: null,
   };
 }
 

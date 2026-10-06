@@ -234,6 +234,7 @@ const felix: LatestPrice = {
   lastCheckedAt: CHECKED_AT,
   lastStatus: "price",
   offer: { ...felixOffer, pricedAt: CHECKED_AT },
+  history: null,
 };
 // Nivea Soft, last checked when Natura answered without it: the price from before stays, with its own time.
 const softRow = {
@@ -253,6 +254,7 @@ const soft: LatestPrice = {
   lastCheckedAt: CHECKED_AT,
   lastStatus: "missing",
   offer: { ...softOffer, pricedAt: PRICED_AT },
+  history: null,
 };
 // An item no check has found a price for.
 const otherRow = {
@@ -267,7 +269,7 @@ const otherRow = {
   available: null,
   priced_at: null,
 };
-const other: LatestPrice = { ...OTHER, lastCheckedAt: CHECKED_AT, lastStatus: "missing", offer: null };
+const other: LatestPrice = { ...OTHER, lastCheckedAt: CHECKED_AT, lastStatus: "missing", offer: null, history: null };
 
 describe("listLatestPrices", () => {
   it("reads every item the user can see for the list, with one unfiltered query within a time limit", async () => {

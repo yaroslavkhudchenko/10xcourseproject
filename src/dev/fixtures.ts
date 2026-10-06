@@ -136,7 +136,14 @@ function row(shop: PricedShop, latest: LatestPrice | null): PriceComparisonShop 
 function priced(shop: PricedShop, price: ShopOffer, ago: number): PriceComparisonShop {
   const at = new Date(NOW_MS - ago).toISOString();
   const shopItemId = itemIn(shop);
-  return row(shop, { shop, shopItemId, lastCheckedAt: at, lastStatus: "price", offer: { ...price, pricedAt: at } });
+  return row(shop, {
+    shop,
+    shopItemId,
+    lastCheckedAt: at,
+    lastStatus: "price",
+    offer: { ...price, pricedAt: at },
+    history: null,
+  });
 }
 
 // Both shops checked in the last 15 minutes, so opening the page asks neither again. Natura's promotion is cheaper.

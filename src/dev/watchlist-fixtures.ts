@@ -66,6 +66,7 @@ function checked(
     lastCheckedAt: before(ago),
     lastStatus: "price",
     offer: { price, regularPrice, lowestPrice30d: null, promoEndsOn, available, pricedAt: before(ago) },
+    history: null,
   };
 }
 

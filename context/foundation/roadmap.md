@@ -45,7 +45,7 @@ A shopper who buys the same drugstore products again and again checks two or thr
 | S-01 | watchlist-add-by-search       | search a product by name and size and add it to their private watchlist     | F-01          | FR-003, FR-004, FR-005, NFR private watchlists                                                                         | done        |
 | S-02 | shop-matching-first-two-shops | confirm the matching item in the first two shops once                       | S-01          | US-02, FR-006, FR-013                                                                                                  | done        |
 | S-03 | cheapest-shop-today           | see which shop is cheapest today, on the watchlist and on each product      | S-02          | US-01, FR-008, FR-010, FR-011, NFR per-shop feedback, NFR price age, NFR phone-usable, Guardrail failed prices visible | done        |
-| S-04 | good-price-judgement          | see whether today's price is a good one                                     | S-03          | FR-012                                                                                                                 | blocked     |
+| S-04 | good-price-judgement          | see whether today's price is a good one                                     | S-03          | FR-012                                                                                                                 | in-progress |
 | S-05 | hebe-in-comparison            | match their products in Hebe and see Hebe in the comparison                 | S-03, F-01    | US-02, FR-006, FR-013                                                                                                  | done        |
 | S-06 | super-pharm-in-comparison     | match their products in Super-Pharm and see it in the comparison            | S-03, F-01    | US-02, FR-006, FR-013                                                                                                  | in-progress |
 | S-07 | invite-only-access            | sign in with an owner-added account; nobody can register themselves         | —             | FR-001, FR-002                                                                                                         | done        |
@@ -154,7 +154,7 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
   - The "Dobra / cena!" and "Zwykła / cena" stickers on the verdict's hero (`Sticker.tsx` has only "Tylko 1 sklep" and "Stara cena").
   - The judgement sentence in the price-track card (`PriceTrack.tsx`), where the handoff says which comparison was made.
 - **Carry-over from `testing-critical-browser-flows`:** the list's screen-reader line for a row with two shops and no current price is "Ceny nieaktualne. Odśwież ceny lub otwórz produkt.", with no shop, price or age (`price-comparison.ts`, pinned by a unit test), while the row's visible tag shows all three. Give the line what the tag shows; until then the e2e (`price-honesty.spec.ts`, P4) asserts only that the line names no cheapest shop.
-- **Status:** blocked
+- **Status:** in-progress
 
 ### S-05: Add Hebe to the comparison
 

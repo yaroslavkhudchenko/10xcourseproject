@@ -265,6 +265,8 @@ function toLatestPrice(row: z.infer<typeof latestRowSchema>): LatestPrice {
     shopItemId: row.shop_item_id,
     lastCheckedAt: row.last_checked_at,
     lastStatus: row.last_status,
+    // The view gives each item's latest check only, without its price history.
+    history: null,
   };
   if (row.price === null) {
     return { ...latest, offer: null };

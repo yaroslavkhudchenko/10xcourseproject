@@ -3,12 +3,14 @@ import {
   ageText,
   compareShops,
   formatPrice,
+  lowestOf,
   namesOf,
   PRICE_UNREAD_TEXT,
   savingsText,
   SHOP_LABELS,
   sinceText,
   verdictOf,
+  verdictShops,
   type Comparison,
   type KnownShop,
   type LatestCheck,
@@ -236,10 +238,12 @@ function announcement(
 
 /**
  * A row once its refetch came back. Only the shop's own answer, a price or a missing item, replaces a stored price the
- * page couldn't read; an answer that came to nothing leaves the row saying the read failed.
+ * page couldn't read; an answer that came to nothing leaves the row saying the read failed. Either answer keeps the
+ * row's price history: it covers the days before today, so today's check adds nothing to it.
  */
 function settled(row: ShopRow, result: RefreshResult): ShopRow {
   const idle = { ...row, pending: false };
+  const history = row.latest?.history ?? null;
   switch (result.kind) {
     case "price": {
       const { offer, checkedAt } = result;
@@ -247,7 +251,7 @@ function settled(row: ShopRow, result: RefreshResult): ShopRow {
         ...idle,
         notice: null,
         readFailed: false,
-        latest: { lastCheckedAt: checkedAt, lastStatus: "price", offer: { ...offer, pricedAt: checkedAt } },
+        latest: { lastCheckedAt: checkedAt, lastStatus: "price", offer: { ...offer, pricedAt: checkedAt }, history },
       };
     }
     case "missing":
@@ -256,7 +260,7 @@ function settled(row: ShopRow, result: RefreshResult): ShopRow {
         ...idle,
         notice: null,
         readFailed: false,
-        latest: { lastCheckedAt: result.checkedAt, lastStatus: "missing", offer: row.latest?.offer ?? null },
+        latest: { lastCheckedAt: result.checkedAt, lastStatus: "missing", offer: row.latest?.offer ?? null, history },
       };
     case "unavailable":
       // Nothing was stored, so the last known price keeps its age.
@@ -532,30 +536,6 @@ export function trackOf(rows: readonly ShopPrice[], verdict: PriceVerdict): Trac
     low: low === null ? null : { x: x(low), label: "najniższa z 30 dni", price: formatPrice(low) },
     note: trackNote(verdict),
   };
-}
-
-/** The shops a verdict names: the cheapest shop or shops, or the one shop whose price it gives. */
-function verdictShops(verdict: PriceVerdict): PricedShop[] {
-  switch (verdict.kind) {
-    case "cheapest":
-      return verdict.shops;
-    case "only":
-    case "unavailable":
-    case "stale":
-      return [verdict.shop];
-    case "unread":
-    case "none":
-      return [];
-  }
-}
-
-/** The lowest 30-day low these shops report, or null when none does. */
-function lowestOf(rows: readonly ShopPrice[], shops: readonly PricedShop[]): number | null {
-  const lows = rows.flatMap(({ shop, latest }) => {
-    const low = latest?.offer?.lowestPrice30d ?? null;
-    return shops.includes(shop) && low !== null ? [low] : [];
-  });
-  return lows.length === 0 ? null : Math.min(...lows);
 }
 
 /** Where a label sits above its place: centred on it, ending at it (to its left) or starting at it (to its right). */
