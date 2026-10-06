@@ -2,12 +2,14 @@
 // The product search: a GET form to the list, which works without JavaScript. The header draws it on a desktop and the
 // list under its title on a phone, so a page may hold two, one hidden at each width, each with its own field id. Both
 // send `q` with the checks the search applies (searchQuerySchema: 2 to 80 characters), and both keep their own
-// "Szukaj", which the list's notice "Naciśnij „Szukaj”…" names. The field's focus outline is drawn around the whole
-// field, and its text input fills the field's height, so a tap anywhere beside the icon and the buttons lands in it.
-// "/" focuses whichever search field is on screen, unless the user is typing in a field; the header's field shows it
-// as a hint.
+// "Szukaj", which the list's notice "Naciśnij „Szukaj”…" names. The field's label and placeholder name Rossmann, the
+// only shop the search asks, so a name copied from another shop can't look like that shop's search found nothing.
+// The field's focus outline is drawn around the whole field, and its text input fills the field's height, so a tap
+// anywhere beside the icon and the buttons lands in it. "/" focuses whichever search field is on screen, unless the
+// user is typing in a field; the header's field shows it as a hint.
 import { Search } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
+import { SHOP_LABELS } from "@/lib/services/price-comparison";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -16,9 +18,10 @@ interface Props {
   /** The search text the page was opened with, or null. */
   value: string | null;
   /**
-   * The header's search on a desktop, with its "/" hint, or the list's on a phone. Both take the phone's short
-   * placeholder: between 1024 and 1279 px the header's field has room for about 186 px of text, where the handoff's
-   * longer "Szukaj produktu, np. nivea soft 300 ml" needs 267, and its label and "Szukaj" already say what it's for.
+   * The header's search on a desktop, with its "/" hint, or the list's on a phone. Both take one short placeholder,
+   * "Szukaj w Rossmannie": between 1024 and 1279 px the header's field has room for about 186 px of text, where the
+   * handoff's longer "Szukaj produktu, np. nivea soft 300 ml" needs 267, so the shop's name took the place of the
+   * example "np. nivea soft 300 ml", which the search's empty result gives instead (SearchResults).
    */
   variant: "header" | "list";
   class?: string;
@@ -26,11 +29,13 @@ interface Props {
 
 const { id, value, variant, class: className } = Astro.props;
 const header = variant === "header";
+const label = `Szukaj produktu ${SHOP_LABELS.rossmann.in}`;
+const placeholder = `Szukaj ${SHOP_LABELS.rossmann.in}`;
 ---
 
 <form method="GET" action="/watchlist" role="search" class:list={className}>
   <label for={id} class="sr-only">
-    Szukaj produktu
+    {label}
   </label>
   <div class="flex h-13 items-center gap-2.5 rounded-search border-2 border-input bg-card pr-1.5 pl-3.5 has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-offset-2 lg:pl-4">
     <Search aria-hidden="true" strokeWidth={2.2} className="size-4.5 shrink-0 text-muted-foreground" />
@@ -39,7 +44,7 @@ const header = variant === "header";
       name="q"
       type="search"
       value={value ?? ""}
-      placeholder="np. nivea soft 300 ml"
+      placeholder={placeholder}
       required
       minlength="2"
       maxlength="80"

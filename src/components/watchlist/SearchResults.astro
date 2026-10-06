@@ -2,11 +2,12 @@
 // A product search's results, each candidate in the list's row look with "Dodaj", which adds it to the list and opens
 // its page, or a "Na liście" pill for one the list already holds; the shop's spelling hint, as a link to the search it
 // names; and the search the results come from. Each "Dodaj" is described by its result's brand, size and name, so
-// screen readers tell the buttons apart.
+// screen readers tell the buttons apart. The search asks Rossmann alone, so the heading names it, and an empty result
+// says so and where the matched shops' prices are compared: a name copied from another shop finds nothing here.
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import WatchlistRow from "@/components/watchlist/WatchlistRow.astro";
-import { SHOP_LABELS } from "@/lib/services/price-comparison";
+import { MATCHED_SHOPS, namesOf, SHOP_LABELS } from "@/lib/services/price-comparison";
 import { rowProductOf } from "@/lib/services/watchlist-rows";
 import { cn } from "@/lib/utils";
 import type { ProductCandidate, WatchlistItem } from "@/types";
@@ -30,6 +31,10 @@ const { query, candidates, spellingHint, listed, path, idPrefix = "" } = Astro.p
 const keyOf = ({ source, sourceItemId }: Pick<WatchlistItem, "source" | "sourceItemId">) => `${source}:${sourceItemId}`;
 const onList = new Set(listed.map(keyOf));
 const headingId = `${idPrefix}results-heading`;
+const shop = SHOP_LABELS.rossmann;
+const noResultsHint =
+  `Wyszukiwarka pokazuje tylko produkty ${shop.of}, a ceny ${namesOf(MATCHED_SHOPS, "in")} porównasz na stronie ` +
+  `dodanego produktu. ${shop.name} może nazywać produkt inaczej: spróbuj krócej, np. „nivea soft 300 ml”.`;
 
 // Each result as its row draws it, with the ids of its brand and size and of its name, which its "Dodaj" is described
 // by: the brand and size first, when the result has them, as the row shows them above the name.
@@ -43,7 +48,7 @@ const results = candidates.map((candidate, index) => {
 
 <section aria-labelledby={headingId} class="flex flex-col gap-3">
   <h2 id={headingId} class="text-lg font-semibold">
-    Wyniki wyszukiwania
+    Wyniki z {shop.of}
   </h2>
   {spellingHint && (
     <p class="text-sm">
@@ -58,7 +63,12 @@ const results = candidates.map((candidate, index) => {
     </p>
   )}
   {candidates.length === 0 ? (
-    <p class="text-sm text-muted-foreground">Brak wyników dla „{query}”.</p>
+    <div class="flex flex-col gap-1.5 text-sm text-muted-foreground">
+      <p>
+        Brak wyników dla „{query}” {shop.in}.
+      </p>
+      <p>{noResultsHint}</p>
+    </div>
   ) : (
     <ul class="flex flex-col gap-2.5 lg:gap-3">
       {results.map(({ candidate, product, textIds, describedBy }) => (
@@ -89,7 +99,5 @@ const results = candidates.map((candidate, index) => {
       ))}
     </ul>
   )}
-  <p class="font-mono text-meta tracking-meta text-muted-foreground uppercase">
-    Wyniki z wyszukiwarki {SHOP_LABELS.rossmann.site}
-  </p>
+  <p class="font-mono text-meta tracking-meta text-muted-foreground uppercase">Wyniki z wyszukiwarki {shop.site}</p>
 </section>
