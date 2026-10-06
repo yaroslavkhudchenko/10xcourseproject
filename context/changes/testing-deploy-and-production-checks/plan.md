@@ -508,6 +508,23 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
   - The §6.6 entry's follow-up: §2's risk #2 evidence still says "nothing notices before the owner's phone check", which the alert changes for failures at the deploy.
 - **The research note's §6** said the Worker was on the Workers Free plan; the deployment record says Paid since 2026-09-27. It's corrected in place, with the date.
 
+### Rollout (the owner's sitting, 2026-10-06)
+
+- **The gate caught a missing migration on its first run.**
+  - The owner's first `db push` didn't apply `20261006183345`: `migration list --linked` showed its `Remote` column empty.
+  - So the first checked build stopped at 2/5 with `the database has no applied_migrations() (PGRST202)`, and deployed nothing.
+  - This is S-01's class of failure, now refused before the deploy instead of breaking production.
+  - After the push applied it, the retried build passed every step.
+- **Both undocumented Workers Builds behaviours hold:**
+  - build variables reach the deploy command, since the checked build read all three;
+  - a failure after `wrangler deploy` turns the build red: with `CHECK_APP_URL` at `http://127.0.0.1:4321`, the build redeployed the same version, failed its check, and its `Workers Builds` check concluded `failure`.
+- **The alert:**
+  - The `Deploy check` workflow passed on the merge's push, after waiting about a minute for the build.
+  - Run by hand, it passed after the good build and failed after the red one, and GitHub emailed the owner the failure.
+  - With `CHECK_APP_URL` restored, the next build was green.
+- **A detail for a new machine:** the owner's Supabase organisation holds two projects. The production one, created on 2026-09-23, is the CLI's link, and an older, unrelated project sits beside it. Take `CHECK_SUPABASE_URL`, its key and the link all from the production project.
+- **4.3 is ticked on the owner's merge of PR #34,** whose runbook the owner then followed step by step.
+
 ## References
 
 - Research: `context/changes/testing-deploy-and-production-checks/research.md`
@@ -540,7 +557,7 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Manual
 
-- [ ] 2.4 The owner's `db push` lands the migration, and `migration list --linked` shows its remote version
+- [x] 2.4 The owner's `db push` lands the migration, and `migration list --linked` shows its remote version — 4c49096
 
 ### Phase 3: The checked deploy and its alert
 
@@ -559,6 +576,6 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Manual
 
-- [ ] 4.3 The owner reviews the deploy plan's runbook and the CLAUDE.md and test-plan updates
-- [ ] 4.4 After the merge and the switch, a build passes the gate, deploys and passes the check, with both GitHub checks green
-- [ ] 4.5 A wrong `CHECK_APP_URL` turns a build red and the Deploy check run red; restored, the next build is green
+- [x] 4.3 The owner reviews the deploy plan's runbook and the CLAUDE.md and test-plan updates — 38f163f
+- [x] 4.4 After the merge and the switch, a build passes the gate, deploys and passes the check, with both GitHub checks green — 4c49096
+- [x] 4.5 A wrong `CHECK_APP_URL` turns a build red and the Deploy check run red; restored, the next build is green — 4c49096
