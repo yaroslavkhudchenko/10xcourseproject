@@ -667,7 +667,7 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Manual
 
-- [ ] 3.5 On the local production preview, a product with no Super-Pharm decision is matched by name or offers the best fit first, and an accepted match asks nothing on reopening
+- [x] 3.5 On the local production preview, a product with no Super-Pharm decision is matched by name or offers the best fit first, and an accepted match asks nothing on reopening — 2c6adc5
 
 ### Phase 4: Dev sample pages and the note end to end
 
@@ -690,5 +690,5 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Manual
 
-- [ ] 5.3 The owner reviews the PRD, test-plan and CLAUDE.md updates
-- [ ] 5.4 After the deploy, a product with no Super-Pharm decision shows a match by name or the best fit first, with one Super-Pharm search in the Worker log
+- [x] 5.3 The owner reviews the PRD, test-plan and CLAUDE.md updates — 4d96759
+- [x] 5.4 After the deploy, a product with no Super-Pharm decision shows a match by name or the best fit first, with one Super-Pharm search in the Worker log — 2c6adc5
