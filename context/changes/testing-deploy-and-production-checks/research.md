@@ -233,7 +233,7 @@ Every answer below is derived from the code at `2c6adc5`. There's no recorded pr
   - It would also need the app's URL and, for the sign-up check, the publishable key in GitHub.
   - Supabase calls the publishable key "Safe to expose online: … GitHub actions". `CLAUDE.md:63` keeps Supabase keys out of GitHub, and the repository's logs are public.
 - **Event Subscriptions:** Workers Builds publishes `build.succeeded` to a Queue that a consumer Worker could act on. That is new infrastructure for one check.
-- **Health Checks:** these need a zone on a Pro plan or above. The app runs on its workers.dev address, on the Workers Free plan (`deploy-plan.md:224`, `:304`).
+- **Health Checks:** these need a zone on a Pro plan or above. The app runs on its workers.dev address with no zone of its own, so they don't apply. The Worker has been on the Workers Paid plan since 2026-09-27 (`deploy-plan.md`, "Deployment record"; corrected 2026-10-06, after this research first said Free).
 
 ### 7. Ways to know production's migrations
 

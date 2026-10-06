@@ -489,6 +489,25 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
   - a SHA never on `main`, typed into `workflow_dispatch`, reads as `superseded`.
 - **3.3** ran against `2c6adc5`, without a token, with one request: "Workers Builds: drogeria-radar completed success -> pass", exit 0.
 
+### Phase 4
+
+- **Who wrote what:** the documentation agent wrote the deploy plan's changes, then stalled. `CLAUDE.md`, the test plan, the README and `infrastructure.md` were written in the session itself.
+- **The deploy plan, beyond its contract:**
+  - The section's opening says that nothing goes into GitHub's secrets and that the checks write nothing to production.
+  - A Windows note covers `npx.cmd` in PowerShell, which blocks `npx.ps1` on the owner's PC.
+  - Step 3 of the sitting says the variables go under the build's "Build Variables and Secrets", not the Worker's own variables, which the build doesn't see.
+  - Step 5 names two signs that the undocumented behaviours went the other way: a log without `deploy-checked:` lines, and a refusal at 1/5 for variables that are set.
+  - "What a red build means" names the likely cause of each failing check step.
+  - The Overview gains a line on the checked deploy.
+  - The deployment record's Workers Builds row names both deploy commands and the build secrets.
+  - The S-07 sign-up check is the `settings` group now, with the curl as the fallback.
+- **`CLAUDE.md`, beyond its contract:** the unit-suite line now includes `scripts/**/*.test.mjs`, which Phase 1 added to Vitest. The deploy line says nothing rolls back on its own.
+- **`infrastructure.md`, beyond the contract's line:** `:85` said CI holds a Cloudflare token and account id in GitHub Secrets, which CI never did and `CLAUDE.md` forbids. It now says CI holds no secrets and Workers Builds deploys with its own access.
+- **The test plan, beyond its contract:**
+  - §4's unit row names the scripts' tests.
+  - The §6.6 entry's follow-up: §2's risk #2 evidence still says "nothing notices before the owner's phone check", which the alert changes for failures at the deploy.
+- **The research note's §6** said the Worker was on the Workers Free plan; the deployment record says Paid since 2026-09-27. It's corrected in place, with the date.
+
 ## References
 
 - Research: `context/changes/testing-deploy-and-production-checks/research.md`
@@ -527,9 +546,9 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [ ] 3.1 Lint, type check and the whole unit suite pass, the verdict tests included
-- [ ] 3.2 `npm run deploy:checked` without the variables exits 1 at its first step, and `wrangler` never starts
-- [ ] 3.3 `wait-for-deploy-check` reads `2c6adc5`'s `Workers Builds` check and exits 0
+- [x] 3.1 Lint, type check and the whole unit suite pass, the verdict tests included — 9664492
+- [x] 3.2 `npm run deploy:checked` without the variables exits 1 at its first step, and `wrangler` never starts — 9664492
+- [x] 3.3 `wait-for-deploy-check` reads `2c6adc5`'s `Workers Builds` check and exits 0 — 9664492
 
 ### Phase 4: Docs and rollout
 

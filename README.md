@@ -154,17 +154,12 @@ Route protection is handled in `src/middleware.ts`. Add paths to the `PROTECTED_
 
 ## Deployment
 
-This project deploys to [Cloudflare Workers](https://workers.cloudflare.com/).
+This project deploys to [Cloudflare Workers](https://workers.cloudflare.com/) through Cloudflare Workers Builds: every merge to `main` runs `npm run build`, then `npm run deploy:checked` (`scripts/deploy-checked.mjs`). That deploy command refuses code whose database migration production lacks, runs `npx wrangler deploy`, then checks production signed out, and any failure turns the build red. It needs three build secrets in Cloudflare, `CHECK_APP_URL`, `CHECK_SUPABASE_URL` and `CHECK_SUPABASE_KEY` (the publishable key). The runbook, with what a red build means, is in `context/deployment/deploy-plan.md` ("Checked deploys (rollout Phase 4)").
 
-1. Build the project:
+In an emergency, deploy by hand from a clean, up-to-date `main`. This skips both checks, so run them by hand around it:
 
 ```bash
 npm run build
-```
-
-2. Deploy with Wrangler:
-
-```bash
 npx wrangler deploy
 ```
 
@@ -185,10 +180,13 @@ BASE_URL=http://localhost:4321 npm run smoke
 
 ## CI
 
-GitHub Actions runs two jobs on every push and PR to `main`:
+GitHub Actions runs three jobs on every push and PR to `main`, with no secrets:
 
-- **ci** — lint, `astro check` and build. No secrets required.
-- **smoke** — starts a local Supabase via the Supabase CLI, builds, serves the production preview on the Cloudflare runtime and runs `npm run smoke` against it. No secrets required.
+- **ci** — lint, the design-token contrast check, `astro check`, the unit tests and the build.
+- **smoke** — starts a local Supabase with the Supabase CLI and runs the database contract checks and the deploy gate (`scripts/check-migrations-applied.mjs`) against it. Then it builds, serves the production preview on the Cloudflare runtime, and runs `npm run smoke` and the production check (`scripts/check-production.mjs`) against it.
+- **e2e** — the Playwright suite in `tests/e2e/`, on the production preview against a local Supabase of its own.
+
+The ruleset on `main` requires all three. A separate `Deploy check` workflow runs on each push to `main`: it waits for the commit's Workers Builds check and fails when the deploy is red, so GitHub emails whoever merged.
 
 ## License
 
