@@ -659,4 +659,4 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Manual
 
-- [ ] 5.4 The owner reviews the test plan's §2, §6 and §7 updates and the `CLAUDE.md` changes
+- [x] 5.4 The owner reviews the test plan's §2, §6 and §7 updates and the `CLAUDE.md` changes
