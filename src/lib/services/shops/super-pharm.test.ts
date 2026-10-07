@@ -703,11 +703,13 @@ describe("Super-Pharm search: sizes read from names", () => {
     expect(await recordedCandidate(search, answer, id)).toMatchObject({ sizeText: null, size: null });
   });
 
-  it.each([
+  it.each<{ why: string; capacity: unknown }>([
     { why: "a multipack's", capacity: "2 x 4,8 g" },
     { why: "one without a unit", capacity: "4,8" },
+    { why: "a number", capacity: 4.8 },
+    { why: "a yes", capacity: true },
   ])(
-    "reads no size when capacity is there but doesn't parse, as $why, though the name ends with one",
+    "reads no size when capacity is there but can't be read, as $why, though the name ends with one",
     async ({ capacity }) => {
       const [candidate] = await candidatesFrom([withFields(lipBalm(), { capacity })]);
 
@@ -715,8 +717,12 @@ describe("Super-Pharm search: sizes read from names", () => {
     },
   );
 
-  it("reads the name's size when capacity is blank, as when it's missing", async () => {
-    const [candidate] = await candidatesFrom([withFields(lipBalm(), { capacity: "   " })]);
+  it.each<{ why: string; capacity: unknown }>([
+    { why: "blank", capacity: "   " },
+    { why: "null", capacity: null },
+    { why: "false", capacity: false },
+  ])("reads the name's size when capacity is $why, as the index sends an unset one", async ({ capacity }) => {
+    const [candidate] = await candidatesFrom([withFields(lipBalm(), { capacity })]);
 
     expect(candidate).toMatchObject({ sizeText: "4,8 g", size: { value: 4.8, unit: "g" } });
   });
@@ -1143,6 +1149,53 @@ const NOT_IN_THE_ANSWER = [
   },
 ];
 
+// The recorded answer without the product itself, as when Super-Pharm doesn't stock its shade or ranks it below the 10
+// hits a lookup reads: its plainer sibling, every word of whose name is the product's, lacks the shade's first word,
+// which Rossmann's caption marks with a capital letter.
+const WITHOUT_THE_PRODUCT = [
+  {
+    product: "Sky High Cosmic Black (390594)",
+    id: "390594",
+    lookup: SKY_HIGH_LOOKUP,
+    removed: "84422",
+    sibling: "67655",
+  },
+  {
+    product: "Full Fan Effect Intense Black (233593)",
+    id: "233593",
+    lookup: FULL_FAN_LOOKUP,
+    removed: "30469",
+    sibling: "30050",
+  },
+];
+
+// Made-up items of each product's size and brand, or of no brand, every word of whose names is the product's, but
+// which lack a word that tells the product apart: one its caption writes with a digit, or any of its own name's.
+const PLAINER_ITEMS = [
+  {
+    product: "Soft Daily UV 100 ml (2103263)",
+    rossmann: ROSSMANN_NIVEA_SOFT,
+    id: "2103263",
+    lacks: "its caption's „SPF15”",
+    // Nivea Soft's own name, „Nivea Soft Krem nawilżający (Pudełko)”, in 100 ml.
+    fields: { capacity: "100 ml" },
+  },
+  {
+    product: "the women's Derma Control Clinical spray 150 ml (2126586)",
+    rossmann: ROSSMANN_NIVEA_SOFT,
+    id: "2126586",
+    lacks: "every word of its name",
+    fields: { name: "Nivea Antyperspirant w sprayu", capacity: "150 ml" },
+  },
+  {
+    product: "Head & Shoulders Classic Clean 400 ml (46632)",
+    rossmann: ROSSMANN_SHAMPOOS,
+    id: "46632",
+    lacks: "every word of its name",
+    fields: { name: "Szampon do włosów przeciwłupieżowy", brand: undefined, capacity: "400 ml" },
+  },
+];
+
 describe("Super-Pharm search: the matching rule on its candidates (FR-006)", () => {
   it("accepts Nivea Soft 300 ml by its name, with no EAN: every word but the brand's and „(Pudełko)” is the product's", async () => {
     const candidates = await recordedCandidates(SOFT_SEARCH, nameSearchOne);
@@ -1200,6 +1253,28 @@ describe("Super-Pharm search: the matching rule on its candidates (FR-006)", () 
       );
     },
   );
+
+  it.each(WITHOUT_THE_PRODUCT)(
+    "accepts nothing for $product from an answer without it, though its plainer sibling $sibling is there",
+    async ({ id, lookup, removed, sibling }) => {
+      const product = await rossmannProduct(ROSSMANN_MASCARAS, id);
+      const answer = { ...lookup.answer, hits: hitsOf(lookup.answer).filter((hit) => hit.objectID !== removed) };
+      const candidates = await recordedCandidates(lookup.search, answer);
+
+      const pick = pickMatch(product, candidates);
+
+      expect(candidates.map((candidate) => candidate.shopItemId)).toContain(sibling);
+      expect(pick.kind).toBe("choose");
+    },
+  );
+
+  it.each(PLAINER_ITEMS)("never accepts an item for $product that lacks $lacks", async ({ rossmann, id, fields }) => {
+    const product = await rossmannProduct(rossmann, id);
+    const candidates = await candidatesFrom([withFields(soft(), fields)]);
+
+    expect(candidates).toHaveLength(1);
+    expect(pickMatch(product, candidates).kind).toBe("choose");
+  });
 });
 
 describe("Super-Pharm search: broken copies give a gap, never 'not found'", () => {

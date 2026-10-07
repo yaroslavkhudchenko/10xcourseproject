@@ -3,6 +3,7 @@ import {
   ageText,
   compareShops,
   formatPrice,
+  judgementOf,
   lowestOf,
   namesOf,
   PRICE_UNREAD_TEXT,
@@ -345,6 +346,15 @@ export function verdictOfState(state: PriceComparisonState): PriceVerdict {
 }
 
 /**
+ * Whether the price the state's verdict names is a good one (judgementOf), judged on the rows the verdict was made from
+ * (comparisonOf), at the verdict's time, for a product added to the list at `addedAt`.
+ */
+export function judgementOfState(state: PriceComparisonState, addedAt: string): PriceJudgement | null {
+  const verdict = verdictOfState(state);
+  return judgementOf(verdict, comparisonOf(state).rows, addedAt, verdict.at);
+}
+
+/**
  * The `window` event the product's island sends after each change of its rows, so the list beside the product can
  * bring its row's tag up to date: once it has hydrated, and as each shop's refetch starts and is answered. Its detail
  * is a PricesEventDetail.
@@ -443,7 +453,7 @@ export interface Hero {
  * The hero of a product whose prices came to `verdict`, reading every age at the time it was judged. The line below
  * the price gives how much less the cheapest price is and the age of the price it names (a tie's oldest), names the
  * matched shops that still wait for their match beside the only price, and warns that a stale price may be out of
- * date. The cheapest price wears its judgement's sticker (`judgement`, judgementOf's for the verdict), and none when
+ * date. The cheapest price wears its judgement's sticker (`judgement`, judgementOfState's), and none when
  * there's nothing to compare it with; the only price keeps "Tylko 1 sklep", and the price track's card gives its
  * judgement (trackHint).
  */
@@ -656,18 +666,15 @@ function trackNote(verdict: PriceVerdict): string | null {
 
 /**
  * What the price track's card says, beside the track or in its place: the sentence judging today's price (judgementText)
- * by its judgement (`judgement`, judgementOf's for the verdict, made from `rows`), then what the product needs done
- * (actionText), joined by a space. Null when there's nothing to say.
+ * by its judgement (`judgement`, judgementOfState's), then what the product needs done (actionText), joined by a space.
+ * Null when there's nothing to say.
  */
 export function trackHint(
   verdict: PriceVerdict,
   { undecided }: MatchContext,
   judgement: PriceJudgement | null,
-  rows: readonly ShopPrice[],
 ): string | null {
-  const texts = [judgementText(verdict, judgement, rows), actionText(verdict, undecided)].filter(
-    (text) => text !== null,
-  );
+  const texts = [judgementText(verdict, judgement), actionText(verdict, undecided)].filter((text) => text !== null);
   return texts.length === 0 ? null : texts.join(" ");
 }
 
@@ -692,26 +699,20 @@ const HISTORY_TOO_SHORT = "Historia Twoich cen jest jeszcze za krótka, więc po
 
 /**
  * The sentence judging the price the verdict names, by its judgement: where the price stands against the shops'
- * declared 30-day low, then that the product's own history is too short, unless some row's history wasn't read
- * (historyUnread), so it never speaks of a history it didn't read; where it stands against the product's own history;
- * or, with nothing to compare with, which shops declare no low, agreeing in number. Equal and above are both ordinary,
- * told apart by the price and the comparison in whole grosze. Null without a judgement.
+ * declared 30-day low, then, while the product's own history is too short, that it is; where it stands against the
+ * product's own history; or, with nothing to compare with, which shops declare no low, agreeing in number, and that the
+ * history is too short. A history that wasn't read (`unread`) is never called short. Equal and above are both
+ * ordinary, told apart by the price and the comparison in whole grosze. Null without a judgement.
  */
-function judgementText(
-  verdict: PriceVerdict,
-  judgement: PriceJudgement | null,
-  rows: readonly ShopPrice[],
-): string | null {
+function judgementText(verdict: PriceVerdict, judgement: PriceJudgement | null): string | null {
   // Only a cheapest or an only price is judged (judgementOf).
   if (judgement === null || (verdict.kind !== "cheapest" && verdict.kind !== "only")) {
     return null;
   }
   if (judgement.kind === "none") {
     const declare = judgement.shops.length > 1 ? "nie podają" : "nie podaje";
-    return (
-      `Nie ma z czym porównać: ${namesOf(judgement.shops)} ${declare} najniższej ceny z 30 dni, ` +
-      "a historia cen jest jeszcze za krótka."
-    );
+    const noLow = `Nie ma z czym porównać: ${namesOf(judgement.shops)} ${declare} najniższej ceny z 30 dni`;
+    return judgement.history === "short" ? `${noLow}, a historia cen jest jeszcze za krótka.` : `${noLow}.`;
   }
   let standing: Standing = "below";
   if (judgement.kind === "ordinary") {
@@ -722,15 +723,7 @@ function judgementText(
     return AGAINST_HISTORY[standing](low);
   }
   const sentence = AGAINST_SHOP[standing](low);
-  return historyUnread(rows) ? sentence : `${sentence} ${HISTORY_TOO_SHORT}`;
-}
-
-/**
- * Whether some row's price history wasn't read: a check that came without one, as a shop's answer does after the page
- * couldn't read the item's stored price. A row without any check has no history to read.
- */
-function historyUnread(rows: readonly ShopPrice[]): boolean {
-  return rows.some(({ latest }) => latest !== null && latest.history === null);
+  return judgement.history === "short" ? `${sentence} ${HISTORY_TOO_SHORT}` : sentence;
 }
 
 /**

@@ -441,6 +441,27 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **The owner's review (4.4)** is the merge itself. The pull request had pointed out the PRD, roadmap, `CLAUDE.md` and test-plan updates.
 - **In production (4.5):** after the deploy, the owner opened a product and confirmed the check passed on 2026-10-07.
 
+### Review fixes (2026-10-07)
+
+The implementation review (`reviews/impl-review.md`) found 4 warnings and 5 observations, and the owner took every recommendation.
+
+- **F1, F3, an unread history:** each judgement now carries a `history` state, `enough`, `short` or `unread`.
+  - While some row's history wasn't read (`historyUnread`, moved into `price-comparison.ts`), the history isn't judged by.
+  - It is never called short, in the shop sentence or in „Nie ma z czym porównać”.
+  - The test builders' default history is now an empty one, so `null` means unread there too.
+- **F2, the shop's lower low (the owner's call, 2026-10-07):** once the history is enough, the comparison is the lower of its low and the cheapest shops' declared low, and a tie is the history's. The sentence names the one used.
+  - The PRD's FR-012 update and `CLAUDE.md` say so.
+  - The sample page's `good-history` is now below both, and `history-above-shop-low` shows the shop's lower low winning.
+- **F4, forged prices:** `CLAUDE.md`'s accepted risks now say a forged price can steer the judgement for 30 days. It is to be revisited with a server-only writer before more people are invited.
+- **F5, accepted edges:**
+  - The history ends at the start of today, so a lower check earlier today doesn't count.
+  - The island keeps the history it read, so a page left open past midnight in Poland judges by a window a day old until it's reloaded.
+- **F6, an accepted edge:** a check whose promotion had ended before it was made still counts in the history, as a price the shop answered then. Leaving it out would need a new migration.
+- **F7:** `check-prices-db.mjs`' case 11 places checks 30 and 31 days in Poland before today, and only the first counts.
+- **F8:** `judgementOfState` in `price-comparison-state.ts` judges the state's verdict on its rows, and the view and the tests use it. `trackHint` no longer takes the rows.
+- **F9:** Phase 3 (`dd21054`) made the sample builders derive a history from each check (`historyOfCheck`: an orderable check from before today), unlike Phase 1's note on defaults. It affects only the sample page.
+- **New sample:** `nothing-after-failed-read` shows the sentence with nothing to compare after a failed read.
+
 ## References
 
 - Research: `context/changes/good-price-judgement/research.md`

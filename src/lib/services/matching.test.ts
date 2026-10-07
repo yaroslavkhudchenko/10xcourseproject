@@ -367,6 +367,7 @@ describe("pickMatch: by name, where EANs can't decide", () => {
   });
   const brown = skyHigh("tusz do rzęs, Brown", "30147317");
   const cosmicBlack = skyHigh("tusz do rzęs, wydłużający, Cosmic Black", "30152830");
+  const blackMascara = skyHigh("tusz do rzęs, wydłużający, Black", "30166967");
   const mascara = (shopItemId: string, name: string) => named(shopItemId, name, [], "7.2 ml", "Maybelline");
   const black = mascara("67655", "Maybelline Lash Sensational Sky High Tusz do rzęs Black");
   const cosmic = mascara("84422", "Maybelline Mascara Lash Sensational Sky High Cosmic Black");
@@ -420,22 +421,51 @@ describe("pickMatch: by name, where EANs can't decide", () => {
   });
 
   it("accepts Black for the Black mascara, whose words lack the other's „Cosmic”", () => {
-    const blackMascara = skyHigh("tusz do rzęs, wydłużający, Black", "30166967");
-
     expect(pickMatch(blackMascara, [black, cosmic])).toEqual({ kind: "accepted", candidate: black });
+  });
+
+  it("never accepts a plainer sibling for an answer without the product: Black is no Cosmic Black", () => {
+    // Every word of its name is the Cosmic Black mascara's, but it lacks „Cosmic”, which the caption marks.
+    expect(pickMatch(cosmicBlack, [black])).toEqual({ kind: "choose", options: [alike(black)] });
+  });
+
+  it("never accepts an item that has none of the words of the product's own name, only its caption's", () => {
+    const spray = named("D1", "Nivea Antyperspirant w sprayu", [], "150 ml");
+
+    expect(pickMatch(dermaControl, [spray])).toEqual({ kind: "choose", options: [alike(spray)] });
+  });
+
+  // A day cream whose strength the caption writes with a digit.
+  const dailyUv: NamedProduct = {
+    brand: "NIVEA",
+    name: "Soft Daily UV",
+    caption: "krem uniwersalny, nawilżający, SPF15",
+    eans: [],
+    size: sizeOf("100 ml"),
+  };
+
+  it.each([
+    { name: "Nivea Soft Daily UV Krem nawilżający SPF15", accepted: true },
+    // Every word is the product's, but „SPF15” is missing.
+    { name: "Nivea Soft Krem nawilżający (Pudełko)", accepted: false },
+    { name: "Nivea Soft Daily UV Krem", accepted: false },
+  ])("accepts $name for the SPF15 cream only with each word its caption marks: $accepted", ({ name, accepted }) => {
+    const item = named("U1", name, [], "100 ml");
+
+    expect(pickMatch(dailyUv, [item]).kind).toBe(accepted ? "accepted" : "choose");
   });
 
   it.each([
     {
       why: "the same words, as one item listed twice",
-      own: cosmicBlack,
+      own: blackMascara,
       items: [black, mascara("67656", "Maybelline Mascara Lash Sensational Sky High Black")],
       chosen: ["67655", "67656"],
     },
     {
       why: "each a word the other lacks, though one has more",
       own: product,
-      items: [named("NV1", "Nivea Krem nawilżający"), named("NV2", "Nivea Soft Krem uniwersalny")],
+      items: [named("NV1", "Nivea Soft nawilżający"), named("NV2", "Nivea Soft Krem uniwersalny")],
       chosen: ["NV2", "NV1"],
     },
   ])("leaves two passing items to the user when neither covers the other: $why", ({ own, items, chosen }) => {

@@ -30,6 +30,7 @@
   - the build with its 6 fonts.
 
   CI's `ci`, `smoke` and `e2e` passed on `dd21054`, `9946f57`, `eb110f9` and on the merge `822c69c`. `smoke` includes `check-prices-db.mjs`' history and bound cases, and `e2e` ran 11 tests, `good-price.spec.ts` included.
+
 - **Manual criteria:** 2.3, 4.4 and 4.5 have evidence in the plan's Rollout notes:
   - 2.3: the push, confirmed by `migration list --linked` before the merge;
   - 4.4: the review, through the merge;
@@ -58,7 +59,7 @@
   - **What it breaks:** the plan says "An unreadable row makes no judgement" (plan.md:76), and the lesson "Never read an unreadable answer as missing" applies.
   - **Tests pin it:** `disagreeing()` in price-comparison.test.ts gives a row the builder's default `history: null`, and price-comparison-state.test.ts:1149 expects the history sentence.
 - **Fix**: Make `historyBaseline` return null when any row with a check has an unread history, so the shop basis applies. Move `historyUnread` into `price-comparison.ts` and share it. Change the test builders' default to an empty history (`{ low: null, days: [] }`), and flip the tests that expect a partial basis.
-- **Decision**: PENDING
+- **Decision**: FIXED — `judgementOf` doesn't judge by a history some row didn't read (`history: "unread"`), with tests
 
 ### F2 — A history-based „Dobra cena!” can sit beside the shop's own lower 30-day low
 
@@ -81,7 +82,7 @@
   - Tradeoff: the sticker can still disagree with the shop's declared low.
   - Confidence: MED — the wording helps only if it is read.
   - Blind spot: whether a shopper at the shelf reads the nuance.
-- **Decision**: PENDING
+- **Decision**: FIXED via Fix A — the lower of the history low and the declared low (the owner's call, 2026-10-07), with tests, the PRD and `CLAUDE.md`
 
 ### F3 — „Nie ma z czym porównać…” says the history is too short when none was read
 
@@ -95,7 +96,7 @@
   - **What it breaks:** the plan says no sentence makes that claim for an unread history (plan.md:76).
   - **No test covers it:** no test has the `none` case with an unread history.
 - **Fix**: When `historyUnread(rows)`, end the sentence after the shops' part ("Nie ma z czym porównać: Rossmann nie podaje najniższej ceny z 30 dni."), and add a reducer test with a failed read and no declared low.
-- **Decision**: PENDING
+- **Decision**: FIXED — the sentence drops the history clause for an unread history, with a reducer test
 
 ### F4 — One forged price now steers every co-watcher's judgement, and the accepted risk doesn't say so
 
@@ -118,7 +119,7 @@
   - Tradeoff: a new migration and your push before the merge, and a real one-day sale is ignored.
   - Confidence: MED — it interacts with the 5-day rule.
   - Blind spot: a forger can still insert two rows.
-- **Decision**: PENDING
+- **Decision**: FIXED via Fix A — recorded in `CLAUDE.md`'s accepted risks and the plan's notes
 
 ### F5 — "od 30 dni" leaves out today's earlier checks, and the window stays as the page read it
 
@@ -131,7 +132,7 @@
   - **A page left open:** the island keeps the history it read, while the rule runs at the live time. On a page left open past Warsaw midnight, yesterday's checks don't count and the 30-day age moves on. A reload corrects it.
   - **How likely:** both need a lower price within one day, or a page left open overnight.
 - **Fix**: Record both in the plan's notes as accepted edges.
-- **Decision**: PENDING
+- **Decision**: ACCEPTED — recorded in the plan's notes as accepted edges
 
 ### F6 — The history counts checks whose promotion had already ended
 
@@ -144,7 +145,7 @@
   - **The view's filter:** it keeps only `status = 'price' and available`, so such a check can still become `history_low`.
   - **Who decides freshness:** `CLAUDE.md` says it is decided only in `price-comparison.ts`.
 - **Fix**: Add `and (o.promo_ends_on is null or o.promo_ends_on >= (o.observed_at at time zone 'Europe/Warsaw')::date)` to the view in a new migration, which you push before its merge, with a database-check row for it.
-- **Decision**: PENDING
+- **Decision**: ACCEPTED — recorded in the plan's notes; leaving such checks out needs a new migration
 
 ### F7 — Nothing tests where the 30-day window starts
 
@@ -154,7 +155,7 @@
 - **Location**: scripts/check-prices-db.mjs:434
 - **Detail**: Item H's checks are 1 to 3 days back, and the browser counts only the days the view returns. An off-by-one in `>= (today - 30)`, or the SQL literal drifting from `HISTORY_WINDOW_DAYS`, would pass every check.
 - **Fix**: Backdate one check about 30 Warsaw days and one about 31 days, by hours as item H's are, and assert that only the first counts.
-- **Decision**: PENDING
+- **Decision**: FIXED — `check-prices-db.mjs` case 11
 
 ### F8 — The judgement is put together in the view, not in a tested state function
 
@@ -168,7 +169,7 @@
   - **The risk:** `heroOf` and `trackHint` each take a judgement that must match their verdict and rows.
   - **The lesson:** "Keep decision logic in tested services".
 - **Fix**: Add `judgementOfState(state, addedAt)` beside `verdictOfState`, and use it in the view and the tests.
-- **Decision**: PENDING
+- **Decision**: FIXED — `judgementOfState`, used by the view and the tests
 
 ### F9 — The sample page's history default changed without a note
 
@@ -178,4 +179,4 @@
 - **Location**: src/dev/fixtures.ts:148
 - **Detail**: Phase 1's "Defaults" note says the sample builders set `history: null`. Phase 3 (`dd21054`) made `priced()` derive a history from its check (`historyOfCheck`: an orderable check from before today), and no note records it. It affects only the sample page.
 - **Fix**: Add one line to the plan's Phase 3 notes.
-- **Decision**: PENDING
+- **Decision**: FIXED — a note in the plan's review fixes

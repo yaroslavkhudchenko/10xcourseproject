@@ -540,7 +540,9 @@ The documents state the name check and Super-Pharm's lookup on view. The change 
 ## Performance Considerations
 
 - **What a product view costs Super-Pharm.** On the user's own navigation with no stored Super-Pharm decision, a view spends 1 Super-Pharm request, as each undecided Natura or Hebe spends 1-2. That includes the first view after „Dodaj”, which redirects to the product page (`src/pages/api/watchlist.ts:40`).
-  - **An accepted match or „nie znaleziono”** is stored, and later views ask nothing.
+  - **An accepted match or „nie znaleziono”** is stored, and later views ask no lookup.
+    - A stored Super-Pharm match is priced like any matched shop's, so the island refetches its price when it's more than 15 minutes old, 1 request.
+    - The first view spends one more when the accepted item came without a price it could store (corrected by the review, 2026-10-07).
   - **A choice** stores nothing, so each later own-navigation view asks again until the user picks or declines, as Natura's and Hebe's choices do.
 - **A product's first view** spends 3-5 shop requests: Natura 1-2, Hebe 1-2, Super-Pharm 1. Each comes with its reservation, the shops asked at once and each shop's requests one after the other.
 - **Inferred, not measured:** three shops at once stay within the six connections a Worker may hold waiting (`context/archive/2026-09-28-cheapest-shop-today/research.md:247-252`).
@@ -553,7 +555,7 @@ The documents state the name check and Super-Pharm's lookup on view. The change 
   - Super-Pharm picks and declines stay;
   - a stored Super-Pharm „nie znaleziono” stays until „Szukaj ponownie”.
 - **Undecided products are matched on their next view.** Products with no Super-Pharm decision get looked up on their next own-navigation view. Production held no Super-Pharm decision on the morning of 2026-10-06.
-- **A null caption leaves the rule the name alone.** That can only make it accept less.
+- **A null caption leaves the rule the name alone.** Fewer items pass then, but through the covering tie-break a single passing item can be accepted where the caption left a choice (corrected by the review, 2026-10-07).
 
 ## Implementation Notes
 
@@ -621,6 +623,23 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
   - `lookupInShop`'s name search runs when the EAN search finds nothing or doesn't run.
 - **The research note's `in_stock` count is the committed fixtures': 58 of 60 hits send 1.** Phase 1's "69 of 71" included the 11 hits of `context/changes/add-from-other-shops/recordings/`, which isn't committed. The sentence it replaces, "Every recorded hit has `in_stock` 1", was false.
 - **The roadmap** also marks S-06's carry-over ("unless S-06 adds one") as done by this change. S-06 stays `in-progress`: its open phone check of the tap is moot, which only its archive can record.
+
+### Review fixes (2026-10-07)
+
+The implementation review (`reviews/impl-review.md`) found 1 warning and 5 observations, and the owner took every recommendation.
+
+- **F1, plainer siblings (the owner's call, 2026-10-07):** a name now passes only when it also has a word of the product's own name and every word the caption writes with a capital letter or a digit (`markedWordsOf` in `matching.ts`).
+  - So „…Sky High Black” is no longer accepted for Cosmic Black when the answer lacks Cosmic Black, nor a generic „Antyperspirant w sprayu” for Derma Control.
+  - The 15 recorded Super-Pharm cases and the Natura and Hebe ones keep their outcomes.
+  - New tests cover the recorded answers without the right item, made-up items for three recorded products, and small cases in `matching.test.ts`.
+  - Accepted cost, in the PRD: a distinguishing word in lower case, such as „baza”, isn't required.
+- **F2, sub-line brands, deferred:** both brands' words are still set aside on both sides, so a „NIVEA MEN” item can pass for a NIVEA product.
+  - It needs a product or item without an EAN, which `add-from-other-shops` will make ordinary, so that change decides it with recorded answers.
+  - Setting aside only the product's brand words would count a brand suffix such as „New York” against right matches.
+  - It is queued in `follow-ups/review-fixes.md`.
+- **F3:** the comment on Super-Pharm's price parameters no longer says a name search's candidates are only offered to the user. Turning the query rules off for lookups would need new recordings, so it is queued too.
+- **F4, F5:** the per-view cost and the null-caption note above are corrected.
+- **F6:** `readSize` treats a `capacity` left out, `false`, `null` or blank as none, so the name's size applies. Any other value that isn't text is unreadable and gives no size. Tests pin both.
 
 ## References
 

@@ -57,8 +57,8 @@ interface CheckOptions {
 
 /**
  * An item last checked `checkedAgo` before NOW, with a price fetched `pricedAgo` before NOW (by default, then), on a
- * promotion ending on `promoEndsOn` when one is given, with the shop's 30-day low and the item's price history when
- * they're given.
+ * promotion ending on `promoEndsOn` when one is given, with the shop's 30-day low when it's given, and with the item's
+ * price history as the page read it: none, unless one is given, or null for a history that wasn't read.
  */
 function check({
   price = 16.99,
@@ -68,7 +68,7 @@ function check({
   pricedAgo = checkedAgo,
   promoEndsOn = null,
   lowestPrice30d = null,
-  history = null,
+  history = { low: null, days: [] },
 }: CheckOptions = {}): LatestCheck {
   return {
     lastCheckedAt: ago(checkedAgo),
@@ -586,7 +586,7 @@ describe("judgementOf", () => {
       row("natura", check({ price: 16.99, lowestPrice30d: low })),
     ];
 
-    expect(judgementOn(rows)).toEqual({ kind, basis: "shop", baseline: low });
+    expect(judgementOn(rows)).toEqual({ kind, basis: "shop", baseline: low, history: "short" });
   });
 
   it("reads 7,49 zł against a 30-day low of 7,49 zł as ordinary, comparing whole grosze", () => {
@@ -595,7 +595,7 @@ describe("judgementOf", () => {
       row("natura", check({ price: 7.49, lowestPrice30d: low })),
     ];
 
-    expect(judgementOn(rows(7.49))).toEqual({ kind: "ordinary", basis: "shop", baseline: 7.49 });
+    expect(judgementOn(rows(7.49))).toEqual({ kind: "ordinary", basis: "shop", baseline: 7.49, history: "short" });
     // A low a hair above 7,49 zł, as arithmetic in złoty can leave it, is still 7,49 zł.
     expect(judgementOn(rows(7.49 + 1e-9))).toMatchObject({ kind: "ordinary", basis: "shop" });
   });
@@ -608,7 +608,7 @@ describe("judgementOf", () => {
     ];
 
     // Rossmann's low alone would make 16,99 zł good, and Hebe's would be equal to it.
-    expect(judgementOn(rows)).toEqual({ kind: "ordinary", basis: "shop", baseline: 16.49 });
+    expect(judgementOn(rows)).toEqual({ kind: "ordinary", basis: "shop", baseline: 16.49, history: "short" });
   });
 
   it("has nothing to compare with when the cheapest shop declares no low and there's no history, and names it", () => {
@@ -618,13 +618,13 @@ describe("judgementOf", () => {
       row("natura", check({ price: 16.99 })),
     ];
 
-    expect(judgementOn(rows)).toEqual({ kind: "none", shops: ["natura"] });
+    expect(judgementOn(rows)).toEqual({ kind: "none", shops: ["natura"], history: "short" });
   });
 
   it("names every shop of a tie when none of them declares a low", () => {
     const rows = [row("rossmann", check({ price: 16.99 })), row("natura", check({ price: 16.99 }))];
 
-    expect(judgementOn(rows)).toEqual({ kind: "none", shops: ["rossmann", "natura"] });
+    expect(judgementOn(rows)).toEqual({ kind: "none", shops: ["rossmann", "natura"], history: "short" });
   });
 
   // Natura's 16,99 zł is below the 17,99 zł Natura declares as its 30-day low, but above the 15,99 zł its history holds:
@@ -633,8 +633,8 @@ describe("judgementOf", () => {
     row("rossmann", check({ price: 26.99 })),
     row("natura", check({ price: 16.99, lowestPrice30d: 17.99, history })),
   ];
-  const BY_SHOP: PriceJudgement = { kind: "good", basis: "shop", baseline: 17.99 };
-  const BY_HISTORY: PriceJudgement = { kind: "ordinary", basis: "history", baseline: 15.99 };
+  const BY_SHOP: PriceJudgement = { kind: "good", basis: "shop", baseline: 17.99, history: "short" };
+  const BY_HISTORY: PriceJudgement = { kind: "ordinary", basis: "history", baseline: 15.99, history: "enough" };
 
   it.each<{ when: string; addedAt: string; judgement: PriceJudgement }>([
     { when: "added 29 days and 23 hours ago", addedAt: ago(29 * DAY + 23 * HOUR), judgement: BY_SHOP },
@@ -663,30 +663,68 @@ describe("judgementOf", () => {
     expect(judgementOn([rossmann, natura(["2026-09-25", "2026-09-24", "2026-09-23"])])).toEqual(BY_HISTORY);
   });
 
-  it.each<{ low: number; kind: "good" | "ordinary" }>([
-    { low: 15.99, kind: "ordinary" },
-    { low: 16.99, kind: "ordinary" },
-    { low: 17.49, kind: "good" },
-  ])("judges the cheapest 16,99 zł against the lowest history low, $low, as $kind", ({ low, kind }) => {
-    // The lowest price of the 30 days was Rossmann's, though Natura is the cheapest today, and Natura's own 30-day low
-    // of 16,49 zł would make 16,99 zł ordinary whatever the history: the history comes first.
-    const rossmann = check({ price: 26.99, history: { low, days: DAYS_BEFORE.slice(0, 2) } });
-    const natura = check({ price: 16.99, lowestPrice30d: 16.49, history: { low: 18.99, days: DAYS_BEFORE.slice(2) } });
-    const rows = [row("rossmann", rossmann), row("natura", natura)];
+  it.each<{ low: number; declared: number | null; judgement: PriceJudgement }>([
+    {
+      low: 15.99,
+      declared: 16.49,
+      judgement: { kind: "ordinary", basis: "history", baseline: 15.99, history: "enough" },
+    },
+    // The shop declares a lower 30-day low than the history holds, so „Dobra cena!” never contradicts it.
+    { low: 17.49, declared: 16.49, judgement: { kind: "ordinary", basis: "shop", baseline: 16.49, history: "enough" } },
+    { low: 17.49, declared: 17.99, judgement: { kind: "good", basis: "history", baseline: 17.49, history: "enough" } },
+    // A tie is the history's.
+    {
+      low: 16.49,
+      declared: 16.49,
+      judgement: { kind: "ordinary", basis: "history", baseline: 16.49, history: "enough" },
+    },
+    { low: 17.49, declared: null, judgement: { kind: "good", basis: "history", baseline: 17.49, history: "enough" } },
+  ])(
+    "judges the cheapest 16,99 zł against the lower of the lowest history low, $low, and the declared $declared",
+    ({ low, declared, judgement }) => {
+      // The lowest price of the 30 days was Rossmann's, though Natura is the cheapest today.
+      const rossmann = check({ price: 26.99, history: { low, days: DAYS_BEFORE.slice(0, 2) } });
+      const natura = check({
+        price: 16.99,
+        lowestPrice30d: declared,
+        history: { low: 18.99, days: DAYS_BEFORE.slice(2) },
+      });
 
-    expect(judgementOn(rows)).toEqual({ kind, basis: "history", baseline: low });
+      expect(judgementOn([row("rossmann", rossmann), row("natura", natura)])).toEqual(judgement);
+    },
+  );
+
+  it("never judges by a history some shop's row didn't read, and calls it unread, never short", () => {
+    // Natura's history alone holds 5 days, but Rossmann's wasn't read, and it may have held a lower price.
+    const unread = row("rossmann", check({ price: 26.99, history: null }));
+    const natura = (lowestPrice30d: number | null) =>
+      row("natura", check({ price: 16.99, lowestPrice30d, history: historyOf(15.99, 5) }));
+
+    expect(judgementOn([unread, natura(17.99)])).toEqual({
+      kind: "good",
+      basis: "shop",
+      baseline: 17.99,
+      history: "unread",
+    });
+    expect(judgementOn([unread, natura(null)])).toEqual({ kind: "none", shops: ["natura"], history: "unread" });
   });
 
   it("judges the only shop's price as it judges the cheapest", () => {
     const only = (options: CheckOptions) => judgementOn([row("rossmann", check({ price: 12.99, ...options }))]);
 
-    expect(only({ lowestPrice30d: 13.49 })).toEqual({ kind: "good", basis: "shop", baseline: 13.49 });
+    expect(only({ lowestPrice30d: 13.49 })).toEqual({
+      kind: "good",
+      basis: "shop",
+      baseline: 13.49,
+      history: "short",
+    });
     expect(only({ lowestPrice30d: 13.49, history: historyOf(11.99, 5) })).toEqual({
       kind: "ordinary",
       basis: "history",
       baseline: 11.99,
+      history: "enough",
     });
-    expect(only({})).toEqual({ kind: "none", shops: ["rossmann"] });
+    expect(only({})).toEqual({ kind: "none", shops: ["rossmann"], history: "short" });
   });
 
   // Each with a 30-day low and enough history, so only its verdict keeps it from being judged.

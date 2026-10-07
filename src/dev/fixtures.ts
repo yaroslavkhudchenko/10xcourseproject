@@ -613,14 +613,14 @@ export const HANDOFF_FIXTURES: PriceFixture[] = HANDOFF_STATES.map(areaFixture);
 const LISTED_LONG_AGO: TitleProduct = { ...PRODUCT, addedAt: "2026-08-20T08:00:00.000Z" };
 
 /**
- * The judgement of today's price (FR-012), by the owner's rule of 2026-10-06, for the made-up product: below and above
- * the cheapest shop's declared 30-day low while its own history is too short, 9 days on the list; below and above that
- * history once it counts, 40 days on the list with prices on 5 different days, where the shop's low would say the
- * opposite; nothing to compare with, when the cheapest shop declares no low; the only shop's price, which keeps "Tylko
- * 1 sklep" and gives its judgement in the sentence; and the sentence once the shops answered after a failed read, which
- * doesn't say the history is too short, since none was read. The handoff's Nivea and Isana show the design's good and
- * equal prices. Where a shop declares a low above today's price, its price is a promotion's, as the shops' lows read in
- * the recordings.
+ * The judgement of today's price (FR-012), by the owner's rule of 2026-10-06 as the review of 2026-10-07 amended it, for
+ * the made-up product: below and above the cheapest shop's declared 30-day low while its own history is too short, 9
+ * days on the list; below and above that history once it counts, 40 days on the list with prices on 5 different days;
+ * below that history, but above a lower low the shop declares, which then wins; nothing to compare with, when the
+ * cheapest shop declares no low; the only shop's price, which keeps "Tylko 1 sklep" and gives its judgement in the
+ * sentence; and the sentences once the shops answered after a failed read, which never say the history is too short,
+ * since none was read. The handoff's Nivea and Isana show the design's good and equal prices. Where a shop declares a
+ * low above today's price, its price is a promotion's, as the shops' lows read in the recordings.
  */
 const JUDGEMENT_STATES: AreaState[] = [
   {
@@ -644,8 +644,23 @@ const JUDGEMENT_STATES: AreaState[] = [
   {
     code: "good-history",
     text:
-      "40 dni na liście, ceny z 5 dni: Natura najtańsza od 30 dni w Twoich sklepach, „Dobra cena!”, choć sama podaje " +
-      "niższą najniższą cenę z 30 dni",
+      "40 dni na liście, ceny z 5 dni: Natura najtańsza od 30 dni w Twoich sklepach i poniżej najniższej ceny z 30 dni, " +
+      "którą podaje: „Dobra cena!”",
+    state: island([
+      priced("rossmann", offer(19.99), 10 * MINUTE, { low: 18.99, days: ["2026-09-24", "2026-09-26", "2026-09-28"] }),
+      priced("natura", offer(16.99, { regularPrice: 19.99, lowestPrice30d: 17.99 }), 5 * MINUTE, {
+        low: 17.49,
+        days: ["2026-09-25", "2026-09-26", "2026-09-27", "2026-09-28"],
+      }),
+    ]),
+    product: LISTED_LONG_AGO,
+    natura: MATCHED,
+  },
+  {
+    code: "history-above-shop-low",
+    text:
+      "40 dni na liście, ceny z 5 dni: Natura najtańsza od 30 dni w Twoich sklepach, ale sama podaje niższą najniższą " +
+      "cenę z 30 dni, z którą porównujemy: „Zwykła cena”, a zdanie podaje tę cenę",
     state: island([
       priced("rossmann", offer(19.99), 10 * MINUTE, { low: 18.99, days: ["2026-09-24", "2026-09-26", "2026-09-28"] }),
       priced("natura", offer(16.99, { lowestPrice30d: 15.99 }), 5 * MINUTE, {
@@ -702,6 +717,18 @@ const JUDGEMENT_STATES: AreaState[] = [
     state: unread(
       ...REFETCH,
       done("rossmann", { kind: "price", offer: offer(26.99), checkedAt: CHECKED_AT, saved: true }, ANSWERED_AT),
+      done("natura", { kind: "price", offer: NATURA_PROMO, checkedAt: CHECKED_AT, saved: true }, ANSWERED_AT),
+    ),
+    natura: MATCHED,
+  },
+  {
+    code: "nothing-after-failed-read",
+    text:
+      "zapisanych cen nie udało się wczytać, a potem najtańszy Rossmann odpowiedział bez najniższej ceny z 30 dni: bez " +
+      "naklejki, a zdanie nie mówi, że historia cen jest za krótka, bo strona jej nie odczytała",
+    state: unread(
+      ...REFETCH,
+      done("rossmann", { kind: "price", offer: offer(16.99), checkedAt: CHECKED_AT, saved: true }, ANSWERED_AT),
       done("natura", { kind: "price", offer: NATURA_PROMO, checkedAt: CHECKED_AT, saved: true }, ANSWERED_AT),
     ),
     natura: MATCHED,

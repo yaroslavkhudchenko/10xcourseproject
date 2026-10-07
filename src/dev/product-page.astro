@@ -198,9 +198,10 @@ const LINK_BUTTONS = [
               sklepy z Super-Pharmem najtańszym: Obszar produktu › <code>four-cheapest</code>, jedna cena we wszystkich
               czterech: <code>four-tie</code>, a Super-Pharm bez decyzji, z przyciskiem na stronie otwartej z linku:{" "}
               <code>four-super-pharm-waiting</code>. Naklejki „Dobra cena!” i „Zwykła cena” ze zdaniem oceny w karcie
-              paska cen: Obszar produktu › <code>good-shop</code>, <code>above-shop</code>, <code>good-history</code> i{" "}
-              <code>above-history</code>, a bez porównania: <code>nothing-to-compare</code>. „Usuń z listy” na dole
-              strony, zamknięte i otwarte: Usuń z listy › <code>closed</code> i <code>open</code>.
+              paska cen: Obszar produktu › <code>good-shop</code>, <code>above-shop</code>, <code>good-history</code>,{" "}
+              <code>history-above-shop-low</code> i <code>above-history</code>, a bez porównania:{" "}
+              <code>nothing-to-compare</code> i <code>nothing-after-failed-read</code>. „Usuń z listy” na dole strony,
+              zamknięte i otwarte: Usuń z listy › <code>closed</code> i <code>open</code>.
             </dd>
           </div>
           <div class="flex flex-col gap-1">
@@ -306,8 +307,8 @@ const LINK_BUTTONS = [
           przycisk Super-Pharmu na stronie otwartej z linku obok samej ceny Rossmanna, trzy sklepy czekające na
           dopasowanie i wybór Super-Pharmu, gdy wyszukiwanie przy otwarciu produktu nie dopasowało go po nazwie. Piąta
           grupa to ocena dzisiejszej ceny: poniżej i powyżej najniższej ceny z 30 dni, którą podaje sklep, a po 30
-          dniach na liście historii Twoich cen, bez porównania, jedyna cena i zdanie po nieudanym odczycie zapisanych
-          cen. Na końcu próbki z projektu, z dobrą ceną Nivei i zwykłą ceną Isany.
+          dniach na liście historii Twoich cen albo niższej najniższej ceny sklepu, bez porównania, jedyna cena i zdania
+          po nieudanym odczycie zapisanych cen. Na końcu próbki z projektu, z dobrą ceną Nivei i zwykłą ceną Isany.
         </p>
         <p class="text-sm text-muted-foreground" style={COLUMN_STYLE}>
           Układ zależy od szerokości okna, nie ramki: od 1280 px jak w projekcie, z ceną obok tekstu w hero i kartami w

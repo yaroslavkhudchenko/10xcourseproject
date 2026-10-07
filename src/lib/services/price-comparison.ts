@@ -385,28 +385,38 @@ export function lowestOf(rows: readonly ShopPrice[], shops: readonly PricedShop[
 }
 
 /**
+ * What the product's own price history came to for a judgement (judgementOf): `enough` to judge by, too `short`, or
+ * `unread`, when some shop's history couldn't be read, so the page says nothing about its length.
+ */
+export type HistoryState = "enough" | "short" | "unread";
+
+/**
  * Whether today's price is a good one (FR-012): `good` below what it was compared with, and `ordinary` equal to it or
  * above it, each with which comparison was made (`basis`), the product's own price history or its shops' declared
  * 30-day low, and the price it was compared with (`baseline`); or `none` when there was nothing to compare with,
- * naming the shops whose price it would have judged.
+ * naming the shops whose price it would have judged. Each says what the product's own history came to (`history`).
  */
 export type PriceJudgement =
-  { kind: "good" | "ordinary"; basis: "shop" | "history"; baseline: number } | { kind: "none"; shops: KnownShop[] };
+  | { kind: "good" | "ordinary"; basis: "shop" | "history"; baseline: number; history: HistoryState }
+  | { kind: "none"; shops: KnownShop[]; history: Exclude<HistoryState, "enough"> };
 
 /**
- * Whether the price a verdict names is a good one, by the owner's rule of 2026-10-06, for a product added to the list
- * at `addedAt`, an ISO timestamp, judged at `now`, in milliseconds. Only a cheapest or an only price is judged, and
- * every other verdict gets null. `rows` are the product's priced shops the verdict was made from. The price is compared
- * with the first of these there is:
+ * Whether the price a verdict names is a good one, by the owner's rule of 2026-10-06 as the review of 2026-10-07
+ * amended it, for a product added to the list at `addedAt`, an ISO timestamp, judged at `now`, in milliseconds. Only a
+ * cheapest or an only price is judged, and every other verdict gets null. `rows` are the product's priced shops the
+ * verdict was made from. The price is compared with:
  *
- * - the product's own history, once it's enough: the product was added at least 30 days of 24 hours before `now`, the
- *   rows' histories hold prices on at least 5 different days, a day seen in several shops counting once, and some row
- *   has a history low. The comparison is the lowest history low of every row, whichever shop is the cheapest today.
- * - the lowest 30-day low the verdict's shops declare, which are every shop of a tie and no other shop
+ * - once the product's own history is enough, the lower of its low and the lowest 30-day low the verdict's shops
+ *   declare, so the judgement never contradicts a low a shop declares. The history is enough when the product was added
+ *   at least 30 days of 24 hours before `now`, the rows' histories hold prices on at least 5 different days, a day seen
+ *   in several shops counting once, and some row has a history low; its low is the lowest history low of every row,
+ *   whichever shop is the cheapest today. A tie is the history's.
+ * - until then, the lowest 30-day low the verdict's shops declare, which are every shop of a tie and no other shop
  * - nothing: `none`, naming the verdict's shops
  *
- * A price below the comparison in grosze is `good`, and one equal to it or above it is `ordinary`. A row without a
- * history adds no day and no low. An `addedAt` that doesn't parse counts as too recent, as an age that doesn't parse
+ * A price below the comparison in grosze is `good`, and one equal to it or above it is `ordinary`. While some row's
+ * history wasn't read (historyUnread), the history isn't judged by, since the shop it lacks may have had a lower price,
+ * and is `unread`, never `short`. An `addedAt` that doesn't parse counts as too recent, as an age that doesn't parse
  * counts as old.
  */
 export function judgementOf(
@@ -419,16 +429,28 @@ export function judgementOf(
     return null;
   }
   const shops = verdictShops(verdict);
-  const history = historyBaseline(rows, addedAt, now);
-  const baseline = history ?? lowestOf(rows, shops);
-  if (baseline === null) {
-    return { kind: "none", shops };
+  const declared = lowestOf(rows, shops);
+  const history = historyUnread(rows) ? "unread" : historyBaseline(rows, addedAt, now);
+  if (typeof history === "number") {
+    return declared !== null && toGrosze(declared) < toGrosze(history)
+      ? judged(verdict.price, "shop", declared, "enough")
+      : judged(verdict.price, "history", history, "enough");
   }
-  return {
-    kind: toGrosze(verdict.price) < toGrosze(baseline) ? "good" : "ordinary",
-    basis: history === null ? "shop" : "history",
-    baseline,
-  };
+  const state = history ?? "short";
+  return declared === null ? { kind: "none", shops, history: state } : judged(verdict.price, "shop", declared, state);
+}
+
+/** A price judged against `baseline`: good below it in grosze, ordinary at it or above it. */
+function judged(price: number, basis: "shop" | "history", baseline: number, history: HistoryState): PriceJudgement {
+  return { kind: toGrosze(price) < toGrosze(baseline) ? "good" : "ordinary", basis, baseline, history };
+}
+
+/**
+ * Whether some row's price history wasn't read: a check that came without one, as a shop's answer does after the page
+ * couldn't read the item's stored price (the island's historyRead). A row without any check has no history to read.
+ */
+export function historyUnread(rows: readonly ShopPrice[]): boolean {
+  return rows.some(({ latest }) => latest !== null && latest.history === null);
 }
 
 /**

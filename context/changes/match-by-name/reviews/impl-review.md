@@ -35,6 +35,7 @@ The verdict is NEEDS ATTENTION although there is one warning, because that warni
   - the build with its 6 fonts.
 
   CI's `ci`, `smoke` and `e2e` passed on `9daea22` and on the merge `2c6adc5`.
+
 - **Manual criteria:** these rows are ticked with their commits and weren't re-checked here, since the repository can't show them:
   - 2.5, 4.3 and 4.4: rendering in light and dark;
   - 3.5 and 5.4: the production lookup and the Worker log;
@@ -80,7 +81,7 @@ The verdict is NEEDS ATTENTION although there is one warning, because that warni
   - Tradeoff: wrong matches stay silent, so the shopper can be shown another product's price.
   - Confidence: HIGH — documentation only.
   - Blind spot: how often the right item is missing in production.
-- **Decision**: PENDING
+- **Decision**: FIXED via Fix A — the stricter name check (the owner's call, 2026-10-07), with tests, the PRD, `CLAUDE.md` and the research note
 
 ### F2 — A sub-line brand word such as „Men” never counts against a product of the parent brand
 
@@ -94,7 +95,7 @@ The verdict is NEEDS ATTENTION although there is one warning, because that warni
   - **Why it's latent:** today it needs a product or a Natura or Hebe item without an EAN, or a Super-Pharm record with a sub-line brand. Super-Pharm's recorded brands are plain „Nivea”. `add-from-other-shops` would make EAN-less products ordinary.
   - **Why not fix it now:** setting aside only the product's brand words would count a candidate's brand suffix such as "New York" as an extra word, and could refuse right matches.
 - **Fix**: Record it in this plan's notes for `add-from-other-shops`, which will add EAN-less products, and decide it there with recorded answers.
-- **Decision**: PENDING
+- **Decision**: ACCEPTED — deferred to `add-from-other-shops`, queued in `follow-ups/review-fixes.md`
 
 ### F3 — The name search's comment says its candidates are only offered to the user
 
@@ -108,7 +109,7 @@ The verdict is NEEDS ATTENTION although there is one warning, because that warni
   - **The risk:** a merchandising rule that hides the right shade, or pins another item, could feed F1.
   - **What the recordings show:** the 7 recorded lookups report no `rulesProcessing`.
 - **Fix**: Correct the comment. Changing the lookups to send `enableRules=false` would need new recordings, which means live requests with your OK, so leave it for a later change.
-- **Decision**: PENDING
+- **Decision**: FIXED — the comment corrected; the query rules on lookups are queued in `follow-ups/review-fixes.md`
 
 ### F4 — The plan's per-view cost says an accepted match's later views ask nothing
 
@@ -122,7 +123,7 @@ The verdict is NEEDS ATTENTION although there is one warning, because that warni
   - **The first view:** it spends one more when the accepted item had no storable price.
   - **Why it matters:** more products now carry Super-Pharm matches, so that traffic grows.
 - **Fix**: Reword it to "later views ask no lookup; the island refetches a stale Super-Pharm price as for any matched shop".
-- **Decision**: PENDING
+- **Decision**: FIXED — the plan's per-view cost corrected
 
 ### F5 — The plan's migration note says a missing caption can only make the check accept less
 
@@ -132,7 +133,7 @@ The verdict is NEEDS ATTENTION although there is one warning, because that warni
 - **Location**: context/changes/match-by-name/plan.md:556
 - **Detail**: Through the covering tie-break, fewer product words can leave a single passing candidate where the caption left a choice. For a product named "Lash Sensational Sky High Black" with the caption "tusz do rzęs, Cosmic", two candidates, "…Black" and "…Cosmic", give a choice. Without the caption, "…Black" is accepted.
 - **Fix**: Reword it: fewer items pass, but a single passing item can then be accepted where the caption left a choice.
-- **Decision**: PENDING
+- **Decision**: FIXED — the plan's migration note corrected
 
 ### F6 — A Super-Pharm size that isn't text falls back to the name's size, which the notes don't say
 
@@ -146,4 +147,4 @@ The verdict is NEEDS ATTENTION although there is one warning, because that warni
   - **The edge case:** a number is present but unreadable, which the lesson "Never read an unreadable answer as missing" says to treat as giving no size.
   - **How likely:** no recorded hit has a non-text capacity.
 - **Fix**: Treat a missing, `null`, `false` or blank `capacity` as none, so the name's size applies, and any other non-text value as unreadable, so no size, pinned by tests. Then the notes hold as written.
-- **Decision**: PENDING
+- **Decision**: FIXED — `readSize` reads a non-text `capacity` as unreadable, with tests
