@@ -1,18 +1,20 @@
 // The dev kitchen sink's fixtures (src/dev/product-page.astro): one made-up product in Rossmann, Natura, Hebe and
-// Super-Pharm, its stored prices and its decisions in the three matched shops, on a fixed clock, the design handoff's
-// three sample products, and the prices and brands its primitives are shown with. Every state is built by the product
-// page's own code, the price island's reducer, the match view builders and the matching rule, so the kitchen sink
-// shows only states the page can reach. The product area's states pair every price state with Natura in every kind,
-// beside a Hebe and a Super-Pharm the user declined: the states with Natura's price need a saved match, and the rest
-// stand with Rossmann's price alone, each beside another of Natura's kinds. Three shops' states follow: the cheapest of
-// three, Hebe's price that can't win, Hebe's decision that couldn't be read, both shops still to match, Hebe's button
-// beside Natura's open choice, and two choices at once. Then four shops' states: Super-Pharm the cheapest, one price in
-// all four, Super-Pharm's button on a page opened from a link, beside Rossmann's price alone and beside three shops
-// still to match, and Super-Pharm's first choice, which its lookup on the product's opening leaves to the user. Natura's
-// own states, Hebe's and Super-Pharm's include the choice that changes a stored decision, Natura's in each of the
-// outcomes its searches can have, and Super-Pharm's from its automatic match by name and from the user's pick, and the
-// product's removal at the page's foot is drawn closed, open and after a failure. Nothing here is real user data, and
-// nothing here asks Supabase or a shop.
+// Super-Pharm, its stored prices with their history and its decisions in the three matched shops, on a fixed clock,
+// the design handoff's four sample products, and the prices and brands its primitives are shown with. Every state is
+// built by the product page's own code, the price island's reducer, the match view builders and the matching rule, so
+// the kitchen sink shows only states the page can reach. The product area's states pair every price state with Natura
+// in every kind, beside a Hebe and a Super-Pharm the user declined: the states with Natura's price need a saved match,
+// and the rest stand with Rossmann's price alone, each beside another of Natura's kinds. Three shops' states follow:
+// the cheapest of three, Hebe's price that can't win, Hebe's decision that couldn't be read, both shops still to
+// match, Hebe's button beside Natura's open choice, and two choices at once. Then four shops' states: Super-Pharm the
+// cheapest, one price in all four, Super-Pharm's button on a page opened from a link, beside Rossmann's price alone
+// and beside three shops still to match, and Super-Pharm's first choice, which its lookup on the product's opening
+// leaves to the user. Then the judgement of today's price: below and above the shop's 30-day low and the product's own
+// history, nothing to compare with, the only shop's price, and the sentence after a failed read. Natura's own states,
+// Hebe's and Super-Pharm's include the choice that changes a stored decision, Natura's in each of the outcomes its
+// searches can have, and Super-Pharm's from its automatic match by name and from the user's pick, and the product's
+// removal at the page's foot is drawn closed, open and after a failure. Nothing here is real user data, and nothing
+// here asks Supabase or a shop.
 import { unreadableShopsOf, type MatchedShopView } from "@/components/watchlist/match-card";
 import type { PriceSize } from "@/components/watchlist/Price";
 import type { TitleProduct } from "@/components/watchlist/ProductTitle";
@@ -41,7 +43,13 @@ import {
 } from "@/lib/services/match-view";
 import { matchErrorMessage } from "@/lib/services/matches";
 import { judge, orderChoice, pickMatch } from "@/lib/services/matching";
-import { SHOP_LABELS, STALE_AFTER_MS, type MatchedShop, type PricedShop } from "@/lib/services/price-comparison";
+import {
+  polishDate,
+  SHOP_LABELS,
+  STALE_AFTER_MS,
+  type MatchedShop,
+  type PricedShop,
+} from "@/lib/services/price-comparison";
 import { parseSize } from "@/lib/services/size";
 import { removalErrorMessage, removalGoneNotice } from "@/lib/services/watchlist";
 import { shopUnavailableText } from "@/lib/shop-messages";
@@ -49,6 +57,7 @@ import type {
   CandidateOption,
   LatestPrice,
   MatchedItem,
+  PriceHistory,
   RepinnableMatch,
   ShopCandidate,
   ShopChoices,
@@ -132,11 +141,36 @@ function row(shop: PricedShop, latest: LatestPrice | null): PriceComparisonShop 
   return { shop, shopItemId: itemIn(shop), productUrl: HERE, latest };
 }
 
-/** A shop's row whose last check found `price`, `ago` before the page was rendered. */
-function priced(shop: PricedShop, price: ShopOffer, ago: number): PriceComparisonShop {
+/**
+ * A shop's row whose last check found `price`, `ago` before the page was rendered, with the item's price history as the
+ * page reads it: that check's, unless `history` gives the item's.
+ */
+function priced(
+  shop: PricedShop,
+  price: ShopOffer,
+  ago: number,
+  history: PriceHistory = historyOfCheck(price, ago),
+): PriceComparisonShop {
   const at = new Date(NOW_MS - ago).toISOString();
   const shopItemId = itemIn(shop);
-  return row(shop, { shop, shopItemId, lastCheckedAt: at, lastStatus: "price", offer: { ...price, pricedAt: at } });
+  return row(shop, {
+    shop,
+    shopItemId,
+    lastCheckedAt: at,
+    lastStatus: "price",
+    offer: { ...price, pricedAt: at },
+    history,
+  });
+}
+
+/**
+ * The price history the page reads for an item whose only check found `price`, `ago` before the page was rendered: its
+ * price on that day in Poland, when the day is before the page's and the item could be ordered online, and otherwise
+ * none, since today's checks never count.
+ */
+function historyOfCheck(price: ShopOffer, ago: number): PriceHistory {
+  const day = polishDate(NOW_MS - ago);
+  return price.available && day < polishDate(NOW_MS) ? { low: price.price, days: [day] } : { low: null, days: [] };
 }
 
 // Both shops checked in the last 15 minutes, so opening the page asks neither again. Natura's promotion is cheaper.
@@ -529,21 +563,32 @@ function sample(brand: string, name: string, caption: string, sizeText: string, 
 
 /**
  * The handoff's samples (context/changes/etykiety-redesign/design-captures/2a-*, 2b-*), as the rules judge them: Nivea
- * cheapest in Natura on a promotion, Ziaja only in Rossmann with Natura still to match, and Colgate's stale price.
- * Natura sends no promotion's end, so Nivea's promotion has none, and Ziaja's price is 3 hours old, since the
- * handoff's "wczoraj" would be stale by the 24-hour rule. Colgate's Natura was declined, so it has no Natura row. Their
- * Natura cards lead to the made-up product, whose page answers 404 before any lookup.
+ * cheapest in Natura on a promotion, below Natura's 30-day low, so a good price; Isana cheapest in Rossmann at
+ * Rossmann's 30-day low, so an ordinary one, with Natura confirmed by the user; Ziaja only in Rossmann with Natura still
+ * to match; and Colgate's stale price. Natura sends no promotion's end, so Nivea's promotion has none, and Ziaja's price
+ * is 3 hours old, since the handoff's "wczoraj" would be stale by the 24-hour rule. Colgate's Natura was declined, so it
+ * has no Natura row. Their Natura cards lead to the made-up product, whose page answers 404 before any lookup.
  */
 const HANDOFF_STATES: AreaState[] = [
   {
     code: "nivea",
-    text: "próbka z projektu: Natura najtańsza, w promocji, z najniższą ceną z 30 dni, bez końca promocji",
+    text: "próbka z projektu: Natura najtańsza, w promocji, poniżej najniższej ceny z 30 dni, bez końca promocji: „Dobra cena!”",
     state: island([
       priced("rossmann", offer(26.99), 10 * MINUTE),
       priced("natura", offer(22.99, { regularPrice: 27.99, lowestPrice30d: 23.99 }), 5 * MINUTE),
     ]),
     product: sample("Nivea", "Soft", "krem intensywnie nawilżający", "300 ml", "2026-09-20"),
     natura: MATCHED,
+  },
+  {
+    code: "isana",
+    text: "próbka z projektu: Rossmann najtańszy, w cenie równej najniższej z 30 dni: „Zwykła cena”; Natura potwierdzona przez Ciebie",
+    state: island([
+      priced("rossmann", offer(7.49, { lowestPrice30d: 7.49 }), 10 * MINUTE),
+      priced("natura", offer(8.99), 12 * MINUTE),
+    ]),
+    product: sample("Isana", "Żel pod prysznic", "Mango", "500 ml", "2026-09-21"),
+    natura: naturaOf(matchedView("natura", NATURA_ITEM, "user", PRODUCT, LINKS)),
   },
   {
     code: "ziaja",
@@ -562,6 +607,108 @@ const HANDOFF_STATES: AreaState[] = [
 ];
 
 export const HANDOFF_FIXTURES: PriceFixture[] = HANDOFF_STATES.map(areaFixture);
+
+// The made-up product as if added on 20 August, 40 days before the page was rendered: long enough on the list for its
+// own price history to count, once its shops had a price on 5 different days.
+const LISTED_LONG_AGO: TitleProduct = { ...PRODUCT, addedAt: "2026-08-20T08:00:00.000Z" };
+
+/**
+ * The judgement of today's price (FR-012), by the owner's rule of 2026-10-06, for the made-up product: below and above
+ * the cheapest shop's declared 30-day low while its own history is too short, 9 days on the list; below and above that
+ * history once it counts, 40 days on the list with prices on 5 different days, where the shop's low would say the
+ * opposite; nothing to compare with, when the cheapest shop declares no low; the only shop's price, which keeps "Tylko
+ * 1 sklep" and gives its judgement in the sentence; and the sentence once the shops answered after a failed read, which
+ * doesn't say the history is too short, since none was read. The handoff's Nivea and Isana show the design's good and
+ * equal prices. Where a shop declares a low above today's price, its price is a promotion's, as the shops' lows read in
+ * the recordings.
+ */
+const JUDGEMENT_STATES: AreaState[] = [
+  {
+    code: "good-shop",
+    text: "Natura poniżej najniższej ceny z 30 dni, którą podaje: „Dobra cena!”, a zdanie mówi, że historia cen jest za krótka",
+    state: island([
+      priced("rossmann", offer(19.99), 10 * MINUTE),
+      priced("natura", offer(16.99, { regularPrice: 19.99, lowestPrice30d: 17.99 }), 5 * MINUTE),
+    ]),
+    natura: MATCHED,
+  },
+  {
+    code: "above-shop",
+    text: "Natura powyżej najniższej ceny z 30 dni, którą podaje: „Zwykła cena”, a zdanie podaje tę najniższą cenę",
+    state: island([
+      priced("rossmann", offer(19.99), 10 * MINUTE),
+      priced("natura", offer(16.99, { lowestPrice30d: 15.99 }), 5 * MINUTE),
+    ]),
+    natura: MATCHED,
+  },
+  {
+    code: "good-history",
+    text:
+      "40 dni na liście, ceny z 5 dni: Natura najtańsza od 30 dni w Twoich sklepach, „Dobra cena!”, choć sama podaje " +
+      "niższą najniższą cenę z 30 dni",
+    state: island([
+      priced("rossmann", offer(19.99), 10 * MINUTE, { low: 18.99, days: ["2026-09-24", "2026-09-26", "2026-09-28"] }),
+      priced("natura", offer(16.99, { lowestPrice30d: 15.99 }), 5 * MINUTE, {
+        low: 17.49,
+        days: ["2026-09-25", "2026-09-26", "2026-09-27", "2026-09-28"],
+      }),
+    ]),
+    product: LISTED_LONG_AGO,
+    natura: MATCHED,
+  },
+  {
+    code: "above-history",
+    text:
+      "40 dni na liście, ceny z 5 dni: w Rossmannie było taniej w ostatnich 30 dniach, „Zwykła cena”, choć Natura jest " +
+      "poniżej najniższej ceny z 30 dni, którą podaje",
+    state: island([
+      priced("rossmann", offer(19.99), 10 * MINUTE, { low: 15.49, days: ["2026-09-24", "2026-09-25", "2026-09-26"] }),
+      priced("natura", offer(16.99, { regularPrice: 19.99, lowestPrice30d: 17.99 }), 5 * MINUTE, {
+        low: 16.99,
+        days: ["2026-09-27", "2026-09-28"],
+      }),
+    ]),
+    product: LISTED_LONG_AGO,
+    natura: MATCHED,
+  },
+  {
+    code: "nothing-to-compare",
+    text:
+      "Rossmann najtańszy, bez najniższej ceny z 30 dni, a najniższa Natury jej nie zastępuje: bez naklejki, a zdanie " +
+      "mówi dlaczego",
+    state: island([
+      priced("rossmann", offer(16.99), 10 * MINUTE),
+      priced("natura", offer(19.99, { lowestPrice30d: 18.99 }), 5 * MINUTE),
+    ]),
+    natura: MATCHED,
+  },
+  {
+    code: "only-good",
+    text: "jeden sklep, w promocji poniżej najniższej ceny z 30 dni: naklejka „Tylko 1 sklep”, a ocena w zdaniu; Natura odrzucona",
+    state: island([
+      priced(
+        "rossmann",
+        offer(22.49, { regularPrice: 26.99, lowestPrice30d: 23.49, promoEndsOn: "2026-10-05" }),
+        10 * MINUTE,
+      ),
+    ]),
+    natura: naturaOf(storedView("natura", DECLINED, PRODUCT, LINKS)),
+  },
+  {
+    code: "good-after-failed-read",
+    text:
+      "zapisanych cen nie udało się wczytać, a potem oba sklepy odpowiedziały: „Dobra cena!”, ale zdanie nie mówi o " +
+      "historii cen, której strona nie odczytała",
+    state: unread(
+      ...REFETCH,
+      done("rossmann", { kind: "price", offer: offer(26.99), checkedAt: CHECKED_AT, saved: true }, ANSWERED_AT),
+      done("natura", { kind: "price", offer: NATURA_PROMO, checkedAt: CHECKED_AT, saved: true }, ANSWERED_AT),
+    ),
+    natura: MATCHED,
+  },
+];
+
+export const JUDGEMENT_FIXTURES: PriceFixture[] = JUDGEMENT_STATES.map(areaFixture);
 
 // What Natura's search by the product's EAN returned. The only one that shares both the EAN and the size is of
 // another brand, so the matching rule leaves the choice to the user, and between them the candidates carry every flag

@@ -239,14 +239,26 @@ export interface PriceKey {
 }
 
 /**
+ * A shop item's prices in the 30 days in Poland before today, which a judgement of today's price compares with
+ * (FR-012): the lowest price it could be ordered online at, and the days, as `YYYY-MM-DD` in Poland, that a check found
+ * it orderable online, each once. No low and no days when no check did. Today's own checks never count.
+ */
+export interface PriceHistory {
+  low: number | null;
+  days: string[];
+}
+
+/**
  * A shop item's latest state: when it was last checked and what that check found, with the latest price and when it
- * was fetched. A check that found the item missing keeps the price from before; `offer` is null only when no check has
- * found a price yet. Times are ISO timestamps.
+ * was fetched, and the item's price history when the read brought one. A check that found the item missing keeps the
+ * price from before; `offer` is null only when no check has found a price yet. Times are ISO timestamps.
  */
 export type LatestPrice = PriceKey & {
   lastCheckedAt: string;
   lastStatus: "price" | "missing";
   offer: (ShopOffer & { pricedAt: string }) | null;
+  /** The item's prices in the 30 days before today; null when the read didn't bring them. */
+  history: PriceHistory | null;
 };
 
 /**

@@ -29,6 +29,8 @@ export interface SeededPrice {
   regularPrice?: number;
   /** A promotion's last day, as YYYY-MM-DD (warsawDate). */
   promoEndsOn?: string;
+  /** The shop's declared 30-day low, which the good-price judgement compares with (S-04). */
+  lowestPrice30d?: number;
   /** Whether the item can be ordered online. */
   available: boolean;
 }
@@ -200,7 +202,7 @@ export async function recordPrice(shop: ShopId, shopItemId: string, offer: Seede
     status: "price",
     price: offer.price,
     regular_price: offer.regularPrice ?? null,
-    lowest_price_30d: null,
+    lowest_price_30d: offer.lowestPrice30d ?? null,
     promo_ends_on: offer.promoEndsOn ?? null,
     available: offer.available,
   });

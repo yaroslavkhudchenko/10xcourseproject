@@ -24,6 +24,7 @@ import ProductTitle, { type TitleProduct } from "@/components/watchlist/ProductT
 import RefreshBar from "@/components/watchlist/RefreshBar";
 import ShopCard from "@/components/watchlist/ShopCard";
 import VerdictHero from "@/components/watchlist/VerdictHero";
+import { judgementOf } from "@/lib/services/price-comparison";
 import { filterHref, signInHref, type ListFilter } from "@/lib/services/watchlist-rows";
 
 interface Props {
@@ -31,7 +32,7 @@ interface Props {
   itemId: string;
   /** The filter the list is shown with, which both refresh forms post, so the page they come back to keeps it. */
   listFilter: ListFilter;
-  /** The product the title names. */
+  /** The product the title names, whose "added" date says whether its own price history counts yet. */
   product: TitleProduct;
   /**
    * The island's state: its rows, whether each refetch runs, what the last answers said, and the matched shops whose
@@ -52,19 +53,21 @@ interface Props {
 }
 
 // A product's page from its title down, as the island's state has it: the title row with "Odśwież ceny" and when the
-// prices were checked, the verdict's hero, the price track or its hint, one card per shop, in the comparison's order
-// with the cheapest marked and each matched shop's card among them, and a phone's bottom bar. What each part says comes
-// from the tested rules (price-comparison-state.ts, match-card.ts); this only maps it. It keeps no state and runs no
-// effect, so every state the reducer can reach renders the same in the island and in the kitchen sink, and a view
-// rendered without the island fetches nothing.
+// prices were checked, the verdict's hero with its sticker, the price track or its hint with the sentence judging
+// today's price, one card per shop, in the comparison's order with the cheapest marked and each matched shop's card
+// among them, and a phone's bottom bar. What each part says comes from the tested rules (price-comparison.ts,
+// price-comparison-state.ts, match-card.ts); this only maps it. It keeps no state and runs no effect, so every state
+// the reducer can reach renders the same in the island and in the kitchen sink, and a view rendered without the island
+// fetches nothing.
 export default function PriceComparisonView({ itemId, listFilter, product, state, matched, onRefresh }: Props) {
-  // The rows' order and marks, withheld while a stored price or a matched shop's decision is unread, and the verdict
-  // judged on the same rows.
+  // The rows' order and marks, withheld while a stored price or a matched shop's decision is unread, the verdict judged
+  // on the same rows, and whether its price is a good one, at the verdict's time.
   const { rows } = comparisonOf(state);
   const verdict = verdictOfState(state);
+  const judgement = judgementOf(verdict, rows, product.addedAt, verdict.at);
   const context = { undecided: undecidedShopsOf(matched) };
   const track = trackOf(rows, verdict);
-  const hint = trackHint(verdict, context);
+  const hint = trackHint(verdict, context, judgement, rows);
   const caption = checkedCaption(state.rows, state.now);
   // One refetch per shop at a time: a second tap while one runs would only spend the cap again.
   const refreshing = state.rows.some((row) => row.pending);
@@ -116,7 +119,7 @@ export default function PriceComparisonView({ itemId, listFilter, product, state
         refreshing={refreshing}
         onRefresh={onRefresh}
       />
-      <VerdictHero hero={heroOf(verdict, context)} />
+      <VerdictHero hero={heroOf(verdict, context, judgement)} />
       <PriceTrack track={track} hint={hint} />
       <ShopGrid rows={rows} now={state.now} cards={matched.map((shop) => matchCardOf(shop))} />
       {/* Screen readers hear each shop's answer here, outside the cards, so nothing live moves when they re-sort. */}

@@ -3,31 +3,36 @@ import {
   ageText,
   compareShops,
   formatPrice,
+  lowestOf,
   namesOf,
   PRICE_UNREAD_TEXT,
   savingsText,
   SHOP_LABELS,
   sinceText,
+  toGrosze,
   verdictOf,
+  verdictShops,
   type Comparison,
   type KnownShop,
   type LatestCheck,
   type MatchableShop,
   type MatchedShop,
   type PricedShop,
+  type PriceJudgement,
   type PriceVerdict,
   type ShopPrice,
 } from "@/lib/services/price-comparison";
 import type { RowShop } from "@/lib/services/watchlist-rows";
 import { priceMissingText, priceUnavailableText } from "@/lib/shop-messages";
-import type { LatestPrice, PriceRefreshAnswer, SearchUnavailableReason, ShopOffer } from "@/types";
+import type { LatestPrice, PriceHistory, PriceRefreshAnswer, SearchUnavailableReason, ShopOffer } from "@/types";
 
 // The product page's price island, without React: each priced shop's latest price, whether its refetch runs, why the
 // last one gave no answer, whether the page couldn't read its stored price, which matched shops' decisions it couldn't
 // read, and what screen readers hear of the answers. Every change goes through the reducer, and the order and marks
 // always come from compareShops, withheld while a stored price or a matched shop's decision is unread (compareRows), so
-// Vitest can check them in Node. What the product area says of it, its hero, its price track and its caption, is
-// decided here too. It runs in the browser, so it imports nothing server-only.
+// Vitest can check them in Node. What the product area says of it, its hero with its sticker, its price track with the
+// sentence judging today's price, and its caption, is decided here too. It runs in the browser, so it imports nothing
+// server-only.
 
 /** The route that refetches one shop of one product (src/pages/api/watchlist/prices.ts). */
 export const PRICES_ROUTE = "/api/watchlist/prices";
@@ -236,10 +241,13 @@ function announcement(
 
 /**
  * A row once its refetch came back. Only the shop's own answer, a price or a missing item, replaces a stored price the
- * page couldn't read; an answer that came to nothing leaves the row saying the read failed.
+ * page couldn't read; an answer that came to nothing leaves the row saying the read failed. Either answer keeps the
+ * row's price history as the page read it (historyRead): it covers the days before today, so today's check adds nothing
+ * to it.
  */
 function settled(row: ShopRow, result: RefreshResult): ShopRow {
   const idle = { ...row, pending: false };
+  const history = historyRead(row);
   switch (result.kind) {
     case "price": {
       const { offer, checkedAt } = result;
@@ -247,7 +255,7 @@ function settled(row: ShopRow, result: RefreshResult): ShopRow {
         ...idle,
         notice: null,
         readFailed: false,
-        latest: { lastCheckedAt: checkedAt, lastStatus: "price", offer: { ...offer, pricedAt: checkedAt } },
+        latest: { lastCheckedAt: checkedAt, lastStatus: "price", offer: { ...offer, pricedAt: checkedAt }, history },
       };
     }
     case "missing":
@@ -256,7 +264,7 @@ function settled(row: ShopRow, result: RefreshResult): ShopRow {
         ...idle,
         notice: null,
         readFailed: false,
-        latest: { lastCheckedAt: result.checkedAt, lastStatus: "missing", offer: row.latest?.offer ?? null },
+        latest: { lastCheckedAt: result.checkedAt, lastStatus: "missing", offer: row.latest?.offer ?? null, history },
       };
     case "unavailable":
       // Nothing was stored, so the last known price keeps its age.
@@ -268,6 +276,18 @@ function settled(row: ShopRow, result: RefreshResult): ShopRow {
     case "match-changed":
       return idle;
   }
+}
+
+/**
+ * A row's price history as the page read it: its stored check's; none, for an item the page read without any check,
+ * which had no price before today; and null, unread, while the page couldn't read the item's stored price, so a shop's
+ * answer never stands for a history nobody read.
+ */
+function historyRead(row: Pick<ShopRow, "latest" | "readFailed">): PriceHistory | null {
+  if (row.latest !== null) {
+    return row.latest.history;
+  }
+  return row.readFailed ? null : { low: null, days: [] };
 }
 
 /**
@@ -406,8 +426,9 @@ function waitingText(undecided: readonly MatchableShop[]): string | null {
 
 /**
  * The product's hero, from its verdict: its tone, the line above the price, the shop or shops it names after "w", the
- * price, the line below it, and the sticker it wears. Stickers state facts only, "Tylko 1 sklep" (`one-shop`) and
- * "Stara cena" (`stale`), until FR-012 judges whether a price is good.
+ * price, the line below it, and the sticker it wears: a fact, "Tylko 1 sklep" (`one-shop`) and "Stara cena"
+ * (`stale`), or the judgement of today's cheapest price (FR-012), "Dobra cena!" (`good`) and "Zwykła cena"
+ * (`ordinary`).
  */
 export interface Hero {
   tone: "sun" | "plain" | "warn";
@@ -415,16 +436,18 @@ export interface Hero {
   shops: string | null;
   price: number | null;
   sub: string | null;
-  sticker: "one-shop" | "stale" | null;
+  sticker: "one-shop" | "stale" | "good" | "ordinary" | null;
 }
 
 /**
  * The hero of a product whose prices came to `verdict`, reading every age at the time it was judged. The line below
  * the price gives how much less the cheapest price is and the age of the price it names (a tie's oldest), names the
  * matched shops that still wait for their match beside the only price, and warns that a stale price may be out of
- * date.
+ * date. The cheapest price wears its judgement's sticker (`judgement`, judgementOf's for the verdict), and none when
+ * there's nothing to compare it with; the only price keeps "Tylko 1 sklep", and the price track's card gives its
+ * judgement (trackHint).
  */
-export function heroOf(verdict: PriceVerdict, { undecided }: MatchContext): Hero {
+export function heroOf(verdict: PriceVerdict, { undecided }: MatchContext, judgement: PriceJudgement | null): Hero {
   switch (verdict.kind) {
     case "cheapest":
       return {
@@ -436,7 +459,7 @@ export function heroOf(verdict: PriceVerdict, { undecided }: MatchContext): Hero
           verdict.savings === null ? null : savingsText(verdict.savings),
           checkedText(verdict.ageFrom, verdict.at),
         ),
-        sticker: null,
+        sticker: judgement === null || judgement.kind === "none" ? null : judgement.kind,
       };
     case "only":
       return {
@@ -532,30 +555,6 @@ export function trackOf(rows: readonly ShopPrice[], verdict: PriceVerdict): Trac
     low: low === null ? null : { x: x(low), label: "najniższa z 30 dni", price: formatPrice(low) },
     note: trackNote(verdict),
   };
-}
-
-/** The shops a verdict names: the cheapest shop or shops, or the one shop whose price it gives. */
-function verdictShops(verdict: PriceVerdict): PricedShop[] {
-  switch (verdict.kind) {
-    case "cheapest":
-      return verdict.shops;
-    case "only":
-    case "unavailable":
-    case "stale":
-      return [verdict.shop];
-    case "unread":
-    case "none":
-      return [];
-  }
-}
-
-/** The lowest 30-day low these shops report, or null when none does. */
-function lowestOf(rows: readonly ShopPrice[], shops: readonly PricedShop[]): number | null {
-  const lows = rows.flatMap(({ shop, latest }) => {
-    const low = latest?.offer?.lowestPrice30d ?? null;
-    return shops.includes(shop) && low !== null ? [low] : [];
-  });
-  return lows.length === 0 ? null : Math.min(...lows);
 }
 
 /** Where a label sits above its place: centred on it, ending at it (to its left) or starting at it (to its right). */
@@ -656,10 +655,89 @@ function trackNote(verdict: PriceVerdict): string | null {
 }
 
 /**
- * What the price track's card says, beside the track or in its place: the only price asks for the matches of the
- * matched shops that still wait for one, and a stale price asks for a refresh. Null when there's nothing to say.
+ * What the price track's card says, beside the track or in its place: the sentence judging today's price (judgementText)
+ * by its judgement (`judgement`, judgementOf's for the verdict, made from `rows`), then what the product needs done
+ * (actionText), joined by a space. Null when there's nothing to say.
  */
-export function trackHint(verdict: PriceVerdict, { undecided }: MatchContext): string | null {
+export function trackHint(
+  verdict: PriceVerdict,
+  { undecided }: MatchContext,
+  judgement: PriceJudgement | null,
+  rows: readonly ShopPrice[],
+): string | null {
+  const texts = [judgementText(verdict, judgement, rows), actionText(verdict, undecided)].filter(
+    (text) => text !== null,
+  );
+  return texts.length === 0 ? null : texts.join(" ");
+}
+
+/** Where a judged price stands against what it was compared with, in whole grosze. */
+type Standing = "below" | "equal" | "above";
+
+// The sentences of the owner's rule (2026-10-06), by where the price stands and what it was compared with: the shops'
+// declared 30-day low, the lowest of them for a tie, or the product's own history in its shops. `low` is the
+// comparison's price, as the pages write it.
+const AGAINST_SHOP: Record<Standing, (low: string) => string> = {
+  below: () => "Poniżej najniższej ceny z 30 dni wg sklepu.",
+  equal: () => "Równa najniższej cenie z 30 dni wg sklepu.",
+  above: (low) => `Powyżej najniższej ceny z 30 dni wg sklepu (${low}).`,
+};
+const AGAINST_HISTORY: Record<Standing, (low: string) => string> = {
+  below: () => "Najniższa cena w Twoich sklepach od 30 dni.",
+  equal: () => "Równa najniższej cenie w Twoich sklepach z ostatnich 30 dni.",
+  above: (low) => `W ostatnich 30 dniach było taniej w Twoich sklepach: ${low}.`,
+};
+// Why a price was compared with the shops' declared low: the product's own history isn't enough yet.
+const HISTORY_TOO_SHORT = "Historia Twoich cen jest jeszcze za krótka, więc porównujemy z danymi sklepu.";
+
+/**
+ * The sentence judging the price the verdict names, by its judgement: where the price stands against the shops'
+ * declared 30-day low, then that the product's own history is too short, unless some row's history wasn't read
+ * (historyUnread), so it never speaks of a history it didn't read; where it stands against the product's own history;
+ * or, with nothing to compare with, which shops declare no low, agreeing in number. Equal and above are both ordinary,
+ * told apart by the price and the comparison in whole grosze. Null without a judgement.
+ */
+function judgementText(
+  verdict: PriceVerdict,
+  judgement: PriceJudgement | null,
+  rows: readonly ShopPrice[],
+): string | null {
+  // Only a cheapest or an only price is judged (judgementOf).
+  if (judgement === null || (verdict.kind !== "cheapest" && verdict.kind !== "only")) {
+    return null;
+  }
+  if (judgement.kind === "none") {
+    const declare = judgement.shops.length > 1 ? "nie podają" : "nie podaje";
+    return (
+      `Nie ma z czym porównać: ${namesOf(judgement.shops)} ${declare} najniższej ceny z 30 dni, ` +
+      "a historia cen jest jeszcze za krótka."
+    );
+  }
+  let standing: Standing = "below";
+  if (judgement.kind === "ordinary") {
+    standing = toGrosze(verdict.price) === toGrosze(judgement.baseline) ? "equal" : "above";
+  }
+  const low = formatPrice(judgement.baseline);
+  if (judgement.basis === "history") {
+    return AGAINST_HISTORY[standing](low);
+  }
+  const sentence = AGAINST_SHOP[standing](low);
+  return historyUnread(rows) ? sentence : `${sentence} ${HISTORY_TOO_SHORT}`;
+}
+
+/**
+ * Whether some row's price history wasn't read: a check that came without one, as a shop's answer does after the page
+ * couldn't read the item's stored price. A row without any check has no history to read.
+ */
+function historyUnread(rows: readonly ShopPrice[]): boolean {
+  return rows.some(({ latest }) => latest !== null && latest.history === null);
+}
+
+/**
+ * What the product needs done, as the price track's card asks it: the only price asks for the matches of the matched
+ * shops that still wait for one, and a stale price asks for a refresh. Null when it needs nothing.
+ */
+function actionText(verdict: PriceVerdict, undecided: readonly MatchableShop[]): string | null {
   if (verdict.kind === "only" && undecided.length > 0) {
     return `Dopasuj produkt ${namesOf(undecided, "in")}, aby porównać ceny.`;
   }

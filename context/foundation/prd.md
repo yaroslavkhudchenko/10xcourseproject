@@ -132,6 +132,17 @@ A few people the owner knows, using the same deployment with their own private w
 - FR-012: User can see whether today's price is a good one against the product's own history. Priority: must-have
   > Socrates: Counter-arguments considered: history starts empty; an untuned threshold is false confidence.
   > Resolution: stands as written; history length and threshold stay in Open Questions (4).
+  > Update 2026-10-07: S-04 (`good-price-judgement`) delivers it with the owner's calls of 2026-10-06 (Open Question 4). A product's page judges today's cheapest price, or the only shop's price:
+  >
+  > - „Dobra cena!” when it is below what it is compared with, and „Zwykła cena” when it is equal or above.
+  > - The comparison is the cheapest shop's declared 30-day low, the lowest one for a tie, until the product's own history is enough. History is enough once the product has been on the user's list for 30 days and an orderable price was recorded for it on at least 5 different days in the 30 days before today.
+  > - From then on, the comparison is the lowest such price across the user's shops for the product. Today's checks never count.
+  > - A sentence in the price card always says which comparison was made.
+  > - With nothing to compare with, no sticker shows and the card says why. That happens when the cheapest shop declares no low (Rossmann outside a sale, many Super-Pharm items) and the history isn't enough.
+  > - A product priced in one shop keeps its „Tylko 1 sklep” sticker, and its card gives the judgement.
+  > - The judgement shows on the product page only, and stale, unavailable or unread prices aren't judged.
+  >
+  > Accepted cost: with no daily refresh (FR-015), history grows only as products are opened, so a product nobody opens stays on the shop's low.
 - FR-015: System can refresh the prices of every watched product daily without user action. Priority: nice-to-have
   > Socrates: Counter-arguments considered: scheduled fetching changes the footing with the shops; it may become must-have with a second user.
   > Resolution: stands as written, nice-to-have.
@@ -201,6 +212,7 @@ No non-functional non-goals were chosen.
 2. **Which of the five shops does the owner actually buy from, and in which order should they be added?** — Owner: user. (dm is out of the MVP; see FR-013.)
 3. **How are misspelled product names handled, and does search run live as you type or on submit?** Rossmann's search returns a spelling hint; its suggestion feature is untested. — Owner: user.
 4. **How much history and which threshold define a good price (FR-012)?** — Owner: user.
+   > Update 2026-10-07: answered by S-04 (`good-price-judgement`, the owner's calls, 2026-10-06), as the FR-012 update says. History is enough after 30 days on the list with prices on 5 different days. A price below what it is compared with is good, and one equal or above is ordinary.
 5. **After how long is a displayed price marked stale?** — Owner: user.
 6. **What is the request cap per shop per minute for the whole deployment?** — Owner: user.
 7. **What request volume and data volume should the product be sized for (target_scale.qps, target_scale.data_volume)?** Not captured during shaping; the frontmatter carries TODO placeholders. — Owner: user.

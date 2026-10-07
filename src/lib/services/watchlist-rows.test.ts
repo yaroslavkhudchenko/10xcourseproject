@@ -75,11 +75,12 @@ function check({
     lastCheckedAt: ago(checkedAgo),
     lastStatus: status,
     offer: { price, regularPrice, lowestPrice30d: null, promoEndsOn, available, pricedAt: ago(pricedAgo) },
+    history: null,
   };
 }
 
 /** An item checked once, when the shop answered without it: no price at all. */
-const neverPriced: LatestCheck = { lastCheckedAt: ago(MINUTE), lastStatus: "missing", offer: null };
+const neverPriced: LatestCheck = { lastCheckedAt: ago(MINUTE), lastStatus: "missing", offer: null, history: null };
 
 const shop = (name: PricedShop, latest: LatestCheck | null, readFailed = false): RowShop => ({
   shop: name,

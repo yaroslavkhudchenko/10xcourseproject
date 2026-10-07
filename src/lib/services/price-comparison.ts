@@ -2,13 +2,20 @@ import type { LatestPrice, PriceKey, ShopId, ShopMatchState, ShopOffer, Watchlis
 
 // The rules that name the cheapest shop today, in one place for the product page, its island and the list, so the
 // server and the browser never disagree: when an item is fetched again, when a price no longer counts (too old, or its
-// promotion over), which shops win, how prices and ages read, and what the list says and refreshes. It imports nothing
-// server-only, because the island runs it in the browser too.
+// promotion over), which shops win, whether today's price is a good one, how prices and ages read, and what the list
+// says and refreshes. It imports nothing server-only, because the island runs it in the browser too.
 
 /** An item is fetched again once its last check is more than 15 minutes old, so reopening a page costs no request. */
 export const REFETCH_AFTER_MS = 15 * 60 * 1000;
 /** A price more than 24 hours old is stale: still shown with its age, but never named cheapest. */
 export const STALE_AFTER_MS = 24 * 60 * 60 * 1000;
+/**
+ * The days a product's own price history covers, those in Poland before today, and how long the product has to be on
+ * the list, in days of 24 hours, before that history counts: 30, as the shops' own lowest price of 30 days.
+ */
+export const HISTORY_WINDOW_DAYS = 30;
+/** How many different days in Poland a product's own price history needs a price on before it counts. */
+export const HISTORY_DAYS_NEEDED = 5;
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -223,7 +230,7 @@ export function compareShops<Row extends ShopPrice>(rows: readonly Row[], now: n
 }
 
 /** What a product's prices come to, before the time it's judged at: see PriceVerdict. */
-type Judgement =
+type UntimedVerdict =
   | { kind: "unread" }
   | Extract<ComparisonSummary, { kind: "cheapest" }>
   | { kind: "only" | "unavailable" | "stale"; shop: PricedShop; price: number; pricedAt: string }
@@ -242,7 +249,7 @@ type Judgement =
  *
  * `at` is the time it was judged at, in milliseconds, so everything it says reads its ages at that one moment.
  */
-export type PriceVerdict = Judgement & { at: number };
+export type PriceVerdict = UntimedVerdict & { at: number };
 
 /**
  * The verdict on a product's prices as compareShops compared them at `now`, where `unread` says whether any of its
@@ -254,13 +261,13 @@ export function verdictOf(
   now: number,
   unread: boolean,
 ): PriceVerdict {
-  return { ...judgementOf(compared, unread), at: now };
+  return { ...untimedVerdictOf(compared, unread), at: now };
 }
 
-function judgementOf(
+function untimedVerdictOf(
   { rows, summary }: { rows: readonly (ShopPrice & ShopVerdict)[]; summary: ComparisonSummary },
   unread: boolean,
-): Judgement {
+): UntimedVerdict {
   if (unread) {
     return { kind: "unread" };
   }
@@ -342,9 +349,101 @@ function oldest(times: string[]): string {
   return times.reduce((earliest, time) => (Date.parse(time) < Date.parse(earliest) ? time : earliest));
 }
 
-/** An amount in złoty as whole grosze, so comparing and subtracting prices never meets a floating-point remainder. */
-function toGrosze(amount: number): number {
+/**
+ * An amount in złoty as whole grosze, so comparing and subtracting prices never meets a floating-point remainder. The
+ * product area's sentence tells a price equal to its comparison from one above it by it too, as judgementOf does.
+ */
+export function toGrosze(amount: number): number {
   return Math.round(amount * 100);
+}
+
+/**
+ * The shops a verdict names: the cheapest shop or shops, or the one shop whose price it gives. The price track draws
+ * their 30-day low, and the judgement compares with it (judgementOf).
+ */
+export function verdictShops(verdict: PriceVerdict): PricedShop[] {
+  switch (verdict.kind) {
+    case "cheapest":
+      return verdict.shops;
+    case "only":
+    case "unavailable":
+    case "stale":
+      return [verdict.shop];
+    case "unread":
+    case "none":
+      return [];
+  }
+}
+
+/** The lowest 30-day low the rows of these shops report, or null when none does. */
+export function lowestOf(rows: readonly ShopPrice[], shops: readonly PricedShop[]): number | null {
+  const lows = rows.flatMap(({ shop, latest }) => {
+    const low = latest?.offer?.lowestPrice30d ?? null;
+    return shops.includes(shop) && low !== null ? [low] : [];
+  });
+  return lows.length === 0 ? null : Math.min(...lows);
+}
+
+/**
+ * Whether today's price is a good one (FR-012): `good` below what it was compared with, and `ordinary` equal to it or
+ * above it, each with which comparison was made (`basis`), the product's own price history or its shops' declared
+ * 30-day low, and the price it was compared with (`baseline`); or `none` when there was nothing to compare with,
+ * naming the shops whose price it would have judged.
+ */
+export type PriceJudgement =
+  { kind: "good" | "ordinary"; basis: "shop" | "history"; baseline: number } | { kind: "none"; shops: KnownShop[] };
+
+/**
+ * Whether the price a verdict names is a good one, by the owner's rule of 2026-10-06, for a product added to the list
+ * at `addedAt`, an ISO timestamp, judged at `now`, in milliseconds. Only a cheapest or an only price is judged, and
+ * every other verdict gets null. `rows` are the product's priced shops the verdict was made from. The price is compared
+ * with the first of these there is:
+ *
+ * - the product's own history, once it's enough: the product was added at least 30 days of 24 hours before `now`, the
+ *   rows' histories hold prices on at least 5 different days, a day seen in several shops counting once, and some row
+ *   has a history low. The comparison is the lowest history low of every row, whichever shop is the cheapest today.
+ * - the lowest 30-day low the verdict's shops declare, which are every shop of a tie and no other shop
+ * - nothing: `none`, naming the verdict's shops
+ *
+ * A price below the comparison in grosze is `good`, and one equal to it or above it is `ordinary`. A row without a
+ * history adds no day and no low. An `addedAt` that doesn't parse counts as too recent, as an age that doesn't parse
+ * counts as old.
+ */
+export function judgementOf(
+  verdict: PriceVerdict,
+  rows: readonly ShopPrice[],
+  addedAt: string,
+  now: number,
+): PriceJudgement | null {
+  if (verdict.kind !== "cheapest" && verdict.kind !== "only") {
+    return null;
+  }
+  const shops = verdictShops(verdict);
+  const history = historyBaseline(rows, addedAt, now);
+  const baseline = history ?? lowestOf(rows, shops);
+  if (baseline === null) {
+    return { kind: "none", shops };
+  }
+  return {
+    kind: toGrosze(verdict.price) < toGrosze(baseline) ? "good" : "ordinary",
+    basis: history === null ? "shop" : "history",
+    baseline,
+  };
+}
+
+/**
+ * The lowest history low of the rows, once their history is enough to judge a price by (judgementOf), or null: the
+ * product was added at least HISTORY_WINDOW_DAYS days of 24 hours before `now`, the rows hold prices on at least
+ * HISTORY_DAYS_NEEDED different days between them, and some row has a low.
+ */
+function historyBaseline(rows: readonly ShopPrice[], addedAt: string, now: number): number | null {
+  const histories = rows.flatMap(({ latest }) => (latest?.history ? [latest.history] : []));
+  // A day seen in two shops is one day.
+  const days = new Set(histories.flatMap((history) => history.days));
+  const lows = histories.flatMap(({ low }) => (low === null ? [] : [low]));
+  // A time that doesn't parse gives NaN, which is never long enough ago.
+  const listedLongEnough = now - Date.parse(addedAt) >= HISTORY_WINDOW_DAYS * DAY_MS;
+  return listedLongEnough && days.size >= HISTORY_DAYS_NEEDED && lows.length > 0 ? Math.min(...lows) : null;
 }
 
 /**
@@ -603,8 +702,10 @@ export function listSummaryText(
         }
         return line.join(" · ");
       }
+      // What the row's tag shows, the last price with its shop and age, then what to do about it.
       if (verdict.kind === "stale") {
-        return "Ceny nieaktualne. Odśwież ceny lub otwórz produkt.";
+        const last = `${SHOP_LABELS[verdict.shop].name} ${formatPrice(verdict.price)} · ${ageText(verdict.pricedAt, now)}`;
+        return `Nieaktualna cena: ${last}. Odśwież ceny lub otwórz produkt.`;
       }
       const head = `Niedostępny online: ${SHOP_LABELS[verdict.shop].name} ${formatPrice(verdict.price)}`;
       const others = whyEachNot(rows.filter((row) => row.shop !== verdict.shop));

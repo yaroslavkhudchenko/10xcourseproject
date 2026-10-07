@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { listLatestPrices, readLatestPrices, recordPriceChecks } from "@/lib/services/prices";
-import type { LatestPrice, PriceKey, ShopOffer } from "@/types";
+import type { LatestPrice, PriceHistory, PriceKey, ShopOffer } from "@/types";
 
 // Felix at Rossmann during a promotion, and Nivea Soft at Natura, with the offers the 2026-09-28 requests answered
 // (research, Follow-up requests 1 and 4), and a second Natura item.
@@ -234,6 +234,7 @@ const felix: LatestPrice = {
   lastCheckedAt: CHECKED_AT,
   lastStatus: "price",
   offer: { ...felixOffer, pricedAt: CHECKED_AT },
+  history: null,
 };
 // Nivea Soft, last checked when Natura answered without it: the price from before stays, with its own time.
 const softRow = {
@@ -253,6 +254,7 @@ const soft: LatestPrice = {
   lastCheckedAt: CHECKED_AT,
   lastStatus: "missing",
   offer: { ...softOffer, pricedAt: PRICED_AT },
+  history: null,
 };
 // An item no check has found a price for.
 const otherRow = {
@@ -267,12 +269,23 @@ const otherRow = {
   available: null,
   priced_at: null,
 };
-const other: LatestPrice = { ...OTHER, lastCheckedAt: CHECKED_AT, lastStatus: "missing", offer: null };
+const other: LatestPrice = { ...OTHER, lastCheckedAt: CHECKED_AT, lastStatus: "missing", offer: null, history: null };
+
+// The product page's view gives the same columns with each item's history of the 30 days before today: Felix's lowest
+// orderable price and the days it was seen on, and no low and no day for Nivea Soft, which no check found orderable.
+const SUMMARY_COLUMNS = `${COLUMNS}, history_low, history_days`;
+const felixSummaryRow = { ...felixRow, history_low: 5.49, history_days: ["2026-09-25", "2026-09-27"] };
+const softSummaryRow = { ...softRow, history_low: null, history_days: [] };
+const felixHistory: PriceHistory = { low: 5.49, days: ["2026-09-25", "2026-09-27"] };
+const felixWithHistory: LatestPrice = { ...felix, history: felixHistory };
+// A history the view read and found empty, which is never one that wasn't read (null).
+const softWithoutHistory: LatestPrice = { ...soft, history: { low: null, days: [] } };
 
 describe("listLatestPrices", () => {
   it("reads every item the user can see for the list, with one unfiltered query within a time limit", async () => {
     const { client, queries } = stubClient({ data: [felixRow, softRow, otherRow] });
 
+    // The list judges no price, so it reads no history, and its prices say none was read.
     expect(await listLatestPrices(client)).toEqual({ prices: [felix, soft, other], unread: [], unattributed: 0 });
     expect(queries).toEqual([
       [
@@ -396,14 +409,17 @@ describe("listLatestPrices", () => {
 });
 
 describe("readLatestPrices", () => {
-  it("reads the given items for a product's page, with one filtered query within a time limit", async () => {
-    const { client, queries } = stubClient({ data: [felixRow, softRow] });
+  it("reads a product page's items with their history, in one filtered query within a time limit", async () => {
+    const { client, queries } = stubClient({ data: [felixSummaryRow, softSummaryRow] });
 
-    expect(await readLatestPrices(client, [FELIX, SOFT])).toEqual({ prices: [felix, soft], unread: [] });
+    expect(await readLatestPrices(client, [FELIX, SOFT])).toEqual({
+      prices: [felixWithHistory, softWithoutHistory],
+      unread: [],
+    });
     expect(queries).toEqual([
       [
-        ["from", "latest_price_observations"],
-        ["select", COLUMNS],
+        ["from", "price_summaries"],
+        ["select", SUMMARY_COLUMNS],
         ["in", "shop_item_id", ["131225", "NV89063"]],
         ["abortSignal", true],
       ],
@@ -412,28 +428,49 @@ describe("readLatestPrices", () => {
 
   it("reports an item whose row it couldn't read, and still gives the other prices", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const { client } = stubClient({ data: [{ ...felixRow, available: "yes" }, softRow] });
+    const { client } = stubClient({ data: [{ ...felixSummaryRow, available: "yes" }, softSummaryRow] });
 
     // The page then says Felix's price couldn't be read, never that Felix was never checked.
-    expect(await readLatestPrices(client, [FELIX, SOFT])).toEqual({ prices: [soft], unread: [FELIX] });
+    expect(await readLatestPrices(client, [FELIX, SOFT])).toEqual({ prices: [softWithoutHistory], unread: [FELIX] });
+    expect(loggedLine(warn)).toMatchObject({ reason: "unexpected rows dropped", detail: "1" });
+  });
+
+  it.each<{ why: string; row: Record<string, unknown> }>([
+    { why: "no history columns", row: felixRow },
+    { why: "a history low as text", row: { ...felixSummaryRow, history_low: "5.49" } },
+    { why: "a history low of 0", row: { ...felixSummaryRow, history_low: 0 } },
+    { why: "history days that aren't a list", row: { ...felixSummaryRow, history_days: "2026-09-25" } },
+    { why: "no list of history days", row: { ...felixSummaryRow, history_days: null } },
+    { why: "a history day that isn't a date", row: { ...felixSummaryRow, history_days: ["25.09.2026"] } },
+    { why: "a time among its history days", row: { ...felixSummaryRow, history_days: ["2026-09-25T10:00:00+00:00"] } },
+    { why: "a history low without a day", row: { ...felixSummaryRow, history_days: [] } },
+    { why: "history days without a low", row: { ...felixSummaryRow, history_low: null } },
+  ])("reports an item as unread when its row has $why, and still gives the other prices", async ({ row }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({ data: [row, softSummaryRow] });
+
+    // The page then says Felix's price couldn't be read, so it judges no price by a history it couldn't read.
+    expect(await readLatestPrices(client, [FELIX, SOFT])).toEqual({ prices: [softWithoutHistory], unread: [FELIX] });
     expect(loggedLine(warn)).toMatchObject({ reason: "unexpected rows dropped", detail: "1" });
   });
 
   it("leaves out an odd row of another shop's item with the same id", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const { client } = stubClient({ data: [felixRow, { ...felixRow, shop_id: "natura", price: "5.99" }] });
+    const { client } = stubClient({
+      data: [felixSummaryRow, { ...felixSummaryRow, shop_id: "natura", price: "5.99" }],
+    });
 
-    expect(await readLatestPrices(client, [FELIX])).toEqual({ prices: [felix], unread: [] });
+    expect(await readLatestPrices(client, [FELIX])).toEqual({ prices: [felixWithHistory], unread: [] });
   });
 
   it.each<{ why: string; row: unknown }>([
-    { why: "names no shop", row: { ...felixRow, shop_id: null } },
-    { why: "names a shop the app doesn't know", row: { ...felixRow, shop_id: "dm" } },
-    { why: "has an item id that isn't text", row: { ...felixRow, shop_item_id: 131225 } },
+    { why: "names no shop", row: { ...felixSummaryRow, shop_id: null } },
+    { why: "names a shop the app doesn't know", row: { ...felixSummaryRow, shop_id: "dm" } },
+    { why: "has an item id that isn't text", row: { ...felixSummaryRow, shop_item_id: 131225 } },
     { why: "isn't a row at all", row: "131225" },
   ])("gives null for an odd row that $why, since it could be any item's", async ({ row }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const { client } = stubClient({ data: [row, softRow] });
+    const { client } = stubClient({ data: [row, softSummaryRow] });
 
     expect(await readLatestPrices(client, [FELIX, SOFT])).toBeNull();
     expect(loggedLine(warn)).toMatchObject({ reason: "unexpected rows dropped", detail: "1" });

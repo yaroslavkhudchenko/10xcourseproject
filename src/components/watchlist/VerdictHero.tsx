@@ -23,8 +23,8 @@ const TONES: Record<Hero["tone"], string> = {
 // the pane has no room for the text beside the price. One set of elements serves both: from xl they sit in a grid,
 // whose empty rows above and below centre the text beside the price. A verdict without a price says only its line, as
 // the label's headline. The sticker pokes 28 px above the label, so a label with one stands 8 px lower, clear of the
-// title row's caption and name. The sticker is decorative, since the line above says the same, and the page's pane
-// clips its stamp at the gutter.
+// title row's caption and name. The sticker is decorative, since the line above says its fact and the price track's
+// card its judgement, and the page's pane clips its stamp at the gutter.
 export default function VerdictHero({ hero }: Props) {
   return (
     <div
