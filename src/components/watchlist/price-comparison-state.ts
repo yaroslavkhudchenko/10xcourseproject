@@ -23,7 +23,7 @@ import {
   type PriceVerdict,
   type ShopPrice,
 } from "@/lib/services/price-comparison";
-import type { RowShop } from "@/lib/services/watchlist-rows";
+import { rowTagOf, type PriceTag, type RowShop } from "@/lib/services/watchlist-rows";
 import { priceMissingText, priceUnavailableText } from "@/lib/shop-messages";
 import type { LatestPrice, PriceHistory, PriceRefreshAnswer, SearchUnavailableReason, ShopOffer } from "@/types";
 
@@ -387,6 +387,22 @@ export function rowShopsOfIsland(rows: readonly ShopRow[], unreadable: readonly 
     }
   }
   return shops;
+}
+
+/**
+ * The selected row's first tag on the list beside a product: the list's tag (rowTagOf) for the shops the island starts
+ * with (initialState), as `shops` and `pricesFailed` hand them over, with each matched shop whose decision couldn't be
+ * read (`unreadable`), judged at the page's render (`renderedAt`, an ISO timestamp). So the row and the product agree
+ * from the first paint, with JavaScript or without; the island then keeps the tag up to date (PRICES_EVENT).
+ */
+export function selectedRowTagOf(
+  shops: PriceComparisonShop[],
+  pricesFailed: boolean,
+  unreadable: readonly MatchedShop[],
+  renderedAt: string,
+): PriceTag {
+  const { rows } = initialState({ shops, now: renderedAt, pricesFailed });
+  return rowTagOf(rowShopsOfIsland(rows, unreadable), Date.parse(renderedAt));
 }
 
 /**

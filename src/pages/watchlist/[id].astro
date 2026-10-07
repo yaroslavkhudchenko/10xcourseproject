@@ -9,11 +9,7 @@ import ListRows from "@/components/watchlist/ListRows.astro";
 import { unreadableShopsOf, type MatchedShopView } from "@/components/watchlist/match-card";
 import MatchChoice from "@/components/watchlist/MatchChoice.astro";
 import PriceComparison from "@/components/watchlist/PriceComparison";
-import {
-  initialState,
-  rowShopsOfIsland,
-  type PriceComparisonShop,
-} from "@/components/watchlist/price-comparison-state";
+import { selectedRowTagOf, type PriceComparisonShop } from "@/components/watchlist/price-comparison-state";
 import ProductUnavailable from "@/components/watchlist/ProductUnavailable.astro";
 import RemoveProduct from "@/components/watchlist/RemoveProduct.astro";
 import WatchlistShell from "@/layouts/WatchlistShell.astro";
@@ -27,9 +23,9 @@ import {
   type MatchesRead,
   type MatchStatesRead,
 } from "@/lib/services/matches";
-import { keyText, productPriceKeys, type MatchedShop, type PriceDecision } from "@/lib/services/price-comparison";
+import { productPriceKeys, type MatchedShop, type PriceDecision } from "@/lib/services/price-comparison";
 import { parsePriceRefreshCode } from "@/lib/services/price-refresh";
-import { listLatestPrices, readLatestPrices, type ListPricesRead } from "@/lib/services/prices";
+import { listLatestPrices, priceShopsOf, readLatestPrices, type ListPricesRead } from "@/lib/services/prices";
 import { isOwnNavigation } from "@/lib/services/search-query";
 import { shopGateFor } from "@/lib/services/shop-gate";
 import { runMatchSteps } from "@/lib/services/shop-matching";
@@ -41,14 +37,7 @@ import {
   removalErrorMessage,
   removalGoneNotice,
 } from "@/lib/services/watchlist";
-import {
-  filterHref,
-  listChipsOf,
-  listRowsOf,
-  parseListFilter,
-  rowProductOf,
-  rowTagOf,
-} from "@/lib/services/watchlist-rows";
+import { filterHref, listChipsOf, listRowsOf, parseListFilter, rowProductOf } from "@/lib/services/watchlist-rows";
 import { cn } from "@/lib/utils";
 import type { MatchedItem, WatchlistItem, WatchlistProduct } from "@/types";
 
@@ -128,18 +117,12 @@ if (supabase && shown !== null) {
     shown,
     [...matchedItems].map(([shop, item]): PriceDecision => ({ shop, state: "matched", shopItemId: item.shopItemId })),
   );
-  const read = await readLatestPrices(supabase, keys);
   // Without the stored prices the island still shows every shop, each saying its price couldn't be read until its
-  // shop answers; a shop whose own row couldn't be read says so too. Either way no shop is named cheapest meanwhile.
-  pricesFailed = read === null;
-  const latest = new Map((read?.prices ?? []).map((price) => [keyText(price), price] as const));
-  const unread = new Set((read?.unread ?? []).map(keyText));
-  priceShops = keys.map(({ shop, shopItemId }) => {
-    const key = keyText({ shop, shopItemId });
-    // "Zobacz w sklepie" goes to the product's own page where it was picked, and to its matched item's elsewhere.
-    const productUrl = shop === "rossmann" ? shown.productUrl : (matchedItems.get(shop)?.productUrl ?? null);
-    return { shop, shopItemId, productUrl, latest: latest.get(key) ?? null, readFailed: unread.has(key) };
-  });
+  // shop answers; a shop whose own row couldn't be read says so too (priceShopsOf). "Zobacz w sklepie" goes to the
+  // product's own page where it was picked, and to its matched item's elsewhere.
+  ({ shops: priceShops, pricesFailed } = priceShopsOf(keys, await readLatestPrices(supabase, keys), (shop) =>
+    shop === "rossmann" ? shown.productUrl : (matchedItems.get(shop)?.productUrl ?? null),
+  ));
 }
 // The server's time for the island's first render, so the ages it shows match this page's HTML.
 const renderedAt = new Date().toISOString();
@@ -191,19 +174,10 @@ const backHref = filterHref("/watchlist", listFilter);
 const backEyebrow = shown === null ? null : rowProductOf(shown).eyebrow;
 
 // The list beside the product, from lg, as the list page shows it, with this product's row selected. The row's tag is
-// judged from this page's own reads, the ones the island starts from, so the two agree from the first paint, with
-// JavaScript or without; the island then keeps it up to date (PRICES_EVENT). The chips and "Odśwież ceny" keep the
-// product, and a product that isn't there leaves them to the list.
+// judged from this page's own reads, the ones the island starts from (selectedRowTagOf). The chips and "Odśwież ceny"
+// keep the product, and a product that isn't there leaves them to the list.
 const selectedTag =
-  shown === null
-    ? null
-    : rowTagOf(
-        rowShopsOfIsland(
-          initialState({ shops: priceShops, now: renderedAt, pricesFailed }).rows,
-          unreadableShopsOf(matched),
-        ),
-        Date.parse(renderedAt),
-      );
+  shown === null ? null : selectedRowTagOf(priceShops, pricesFailed, unreadableShopsOf(matched), renderedAt);
 const listRows =
   items === null
     ? null
