@@ -702,8 +702,10 @@ export function listSummaryText(
         }
         return line.join(" · ");
       }
+      // What the row's tag shows, the last price with its shop and age, then what to do about it.
       if (verdict.kind === "stale") {
-        return "Ceny nieaktualne. Odśwież ceny lub otwórz produkt.";
+        const last = `${SHOP_LABELS[verdict.shop].name} ${formatPrice(verdict.price)} · ${ageText(verdict.pricedAt, now)}`;
+        return `Nieaktualna cena: ${last}. Odśwież ceny lub otwórz produkt.`;
       }
       const head = `Niedostępny online: ${SHOP_LABELS[verdict.shop].name} ${formatPrice(verdict.price)}`;
       const others = whyEachNot(rows.filter((row) => row.shop !== verdict.shop));

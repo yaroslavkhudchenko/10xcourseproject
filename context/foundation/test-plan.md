@@ -124,7 +124,7 @@ How to add new tests in this project. Each sub-section is filled in once the rel
   - `addMatchedProduct` gives each product fresh ids (a 12-digit Rossmann id, within the app's 1–12 rule, and an `E2E-` Natura SKU) and checks that no earlier run's prices come with them. It leaves Hebe and Super-Pharm undecided, so the product's page, opened by the user, looks both up, which the stopped shops refuse before any request.
   - `matchShop(shop, productId, …)` settles another matched shop where a story needs it, with a fresh id in that shop's shape: Natura's `E2E-` SKU, Hebe's 18 digits starting with 9, unlike Hebe's real ids' twelve zeros, or Super-Pharm's 12 digits starting with 9. The match is automatic unless the story says the user picked it (`decidedBy: "user"`), and it has an item page (`productUrl`) only where a spec asserts "Zobacz w sklepie".
   - Neither a seeded product nor a seeded match carries an EAN, so an automatic match's card says "Dopasowano automatycznie po nazwie.": the card tells a match the rule accepted by name from one it accepted by EAN only by whether the item shares an EAN with the product (`match-by-name`).
-  - Each check is one insert (`recordPrice`, `recordMissing`), and a promotion's end is a Warsaw date (`warsawDate`). A check older than 24 hours needs `backdateChecks`, seeding's one superuser write (`scripts/e2e-local-db.mjs`).
+  - Each check is one insert (`recordPrice`, `recordMissing`), and `recordPrice` takes the shop's declared 30-day low (`lowestPrice30d`) for the good-price judgement, and a promotion's end is a Warsaw date (`warsawDate`). A check older than 24 hours needs `backdateChecks`, seeding's one superuser write (`scripts/e2e-local-db.mjs`).
   - Every product registers itself as it's added: `test.afterEach(removeSeededProducts)` deletes them and fails unless none is left.
 - **Shops**: no spec reaches a shop.
   - The setup holds every enabled shop in the local `public.shops` under the run's name, refuses to start while another run or a manual `stop` holds them, and checks that every priced shop (`PRICED_SHOPS`) then answers `stopped`.
@@ -242,6 +242,18 @@ How to add new tests in this project. Each sub-section is filled in once the rel
     - A setting changed in a dashboard between deploys shows only at the next deploy, or in a run by hand.
     - Two Workers Builds behaviours are undocumented: whether build variables reach the deploy command, and whether a failure after `wrangler deploy` turns the build red. The owner's sitting verifies both (the plan's 4.4 and 4.5).
   - **Follow-up for `/10x-test-plan --refresh`:** §2's risk #2 evidence still says "nothing notices before the owner's phone check". The alert now changes that for failures at the deploy, while failures at runtime still alert no one until the observability audit's alert fix (§6 step 2) lands.
+
+- **S-04, whether today's price is a good one (`good-price-judgement`, 2026-10-07; a roadmap slice, not a rollout phase):**
+  - **The rule** (`judgementOf`) is pinned at its boundaries in `price-comparison.test.ts`, its expected values taken from the owner's calls in the plan, never from the code:
+    - equal is ordinary;
+    - 29 days 23 h is not enough and 30 days is;
+    - 4 days are not enough and 5 are;
+    - a day in two shops counts once;
+    - ties take the lowest low;
+    - stale, unavailable and unread prices aren't judged.
+  - **The history** is a view, `price_summaries`, which `check-prices-db.mjs` proves leaves out today's, missing and unorderable checks, counts a day once, and stays private to the item's watchers. Its cases backdate checks through the local database container.
+  - **The page:** `heroOf` and every sentence are pinned in `price-comparison-state.test.ts`, and `tests/e2e/good-price.spec.ts` shows the sentence for a price below its shop's low and the reason when a shop declares none, on the production build. The stickers are `aria-hidden`, so specs assert the sentences.
+  - **The list's screen-reader line** for a product whose prices are all stale or missing now names what its tag shows, and `price-honesty.spec.ts` asserts it (the carry-over from rollout Phase 1).
 
 ## 7. What We Deliberately Don't Test
 

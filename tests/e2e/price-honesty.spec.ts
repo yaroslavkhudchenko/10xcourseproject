@@ -88,6 +88,10 @@ test("#1: only a fresh price the shop sells online is marked cheapest, and every
   await expect(rowOf(page, p4).getByText(/^11,99\szł$/)).toBeAttached();
   await expect(rowOf(page, p4).getByText(new RegExp(String.raw`^Rossmann · ${JUST_NOW}$`))).toBeVisible();
   await expect(rowOf(page, p4)).not.toHaveAccessibleName(/Najtaniej/);
+  // Screen readers hear what the tag shows: the last price, its shop and its age, and what to do about it.
+  await expect(rowOf(page, p4)).toHaveAccessibleName(
+    new RegExp(String.raw`Nieaktualna cena: Rossmann 11,99\szł · ${JUST_NOW}\. Odśwież ceny lub otwórz produkt\.`),
+  );
 
   // P1's page: Rossmann's card is the cheapest; Natura's lower price says it can't be ordered online. Hebe's card has
   // no price, and says why: the page's lookup there was refused.

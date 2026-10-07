@@ -422,6 +422,14 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
   - the shop sentence never saying the history is too short turned 6 red.
 - **The sample page (3.4)** shows every state with the agreed sentence and sticker, in light and dark. A first screenshot caught the stamp animation mid-fade, which made the mint look see-through. With reduced motion the sticker is solid, with an opacity of 1.
 
+### Phase 4
+
+- **The list's line** follows the tag's own pieces: „Nieaktualna cena: {Shop} {price} · {age}. Odśwież ceny lub otwórz produkt.” `price-honesty.spec.ts` asserts it for P4, beside its existing check that no shop is named cheapest.
+- **`CLAUDE.md`, beyond its contract:** the "Data" bullet names `price_summaries` and the product page's read of it. The bounds sentence covers all three amounts. The `check-prices-db.mjs` command says its history cases need the local database container (Phase 2's note).
+- **Dates:** the PRD's and the test plan's updates are dated 2026-10-07, the day they were written. The owner's calls are dated 2026-10-06.
+- **The roadmap** keeps S-04 `in-progress` until the change is archived. Its unknown is answered and its carry-overs point to this change.
+- **Break:** reverting the list's line to the old text turned its test red.
+
 ## References
 
 - Research: `context/changes/good-price-judgement/research.md`
@@ -455,13 +463,13 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [ ] 3.1 Lint, type check and the whole unit suite pass
-- [ ] 3.2 The contrast check passes with the new token
+- [x] 3.1 Lint, type check and the whole unit suite pass — dd21054
+- [x] 3.2 The contrast check passes with the new token — dd21054
 - [ ] 3.3 CI's `e2e` job passes, `good-price.spec.ts` included
 
 #### Manual
 
-- [ ] 3.4 `/dev/product-page` shows every judgement state and both new stickers, in light and dark
+- [x] 3.4 `/dev/product-page` shows every judgement state and both new stickers, in light and dark — dd21054
 
 ### Phase 4: The list's screen-reader line, docs and rollout
 

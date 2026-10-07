@@ -148,8 +148,8 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **Parallel with:** S-05, S-06, S-07, S-08
 - **Blockers:** —
 - **Unknowns:**
-  - How much history and which threshold define a good price? (PRD Open Question 4) — Owner: user. Block: yes.
-- **Risk:** An untuned threshold shows false confidence, so the judgement waits for the owner's call on history length and threshold.
+  - How much history and which threshold define a good price? (PRD Open Question 4) — Owner: user. Block: yes. Answered 2026-10-06: 30 days on the list with prices on 5 different days; below is good, equal or above is ordinary (`good-price-judgement`).
+- **Risk:** An untuned threshold shows false confidence, so the judgement waits for the owner's call on history length and threshold. Settled by the answer above; the three carry-overs below are delivered by `good-price-judgement`.
 - **Carry-over from `etykiety-redesign`:** the judgement's own looks, which the handoff draws and the redesign left out until the rule exists.
   - The "Dobra / cena!" and "Zwykła / cena" stickers on the verdict's hero (`Sticker.tsx` has only "Tylko 1 sklep" and "Stara cena").
   - The judgement sentence in the price-track card (`PriceTrack.tsx`), where the handoff says which comparison was made.

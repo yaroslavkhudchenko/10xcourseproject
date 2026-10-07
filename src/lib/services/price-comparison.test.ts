@@ -1197,9 +1197,9 @@ describe("listSummaryText", () => {
     expect(listLine(row("rossmann", latest))).toBe(line(text));
   });
 
-  it("says the prices are out of date when no shop's price can be named cheapest", () => {
+  it("names the last price's shop and age, as the row's tag shows them, when no shop's price can be named cheapest", () => {
     expect(listLine(row("rossmann", check({ price: 26.99, checkedAgo: 2 * DAY })), row("natura", null))).toBe(
-      "Ceny nieaktualne. Odśwież ceny lub otwórz produkt.",
+      line("Nieaktualna cena: Rossmann 26,99 zł · 2 dni temu. Odśwież ceny lub otwórz produkt."),
     );
   });
 
