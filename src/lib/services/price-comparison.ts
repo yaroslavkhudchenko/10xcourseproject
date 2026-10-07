@@ -553,6 +553,22 @@ export interface PricedKey<Shop extends KnownShop = PricedShop> extends PriceKey
 export type PricedItem<Shop extends KnownShop = PricedShop> = PricedKey<Shop> & { latest: LatestCheck | null };
 
 /**
+ * One priced shop as the product page hands it to the price island: the shop, the item the page shows there, its
+ * item's page, its stored price, if any, and whether the page couldn't read that price. The page builds it from its
+ * price read (productPricesOf in prices.ts), and the island's state starts from it, so it lives here, where both may
+ * import it.
+ */
+export interface PriceComparisonShop {
+  shop: PricedShop;
+  /** The shop's item the page shows, which each refetch names. */
+  shopItemId: string;
+  productUrl: string | null;
+  latest: LatestPrice | null;
+  /** The page read the stored prices, but not this shop's: its row came back odd. */
+  readFailed?: boolean;
+}
+
+/**
  * A product's decision in one shop, as its prices read it: a match names the shop's item its prices there come from,
  * and any other decision names none. The list's decisions (ShopMatchState) read this way as they are.
  */

@@ -543,6 +543,7 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **The tag's meta line** is asserted whole, from `PriceTag`'s documented form ("Natura · 5 min temu"), with a tie's age its older price's.
 - **The stand-in** looks up a relation and an RPC with `Object.hasOwn`, so a name it wasn't given answers an error, and its writes change no canned row.
 - **A history the page can't read** is logged as `history unread` with its shop only, never its item id, as the file's other log lines do.
+- **The stand-in has no `not` filter** (recorded at the review), though the contract lists one: no service calls `.not(`. It has `order` and `limit` instead, which the services do call.
 - **Breaks:** an unreadable history hiding the price again turned its case red; the wiring dropping an unread row turned that case red; the selected row ignoring an unreadable decision turned both decision cases red.
 
 ### Phase 2
@@ -551,6 +552,9 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **The lint guard also refuses `globalThis.fetch`, `window.fetch` and `self.fetch`** (`no-restricted-properties`), since the gate itself calls the global through `globalThis`. It leaves out the tests and `src/lib/services/testing/**`, whose replay helper names `typeof fetch`. A scratch file with both forms was flagged, then deleted.
 - **The search decision's `filled` step** carries the text, so the page's prompt ("Naciśnij „Szukaj”…") reads it from the step; `query` stays for the results.
 - **Which shop each refusal case uses:** the price route's 403 case asks Natura, and the list's stop after a 403 uses two Rossmann products, one request each. The product refresh compares the four served URLs sorted, since the shops are asked at once.
+- **Recorded at the review:**
+  - The lint guard also covers the island's modules under `src/lib`, though the contract said "outside the island's files": none of them may call a shop either.
+  - A refresh posted with a crafted, non-UUID id is expected to go back to `/watchlist` with no code, as the route has always done, rather than to `?prices=none`, which the contract gives for both a crafted and a foreign id. A foreign UUID gets `?prices=none`.
 - **Breaks:** the price route forgetting another site's refusal, the list refresh asking fresh items, Rossmann asked again after a 403, the gate admitting Hebe's pages, and a search from another site asking Rossmann each turned their tests red.
 
 ### Phase 3
@@ -580,6 +584,7 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **Breaks, offline, since the real runs need the local stack (CI's `smoke` job is their first run, 3.3):**
   - The catalogue rules ran over canned catalogue rows. They passed a clean catalogue, and each of these turned them red: a table with RLS off, a function anon and PUBLIC may execute, and a missing reviewed view.
   - The two-user check ran against a stand-in app and Supabase. It passed when nothing leaked. A leak through the product page, the price route, the forms or the list each turned it red. A removal that went through also broke the negative control and the after-run comparison.
+- **3.1's command checks only its first file:** `node --check a b` treats `b` as the script's argument (recorded at the review, and verified). Both scripts were checked one at a time during the phase.
 - **The first CI run (3.3) passed every check, the self-tests and negative controls included.** It also showed something new: the self-test's scratch view, which nothing granted to anon, still came with a privilege for anon. So on the local stack, a new view gets anon's privileges by default despite `auto_expose_new_tables = false`.
   - The two views' migrations revoke them explicitly, so nothing is exposed today.
   - The catalogue check's anon rule now fails on a view whose migration forgets to.
@@ -598,11 +603,31 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 - **§4 and §5 got the new checks too,** though the contract named only §2, §3, §6 and §7. Their rows still named four database scripts and smoke's old reach.
 - **§6.2 is retitled** from "against the local database" to cover all five patterns, since two of them stub the database. It is ordered by what the risk needs: stubbed reads, a route's handler, a database test, two users, the catalogue.
-- **§6.6 and §7 record the first CI run's finding:** a new view gets anon's privileges on the local stack. `CLAUDE.md`'s "Data" records it too, beside the claim about `auto_expose_new_tables`.
+- **§6.6 records the first CI run's finding:** a new view gets anon's privileges on the local stack. `CLAUDE.md`'s "Data" records it too, beside the claim about `auto_expose_new_tables`. (Corrected at the review: this note first said §7 did too.)
 - **`CLAUDE.md` goes beyond the contract in two places:**
   - It names `searchStepOf`, `priceShopsOf` and `selectedRowTagOf` where it describes the pages' decisions, so later work finds the services that hold them.
   - The shop-gate and prices checks' entries name G2, G1 and G4.
 - **§3 stays `implementing`** until the owner's review (5.4). The epilogue then marks it complete.
+
+### The review's fixes (2026-10-07)
+
+`reviews/impl-review.md` holds the findings and the owner's decisions. Each was fixed:
+
+- **F1:** the two-user check refuses to start while another run or a manual `stop` holds the shops (`e2eHolds`), checks that no shop is enabled before either user's requests (`enabledShops`), and lets go of its hold on SIGTERM as on SIGINT.
+- **F2:** the fetch lint rule also covers the frontmatter of `src/components/**/*.astro` and `src/layouts/**/*.astro`, which runs on the server.
+- **F3:** the route tests assert each refresh's `done` code, which only every shop answering and being stored gives, so a request the replay doesn't know can no longer pass. They also assert:
+  - Super-Pharm's POST body;
+  - the valid price call's offer;
+  - the 403 cases' reservations;
+  - a list refresh with two Rossmann products due, one request each, beside a third, fresh product.
+- **F4:** the two-user check fails unless A's product, 3 decisions and 2 prices read back before the requests. The forms must stay on the list's pages. A's refresh is a control too: `failed` with every shop held, against `none` for a product no one has. The request-log check is named for what it shows: the hold lasted. A's Rossmann id has 12 digits, as the app reads one, so that refresh takes it to the gate.
+- **F5:** the page's price wiring is one service, `productPricesOf` in `prices.ts`, which the page and the seam table both call, with tests of its own. The page's output is unchanged.
+- **F6:** `PriceComparisonShop` moved to `src/lib/services/price-comparison.ts`, not `src/types.ts`:
+  - it needs `PricedShop`, which lives there, and `src/types.ts` imports nothing;
+  - the browser-safe module is one the server and the island already import;
+  - no `src/lib` module imports from `src/components` any more.
+- **F7:** smoke and the two-user check share one cookie jar (`scripts/cookie-jar.mjs`).
+- **F8:** these notes and `CLAUDE.md`'s two-user entry, which gains its prerequisites.
 
 ## References
 

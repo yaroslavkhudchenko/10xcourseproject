@@ -24,7 +24,6 @@ import {
   priceComparisonReducer,
   start,
   type PriceComparisonAction,
-  type PriceComparisonShop,
   type PriceComparisonState,
   type RefreshResult,
 } from "@/components/watchlist/price-comparison-state";
@@ -48,6 +47,7 @@ import {
   SHOP_LABELS,
   STALE_AFTER_MS,
   type MatchedShop,
+  type PriceComparisonShop,
   type PricedShop,
 } from "@/lib/services/price-comparison";
 import { parseSize } from "@/lib/services/size";

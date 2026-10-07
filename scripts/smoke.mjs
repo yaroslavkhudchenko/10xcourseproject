@@ -1,11 +1,14 @@
 // Smoke test: proves the built app, the Cloudflare adapter and the Supabase auth flow still work together.
-// Zero dependencies on purpose. Run against a live server bound to the local Supabase: `npm run smoke`, which reads
-// SUPABASE_URL and SUPABASE_KEY from .env when it's there; BASE_URL defaults to http://localhost:4321.
+// Zero npm dependencies on purpose: it shares only its cookie jar with the two-user check (scripts/cookie-jar.mjs).
+// Run against a live server bound to the local Supabase: `npm run smoke`, which reads SUPABASE_URL and SUPABASE_KEY
+// from .env when it's there; BASE_URL defaults to http://localhost:4321.
+
+import { cookieJar } from "./cookie-jar.mjs";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:4321";
 const email = `smoke-${Date.now()}@example.com`;
 const password = "Smoke-Test-Passw0rd!";
-const jar = new Map();
+const jar = cookieJar();
 
 // The app lets no one register, so the smoke user comes from Auth's own sign-up, on the Supabase the server is bound
 // to. That signs a user up, so smoke only ever runs against the local stack, like the database checks.
@@ -47,34 +50,20 @@ const signUpFailure = await signUpSmokeUser();
 console.log(`${signUpFailure ? "FAIL" : "PASS"}  sign up the smoke user through Auth  -> ${signUpFailure ?? email}`);
 if (signUpFailure) process.exit(1);
 
-function cookieHeader() {
-  return [...jar.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
-}
-
-function storeCookies(response) {
-  for (const raw of response.headers.getSetCookie()) {
-    const [pair, ...attrs] = raw.split(";");
-    const [name, ...rest] = pair.split("=");
-    const expired = attrs.some((a) => /max-age=0/i.test(a.trim()));
-    if (expired) jar.delete(name.trim());
-    else jar.set(name.trim(), rest.join("="));
-  }
-}
-
 // Every request comes from the app's own origin unless a step says otherwise. A body is a form or JSON.
 async function request(path, { method = "GET", form, json, origin = BASE_URL } = {}) {
   const response = await fetch(BASE_URL + path, {
     method,
     redirect: "manual",
     headers: {
-      Cookie: cookieHeader(),
+      Cookie: jar.header(),
       Origin: origin,
       ...(form ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
       ...(json ? { "Content-Type": "application/json" } : {}),
     },
     body: form ? new URLSearchParams(form).toString() : json ? JSON.stringify(json) : undefined,
   });
-  storeCookies(response);
+  jar.store(response);
   return {
     status: response.status,
     location: response.headers.get("location") ?? "",

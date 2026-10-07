@@ -124,11 +124,12 @@ How to add new tests in this project. Each sub-section is filled in once the rel
   - `stubSupabase({ relations, rpc })` (`src/lib/services/testing/stub-supabase.ts`) answers each relation and RPC by name, applies a query's filters to its canned rows and records every query. A name it wasn't given answers an error, so a forgotten read never reads as empty.
   - Use it for a row the database would refuse, such as an odd price row, which only a stub can serve.
   - Move a page's decision into a service first ("Keep decision logic in tested services"), since no test renders a page.
-  - The seam table serves one stored state to both pages' own reads and wiring, one fault at a time. Its expected values come from the PRD's guardrail, US-01 and the owner's calls, never from the rule under test. Its negative control: no RPC is called, so no shop was asked.
+  - The seam table serves one stored state to both pages' own reads and wiring, the product page's through `productPricesOf`, the page's own call, one fault at a time. Its expected values come from the PRD's guardrail, US-01 and the owner's calls, never from the rule under test. Its negative control: no RPC is called, so no shop was asked.
 - **2. A route's handler through the real gate** (`src/lib/services/price-routes.test.ts`):
   - Import the route's exported handler (`POST`) and call it with a context of `request`, `url`, `locals` (a stand-in client and no user) and `redirect`. Astro builds every file under `src/pages/` as a route, so the test lives under `src/lib/services/`.
   - The gate is the real one, over the stand-in's `reserve_shop_request` and `report_shop_block`. The shop answers come from `createReplayFetch`, stubbed in as the global `fetch` (`vi.stubGlobal`).
   - Assert the reservations and the served URLs, never only the status: none for each refusal, exactly the stated cost for each valid call, and nothing after a 403. A valid call serving its URLs is the negative control.
+  - The served URLs count every request sent, one the replay doesn't know included, which reads as `failed/network`. So a call that needs every shop answered also asserts the route's outcome, such as a refresh's `done`, and a POST's body.
   - A handler test skips the middleware, Astro's origin check and the headers. Smoke and the two-user check (4) cover those on the preview.
 - **3. A database test** (`src/lib/services/matches.db.test.ts`):
   - Name it `<module>.db.test.ts` under `src/`.
@@ -142,9 +143,9 @@ How to add new tests in this project. Each sub-section is filled in once the rel
   - A new route or page that takes a product's id joins its list.
   - A is seeded through supabase-js after an Auth sign-up. B signs in through the app's Polish form.
   - A's product has a name of its own, which none of B's pages may show.
-  - Every enabled shop is held for the run (`stopShops` and `restoreShops`, `scripts/e2e-local-db.mjs`), so a route that leaked would meet a stopped shop.
-  - **Negative control:** as A, the product page and the price route answer differently from a missing id.
-  - **Afterwards:** A's rows are unchanged, B's own are empty, and the request log's mark hasn't moved.
+  - Every enabled shop is held for the run (`stopShops` and `restoreShops`, `scripts/e2e-local-db.mjs`), so a route that leaked would meet a stopped shop. It refuses to start while another run holds them, and checks that none is enabled before either user's requests.
+  - **Negative control:** as A, the product page, the price route and the product's refresh answer differently from a missing id.
+  - **Afterwards:** A's rows, read back before the requests, are unchanged, B's own are empty, and the request log's mark hasn't moved, which shows the hold lasted.
 - **5. The catalogue check** (`scripts/check-catalog-db.mjs`):
   - As the local superuser, it holds `public` to a reviewed list of relations and functions, each with its protection:
     - RLS on every table;
@@ -317,6 +318,12 @@ How to add new tests in this project. Each sub-section is filled in once the rel
     - The request log can't show an attempt on a stopped shop, so the route tests and the two-user check compare answers too.
     - The developer machine has no Docker, so the checks that need the local stack run only in CI's `smoke` job.
     - The edges the owner accepted are in §7.
+  - **The review's fixes (2026-10-07):**
+    - The two-user check refuses to start while another run holds the shops, and every one of its controls can fail.
+    - The route tests assert a refresh's `done` and Super-Pharm's body.
+    - The product page's price wiring is one service, `productPricesOf`, which the page and the seam table both call.
+    - The fetch lint rule covers Astro components' and layouts' frontmatter.
+    - Smoke and the two-user check share one cookie jar.
 
 ## 7. What We Deliberately Don't Test
 

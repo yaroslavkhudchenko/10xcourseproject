@@ -18,6 +18,7 @@ import {
   type LatestCheck,
   type MatchableShop,
   type MatchedShop,
+  type PriceComparisonShop,
   type PricedShop,
   type PriceJudgement,
   type PriceVerdict,
@@ -25,7 +26,7 @@ import {
 } from "@/lib/services/price-comparison";
 import { rowTagOf, type PriceTag, type RowShop } from "@/lib/services/watchlist-rows";
 import { priceMissingText, priceUnavailableText } from "@/lib/shop-messages";
-import type { LatestPrice, PriceHistory, PriceRefreshAnswer, SearchUnavailableReason, ShopOffer } from "@/types";
+import type { PriceHistory, PriceRefreshAnswer, SearchUnavailableReason, ShopOffer } from "@/types";
 
 // The product page's price island, without React: each priced shop's latest price, whether its refetch runs, why the
 // last one gave no answer, whether the page couldn't read its stored price, which matched shops' decisions it couldn't
@@ -42,20 +43,6 @@ export const REFRESH_FORM_ROUTE = "/api/watchlist/refresh";
 // A refetch gives up after 20 s, past the route's own worst case (its database calls and the gate's 8 s), so a row
 // never waits for good.
 const REFRESH_TIMEOUT_MS = 20_000;
-
-/**
- * One matched shop as the page hands it to the island: the shop, the item the page shows there, its item's page, its
- * stored price, if any, and whether the page couldn't read that price.
- */
-export interface PriceComparisonShop {
-  shop: PricedShop;
-  /** The shop's item the page shows, which each refetch names. */
-  shopItemId: string;
-  productUrl: string | null;
-  latest: LatestPrice | null;
-  /** The page read the stored prices, but not this shop's: its row came back odd. */
-  readFailed?: boolean;
-}
 
 /**
  * What one refetch came to: the route's answer; that the session ended and the user has to sign in again; or that the
