@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "astro/zod";
-import { keyText, PRICED_SHOPS } from "@/lib/services/price-comparison";
+import type { PriceComparisonShop } from "@/components/watchlist/price-comparison-state";
+import { keyText, PRICED_SHOPS, type PricedKey, type PricedShop } from "@/lib/services/price-comparison";
 import { SHOP_IDS, type LatestPrice, type PriceCheck, type PriceHistory, type PriceKey, type ShopId } from "@/types";
 
 // Every price check of a shop item (public.price_observations), shared by the item's watchers: a user reads and adds
@@ -152,17 +153,23 @@ const LIST_VIEW: LatestView = {
 };
 
 // The product page's view, the same latest check with the item's history, which the page judges today's price by
-// (judgementOf in price-comparison.ts). A row whose history can't be read is odd, as one with any other odd column is,
-// so the page never judges a price by a history it couldn't read.
+// (judgementOf in price-comparison.ts). A row whose history can't be read keeps its price, as the list shows it, with
+// a history that wasn't read (`history: null`), so the price's verdict is the list's and the judgement never speaks of
+// that history (the owner's call, 2026-10-07). A row with any other odd column is odd.
 const PAGE_VIEW: LatestView = {
   name: "price_summaries",
   columns: `${LATEST_COLUMNS}, history_low, history_days`,
   parse: (raw) => {
     const row = latestRowSchema.safeParse(raw);
+    if (!row.success) {
+      return null;
+    }
     const history = historyColumnsSchema.safeParse(raw);
-    return row.success && history.success
-      ? toLatestPrice(row.data, { low: history.data.history_low, days: history.data.history_days })
-      : null;
+    if (!history.success) {
+      logFailure("history unread", row.data.shop_id);
+      return toLatestPrice(row.data, null);
+    }
+    return toLatestPrice(row.data, { low: history.data.history_low, days: history.data.history_days });
   },
 };
 
@@ -224,10 +231,10 @@ export async function listLatestPrices(supabase: SupabaseClient): Promise<ListPr
 
 /**
  * The latest state of the given shop items, as a product's page needs it: their prices, each with the item's history
- * of the 30 days in Poland before today (`{ low: null, days: [] }` when it has none), and the items whose rows came
- * back odd, a history that can't be read included, so the page never shows such an item as one that was never checked.
- * Odd rows are logged. Null when the prices couldn't be read, and when an odd row can't even say which item it's
- * about, since it could be any of them: the read is one product's, so that empties nothing else.
+ * of the 30 days in Poland before today (`{ low: null, days: [] }` when it has none, null when it couldn't be
+ * read), and the items whose rows came back odd, so the page never shows such an item as one that was never checked.
+ * Odd rows and unreadable histories are logged. Null when the prices couldn't be read, and when an odd row can't even say which item
+ * it's about, since it could be any of them: the read is one product's, so that empties nothing else.
  */
 export async function readLatestPrices(supabase: SupabaseClient, keys: PriceKey[]): Promise<LatestPricesRead | null> {
   if (keys.length === 0) {
@@ -250,6 +257,32 @@ export async function readLatestPrices(supabase: SupabaseClient, keys: PriceKey[
     }
   }
   return { prices: rows.prices, unread };
+}
+
+/**
+ * The product page's shops for its price island, in `keys` order (productPriceKeys): each priced item with its link
+ * (`productUrlOf`), its latest price from `read`, and whether its own row came back odd, so it says its price couldn't
+ * be read until its shop answers; and whether the read failed as a whole (`pricesFailed`), which the island marks on
+ * every row. Either way no shop is named cheapest meanwhile.
+ */
+export function priceShopsOf(
+  keys: readonly PricedKey[],
+  read: LatestPricesRead | null,
+  productUrlOf: (shop: PricedShop) => string | null,
+): { shops: PriceComparisonShop[]; pricesFailed: boolean } {
+  const latest = new Map((read?.prices ?? []).map((price) => [keyText(price), price] as const));
+  const unread = new Set((read?.unread ?? []).map(keyText));
+  const shops = keys.map(({ shop, shopItemId }) => {
+    const key = keyText({ shop, shopItemId });
+    return {
+      shop,
+      shopItemId,
+      productUrl: productUrlOf(shop),
+      latest: latest.get(key) ?? null,
+      readFailed: unread.has(key),
+    };
+  });
+  return { shops, pricesFailed: read === null };
 }
 
 /**

@@ -31,6 +31,27 @@ export const searchQuerySchema = z
   .transform((value) => value.trim().replace(/\s+/g, " "))
   .pipe(z.string().min(2).max(MAX_LENGTH).regex(ALLOWED));
 
+/** What the list page does with its search text: see searchStepOf. */
+export type SearchStep =
+  { kind: "none" } | { kind: "invalid" } | { kind: "filled"; query: string } | { kind: "search"; query: string };
+
+/**
+ * What the list page does with its search text (`rawQuery`, the `q` parameter): nothing without any; tells the user
+ * text that can't be searched (`invalid`); only fills the form in (`filled`) when the request isn't the user's own
+ * navigation (isOwnNavigation), so a link on another site or a prefetch never spends the cap everyone shares; or
+ * searches Rossmann, once (`search`).
+ */
+export function searchStepOf(rawQuery: string | null, headers: Headers): SearchStep {
+  if (rawQuery === null) {
+    return { kind: "none" };
+  }
+  const parsed = searchQuerySchema.safeParse(rawQuery);
+  if (!parsed.success) {
+    return { kind: "invalid" };
+  }
+  return isOwnNavigation(headers) ? { kind: "search", query: parsed.data } : { kind: "filled", query: parsed.data };
+}
+
 /**
  * Search text made from product text, such as a watched product's brand, name and size. Characters that may not go
  * into a shop URL become spaces, and text over 80 characters is cut after the last whole word that fits. Null when

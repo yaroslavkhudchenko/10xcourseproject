@@ -445,13 +445,17 @@ describe("readLatestPrices", () => {
     { why: "a time among its history days", row: { ...felixSummaryRow, history_days: ["2026-09-25T10:00:00+00:00"] } },
     { why: "a history low without a day", row: { ...felixSummaryRow, history_days: [] } },
     { why: "history days without a low", row: { ...felixSummaryRow, history_low: null } },
-  ])("reports an item as unread when its row has $why, and still gives the other prices", async ({ row }) => {
+  ])("keeps an item's price, its history unread, when its row has $why, and logs it", async ({ row }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { client } = stubClient({ data: [row, softSummaryRow] });
 
-    // The page then says Felix's price couldn't be read, so it judges no price by a history it couldn't read.
-    expect(await readLatestPrices(client, [FELIX, SOFT])).toEqual({ prices: [softWithoutHistory], unread: [FELIX] });
-    expect(loggedLine(warn)).toMatchObject({ reason: "unexpected rows dropped", detail: "1" });
+    // Felix's price is the one the list shows, so both pages give it the same verdict, and the judgement never speaks
+    // of a history the page couldn't read (the owner's call, 2026-10-07).
+    expect(await readLatestPrices(client, [FELIX, SOFT])).toEqual({
+      prices: [{ ...felixWithHistory, history: null }, softWithoutHistory],
+      unread: [],
+    });
+    expect(loggedLine(warn)).toMatchObject({ reason: "history unread", detail: "rossmann" });
   });
 
   it("leaves out an odd row of another shop's item with the same id", async () => {

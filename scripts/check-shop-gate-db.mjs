@@ -59,14 +59,37 @@ check(
   `${allowed} allowed, ${capped} capped`,
 );
 
-// 2. Without a session the caller is anon, which has no execute grant.
+// 2. Without a session the caller is anon, which may execute neither function; were the report let through, it would
+// pause natura for a second. A signed-in user, in turn, may not execute applied_migrations(), which only anon may, for
+// the deploy gate.
 const anonCall = await reserve(anon, "rossmann");
 check("anon cannot execute reserve_shop_request", anonCall.error?.code === "42501", show(anonCall));
+const anonReport = await anon.rpc("report_shop_block", {
+  p_shop_id: "natura",
+  p_kind: "rate_limited",
+  p_retry_after_seconds: 1,
+});
+check("anon cannot execute report_shop_block", anonReport.error?.code === "42501", show(anonReport));
+const userMigrations = await user.rpc("applied_migrations");
+check("signed-in user cannot execute applied_migrations", userMigrations.error?.code === "42501", show(userMigrations));
 
-// 3. RLS is on and no API role has a table grant, so the tables are reachable only through the functions.
-for (const table of ["shops", "shop_requests"]) {
+// 3. RLS is on and no API role has a table grant, so the tables are reachable only through the functions: a signed-in
+// user can't read, add, change or delete a row. The update and the delete name no real row.
+const directWrites = {
+  shops: { row: { id: "check-shop", name: "Check" }, change: { enabled: true }, key: "id" },
+  shop_requests: { row: { shop_id: "rossmann" }, change: { shop_id: "rossmann" }, key: "shop_id" },
+};
+for (const [table, { row, change, key }] of Object.entries(directWrites)) {
   const direct = await user.from(table).select("*").limit(1);
   check(`signed-in user cannot select from ${table}`, direct.error?.code === "42501", show(direct));
+  const inserted = await user.from(table).insert(row);
+  const updated = await user.from(table).update(change).eq(key, "no-such-shop");
+  const deleted = await user.from(table).delete().eq(key, "no-such-shop");
+  check(
+    `signed-in user cannot insert into, update or delete from ${table}`,
+    [inserted, updated, deleted].every((result) => result.error?.code === "42501"),
+    `insert ${show(inserted)}, update ${show(updated)}, delete ${show(deleted)}`,
+  );
 }
 
 // 4. A rate-limit report pauses the shop for the given delay.

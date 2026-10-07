@@ -4,7 +4,9 @@
 // on shop matches that covers only the decision. Since S-08 it proves that removing a product deletes no observation,
 // and that a re-pin changes which item a user watches. Since S-04 it proves that the product page's view
 // (price_summaries) gives each item's history, its orderable prices of the 30 days in Poland before today, to the
-// item's watchers only, and that the regular price and the 30-day low are bounded as the price is.
+// item's watchers only, and that the regular price and the 30-day low are bounded as the price is. Since test rollout
+// Phase 2 it proves that a user who watches nothing reads and counts nothing through the list's unfiltered read, and
+// that re-pinning away from an item ends the access to its observations.
 // Run: SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=<anon key> node scripts/check-prices-db.mjs
 // Each run signs up two fresh users and uses shop item ids of its own, so it can run again without resetting the
 // database, and it never adds a price to a real product's shared history. The history checks move checks back in time
@@ -257,6 +259,23 @@ check(
 );
 const anonWrite = await table(anon).insert(priceRow("rossmann", itemX));
 check("anon can't record a price", anonWrite.error?.code === "42501", show(anonWrite));
+// The list reads the latest prices of every item a user may see, with no filter (readLatestRows in
+// src/lib/services/prices.ts). Before user B watches anything, that read and an exact count of the table and both views
+// give B nothing, while user A's same reads give A's rows.
+const everything = (client) =>
+  Promise.all(
+    [table(client), view(client), summaries(client)].map((relation) =>
+      relation.select("shop_item_id", { count: "exact" }),
+    ),
+  );
+const [bEverything, aEverything] = await Promise.all([everything(b.client), everything(a.client)]);
+check(
+  "user B, who watches nothing, reads and counts no row of the table or either view, while user A reads theirs",
+  bEverything.every((read) => !read.error && read.data?.length === 0 && read.count === 0) &&
+    aEverything.every((read) => !read.error && read.data?.length > 0 && read.count === read.data.length),
+  `B ${bEverything.map((read) => `${show(read)} count ${read.count}`).join(", ")}, ` +
+    `A ${aEverything.map((read) => `count ${read.count}`).join(", ")}`,
+);
 const bItemId = await addProduct(b, "B", itemX);
 const bRows = await table(b.client).select("id").eq("shop_item_id", itemX);
 const bIds = (bRows.data ?? []).map((row) => row.id);
@@ -376,9 +395,17 @@ check(
 );
 
 // 9. A re-pin changes which item a user watches, and removing a product deletes no observation (FR-005). User B
-// re-pins their Natura match from skuB to skuA, narrowing the update to the match it replaces, and so reads user A's
-// price for skuA. Then user A removes X: B, who still watches X and now skuA, keeps every observation of both, while
-// A, who watched them only through that product and its match, reads and adds none.
+// records a price for skuB, then re-pins their Natura match from skuB to skuA, narrowing the update to the match it
+// replaces, and so reads user A's price for skuA and no longer skuB's, which no one else watches. Then user A removes X:
+// B, who still watches X and now skuA, keeps every observation of both, while A, who watched them only through that
+// product and its match, reads and adds none.
+const bSkuBWrite = await table(b.client).insert(priceRow("natura", skuB));
+const bSkuBBefore = await table(b.client).select("id").eq("shop_item_id", skuB);
+check(
+  "user B records a price for skuB, the Natura SKU they matched",
+  !bSkuBWrite.error && bSkuBBefore.data?.length === 1,
+  `insert ${show(bSkuBWrite)}, read ${show(bSkuBBefore)}`,
+);
 const bRepin = await b.client
   .from("watchlist_matches")
   .update({ state: "matched", decided_by: "user", shop_item_id: skuA, checked_at: new Date().toISOString() })
@@ -393,6 +420,19 @@ check(
   "user B re-pins their Natura match to skuA and reads its observation",
   !bRepin.error && bRepin.data?.length === 1 && bSkuA.data?.length === 1,
   `update ${show(bRepin)}, read ${show(bSkuA)}`,
+);
+const bSkuBTable = await table(b.client).select("id").eq("shop_item_id", skuB);
+const bSkuBView = await view(b.client).select("shop_item_id").eq("shop_item_id", skuB);
+const bSkuBSummary = await summaries(b.client).select("shop_item_id").eq("shop_item_id", skuB);
+const bSkuBAfter = await table(b.client).insert(priceRow("natura", skuB));
+check(
+  "once user B re-pins away from skuB, B reads none of its observations and adds none",
+  bSkuBTable.data?.length === 0 &&
+    bSkuBView.data?.length === 0 &&
+    bSkuBSummary.data?.length === 0 &&
+    bSkuBAfter.error?.code === "42501",
+  `table ${show(bSkuBTable)}, view ${show(bSkuBView)}, product page's view ${show(bSkuBSummary)}, ` +
+    `insert ${show(bSkuBAfter)}`,
 );
 const removed = await a.client.from("watchlist_items").delete().eq("id", aItemId).select("id");
 const bTableAfter = await table(b.client).select("id").in("shop_item_id", [itemX, skuA]);

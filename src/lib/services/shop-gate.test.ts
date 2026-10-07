@@ -268,6 +268,21 @@ describe("shop gate: guards", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  // Each shop's requests go only to the hosts its adapter calls (the owner's call, 2026-10-07): its own pages, which
+  // no adapter fetches, and a tracker's script are refused.
+  it.each<{ shopId: ShopId; url: string }>([
+    { shopId: "hebe", url: "https://www.hebe.pl/nivea-soft-000000000000218807.html" },
+    { shopId: "hebe", url: "https://scripts.luigisbox.com/LBX-505233.js" },
+    { shopId: "natura", url: "https://www.drogerienatura.pl/catalogsearch/result/?q=nivea" },
+    { shopId: "super-pharm", url: "https://www.superpharm.pl/" },
+  ])("refuses $url for $shopId, before reserving", async ({ shopId, url }) => {
+    const { gate, reserve, fetchMock } = setup();
+
+    await expect(gate.fetch(shopId, url)).rejects.toThrow(TypeError);
+    expect(reserve).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("never follows a redirect, even when the caller asks it to", async () => {
     const { gate, fetchMock, reportBlock, log } = setup({
       entries: [{ url: ROSSMANN_SEARCH, status: 302, headers: { Location: "https://elsewhere.example/q?nivea" } }],

@@ -95,11 +95,12 @@ function databaseContainer() {
 
 /**
  * Runs one statement as the local superuser and returns its rows, one line each, columns joined by "|".
- * Every value in a statement comes from a constant or passed one of the rules above.
+ * Every value in a statement comes from a constant or passed one of the rules above, and a caller outside this file,
+ * such as the catalogue check (scripts/check-catalog-db.mjs), keeps to the same rule.
  * @param {string} statement
  * @returns {string[]}
  */
-function sql(statement) {
+export function sql(statement) {
   assertLocalSupabase();
   const output = execFileSync(
     "docker",

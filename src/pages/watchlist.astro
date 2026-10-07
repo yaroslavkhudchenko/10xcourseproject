@@ -23,7 +23,7 @@ import { SHOP_LABELS } from "@/lib/services/price-comparison";
 import { parsePriceRefreshCode } from "@/lib/services/price-refresh";
 import { listLatestPrices } from "@/lib/services/prices";
 import { shopGateFor } from "@/lib/services/shop-gate";
-import { isOwnNavigation, searchQuerySchema } from "@/lib/services/search-query";
+import { searchStepOf } from "@/lib/services/search-query";
 import { searchRossmann } from "@/lib/services/shops/rossmann";
 import { listChipsOf, listRowsOf } from "@/lib/services/watchlist-rows";
 import { listWatchlist, removedNotice, watchlistErrorMessage } from "@/lib/services/watchlist";
@@ -33,17 +33,15 @@ const { user, supabase } = Astro.locals;
 const params = Astro.url.searchParams;
 const rawQuery = params.get("q");
 
-// Search runs only on submit, and only with text that may go into a shop URL.
-const parsedQuery = rawQuery === null ? null : searchQuerySchema.safeParse(rawQuery);
-const query = parsedQuery?.success ? parsedQuery.data : null;
-const invalidQuery = parsedQuery !== null && !parsedQuery.success;
-// A link on another site only fills in the form: just the user's own navigation spends the shared cap.
-const searchAllowed = isOwnNavigation(Astro.request.headers);
+// Search runs only on submit, only with text that may go into a shop URL, and only on the user's own navigation: a link
+// on another site only fills in the form (searchStepOf).
+const searchStep = searchStepOf(rawQuery, Astro.request.headers);
+const query = searchStep.kind === "search" || searchStep.kind === "filled" ? searchStep.query : null;
 
 // The matches and the prices come from one query each for the whole list, never one per product, and carry only what
 // the list shows. The prices are the stored ones: viewing the list, filtered by a chip or not, asks no shop.
 const [search, items, matchRead, priceRead] = await Promise.all([
-  query === null || !searchAllowed ? null : searchRossmann(shopGateFor(supabase), query),
+  searchStep.kind === "search" ? searchRossmann(shopGateFor(supabase), searchStep.query) : null,
   supabase ? listWatchlist(supabase) : null,
   supabase ? listMatchStates(supabase) : null,
   supabase ? listLatestPrices(supabase) : null,
@@ -97,16 +95,16 @@ const LIST_HEADING_ID = "list-heading";
     </p>
   ) : (
     <div class="flex flex-col gap-4 pt-4 lg:pt-0">
-      {invalidQuery && (
+      {searchStep.kind === "invalid" && (
         <Alert variant="destructive">
           <AlertDescription>
             Wpisz od 2 do 80 znaków: litery, cyfry, spacje i znaki . , % &amp; ' + / ( ) -
           </AlertDescription>
         </Alert>
       )}
-      {query !== null && !searchAllowed && (
+      {searchStep.kind === "filled" && (
         <Alert role="status">
-          <AlertDescription>Naciśnij „Szukaj”, aby wyszukać „{query}”.</AlertDescription>
+          <AlertDescription>Naciśnij „Szukaj”, aby wyszukać „{searchStep.query}”.</AlertDescription>
         </Alert>
       )}
       {unavailableMessage && (
