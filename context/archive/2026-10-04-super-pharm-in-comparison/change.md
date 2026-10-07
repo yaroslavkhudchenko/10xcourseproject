@@ -1,10 +1,10 @@
 ---
 change_id: super-pharm-in-comparison
 title: Add Super-Pharm to the price comparison (roadmap S-06)
-status: impl_reviewed
+status: archived
 created: 2026-10-04
-updated: 2026-10-06
-archived_at: null
+updated: 2026-10-07
+archived_at: 2026-10-07T09:11:52Z
 ---
 
 ## Notes
