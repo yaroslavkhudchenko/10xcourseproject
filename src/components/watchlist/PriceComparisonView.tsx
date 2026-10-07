@@ -12,6 +12,7 @@ import {
   checkedCaption,
   comparisonOf,
   heroOf,
+  judgementOfState,
   matchChangedText,
   trackHint,
   trackOf,
@@ -24,7 +25,6 @@ import ProductTitle, { type TitleProduct } from "@/components/watchlist/ProductT
 import RefreshBar from "@/components/watchlist/RefreshBar";
 import ShopCard from "@/components/watchlist/ShopCard";
 import VerdictHero from "@/components/watchlist/VerdictHero";
-import { judgementOf } from "@/lib/services/price-comparison";
 import { filterHref, signInHref, type ListFilter } from "@/lib/services/watchlist-rows";
 
 interface Props {
@@ -64,10 +64,10 @@ export default function PriceComparisonView({ itemId, listFilter, product, state
   // on the same rows, and whether its price is a good one, at the verdict's time.
   const { rows } = comparisonOf(state);
   const verdict = verdictOfState(state);
-  const judgement = judgementOf(verdict, rows, product.addedAt, verdict.at);
+  const judgement = judgementOfState(state, product.addedAt);
   const context = { undecided: undecidedShopsOf(matched) };
   const track = trackOf(rows, verdict);
-  const hint = trackHint(verdict, context, judgement, rows);
+  const hint = trackHint(verdict, context, judgement);
   const caption = checkedCaption(state.rows, state.now);
   // One refetch per shop at a time: a second tap while one runs would only spend the cap again.
   const refreshing = state.rows.some((row) => row.pending);

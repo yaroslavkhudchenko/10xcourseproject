@@ -7,6 +7,7 @@ import {
   gapText,
   heroOf,
   initialState,
+  judgementOfState,
   markerSteps,
   matchChangedText,
   parseRefreshAnswer,
@@ -837,10 +838,16 @@ describe("heroOf", () => {
     { why: "equal to its shop's 30-day low, as the handoff's Isana", prices: isana, sticker: "ordinary" },
     { why: "above its shop's 30-day low", prices: () => inNatura({ low: 15.99 }), sticker: "ordinary" },
     {
-      why: "below the product's own 30 days, though above its shop's 30-day low",
-      prices: () => inNatura({ low: 15.99, history: { low: 17.49, days: FIVE_DAYS } }),
+      why: "below the product's own 30 days and its shop's 30-day low",
+      prices: () => inNatura({ low: 17.99, history: { low: 17.49, days: FIVE_DAYS } }),
       addedAt: ADDED_LONG_AGO,
       sticker: "good",
+    },
+    {
+      why: "below the product's own 30 days, though above the lower 30-day low its shop declares",
+      prices: () => inNatura({ low: 15.99, history: { low: 17.49, days: FIVE_DAYS } }),
+      addedAt: ADDED_LONG_AGO,
+      sticker: "ordinary",
     },
     {
       why: "above the product's own 30 days, though below its shop's 30-day low",
@@ -1047,8 +1054,9 @@ describe("trackOf", () => {
   });
 });
 
-// The sentences below are the owner's of 2026-10-06 (context/changes/good-price-judgement/plan.md, Phase 3), written
-// out whole, with the no-break space Intl writes before "zł", never put together as the rule puts them.
+// The sentences below are the owner's of 2026-10-06 (context/archive/2026-10-06-good-price-judgement/plan.md,
+// Phase 3), written out whole, with the no-break space Intl writes before "zł", never put together as the rule puts
+// them.
 describe("trackHint", () => {
   /**
    * What the price track's card says of these prices, beside the matched shops still to match, for a product added at
@@ -1058,14 +1066,12 @@ describe("trackHint", () => {
     { rows, verdict }: Judged,
     { undecided = [], addedAt = ADDED_RECENTLY }: { undecided?: MatchableShop[]; addedAt?: string } = {},
   ): string | null {
-    return trackHint(verdict, { undecided }, judgementOf(verdict, rows, addedAt, RENDERED_AT), rows);
+    return trackHint(verdict, { undecided }, judgementOf(verdict, rows, addedAt, RENDERED_AT));
   }
 
   /** What the price track's card says of the island's state, for a product added the day before, as the view says it. */
   function hintOfState(state: PriceComparisonState): string | null {
-    const { rows } = comparisonOf(state);
-    const verdict = verdictOfState(state);
-    return trackHint(verdict, { undecided: [] }, judgementOf(verdict, rows, ADDED_RECENTLY, verdict.at), rows);
+    return trackHint(verdictOfState(state), { undecided: [] }, judgementOfState(state, ADDED_RECENTLY));
   }
 
   it.each<{ why: string; prices: () => Judged; hint: string }>([
@@ -1136,6 +1142,20 @@ describe("trackHint", () => {
     expect(hintOfState(failedRead)).toBe("Poniżej najniższej ceny z 30 dni wg sklepu.");
   });
 
+  it("says nothing of the history's length when nothing compares after a failed read", () => {
+    // Both shops answer, and neither declares a 30-day low, but the page couldn't read the stored prices, so the
+    // history, however long, wasn't read.
+    const failedRead = run(
+      initialState({ shops: [rossmann(null), natura(null)], now: RENDERED, pricesFailed: true }),
+      start("rossmann"),
+      start("natura"),
+      done("rossmann", priceAnswer(26.49), ANSWERED_AT),
+      done("natura", priceAnswer(16.99), ANSWERED_AT + 1),
+    );
+
+    expect(hintOfState(failedRead)).toBe("Nie ma z czym porównać: Natura nie podaje najniższej ceny z 30 dni.");
+  });
+
   it.each<{ why: string; low: number; hint: string }>([
     { why: "below its lowest", low: 17.49, hint: "Najniższa cena w Twoich sklepach od 30 dni." },
     { why: "equal to its lowest", low: 16.99, hint: "Równa najniższej cenie w Twoich sklepach z ostatnich 30 dni." },
@@ -1145,13 +1165,26 @@ describe("trackHint", () => {
       hint: priced("W ostatnich 30 dniach było taniej w Twoich sklepach: 15,99 zł."),
     },
   ])("judges the cheapest price against the product's own 30 days once they count: $why", ({ low, hint }) => {
-    // Natura declares a 30-day low of 16,49 zł, against which 16,99 zł would read as above it: the history comes first.
-    // Whether Rossmann's history was read doesn't change what was compared.
-    for (const rossmannHistory of [{ low: null, days: [] }, null]) {
-      const prices = inNatura({ low: 16.49, history: { low, days: FIVE_DAYS }, rossmannHistory });
+    // Natura declares a 30-day low of 17,99 zł, above every history low here, so the history is the lower comparison.
+    const prices = inNatura({ low: 17.99, history: { low, days: FIVE_DAYS } });
 
-      expect(hintOf(prices, { addedAt: ADDED_LONG_AGO })).toBe(hint);
-    }
+    expect(hintOf(prices, { addedAt: ADDED_LONG_AGO })).toBe(hint);
+  });
+
+  it("judges against the lower 30-day low its shop declares once the history counts, never calling it short", () => {
+    // The history's lowest is 17,49 zł, but Natura declares 16,49 zł, so 16,99 zł is above what the shop states.
+    const prices = inNatura({ low: 16.49, history: { low: 17.49, days: FIVE_DAYS } });
+
+    expect(hintOf(prices, { addedAt: ADDED_LONG_AGO })).toBe(
+      priced("Powyżej najniższej ceny z 30 dni wg sklepu (16,49 zł)."),
+    );
+  });
+
+  it("never judges by the product's own 30 days while a shop's history wasn't read", () => {
+    // Natura's history alone counts, but Rossmann's check came without its history, which may have held a lower price.
+    const prices = inNatura({ low: 17.99, history: { low: 15.99, days: FIVE_DAYS }, rossmannHistory: null });
+
+    expect(hintOf(prices, { addedAt: ADDED_LONG_AGO })).toBe("Poniżej najniższej ceny z 30 dni wg sklepu.");
   });
 
   it.each<{ why: string; prices: () => Judged; hint: string }>([

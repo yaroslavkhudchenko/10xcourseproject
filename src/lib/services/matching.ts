@@ -6,10 +6,13 @@ import type { CandidateOption, CandidateVerdict, ShopCandidate, Size } from "@/t
 // - By name, only when no candidate qualifies by EAN, and only where EANs can't decide: a candidate in the product's
 //   size whose brand doesn't contradict it, when it or the product has no EAN, as no Super-Pharm item has (research
 //   note §2.3). Its name passes when each of its words is in the product's name or caption, where Rossmann keeps the
-//   shade or the scent, and at least two are. The passing candidate whose words include every other passing one's,
+//   shade or the scent, at least two are, and it has the words that tell the product apart: one of the product's own
+//   name, and each word the caption writes with a capital letter or a digit, where Rossmann writes the shade or the
+//   strength ("Cosmic Black", "SPF15", "100h"). The passing candidate whose words include every other passing one's,
 //   and more, is accepted, so "Cosmic Black" wins over "Black" for a Cosmic Black mascara, and so is a lone one.
 // Everything else is the user's choice: no shop's EANs are trusted on their own (research note §2.2: one EAN can come
-// with another size), and a name with a word the product lacks may be another shade, scent or strength.
+// with another size), a name with a word the product lacks may be another shade, scent or strength, and one without a
+// word that tells the product apart may be its plainer sibling, when the shop's answer doesn't hold the product itself.
 //
 // A text's words: its sizes ("300 ml", "4,8 g") go, the rest is folded as brands are and split at anything but letters
 // and digits, and three short lists are set aside: small words, words for a kind of product that shops write
@@ -160,10 +163,21 @@ function looksAlike(verdict: CandidateVerdict): boolean {
   return verdict.size === "equal" && verdict.brand !== "differs";
 }
 
-/** How a candidate's name fits the product's name and caption: the words they share, and how many it has besides. */
+/**
+ * How a candidate's name fits the product's name and caption: the words they share, how many it has besides, and how
+ * many of the words that tell the product apart it lacks (nameFit).
+ */
 interface NameFit {
   shared: Set<string>;
   extra: number;
+  lacking: number;
+}
+
+/** The product's words, as the name check reads them: its name's and caption's, its name's, and the caption's marked. */
+interface ProductWords {
+  all: string[];
+  name: string[];
+  marked: string[];
 }
 
 /** A candidate as the rule weighs it: how it compares with the product, and how its name fits. */
@@ -177,7 +191,8 @@ interface Weighed extends CandidateOption {
 
 /** The candidates judged, each with its name's fit when the name check may judge it. */
 function weigh(product: NamedProduct, candidates: ShopCandidate[]): Weighed[] {
-  const own = [...wordsOf(product.name), ...wordsOf(product.caption)];
+  const name = wordsOf(product.name);
+  const own = { all: [...name, ...wordsOf(product.caption)], name, marked: markedWordsOf(product.caption) };
   return candidates.map((candidate) => {
     const verdict = judge(product, candidate);
     const eanless = candidate.eans.length === 0 || product.eans.length === 0;
@@ -185,13 +200,36 @@ function weigh(product: NamedProduct, candidates: ShopCandidate[]): Weighed[] {
   });
 }
 
-/** How the candidate's name fits the product's words (`own`), with the words of both brands set aside on both sides. */
-function nameFit(product: NamedProduct, own: string[], candidate: ShopCandidate): NameFit {
+/**
+ * How the candidate's name fits the product's words (`own`), with the words of both brands set aside on both sides.
+ * The words that tell the product apart are each of the caption's marked words and one of its name's, so a candidate
+ * lacks one for each marked word it hasn't, and one more when it has no word of the product's name.
+ */
+function nameFit(product: NamedProduct, own: ProductWords, candidate: ShopCandidate): NameFit {
   const brands = new Set([...wordsOf(product.brand), ...wordsOf(candidate.brand)]);
-  const ownWords = new Set(own.filter((word) => !brands.has(word)));
-  const theirs = new Set(wordsOf(candidate.name).filter((word) => !brands.has(word)));
+  const unbranded = (words: string[]) => words.filter((word) => !brands.has(word));
+  const ownWords = new Set(unbranded(own.all));
+  const theirs = new Set(unbranded(wordsOf(candidate.name)));
   const shared = new Set([...theirs].filter((word) => ownWords.has(word)));
-  return { shared, extra: theirs.size - shared.size };
+  const missingMarks = new Set(unbranded(own.marked).filter((word) => !theirs.has(word))).size;
+  const hasNameWord = unbranded(own.name).some((word) => theirs.has(word));
+  return { shared, extra: theirs.size - shared.size, lacking: missingMarks + (hasNameWord ? 0 : 1) };
+}
+
+/**
+ * The caption's marked words, which a candidate's name must have: those it starts with a capital letter or writes with
+ * a digit, where Rossmann writes the shade or the strength ("tusz do rzęs, Cosmic Black", "krem, SPF15"), as words
+ * read them (wordsOf). None for a missing caption.
+ */
+function markedWordsOf(caption: string | null): string[] {
+  if (caption === null) {
+    return [];
+  }
+  return caption
+    .replace(SIZE, "$1 ")
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => /^\p{Lu}/u.test(word) || /\p{N}/u.test(word))
+    .flatMap((word) => wordsOf(word));
 }
 
 /**
@@ -207,9 +245,12 @@ function wordsOf(text: string | null): string[] {
     .filter((word) => word !== "" && !SMALL_WORDS.has(word) && !KIND_WORDS.has(word) && !PACKAGING_WORDS.has(word));
 }
 
-/** True for a name that passes the name check: none of its words is missing from the product's, and two are shared. */
+/**
+ * True for a name that passes the name check: none of its words is missing from the product's, two are shared, and it
+ * lacks none of the words that tell the product apart.
+ */
 function passes(fit: NameFit): boolean {
-  return fit.extra === 0 && fit.shared.size >= SHARED_WORDS;
+  return fit.extra === 0 && fit.shared.size >= SHARED_WORDS && fit.lacking === 0;
 }
 
 /**

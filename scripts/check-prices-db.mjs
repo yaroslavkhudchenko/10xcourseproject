@@ -497,5 +497,35 @@ check(
   show(bSummaryH),
 );
 
+// 11. Where the history's 30 days start: a check on the 30th day in Poland before today counts, and one on the 31st
+// doesn't. Item W gets a 7,77 zł check, moved back a day, then an 8,88 zł one, and the last move lands the newer check at
+// about noon 30 days before today, from any hour of today, and the older one a day before it.
+const itemW = rossmannId(7);
+await addProduct(a, "A", itemW);
+const wInserts = [await table(a.client).insert(priceRow("rossmann", itemW, { price: 7.77 }))];
+const wMoves = [backdate(itemW, 24)];
+wInserts.push(await table(a.client).insert(priceRow("rossmann", itemW, { price: 8.88 })));
+wMoves.push(backdate(itemW, inPoland(Date.now()).hour + 12 + 29 * 24));
+check(
+  "user A records two checks of W, moved back to 30 and 31 days before today",
+  wInserts.every((result) => !result.error) && wMoves.join() === "1,2",
+  `inserts ${wInserts.map(show).join(", ")}, moved ${wMoves.join(", ")}`,
+);
+const wSummary = await summaries(a.client).select("history_low, history_days").eq("shop_item_id", itemW);
+const wChecks = await table(a.client).select("status, price, available, observed_at").eq("shop_item_id", itemW);
+const checksW = wChecks.data ?? [];
+const historyW = { low: wSummary.data?.[0]?.history_low, days: wSummary.data?.[0]?.history_days };
+// As for H, the day the newer check was stamped on and the day of the read differ only after a midnight in Poland.
+const stampedW = checksW.filter((row) => row.price === 8.88).map((row) => inPoland(row.observed_at).day);
+const todaysW = [...new Set([...stampedW.map((day) => addDays(day, 30)), inPoland(Date.now()).day])];
+const expectedW = todaysW.map((today) => expectedHistory(checksW, today));
+check(
+  "its history counts the check of 30 days before today, 8,88 zł, and not the one of 31 days before",
+  checksW.length === 2 &&
+    expectedW.some((each) => JSON.stringify(each) === JSON.stringify(historyW)) &&
+    (historyW.low === 8.88 || todaysW.length > 1),
+  `history ${JSON.stringify(historyW)}, expected ${JSON.stringify(expectedW)}, checks ${show(wChecks)}`,
+);
+
 console.log(failed ? `\n${failed} check(s) failed` : "\nAll price observations database checks passed");
 process.exit(failed ? 1 : 0);

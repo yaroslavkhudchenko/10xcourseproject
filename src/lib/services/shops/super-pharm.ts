@@ -217,8 +217,10 @@ function searchParams(query: string, size: number): URLSearchParams {
  * (isSuperPharmItemId). Super-Pharm's index runs its query rules on a price request's empty query too, as both pinned
  * answers recorded on 2026-10-05 report (`rulesProcessing`). A rule could hide an asked item, which would be stored
  * `missing`, or add one nobody asked for, which can push an asked item off the page and leaves every id without a hit
- * unavailable. With the rules off, an answer holds exactly what the filter matches. A name search keeps them, since its
- * candidates are only offered to the user.
+ * unavailable. With the rules off, an answer holds exactly what the filter matches. A name search keeps them, though a
+ * product's lookup can accept one of its candidates on its own (matching.ts), so a rule that hid the right item or
+ * pinned another could reach a match. The 7 lookups recorded on 2026-10-06 report no `rulesProcessing`, and turning the
+ * rules off there would need new recordings of the lookups' requests.
  */
 function priceParams(ids: string[]): URLSearchParams {
   return new URLSearchParams([
@@ -480,17 +482,22 @@ function hasOddAvailability(hit: unknown): boolean {
 /**
  * Super-Pharm's size as text, with the size it stands for, which parseSize reads back the same when a form posts the
  * text. It's `capacity`, such as "300 ml", whenever the record has one. Many records have none (27 of the 47 hits the
- * lookups recorded on 2026-10-06), and their names often end with the size, as in "…Classic Clean, 400 ml", so then
- * it's the size the name ends with (trailingSizeText), unless the name is a set's (SET_NAME). A `capacity` that doesn't
- * parse, such as a multipack's "2 x 50 ml", gives none rather than the name's, which could be one item's. No such size,
- * or text over its limit, gives neither.
+ * lookups recorded on 2026-10-06): the index leaves the attribute out, or sends it `false`, `null` or blank, as it does
+ * an unset one. Their names often end with the size, as in "…Classic Clean, 400 ml", so then it's the size the name
+ * ends with (trailingSizeText), unless the name is a set's (SET_NAME). A `capacity` that doesn't parse, such as a
+ * multipack's "2 x 50 ml", or that isn't text, such as a number, gives none rather than the name's, which could be one
+ * item's. No such size, or text over its limit, gives neither.
  */
 function readSize(capacity: unknown, name: string): { sizeText: string | null; size: Size | null } {
-  const shown = textOf(capacity);
-  if (shown !== null) {
-    return sizeOf(shown);
+  const unset =
+    capacity === undefined ||
+    capacity === null ||
+    capacity === false ||
+    (typeof capacity === "string" && capacity.trim() === "");
+  if (unset) {
+    return sizeOf(SET_NAME.test(name) ? null : trailingSizeText(name));
   }
-  return sizeOf(SET_NAME.test(name) ? null : trailingSizeText(name));
+  return sizeOf(textOf(capacity));
 }
 
 /** Size text within its limit, with the size it stands for; neither when it doesn't parse or is over its limit. */
