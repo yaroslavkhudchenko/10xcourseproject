@@ -1,10 +1,10 @@
 ---
 change_id: testing-deploy-and-production-checks
 title: Deploy and production checks (test plan rollout Phase 4)
-status: implemented
+status: archived
 created: 2026-10-06
-updated: 2026-10-06
-archived_at: null
+updated: 2026-10-07
+archived_at: 2026-10-07T09:11:52Z
 ---
 
 ## Notes
