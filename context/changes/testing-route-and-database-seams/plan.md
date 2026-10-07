@@ -545,6 +545,14 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **A history the page can't read** is logged as `history unread` with its shop only, never its item id, as the file's other log lines do.
 - **Breaks:** an unreadable history hiding the price again turned its case red; the wiring dropping an unread row turned that case red; the selected row ignoring an unreadable decision turned both decision cases red.
 
+### Phase 2
+
+- **The route modules import into plain Vitest:** `price-routes.test.ts` calls the exported `POST` of both routes with a context of `request`, `url`, `locals` (the stand-in client and no user) and `redirect`. The plan's open risk didn't arise.
+- **The lint guard also refuses `globalThis.fetch`, `window.fetch` and `self.fetch`** (`no-restricted-properties`), since the gate itself calls the global through `globalThis`. It leaves out the tests and `src/lib/services/testing/**`, whose replay helper names `typeof fetch`. A scratch file with both forms was flagged, then deleted.
+- **The search decision's `filled` step** carries the text, so the page's prompt ("Naciśnij „Szukaj”…") reads it from the step; `query` stays for the results.
+- **Which shop each refusal case uses:** the price route's 403 case asks Natura, and the list's stop after a 403 uses two Rossmann products, one request each. The product refresh compares the four served URLs sorted, since the shops are asked at once.
+- **Breaks:** the price route forgetting another site's refusal, the list refresh asking fresh items, Rossmann asked again after a 403, the gate admitting Hebe's pages, and a search from another site asking Rossmann each turned their tests red.
+
 ## References
 
 - Research: `context/changes/testing-route-and-database-seams/research.md`
@@ -562,17 +570,17 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 1.1 The seam table passes
-- [x] 1.2 The price read's and the island's tests pass with the history change
-- [x] 1.3 Lint, type check and the whole unit suite pass
+- [x] 1.1 The seam table passes — 1a18289
+- [x] 1.2 The price read's and the island's tests pass with the history change — 1a18289
+- [x] 1.3 Lint, type check and the whole unit suite pass — 1a18289
 
 ### Phase 2: Routes and pages ask shops only as stated (risk #3)
 
 #### Automated
 
-- [ ] 2.1 The route tests pass
-- [ ] 2.2 The gate's and the search decision's tests pass
-- [ ] 2.3 Lint, type check and the whole unit suite pass
+- [x] 2.1 The route tests pass
+- [x] 2.2 The gate's and the search decision's tests pass
+- [x] 2.3 Lint, type check and the whole unit suite pass
 
 ### Phase 3: Two users over HTTP, and the database catalogue (risk #4)
 

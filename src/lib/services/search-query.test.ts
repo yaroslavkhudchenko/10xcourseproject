@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isOwnNavigation, searchQuerySchema, toShopQuery } from "@/lib/services/search-query";
+import { isOwnNavigation, searchQuerySchema, searchStepOf, toShopQuery } from "@/lib/services/search-query";
 
 describe("isOwnNavigation", () => {
   it.each([
@@ -26,6 +26,38 @@ describe("isOwnNavigation", () => {
     { request: "a prefetch without Sec-Fetch-Site", headers: { "Sec-Purpose": "prefetch" } },
   ])("is false for $request, which the user may never open", ({ headers }) => {
     expect(isOwnNavigation(new Headers(headers))).toBe(false);
+  });
+});
+
+// Whether the list page asks Rossmann: the one search a submitted form costs, and none for a link on another site, a
+// prefetch, text that can't go into a shop URL, or no text (CLAUDE.md, "only the user's own navigation reaches a shop").
+describe("searchStepOf", () => {
+  const own = new Headers({ "Sec-Fetch-Site": "same-origin" });
+
+  it("searches the trimmed text the user submitted from the list's own form", () => {
+    expect(searchStepOf("  nivea   soft ", own)).toEqual({ kind: "search", query: "nivea soft" });
+  });
+
+  it.each<{ request: string; headers: Record<string, string> }>([
+    { request: "a link on another site", headers: { "Sec-Fetch-Site": "cross-site" } },
+    { request: "a link on another subdomain", headers: { "Sec-Fetch-Site": "same-site" } },
+    {
+      request: "Chrome's address-bar prerender",
+      headers: { "Sec-Purpose": "prefetch;prerender", "Sec-Fetch-Site": "none" },
+    },
+  ])("only fills the form in for $request, asking no shop", ({ headers }) => {
+    expect(searchStepOf("nivea soft", new Headers(headers))).toEqual({ kind: "filled", query: "nivea soft" });
+  });
+
+  it.each([{ text: "n" }, { text: "nivea<script>" }, { text: "x".repeat(81) }])(
+    "asks no shop for text that can't be searched: $text",
+    ({ text }) => {
+      expect(searchStepOf(text, own)).toEqual({ kind: "invalid" });
+    },
+  );
+
+  it("does nothing without search text", () => {
+    expect(searchStepOf(null, own)).toEqual({ kind: "none" });
   });
 });
 

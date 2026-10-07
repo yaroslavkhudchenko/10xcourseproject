@@ -199,6 +199,24 @@ const tokenConfig = defineConfig({
   },
 });
 
+// Every shop request goes through the gate (src/lib/services/shop-gate.ts), which counts it under the shop's cap and
+// stops a shop that refuses, so the server's code names the global fetch nowhere else: not as a call, and not through
+// globalThis, window or self. A new adapter or route that called a shop directly would bypass the cap everyone shares.
+// The gate's file is the one place allowed, the tests and their helpers stub fetch, and the islands' browser code,
+// which posts only to the app's own route, isn't server code.
+const SHOP_FETCH_MESSAGE = "Send every shop request through gate.fetch (src/lib/services/shop-gate.ts), never fetch.";
+const serverFetchConfig = defineConfig({
+  files: ["src/lib/**/*.ts", "src/pages/**/*.{ts,astro}", "src/middleware.ts"],
+  ignores: ["src/lib/services/shop-gate.ts", "src/lib/services/testing/**", "**/*.test.ts"],
+  rules: {
+    "no-restricted-globals": ["error", { name: "fetch", message: SHOP_FETCH_MESSAGE }],
+    "no-restricted-properties": [
+      "error",
+      ...["globalThis", "window", "self"].map((object) => ({ object, property: "fetch", message: SHOP_FETCH_MESSAGE })),
+    ],
+  },
+});
+
 // unbound-method reads expect(mock.fn) assertions as detached methods, but a vi.fn() mock never relies on `this`.
 const testConfig = defineConfig({
   files: ["**/*.test.ts"],
@@ -218,6 +236,7 @@ export default defineConfig(
   scriptsConfig,
   islandConfig,
   tokenConfig,
+  serverFetchConfig,
   testConfig,
   eslintPluginPrettier,
 );

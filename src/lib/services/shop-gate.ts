@@ -5,12 +5,15 @@ import type { GateOutcome, ShopId } from "@/types";
 // deployment-wide per-shop cap, calls the shop with an honest User-Agent and a timeout, classifies the answer, and
 // pauses or stops a shop that refuses. This is the one place the politeness rules live.
 
-/** The hosts each shop's requests may go to, lowercase as `URL` normalises them. */
+/**
+ * The hosts each shop's requests may go to, lowercase as `URL` normalises them: only the ones its adapter calls (the
+ * owner's call, 2026-10-07). A shop's own pages, which a candidate links to, are checked by its adapter, never fetched.
+ */
 export const SHOP_HOSTS: Record<ShopId, readonly string[]> = {
   rossmann: ["www.rossmann.pl"],
-  hebe: ["www.hebe.pl", "live.luigisbox.com", "scripts.luigisbox.com"],
-  natura: ["www.drogerienatura.pl", "live.luigisbox.com"],
-  "super-pharm": ["www.superpharm.pl", "ep43qpdx9q-dsn.algolia.net"],
+  hebe: ["live.luigisbox.com"],
+  natura: ["live.luigisbox.com"],
+  "super-pharm": ["ep43qpdx9q-dsn.algolia.net"],
 };
 
 // The descriptive User-Agent the research note asks for (§7); the egress probes used the same one (§9).
