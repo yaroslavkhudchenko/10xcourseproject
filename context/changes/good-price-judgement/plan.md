@@ -430,6 +430,17 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **The roadmap** keeps S-04 `in-progress` until the change is archived. Its unknown is answered and its carry-overs point to this change.
 - **Break:** reverting the list's line to the old text turned its test red.
 
+### Rollout
+
+- **The push ran from the wrong checkout first.**
+  - The owner's first `db push` ran in their usual checkout, on `main`. The migration file isn't there before the merge, so the push sent nothing, and `migration list --linked` showed `20261006221608` missing.
+  - The second push ran from the pull request's checkout, linked by copying the usual checkout's `supabase/.temp`. A dry run there listed only this migration.
+  - After that push, `migration list --linked` showed its remote version before the merge (2.3).
+  - `deploy-plan.md`'s "Later migrations" and `CLAUDE.md`'s "Data" bullet now say to push from a checkout of the pull request's branch.
+- **The deploy:** the merge `822c69c` passed the checked deploy's gate, deploy and production check, so `Workers Builds: drogeria-radar` is green, and the `Deploy check` workflow passed.
+- **The owner's review (4.4)** is the merge itself. The pull request had pointed out the PRD, roadmap, `CLAUDE.md` and test-plan updates.
+- **In production (4.5):** after the deploy, the owner opened a product and confirmed the check passed on 2026-10-07.
+
 ## References
 
 - Research: `context/changes/good-price-judgement/research.md`
@@ -457,7 +468,7 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Manual
 
-- [ ] 2.3 The owner's `db push` lands the migration, and `migration list --linked` shows its remote version
+- [x] 2.3 The owner's `db push` lands the migration, and `migration list --linked` shows its remote version — 822c69c
 
 ### Phase 3: The product page
 
@@ -481,5 +492,5 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Manual
 
-- [ ] 4.4 The owner reviews the PRD, roadmap, CLAUDE.md and test-plan updates
-- [ ] 4.5 After the deploy, a product in production shows a judgement or the reason there is none
+- [x] 4.4 The owner reviews the PRD, roadmap, CLAUDE.md and test-plan updates — 822c69c
+- [x] 4.5 After the deploy, a product in production shows a judgement or the reason there is none — 822c69c

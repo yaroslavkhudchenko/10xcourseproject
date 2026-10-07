@@ -387,7 +387,7 @@ Switch the deploy command back to `npm run deploy:checked` once the emergency is
 
 ### Later migrations
 
-Push each migration with `npx.cmd supabase db push` before its pull request merges, as always (`CLAUDE.md`, "Data"), and confirm it with `npx.cmd supabase migration list --linked`. If you forget, the gate refuses the deploy and the `Deploy check` emails you, while production stays on the previous version: push the migration, then start a build of `main`.
+Push each migration with `npx.cmd supabase db push` before its pull request merges, as always (`CLAUDE.md`, "Data"), and confirm it with `npx.cmd supabase migration list --linked`. Push it from a checkout of the pull request's branch. Before the merge the migration file exists only there, so a push from `main` finds nothing new and sends nothing, as S-04's first push did. The list then still shows the new version without a remote time. If you forget, the gate refuses the deploy and the `Deploy check` emails you, while production stays on the previous version: push the migration, then start a build of `main`.
 
 ## Accounts and links (S-07)
 
