@@ -1,10 +1,10 @@
 ---
 change_id: match-by-name
 title: Automatic matches by name where EANs can't decide, Super-Pharm first
-status: impl_reviewed
+status: archived
 created: 2026-10-06
 updated: 2026-10-07
-archived_at: null
+archived_at: 2026-10-07T10:10:28Z
 ---
 
 ## Notes
