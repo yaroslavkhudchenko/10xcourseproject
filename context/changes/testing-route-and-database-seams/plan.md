@@ -592,6 +592,17 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **The client's type:** `createClient` without a Database type infers a schema type that the services' `SupabaseClient` doesn't take. So the test asserts the type once.
 - **The refusal, checked locally:** without `SUPABASE_URL`, or with a hosted one, `npm run test:db` fails before any request.
 - **Break:** not run locally, since this machine has no database. The negative control is the suite's own proof that an overwrite would show: an update by id over a changed row goes through.
+- **The first CI run (4.3):** all 9 tests passed against the smoke job's stack, the negative control included.
+
+### Phase 5
+
+- **§4 and §5 got the new checks too,** though the contract named only §2, §3, §6 and §7. Their rows still named four database scripts and smoke's old reach.
+- **§6.2 is retitled** from "against the local database" to cover all five patterns, since two of them stub the database. It is ordered by what the risk needs: stubbed reads, a route's handler, a database test, two users, the catalogue.
+- **§6.6 and §7 record the first CI run's finding:** a new view gets anon's privileges on the local stack. `CLAUDE.md`'s "Data" records it too, beside the claim about `auto_expose_new_tables`.
+- **`CLAUDE.md` goes beyond the contract in two places:**
+  - It names `searchStepOf`, `priceShopsOf` and `selectedRowTagOf` where it describes the pages' decisions, so later work finds the services that hold them.
+  - The shop-gate and prices checks' entries name G2, G1 and G4.
+- **§3 stays `implementing`** until the owner's review (5.4). The epilogue then marks it complete.
 
 ## References
 
@@ -634,16 +645,16 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 4.1 The default run excludes the database tests, and the whole unit suite passes
-- [x] 4.2 Lint and type check pass with the new config and test
-- [ ] 4.3 CI's `smoke` job passes with `npm run test:db`, its negative control included
+- [x] 4.1 The default run excludes the database tests, and the whole unit suite passes — 0280be5
+- [x] 4.2 Lint and type check pass with the new config and test — 0280be5
+- [x] 4.3 CI's `smoke` job passes with `npm run test:db`, its negative control included — 0280be5
 
 ### Phase 5: Docs and rollout
 
 #### Automated
 
-- [ ] 5.1 Prettier leaves the edited documents as they are
-- [ ] 5.2 Lint and the whole unit suite pass
+- [x] 5.1 Prettier leaves the edited documents as they are
+- [x] 5.2 Lint and the whole unit suite pass
 - [ ] 5.3 CI's `ci`, `smoke` and `e2e` pass on the PR
 
 #### Manual
