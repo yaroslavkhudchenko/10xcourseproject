@@ -13,7 +13,7 @@
 // (context/archive/2026-10-04-super-pharm-in-comparison/plan.md), the match-by-name decisions that the user's own
 // navigation to a product with no Super-Pharm decision looks it up there by name, as it does Natura and Hebe, and that
 // a match accepted by name says "Dopasowano automatycznie po nazwie." with "Zmień" and takes the product out of
-// "Do sprawdzenia" (context/changes/match-by-name/change.md and plan.md), FR-011 and US-01
+// "Do sprawdzenia" (context/archive/2026-10-06-match-by-name/change.md and plan.md), FR-011 and US-01
 // (context/foundation/prd.md: the cheapest shop today is marked, and every price shows its source and age), and the
 // S-03 decision (context/archive/2026-09-28-cheapest-shop-today: only fresh prices the shop sells online can win):
 // Super-Pharm's 18,49 zł is the lowest of four fresh, orderable prices. The texts are the running app's. None of it is

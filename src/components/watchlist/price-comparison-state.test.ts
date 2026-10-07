@@ -1054,8 +1054,9 @@ describe("trackOf", () => {
   });
 });
 
-// The sentences below are the owner's of 2026-10-06 (context/changes/good-price-judgement/plan.md, Phase 3), written
-// out whole, with the no-break space Intl writes before "zł", never put together as the rule puts them.
+// The sentences below are the owner's of 2026-10-06 (context/archive/2026-10-06-good-price-judgement/plan.md,
+// Phase 3), written out whole, with the no-break space Intl writes before "zł", never put together as the rule puts
+// them.
 describe("trackHint", () => {
   /**
    * What the price track's card says of these prices, beside the matched shops still to match, for a product added at

@@ -4,9 +4,9 @@
 // the page says it compared with the shop's low because the product's history is too short; a cheapest shop that
 // declares no low gets no judgement, and the page says why. Every price here was checked today, so the product's own
 // history, which counts only the days before today, is empty.
-// expected values: the owner's decisions of 2026-10-06 (context/changes/good-price-judgement/plan.md, "Desired End
-// State": below the comparison is good; the shop's declared low until the history is enough; with nothing to compare
-// with, no judgement and the reason) and the design's sentence for a good price
+// expected values: the owner's decisions of 2026-10-06 (context/archive/2026-10-06-good-price-judgement/plan.md,
+// "Desired End State": below the comparison is good; the shop's declared low until the history is enough; with nothing
+// to compare with, no judgement and the reason) and the design's sentence for a good price
 // (context/archive/2026-09-30-etykiety-redesign/handoff/Drogeria Radar Redesign.dc.html:816). None of it is read off the
 // judgement's code. Hebe and Super-Pharm have no decision yet: each page's lookup there is refused by the stopped shop.
 // seed: tests/e2e/seed.spec.ts
