@@ -580,6 +580,18 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **Breaks, offline, since the real runs need the local stack (CI's `smoke` job is their first run, 3.3):**
   - The catalogue rules ran over canned catalogue rows. They passed a clean catalogue, and each of these turned them red: a table with RLS off, a function anon and PUBLIC may execute, and a missing reviewed view.
   - The two-user check ran against a stand-in app and Supabase. It passed when nothing leaked. A leak through the product page, the price route, the forms or the list each turned it red. A removal that went through also broke the negative control and the after-run comparison.
+- **The first CI run (3.3) passed every check, the self-tests and negative controls included.** It also showed something new: the self-test's scratch view, which nothing granted to anon, still came with a privilege for anon. So on the local stack, a new view gets anon's privileges by default despite `auto_expose_new_tables = false`.
+  - The two views' migrations revoke them explicitly, so nothing is exposed today.
+  - The catalogue check's anon rule now fails on a view whose migration forgets to.
+
+### Phase 4
+
+- **One case more than the contract's seven:** a stale re-pin of a decline the user changed meanwhile. So each of `record`'s three narrowings is proven against the database: a lookup that found nothing, a match, and a decline.
+- **All the cases run under one throwaway user,** each with a product of its own.
+- **`vitest.config.ts` keeps Vitest's default excludes** (`configDefaults.exclude`) beside the new one.
+- **The client's type:** `createClient` without a Database type infers a schema type that the services' `SupabaseClient` doesn't take. So the test asserts the type once.
+- **The refusal, checked locally:** without `SUPABASE_URL`, or with a hosted one, `npm run test:db` fails before any request.
+- **Break:** not run locally, since this machine has no database. The negative control is the suite's own proof that an overwrite would show: an update by id over a changed row goes through.
 
 ## References
 
@@ -614,16 +626,16 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 3.1 Both new scripts pass Node's syntax check
-- [x] 3.2 Lint passes on the scripts
-- [ ] 3.3 CI's `smoke` job passes with both new checks, their negative controls and the extended scripts
+- [x] 3.1 Both new scripts pass Node's syntax check — 01c60a9
+- [x] 3.2 Lint passes on the scripts — 01c60a9
+- [x] 3.3 CI's `smoke` job passes with both new checks, their negative controls and the extended scripts — 01c60a9
 
 ### Phase 4: The decision write against the real database (risk #6)
 
 #### Automated
 
-- [ ] 4.1 The default run excludes the database tests, and the whole unit suite passes
-- [ ] 4.2 Lint and type check pass with the new config and test
+- [x] 4.1 The default run excludes the database tests, and the whole unit suite passes
+- [x] 4.2 Lint and type check pass with the new config and test
 - [ ] 4.3 CI's `smoke` job passes with `npm run test:db`, its negative control included
 
 ### Phase 5: Docs and rollout
