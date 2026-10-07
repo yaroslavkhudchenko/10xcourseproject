@@ -553,6 +553,34 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **Which shop each refusal case uses:** the price route's 403 case asks Natura, and the list's stop after a 403 uses two Rossmann products, one request each. The product refresh compares the four served URLs sorted, since the shops are asked at once.
 - **Breaks:** the price route forgetting another site's refusal, the list refresh asking fresh items, Rossmann asked again after a 403, the gate admitting Hebe's pages, and a search from another site asking Rossmann each turned their tests red.
 
+### Phase 3
+
+- **`sql` wasn't exported** from `scripts/e2e-local-db.mjs`, as Key Discoveries said. It is now, and its comment asks a caller outside the file to keep its rule: a statement holds only constants and checked values.
+- **The catalogue's self-test runs in one transaction that is rolled back** (`begin; …; rollback;` in a single `psql` call), so its scratch objects never outlive it. It plants a fault for every rule, not only a table without RLS:
+  - a table without RLS that anon may read;
+  - a view that runs as its owner;
+  - a function PUBLIC may execute.
+- **The catalogue check reads two more things:**
+  - every reviewed object must exist, so the list can't go stale;
+  - anon may not create in `public`.
+
+  Its USAGE stays, since `applied_migrations()` needs it. A sequence is checked for anon's privileges only.
+
+- **The two-user check goes further than the contract:**
+  - It also compares `?repin=natura` and `?retry=super-pharm` on the product page.
+  - It seeds a decision in each matched shop, so no page looks A's product up.
+  - Its decision post is a re-pin's decline naming A's match (`replaces`).
+  - A's product carries a name of its own. B's pages and list must not show it, and A's must.
+  - B's own list and decisions must stay empty.
+- **G1:**
+  - The list's read (`readLatestRows`) asks for no count, so the exact count is an extra probe.
+  - A's same reads are its control.
+- **G4:** B records a price for skuB before re-pinning away. Afterwards B reads none of it from the table and both views, and adds none.
+- **G2:** the update and the delete name no real row. Anon's refused report would only have paused Natura for a second.
+- **Breaks, offline, since the real runs need the local stack (CI's `smoke` job is their first run, 3.3):**
+  - The catalogue rules ran over canned catalogue rows. They passed a clean catalogue, and each of these turned them red: a table with RLS off, a function anon and PUBLIC may execute, and a missing reviewed view.
+  - The two-user check ran against a stand-in app and Supabase. It passed when nothing leaked. A leak through the product page, the price route, the forms or the list each turned it red. A removal that went through also broke the negative control and the after-run comparison.
+
 ## References
 
 - Research: `context/changes/testing-route-and-database-seams/research.md`
@@ -578,16 +606,16 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 2.1 The route tests pass
-- [x] 2.2 The gate's and the search decision's tests pass
-- [x] 2.3 Lint, type check and the whole unit suite pass
+- [x] 2.1 The route tests pass — 122fbd0
+- [x] 2.2 The gate's and the search decision's tests pass — 122fbd0
+- [x] 2.3 Lint, type check and the whole unit suite pass — 122fbd0
 
 ### Phase 3: Two users over HTTP, and the database catalogue (risk #4)
 
 #### Automated
 
-- [ ] 3.1 Both new scripts pass Node's syntax check
-- [ ] 3.2 Lint passes on the scripts
+- [x] 3.1 Both new scripts pass Node's syntax check
+- [x] 3.2 Lint passes on the scripts
 - [ ] 3.3 CI's `smoke` job passes with both new checks, their negative controls and the extended scripts
 
 ### Phase 4: The decision write against the real database (risk #6)
