@@ -13,14 +13,17 @@ export type ShopId = (typeof SHOP_IDS)[number];
  *   (`unavailable`).
  * - `rate-limited`: the shop answered 429, or 503 with Retry-After, and the gate paused it.
  * - `blocked`: the shop answered 403 or a bot challenge, and the gate stopped it until the owner re-enables it.
- * - `failed`: the request timed out, failed on the network, or got another non-2xx status (`http`).
+ * - `failed`: the request timed out, failed on the network, or got another non-2xx status (`http`). An `http` failure
+ *   carries its status and, when the answer names one, its media type (`contentType`), lowercased and without its
+ *   parameters, such as `application/problem+json`, so an adapter can tell two answers with the same status apart.
+ *   Its body is discarded unread.
  */
 export type GateOutcome =
   | { kind: "ok"; response: Response }
   | { kind: "skipped"; reason: "capped" | "paused" | "stopped" | "unavailable"; until?: string }
   | { kind: "rate-limited"; retryAfterSeconds: number }
   | { kind: "blocked"; status: number }
-  | { kind: "failed"; reason: "timeout" | "network" | "http"; status?: number };
+  | { kind: "failed"; reason: "timeout" | "network" | "http"; status?: number; contentType?: string };
 
 /** The units sizes are compared in: millilitres, grams or pieces. */
 export type SizeUnit = "ml" | "g" | "pcs";

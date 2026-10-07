@@ -1332,8 +1332,14 @@ describe("Super-Pharm search: broken copies give a gap, never 'not found'", () =
     expect(await searchSuperPharm(gate, NAME_SEARCH.query, NAME_SEARCH.size)).toEqual(FAILED);
     expect(sentRequests(fetchMock)).toEqual([request(NAME_SEARCH.body)]);
     expect(warn).not.toHaveBeenCalled();
+    // With the answer's media type: the replay sends its empty body as text/plain.
     expect(gateLog.mock.calls).toEqual([
-      [expect.objectContaining({ shopId: "super-pharm", outcome: { kind: "failed", reason: "http", status: 400 } })],
+      [
+        expect.objectContaining({
+          shopId: "super-pharm",
+          outcome: { kind: "failed", reason: "http", status: 400, contentType: "text/plain" },
+        }),
+      ],
     ]);
     // A failure, not a stop.
     expect(reportBlock).not.toHaveBeenCalled();
@@ -1351,8 +1357,14 @@ describe("Super-Pharm search: broken copies give a gap, never 'not found'", () =
       reason: "index rejected",
       detail: "HTTP 404: QUERY_URL may have changed",
     });
+    // With the answer's media type: the replay sends its empty body as text/plain.
     expect(gateLog.mock.calls).toEqual([
-      [expect.objectContaining({ shopId: "super-pharm", outcome: { kind: "failed", reason: "http", status: 404 } })],
+      [
+        expect.objectContaining({
+          shopId: "super-pharm",
+          outcome: { kind: "failed", reason: "http", status: 404, contentType: "text/plain" },
+        }),
+      ],
     ]);
     expect(reportBlock).not.toHaveBeenCalled();
   });
@@ -1737,8 +1749,14 @@ describe("Super-Pharm prices: why they're unavailable", () => {
     );
     expect(sentRequests(fetchMock)).toEqual([request(priceBody([SOFT, UNKNOWN_ID]))]);
     expect(warn).not.toHaveBeenCalled();
+    // With the answer's media type: the replay sends its empty body as text/plain.
     expect(gateLog.mock.calls).toEqual([
-      [expect.objectContaining({ shopId: "super-pharm", outcome: { kind: "failed", reason: "http", status: 400 } })],
+      [
+        expect.objectContaining({
+          shopId: "super-pharm",
+          outcome: { kind: "failed", reason: "http", status: 400, contentType: "text/plain" },
+        }),
+      ],
     ]);
     expect(reportBlock).not.toHaveBeenCalled();
   });
@@ -1760,8 +1778,14 @@ describe("Super-Pharm prices: why they're unavailable", () => {
       reason: "index rejected",
       detail: "HTTP 404: QUERY_URL may have changed",
     });
+    // With the answer's media type: the replay sends its empty body as text/plain.
     expect(gateLog.mock.calls).toEqual([
-      [expect.objectContaining({ shopId: "super-pharm", outcome: { kind: "failed", reason: "http", status: 404 } })],
+      [
+        expect.objectContaining({
+          shopId: "super-pharm",
+          outcome: { kind: "failed", reason: "http", status: 404, contentType: "text/plain" },
+        }),
+      ],
     ]);
     expect(reportBlock).not.toHaveBeenCalled();
   });

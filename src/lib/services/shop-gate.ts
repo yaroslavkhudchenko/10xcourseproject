@@ -155,7 +155,11 @@ export function createShopGate(deps: ShopGateDeps): ShopGate {
         return { kind: "ok", response };
       }
       discard(response);
-      return settle({ kind: "failed", reason: "http", status: response.status }, redirectNote(response, target));
+      // The status and the media type, never the body: an adapter may need to tell two 404s apart.
+      return settle(
+        { kind: "failed", reason: "http", status: response.status, ...contentTypeOf(response) },
+        redirectNote(response, target),
+      );
     },
   };
 }
@@ -231,6 +235,16 @@ function parseRetryAfter(header: string | null): number {
     }
   }
   return Math.min(Math.max(seconds, 1), MAX_RETRY_AFTER_SECONDS);
+}
+
+/**
+ * A response's media type as a failed outcome carries it: lowercased and without its parameters, such as
+ * `application/problem+json` for `application/problem+json; charset=utf-8`. No key at all when the response names none,
+ * or a blank one.
+ */
+function contentTypeOf(response: Response): { contentType?: string } {
+  const mediaType = response.headers.get("Content-Type")?.split(";")[0].trim().toLowerCase() ?? "";
+  return mediaType === "" ? {} : { contentType: mediaType };
 }
 
 /** Frees the connection behind a response the caller never gets. A body that can't be cancelled is left alone. */

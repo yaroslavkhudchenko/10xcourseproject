@@ -133,6 +133,9 @@ const FAILED: PriceCheck = { kind: "unavailable", reason: "failed" };
 const BUSY: PriceCheck = { kind: "unavailable", reason: "busy" };
 const STOPPED: PriceCheck = { kind: "unavailable", reason: "stopped" };
 const PAUSE_END = "2026-09-28T12:15:00.000Z";
+// A page where Rossmann's JSON should be, as a moved route, or a page in front of the API, would answer.
+const NOT_FOUND_PAGE =
+  '<!DOCTYPE html><html lang="pl"><head><title>Rossmann</title></head><body>Nie znaleziono strony</body></html>';
 
 /** The URL a fetch was asked for. */
 function urlOf(input: RequestInfo | URL): string {
@@ -478,6 +481,39 @@ describe("refreshPrices: storing", () => {
         insertOf([missingRow(UNKNOWN_SKU)]),
       ]),
     );
+  });
+
+  // Only Rossmann's own "no such product", the recorded 404 in problem+json above, stores a missing row: a 404 of
+  // another type, or of none, could be a moved route's, which would mark the item gone for everyone who watches it.
+  it.each<{ answer: string; gone: ReplayEntry }>([
+    {
+      answer: "an HTML page",
+      gone: {
+        url: answers.gone.url,
+        status: 404,
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+        body: NOT_FOUND_PAGE,
+      },
+    },
+    { answer: "no body", gone: { url: answers.gone.url, status: 404 } },
+  ])("stores no missing row for a 404 with $answer, and calls the refresh partial", async ({ gone }) => {
+    const { gate, fetchMock, reservations } = setup([answers.felix, gone]);
+    const { client, queries } = stubClient();
+
+    const refresh = await refreshPrices(gate, client, [FELIX, GONE]);
+
+    expect(reservations).toEqual(["rossmann", "rossmann"]);
+    expect(requestedUrls(fetchMock)).toEqual([answers.felix.url, answers.gone.url]);
+    expect(refresh).toEqual({
+      results: [
+        { key: FELIX, check: { kind: "price", offer: felixOffer } },
+        { key: GONE, check: FAILED },
+      ],
+      saved: "saved",
+    });
+    // The item stores nothing, so it keeps its last price with its age.
+    expect(queries).toEqual([insertOf([priceRow(FELIX, felixOffer)])]);
+    expect(refreshCodeOf(refresh)).toBe("partial");
   });
 
   it("stores Rossmann's checks as soon as Rossmann is done, while Natura is still answering", async () => {

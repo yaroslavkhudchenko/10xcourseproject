@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { createShopGate, shopGateFor, type ShopGateDeps, type ShopGateLogEntry } from "@/lib/services/shop-gate";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
-import type { ShopId } from "@/types";
+import type { GateOutcome, ShopId } from "@/types";
 
 // Every shop answer here is synthetic and served by the replay fetch; no test reaches a live shop.
 const USER_AGENT = "DrogeriaRadar/0.1 (+https://github.com/yaroslavkhudchenko/10xcourseproject)";
@@ -226,6 +226,46 @@ describe("shop gate: failures", () => {
     expect(await gate.fetch("rossmann", ROSSMANN_SEARCH)).toEqual({ kind: "failed", reason: "network" });
     // An unrecorded URL would end as a network failure too, so check that the recorded one was requested.
     expect(requestedUrl(fetchMock)).toBe(ROSSMANN_SEARCH);
+  });
+});
+
+describe("shop gate: a failed answer's media type", () => {
+  // An adapter may need to tell two answers with the same status apart, as Rossmann's own "no such product" 404 from
+  // a moved route's, so a failed answer keeps its media type. toStrictEqual tells a missing key from an undefined one.
+  it.each<{ answer: string; status: number; headers?: Record<string, string>; body?: string; outcome: GateOutcome }>([
+    {
+      answer: "a 404 in problem+json, without its charset",
+      status: 404,
+      headers: { "Content-Type": "application/problem+json; charset=utf-8" },
+      body: '{"title":"Not Found","status":404}',
+      outcome: { kind: "failed", reason: "http", status: 404, contentType: "application/problem+json" },
+    },
+    {
+      answer: "a 503 without Retry-After, as an HTML page, in lower case and without its parameters",
+      status: 503,
+      headers: { "Content-Type": " Text/HTML ; Charset=UTF-8" },
+      body: "<html>Przerwa techniczna</html>",
+      outcome: { kind: "failed", reason: "http", status: 503, contentType: "text/html" },
+    },
+    {
+      answer: "a 404 without a Content-Type, with no media type at all",
+      status: 404,
+      outcome: { kind: "failed", reason: "http", status: 404 },
+    },
+    {
+      answer: "a 500 with a blank Content-Type, with no media type at all",
+      status: 500,
+      headers: { "Content-Type": " " },
+      outcome: { kind: "failed", reason: "http", status: 500 },
+    },
+  ])("gives $answer, and logs it with the outcome", async ({ status, headers, body, outcome }) => {
+    const { gate, fetchMock, reportBlock, log } = setup({ entries: [{ url: ROSSMANN_SEARCH, status, headers, body }] });
+
+    expect(await gate.fetch("rossmann", ROSSMANN_SEARCH)).toStrictEqual(outcome);
+    expect(requestedUrl(fetchMock)).toBe(ROSSMANN_SEARCH);
+    expect(reportBlock).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log.mock.calls[0][0].outcome).toStrictEqual(outcome);
   });
 });
 
