@@ -1,7 +1,7 @@
 ---
 change_id: good-price-judgement
 title: Know whether today's price is a good one (S-04, FR-012)
-status: implemented
+status: impl_reviewed
 created: 2026-10-06
 updated: 2026-10-07
 archived_at: null
