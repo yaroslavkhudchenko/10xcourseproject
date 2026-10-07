@@ -60,6 +60,8 @@
   --shop-super-pharm: oklch(0.87 0.07 300); /* #DBCAFC */
   --sticker-info: oklch(0.917 0.04 258.8); /* #D4E5FF */
   --sticker-plain: oklch(1 0 0); /* #FFFFFF */
+  /* #B5EDCB, "Dobra cena!": the handoff draws it in Natura's mint. */
+  --sticker-good: var(--shop-natura);
   --avatar: oklch(0.914 0.049 299.8); /* #E7DCFF */
   --tile-1: oklch(0.925 0.036 268.3); /* #DCE6FF */
   --tile-2: oklch(0.929 0.043 57.1); /* #FFE1CC */
@@ -125,6 +127,8 @@
   --shop-super-pharm: oklch(0.87 0.07 300); /* #DBCAFC */
   --sticker-info: oklch(0.917 0.04 258.8); /* #D4E5FF */
   --sticker-plain: oklch(1 0 0); /* #FFFFFF */
+  /* #B5EDCB, "Dobra cena!": the handoff draws it in Natura's mint. */
+  --sticker-good: var(--shop-natura);
   --avatar: oklch(0.914 0.049 299.8); /* #E7DCFF */
   --tile-1: oklch(0.925 0.036 268.3); /* #DCE6FF */
   --tile-2: oklch(0.929 0.043 57.1); /* #FFE1CC */
@@ -193,6 +197,7 @@
   --color-shop-super-pharm: var(--shop-super-pharm);
   --color-sticker-info: var(--sticker-info);
   --color-sticker-plain: var(--sticker-plain);
+  --color-sticker-good: var(--sticker-good);
   --color-avatar: var(--avatar);
   --color-tile-1: var(--tile-1);
   --color-tile-2: var(--tile-2);

@@ -395,6 +395,33 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
   - Breaking the history parse, by accepting any `history_days`, turned 3 tests red.
 - **Not checked here:** the SQL and the database check can't run here (no Docker). CI's `smoke` job is their first run, as 2.2 says.
 
+### Phase 3
+
+- **Who wrote what:** the implementer wrote the stickers, the hero, the sentence and the sample page, then stalled. The e2e part, `recordPrice`'s `lowestPrice30d` and `tests/e2e/good-price.spec.ts`, was written in the session itself.
+- **`heroOf` takes the judgement** as a third argument: `heroOf(verdict, context, judgement)`. `PriceComparisonView.tsx` computes it once with `judgementOf` and passes it to both the hero and the sentence.
+- **Where the sentence comes from:** `judgementText` in `price-comparison-state.ts` builds it.
+  - It tells equal from above by the price and the comparison in grosze.
+  - It leaves out „Historia Twoich cen jest jeszcze za krótka…” when some row's history wasn't read (`historyUnread`), per Phase 1's note.
+  - `toGrosze` is now exported from `price-comparison.ts`, so the two compare the same way.
+- **`--sticker-good` is `var(--shop-natura)`** in both themes. It is the design's `#B5EDCB`, the same mint as Natura's colour, and the contrast check reads `var()` within the same block: label ink on it is 12.69:1 in both themes.
+- **The sample page's new group** is „Ocena dzisiejszej ceny”, with:
+  - `good-shop`, `above-shop`;
+  - `good-history`, `above-history`;
+  - `nothing-to-compare`, `only-good` and `good-after-failed-read`.
+
+  The design's Isana sample, `isana`, equal at 7,49, joins the design's samples.
+
+- **The e2e spec** seeds two products with fresh prices, so their history is empty, since today's checks never count:
+  - one below Natura's declared low reads the design's sentence;
+  - one whose cheapest shop, Rossmann, declares no low reads the reason.
+
+  The stickers are `aria-hidden`, so the spec asserts the sentences, as the plan says. It can't run here (no Docker); CI's `e2e` job is its first run (3.3).
+
+- **Breaks:**
+  - every judged price wearing the good sticker turned 3 tests red;
+  - the shop sentence never saying the history is too short turned 6 red.
+- **The sample page (3.4)** shows every state with the agreed sentence and sticker, in light and dark. A first screenshot caught the stamp animation mid-fade, which made the mint look see-through. With reduced motion the sticker is solid, with an opacity of 1.
+
 ## References
 
 - Research: `context/changes/good-price-judgement/research.md`
@@ -417,8 +444,8 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [ ] 2.1 Lint, type check and the whole unit suite pass, `prices.ts`' parsing tests included
-- [ ] 2.2 CI's `smoke` job passes, `check-prices-db.mjs`' history and bound cases included
+- [x] 2.1 Lint, type check and the whole unit suite pass, `prices.ts`' parsing tests included — a95557e
+- [x] 2.2 CI's `smoke` job passes, `check-prices-db.mjs`' history and bound cases included — a95557e
 
 #### Manual
 

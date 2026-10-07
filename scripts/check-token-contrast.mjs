@@ -194,6 +194,7 @@ const LABELS = [
   "tag-plain",
   "sticker-info",
   "sticker-plain",
+  "sticker-good",
   "avatar",
   "tile-1",
   "tile-2",

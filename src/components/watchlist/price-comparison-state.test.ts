@@ -23,6 +23,7 @@ import {
   trackLabels,
   trackOf,
   verdictOfState,
+  type Hero,
   type PriceComparisonAction,
   type PriceComparisonShop,
   type PriceComparisonState,
@@ -34,16 +35,18 @@ import {
 } from "@/components/watchlist/price-comparison-state";
 import {
   compareShops,
+  judgementOf,
   STALE_AFTER_MS,
   verdictOf,
   type LatestCheck,
   type MatchableShop,
   type PricedShop,
+  type PriceJudgement,
   type PriceVerdict,
   type ShopPrice,
 } from "@/lib/services/price-comparison";
 import { rowTagOf } from "@/lib/services/watchlist-rows";
-import type { LatestPrice, PriceRefreshAnswer, ShopOffer } from "@/types";
+import type { LatestPrice, PriceHistory, PriceRefreshAnswer, ShopOffer } from "@/types";
 
 const ITEM_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
 // The server rendered the page at RENDERED; the answers came back a few seconds later.
@@ -172,7 +175,8 @@ describe("price comparison state", () => {
       lastCheckedAt: CHECKED_AT,
       lastStatus: "price",
       offer: { ...offer(16.99), pricedAt: CHECKED_AT },
-      history: null,
+      // The page read no check of Natura's item, so it had no price before today.
+      history: { low: null, days: [] },
     });
     expect(marks(state)).toEqual([
       ["natura", true],
@@ -291,6 +295,26 @@ describe("price comparison state", () => {
 
     expect(rowOf(answered, "natura")?.latest).toMatchObject({ lastCheckedAt: CHECKED_AT, history });
     expect(rowOf(gone, "natura")?.latest).toMatchObject({ lastStatus: "missing", history });
+  });
+
+  it("gives a shop the page read without any check no history before today, and one it couldn't read none read", () => {
+    // Rossmann's item was never checked, so the page's read found no price of it before today. Natura's stored price
+    // couldn't be read, so neither could its history, whatever Natura answers today.
+    const before = initialState({ shops: [rossmann(null), { ...natura(null), readFailed: true }], now: RENDERED });
+    const missing = { kind: "missing", checkedAt: CHECKED_AT, saved: true } as const;
+    const answered = (rossmannAnswer: RefreshResult, naturaAnswer: RefreshResult) =>
+      run(
+        before,
+        start("rossmann"),
+        start("natura"),
+        done("rossmann", rossmannAnswer, ANSWERED_AT),
+        done("natura", naturaAnswer, ANSWERED_AT + 1),
+      );
+
+    for (const state of [answered(priceAnswer(26.49), priceAnswer(16.99)), answered(missing, missing)]) {
+      expect(rowOf(state, "rossmann")?.latest?.history).toEqual({ low: null, days: [] });
+      expect(rowOf(state, "natura")?.latest?.history).toBeNull();
+    }
   });
 
   it("says the session ended, keeping every price, and clears it on the next attempt", () => {
@@ -719,21 +743,25 @@ const DAY = 24 * HOUR;
 /** A text as the plan spells it, with the no-break space Intl writes before "zł". */
 const priced = (text: string) => text.replaceAll(" zł", `${NO_BREAK_SPACE}zł`);
 
-/** A check that found `price`, fetched `pricedAgo` before the page was rendered, with the shop's 30-day low if given. */
+/**
+ * A check that found `price`, fetched `pricedAgo` before the page was rendered, with the shop's 30-day low if given, and
+ * the item's price history as the page reads it: no price before today, unless given.
+ */
 function checkOf(
   price: number,
   {
     lowestPrice30d = null,
     pricedAgo = 5 * MINUTE,
     available = true,
-  }: { lowestPrice30d?: number | null; pricedAgo?: number; available?: boolean } = {},
+    history = { low: null, days: [] },
+  }: { lowestPrice30d?: number | null; pricedAgo?: number; available?: boolean; history?: PriceHistory | null } = {},
 ): LatestCheck {
   const at = ago(pricedAgo);
   return {
     lastCheckedAt: at,
     lastStatus: "price",
     offer: { price, regularPrice: null, lowestPrice30d, promoEndsOn: null, available, pricedAt: at },
-    history: null,
+    history,
   };
 }
 
@@ -743,36 +771,101 @@ function judged(rows: ShopPrice[], unread = false) {
   return { rows: compared.rows, verdict: verdictOf(compared, RENDERED_AT, unread) };
 }
 
-// The handoff's samples: Nivea cheapest in Natura, with Natura's 30-day low; Ziaja only in Rossmann; Colgate stale.
+/** Rows compared at the page's render, with their verdict (judged). */
+type Judged = ReturnType<typeof judged>;
+
+// The owner's rule of 2026-10-06 (FR-012) compares today's price with the cheapest shop's declared 30-day low until the
+// product has been on the list for 30 days and its shops had a price on 5 different days before today, and with that
+// history from then on. A product added the day before the page was rendered is compared with its shop's low; one
+// added 40 days before, with its own history, once that holds 5 days.
+const ADDED_RECENTLY = ago(DAY);
+const ADDED_LONG_AGO = ago(40 * DAY);
+// The five days in Poland before the page's, 28 September.
+const FIVE_DAYS = ["2026-09-23", "2026-09-24", "2026-09-25", "2026-09-26", "2026-09-27"];
+
+/** Whether these rows' price is a good one (judgementOf), at the page's render, for a product added at `addedAt`. */
+function judgementFor({ rows, verdict }: Judged, addedAt = ADDED_RECENTLY): PriceJudgement | null {
+  return judgementOf(verdict, rows, addedAt, RENDERED_AT);
+}
+
+// The handoff's samples: Nivea cheapest in Natura, with Natura's 30-day low; Isana cheapest in Rossmann, at the 30-day
+// low Rossmann declares; Ziaja only in Rossmann; Colgate stale.
 const nivea = () =>
   judged([
     { shop: "rossmann", latest: checkOf(26.99, { pricedAgo: 10 * MINUTE }) },
     { shop: "natura", latest: checkOf(22.99, { lowestPrice30d: 23.99 }) },
   ]);
+const isana = () =>
+  judged([
+    { shop: "rossmann", latest: checkOf(7.49, { lowestPrice30d: 7.49, pricedAgo: 10 * MINUTE }) },
+    { shop: "natura", latest: checkOf(8.99, { pricedAgo: 12 * MINUTE }) },
+  ]);
 const ziaja = () => judged([{ shop: "rossmann", latest: checkOf(12.99, { pricedAgo: DAY }) }]);
 const colgate = () =>
   judged([{ shop: "rossmann", latest: checkOf(11.49, { lowestPrice30d: 10.99, pricedAgo: 2 * DAY }) }]);
 
+/**
+ * Natura cheapest at 16,99 zł beside Rossmann's 26,99 zł: Natura declaring `low` as its 30-day low, or none, with
+ * `history` as its own, and Rossmann with `rossmannHistory`; each history none before today unless given.
+ */
+function inNatura({
+  low = null,
+  history = { low: null, days: [] },
+  rossmannHistory = { low: null, days: [] },
+}: { low?: number | null; history?: PriceHistory; rossmannHistory?: PriceHistory | null } = {}): Judged {
+  return judged([
+    { shop: "rossmann", latest: checkOf(26.99, { history: rossmannHistory }) },
+    { shop: "natura", latest: checkOf(16.99, { lowestPrice30d: low, history }) },
+  ]);
+}
+
 describe("heroOf", () => {
-  it("names the cheapest shop and how much less it is, with the age of its price", () => {
-    expect(heroOf(nivea().verdict, { undecided: [] })).toEqual({
+  it("names the cheapest shop and how much less it is, with the age of its price and its judgement's sticker", () => {
+    // Natura's 22,99 zł is below the 23,99 zł Natura declares as its 30-day low: a good price.
+    expect(heroOf(nivea().verdict, { undecided: [] }, judgementFor(nivea()))).toEqual({
       tone: "sun",
       eyebrow: "Najtaniej dziś",
       shops: "w Naturze",
       price: 22.99,
       sub: priced("o 4,00 zł taniej niż Rossmann · sprawdzono 5 min temu"),
-      // Facts only until FR-012: no judgement sticker.
-      sticker: null,
+      sticker: "good",
+    });
+  });
+
+  it.each<{ why: string; prices: () => Judged; addedAt?: string; sticker: Hero["sticker"] }>([
+    { why: "below its shop's 30-day low", prices: () => inNatura({ low: 17.99 }), sticker: "good" },
+    { why: "equal to its shop's 30-day low, as the handoff's Isana", prices: isana, sticker: "ordinary" },
+    { why: "above its shop's 30-day low", prices: () => inNatura({ low: 15.99 }), sticker: "ordinary" },
+    {
+      why: "below the product's own 30 days, though above its shop's 30-day low",
+      prices: () => inNatura({ low: 15.99, history: { low: 17.49, days: FIVE_DAYS } }),
+      addedAt: ADDED_LONG_AGO,
+      sticker: "good",
+    },
+    {
+      why: "above the product's own 30 days, though below its shop's 30-day low",
+      prices: () => inNatura({ low: 17.99, history: { low: 15.99, days: FIVE_DAYS } }),
+      addedAt: ADDED_LONG_AGO,
+      sticker: "ordinary",
+    },
+    { why: "with nothing to compare it with", prices: () => inNatura(), sticker: null },
+  ])("stamps the cheapest price $sticker when it's $why", ({ prices, addedAt, sticker }) => {
+    const compared = prices();
+
+    expect(heroOf(compared.verdict, { undecided: [] }, judgementFor(compared, addedAt))).toMatchObject({
+      tone: "sun",
+      eyebrow: "Najtaniej dziś",
+      sticker,
     });
   });
 
   it('names both shops of a tie after "w", with the older price\'s age', () => {
-    const { verdict } = judged([
+    const tie = judged([
       { shop: "rossmann", latest: checkOf(16.99, { pricedAgo: 5 * MINUTE }) },
       { shop: "natura", latest: checkOf(16.99, { pricedAgo: HOUR }) },
     ]);
 
-    expect(heroOf(verdict, { undecided: [] })).toMatchObject({
+    expect(heroOf(tie.verdict, { undecided: [] }, judgementFor(tie))).toMatchObject({
       tone: "sun",
       shops: "w Rossmannie i w Naturze",
       price: 16.99,
@@ -784,7 +877,7 @@ describe("heroOf", () => {
     { undecided: ["natura"], sub: "sprawdzono wczoraj · Natura czeka na dopasowanie" },
     { undecided: [], sub: "sprawdzono wczoraj" },
   ])("gives the only known price, saying Natura waits only while it does ($undecided)", ({ undecided, sub }) => {
-    expect(heroOf(ziaja().verdict, { undecided })).toEqual({
+    expect(heroOf(ziaja().verdict, { undecided }, judgementFor(ziaja()))).toEqual({
       tone: "plain",
       eyebrow: "Jedyna znana cena",
       shops: "w Rossmannie",
@@ -794,20 +887,34 @@ describe("heroOf", () => {
     });
   });
 
+  it('keeps "Tylko 1 sklep" on the only price whatever its judgement, which the price track\'s card gives', () => {
+    // Rossmann's 12,99 zł is below the 13,49 zł Rossmann declares as its 30-day low: a good price.
+    const good = judged([{ shop: "rossmann", latest: checkOf(12.99, { lowestPrice30d: 13.49 }) }]);
+
+    expect(judgementFor(good)).toMatchObject({ kind: "good" });
+    expect(heroOf(good.verdict, { undecided: [] }, judgementFor(good))).toMatchObject({
+      eyebrow: "Jedyna znana cena",
+      sticker: "one-shop",
+    });
+  });
+
   it("names every matched shop that waits for its match, agreeing in number", () => {
-    expect(heroOf(ziaja().verdict, { undecided: ["natura", "hebe"] })).toMatchObject({
+    expect(heroOf(ziaja().verdict, { undecided: ["natura", "hebe"] }, judgementFor(ziaja()))).toMatchObject({
       eyebrow: "Jedyna znana cena",
       sub: "sprawdzono wczoraj · Natura i Hebe czekają na dopasowanie",
     });
-    expect(heroOf(ziaja().verdict, { undecided: ["hebe"] })).toMatchObject({
+    expect(heroOf(ziaja().verdict, { undecided: ["hebe"] }, judgementFor(ziaja()))).toMatchObject({
       sub: "sprawdzono wczoraj · Hebe czeka na dopasowanie",
     });
   });
 
-  it("gives a price that can't be ordered online, with its age", () => {
-    const { verdict } = judged([{ shop: "rossmann", latest: checkOf(26.99, { available: false }) }]);
+  it("gives a price that can't be ordered online, with its age, and no judgement", () => {
+    // Below the 27,99 zł Rossmann declares as its 30-day low, but it can't be ordered online, so it isn't judged.
+    const unorderable = judged([
+      { shop: "rossmann", latest: checkOf(26.99, { lowestPrice30d: 27.99, available: false }) },
+    ]);
 
-    expect(heroOf(verdict, { undecided: ["natura"] })).toEqual({
+    expect(heroOf(unorderable.verdict, { undecided: ["natura"] }, judgementFor(unorderable))).toEqual({
       tone: "plain",
       eyebrow: "Niedostępny online",
       shops: "w Rossmannie",
@@ -818,7 +925,7 @@ describe("heroOf", () => {
   });
 
   it("gives the last known price with its age, saying it may be out of date", () => {
-    expect(heroOf(colgate().verdict, { undecided: [] })).toEqual({
+    expect(heroOf(colgate().verdict, { undecided: [] }, judgementFor(colgate()))).toEqual({
       tone: "warn",
       eyebrow: "Ostatnia znana cena",
       shops: "w Rossmannie",
@@ -832,7 +939,8 @@ describe("heroOf", () => {
     { verdict: { kind: "unread", at: RENDERED_AT }, eyebrow: "Nie udało się wczytać cen" },
     { verdict: { kind: "none", at: RENDERED_AT }, eyebrow: "Jeszcze bez ceny" },
   ])("names no shop and no price when the verdict is $verdict.kind", ({ verdict, eyebrow }) => {
-    expect(heroOf(verdict, { undecided: ["natura"] })).toEqual({
+    // Neither is judged (judgementOf).
+    expect(heroOf(verdict, { undecided: ["natura"] }, null)).toEqual({
       tone: "plain",
       eyebrow,
       shops: null,
@@ -939,37 +1047,191 @@ describe("trackOf", () => {
   });
 });
 
+// The sentences below are the owner's of 2026-10-06 (context/changes/good-price-judgement/plan.md, Phase 3), written
+// out whole, with the no-break space Intl writes before "zł", never put together as the rule puts them.
 describe("trackHint", () => {
-  it.each<{ why: string; verdict: () => PriceVerdict; undecided: MatchableShop[]; hint: string | null }>([
+  /**
+   * What the price track's card says of these prices, beside the matched shops still to match, for a product added at
+   * `addedAt`: by their verdict and its judgement, as the product area passes them.
+   */
+  function hintOf(
+    { rows, verdict }: Judged,
+    { undecided = [], addedAt = ADDED_RECENTLY }: { undecided?: MatchableShop[]; addedAt?: string } = {},
+  ): string | null {
+    return trackHint(verdict, { undecided }, judgementOf(verdict, rows, addedAt, RENDERED_AT), rows);
+  }
+
+  /** What the price track's card says of the island's state, for a product added the day before, as the view says it. */
+  function hintOfState(state: PriceComparisonState): string | null {
+    const { rows } = comparisonOf(state);
+    const verdict = verdictOfState(state);
+    return trackHint(verdict, { undecided: [] }, judgementOf(verdict, rows, ADDED_RECENTLY, verdict.at), rows);
+  }
+
+  it.each<{ why: string; prices: () => Judged; hint: string }>([
     {
-      why: "the only price while Natura waits",
-      verdict: () => ziaja().verdict,
+      why: "below it, as the handoff's Nivea",
+      prices: nivea,
+      hint: "Poniżej najniższej ceny z 30 dni wg sklepu. Historia Twoich cen jest jeszcze za krótka, więc porównujemy z danymi sklepu.",
+    },
+    {
+      why: "equal to it, as the handoff's Isana",
+      prices: isana,
+      hint: "Równa najniższej cenie z 30 dni wg sklepu. Historia Twoich cen jest jeszcze za krótka, więc porównujemy z danymi sklepu.",
+    },
+    {
+      why: "above it, naming it",
+      prices: () => inNatura({ low: 15.99 }),
+      hint: priced(
+        "Powyżej najniższej ceny z 30 dni wg sklepu (15,99 zł). Historia Twoich cen jest jeszcze za krótka, więc porównujemy z danymi sklepu.",
+      ),
+    },
+  ])("judges the cheapest price against its shop's 30-day low while the history is short: $why", ({ prices, hint }) => {
+    expect(hintOf(prices())).toBe(hint);
+  });
+
+  it.each<{ why: string; low: number; hint: string }>([
+    { why: "below it", low: 17.99, hint: "Poniżej najniższej ceny z 30 dni wg sklepu." },
+    { why: "equal to it", low: 16.99, hint: "Równa najniższej cenie z 30 dni wg sklepu." },
+    { why: "above it", low: 15.99, hint: priced("Powyżej najniższej ceny z 30 dni wg sklepu (15,99 zł).") },
+  ])("doesn't say the history is too short while a shop's history wasn't read: $why", ({ low, hint }) => {
+    // Rossmann's check came without its history, as a shop's answer does after the page couldn't read its stored price.
+    expect(hintOf(inNatura({ low, rossmannHistory: null }))).toBe(hint);
+  });
+
+  it("says the history is too short beside a shop never checked, which had no price before today", () => {
+    const prices = judged([
+      { shop: "rossmann", latest: null },
+      { shop: "natura", latest: checkOf(16.99, { lowestPrice30d: 17.99 }) },
+    ]);
+
+    expect(hintOf(prices)).toBe(
+      "Poniżej najniższej ceny z 30 dni wg sklepu. Historia Twoich cen jest jeszcze za krótka, więc porównujemy z danymi sklepu.",
+    );
+  });
+
+  it("says the history is too short once shops never checked answer, but not once they answer after a failed read", () => {
+    // Natura answers 16,99 zł, below the 17,99 zł it declares as its 30-day low, and Rossmann 26,49 zł.
+    const answers = [
+      start("rossmann"),
+      start("natura"),
+      done("rossmann", priceAnswer(26.49), ANSWERED_AT),
+      done(
+        "natura",
+        { kind: "price", offer: { ...offer(16.99), lowestPrice30d: 17.99 }, checkedAt: CHECKED_AT, saved: true },
+        ANSWERED_AT + 1,
+      ),
+    ];
+    // The page read both items without any check, so neither had a price before today.
+    const neverChecked = run(initialState({ shops: [rossmann(null), natura(null)], now: RENDERED }), ...answers);
+    // The page couldn't read the stored prices, so neither item's history was read.
+    const failedRead = run(
+      initialState({ shops: [rossmann(null), natura(null)], now: RENDERED, pricesFailed: true }),
+      ...answers,
+    );
+
+    expect(hintOfState(neverChecked)).toBe(
+      "Poniżej najniższej ceny z 30 dni wg sklepu. Historia Twoich cen jest jeszcze za krótka, więc porównujemy z danymi sklepu.",
+    );
+    expect(hintOfState(failedRead)).toBe("Poniżej najniższej ceny z 30 dni wg sklepu.");
+  });
+
+  it.each<{ why: string; low: number; hint: string }>([
+    { why: "below its lowest", low: 17.49, hint: "Najniższa cena w Twoich sklepach od 30 dni." },
+    { why: "equal to its lowest", low: 16.99, hint: "Równa najniższej cenie w Twoich sklepach z ostatnich 30 dni." },
+    {
+      why: "above its lowest, naming it",
+      low: 15.99,
+      hint: priced("W ostatnich 30 dniach było taniej w Twoich sklepach: 15,99 zł."),
+    },
+  ])("judges the cheapest price against the product's own 30 days once they count: $why", ({ low, hint }) => {
+    // Natura declares a 30-day low of 16,49 zł, against which 16,99 zł would read as above it: the history comes first.
+    // Whether Rossmann's history was read doesn't change what was compared.
+    for (const rossmannHistory of [{ low: null, days: [] }, null]) {
+      const prices = inNatura({ low: 16.49, history: { low, days: FIVE_DAYS }, rossmannHistory });
+
+      expect(hintOf(prices, { addedAt: ADDED_LONG_AGO })).toBe(hint);
+    }
+  });
+
+  it.each<{ why: string; prices: () => Judged; hint: string }>([
+    {
+      why: "the cheapest shop declares no 30-day low, though a dearer one does",
+      prices: () =>
+        judged([
+          { shop: "rossmann", latest: checkOf(26.99, { lowestPrice30d: 19.99 }) },
+          { shop: "natura", latest: checkOf(16.99) },
+        ]),
+      hint: "Nie ma z czym porównać: Natura nie podaje najniższej ceny z 30 dni, a historia cen jest jeszcze za krótka.",
+    },
+    {
+      why: "neither shop of a tie declares one",
+      prices: () =>
+        judged([
+          { shop: "rossmann", latest: checkOf(16.99) },
+          { shop: "natura", latest: checkOf(16.99) },
+        ]),
+      hint: "Nie ma z czym porównać: Rossmann i Natura nie podają najniższej ceny z 30 dni, a historia cen jest jeszcze za krótka.",
+    },
+  ])("says there's nothing to compare with, and why, when $why", ({ prices, hint }) => {
+    expect(hintOf(prices())).toBe(hint);
+  });
+
+  it.each<{ why: string; prices: () => Judged; undecided: MatchableShop[]; hint: string }>([
+    {
+      why: "the only price without a 30-day low, while Natura waits",
+      prices: ziaja,
       undecided: ["natura"],
-      hint: "Dopasuj produkt w Naturze, aby porównać ceny.",
+      hint: "Nie ma z czym porównać: Rossmann nie podaje najniższej ceny z 30 dni, a historia cen jest jeszcze za krótka. Dopasuj produkt w Naturze, aby porównać ceny.",
     },
     {
-      why: "the only price once Natura is decided",
-      verdict: () => ziaja().verdict,
+      why: "the only price without a 30-day low, once Natura is decided",
+      prices: ziaja,
       undecided: [],
-      hint: null,
+      hint: "Nie ma z czym porównać: Rossmann nie podaje najniższej ceny z 30 dni, a historia cen jest jeszcze za krótka.",
     },
     {
-      why: "the only price while Natura and Hebe wait",
-      verdict: () => ziaja().verdict,
+      why: "the only price below its 30-day low, while Natura and Hebe wait",
+      prices: () => judged([{ shop: "rossmann", latest: checkOf(12.99, { lowestPrice30d: 13.49 }) }]),
       undecided: ["natura", "hebe"],
-      hint: "Dopasuj produkt w Naturze i w Hebe, aby porównać ceny.",
+      hint: "Poniżej najniższej ceny z 30 dni wg sklepu. Historia Twoich cen jest jeszcze za krótka, więc porównujemy z danymi sklepu. Dopasuj produkt w Naturze i w Hebe, aby porównać ceny.",
     },
     {
-      why: "a stale price",
-      verdict: () => colgate().verdict,
+      why: "a stale price, never judged, though its shop declares a 30-day low",
+      prices: colgate,
       undecided: ["natura"],
       hint: "Odśwież ceny, aby sprawdzić aktualną cenę.",
     },
-    { why: "the cheapest shop", verdict: () => nivea().verdict, undecided: ["natura"], hint: null },
-    { why: "an unread price", verdict: () => ({ kind: "unread", at: RENDERED_AT }), undecided: ["natura"], hint: null },
-    { why: "no price", verdict: () => ({ kind: "none", at: RENDERED_AT }), undecided: ["natura"], hint: null },
-  ])("gives $hint for $why", ({ verdict, undecided, hint }) => {
-    expect(trackHint(verdict(), { undecided })).toBe(hint);
+  ])("gives the judgement, then what the product needs: $why", ({ prices, undecided, hint }) => {
+    expect(hintOf(prices(), { undecided })).toBe(hint);
+  });
+
+  it.each<{ why: string; prices: () => Judged }>([
+    {
+      why: "a price that can't be ordered online",
+      prices: () => judged([{ shop: "rossmann", latest: checkOf(26.99, { lowestPrice30d: 27.99, available: false }) }]),
+    },
+    {
+      why: "a price that couldn't be read beside another",
+      prices: () =>
+        judged(
+          [
+            { shop: "rossmann", latest: checkOf(26.99, { lowestPrice30d: 27.99 }) },
+            { shop: "natura", latest: null },
+          ],
+          true,
+        ),
+    },
+    {
+      why: "no price",
+      prices: () =>
+        judged([
+          { shop: "rossmann", latest: null },
+          { shop: "natura", latest: null },
+        ]),
+    },
+  ])("says nothing for $why, which isn't judged", ({ prices }) => {
+    expect(hintOf(prices(), { undecided: ["natura"] })).toBeNull();
   });
 });
 

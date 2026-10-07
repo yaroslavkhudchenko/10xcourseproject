@@ -349,8 +349,11 @@ function oldest(times: string[]): string {
   return times.reduce((earliest, time) => (Date.parse(time) < Date.parse(earliest) ? time : earliest));
 }
 
-/** An amount in złoty as whole grosze, so comparing and subtracting prices never meets a floating-point remainder. */
-function toGrosze(amount: number): number {
+/**
+ * An amount in złoty as whole grosze, so comparing and subtracting prices never meets a floating-point remainder. The
+ * product area's sentence tells a price equal to its comparison from one above it by it too, as judgementOf does.
+ */
+export function toGrosze(amount: number): number {
   return Math.round(amount * 100);
 }
 
