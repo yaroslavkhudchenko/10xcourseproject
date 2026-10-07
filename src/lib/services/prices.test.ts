@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { listLatestPrices, readLatestPrices, recordPriceChecks } from "@/lib/services/prices";
-import type { LatestPrice, PriceHistory, PriceKey, ShopOffer } from "@/types";
+import { listLatestPrices, productPricesOf, readLatestPrices, recordPriceChecks } from "@/lib/services/prices";
+import type { LatestPrice, MatchedItem, PriceHistory, PriceKey, ShopOffer } from "@/types";
 
 // Felix at Rossmann during a promotion, and Nivea Soft at Natura, with the offers the 2026-09-28 requests answered
 // (research, Follow-up requests 1 and 4), and a second Natura item.
@@ -493,5 +493,81 @@ describe("readLatestPrices", () => {
 
     expect(await readLatestPrices(client, [FELIX, SOFT])).toBeNull();
     expect(loggedLine(warn)).toMatchObject({ event: "price-observations", detail: "PGRST100" });
+  });
+});
+
+describe("productPricesOf", () => {
+  // Felix, picked at Rossmann, matched to Nivea Soft at Natura (a placeholder pairing: only the ids and links count
+  // here) and to a Super-Pharm item never checked, with no Hebe item.
+  const product = {
+    source: "rossmann" as const,
+    sourceItemId: "131225",
+    productUrl: "https://www.rossmann.pl/Produkt/Felix,131225",
+  };
+  const itemOf = (shopItemId: string, productUrl: string | null): MatchedItem => ({
+    shopItemId,
+    brand: null,
+    name: "Matched item",
+    sizeText: null,
+    size: null,
+    eans: [],
+    productUrl,
+    imageUrl: null,
+  });
+  const NATURA_PAGE = "https://drogerienatura.pl/produkt/nivea-soft";
+  const matched = [
+    { shop: "natura" as const, item: itemOf("NV89063", NATURA_PAGE) },
+    { shop: "hebe" as const, item: null },
+    { shop: "super-pharm" as const, item: itemOf("10132", null) },
+  ];
+
+  it("reads the product's own item and each matched item, linking each to its own page", async () => {
+    const { client, queries } = stubClient({ data: [felixSummaryRow, softSummaryRow] });
+
+    expect(await productPricesOf(client, product, matched)).toEqual({
+      shops: [
+        {
+          shop: "rossmann",
+          shopItemId: "131225",
+          productUrl: product.productUrl,
+          latest: felixWithHistory,
+          readFailed: false,
+        },
+        {
+          shop: "natura",
+          shopItemId: "NV89063",
+          productUrl: NATURA_PAGE,
+          latest: softWithoutHistory,
+          readFailed: false,
+        },
+        { shop: "super-pharm", shopItemId: "10132", productUrl: null, latest: null, readFailed: false },
+      ],
+      pricesFailed: false,
+    });
+    // One query, for the three items: none for the shop without an item.
+    expect(queries).toEqual([
+      [
+        ["from", "price_summaries"],
+        ["select", SUMMARY_COLUMNS],
+        ["in", "shop_item_id", ["131225", "NV89063", "10132"]],
+        ["abortSignal", true],
+      ],
+    ]);
+  });
+
+  it("still gives every shop, each without a price, when the read fails", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({
+      error: { code: "57014", message: "canceling statement due to statement timeout" },
+    });
+
+    const { shops, pricesFailed } = await productPricesOf(client, product, matched);
+
+    expect(pricesFailed).toBe(true);
+    expect(shops.map(({ shop, latest }) => [shop, latest])).toEqual([
+      ["rossmann", null],
+      ["natura", null],
+      ["super-pharm", null],
+    ]);
   });
 });

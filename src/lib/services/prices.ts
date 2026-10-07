@@ -1,8 +1,25 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "astro/zod";
-import type { PriceComparisonShop } from "@/components/watchlist/price-comparison-state";
-import { keyText, PRICED_SHOPS, type PricedKey, type PricedShop } from "@/lib/services/price-comparison";
-import { SHOP_IDS, type LatestPrice, type PriceCheck, type PriceHistory, type PriceKey, type ShopId } from "@/types";
+import {
+  keyText,
+  PRICED_SHOPS,
+  productPriceKeys,
+  type MatchedShop,
+  type PriceComparisonShop,
+  type PricedKey,
+  type PricedShop,
+  type PriceDecision,
+} from "@/lib/services/price-comparison";
+import {
+  SHOP_IDS,
+  type LatestPrice,
+  type MatchedItem,
+  type PriceCheck,
+  type PriceHistory,
+  type PriceKey,
+  type ShopId,
+  type WatchlistProduct,
+} from "@/types";
 
 // Every price check of a shop item (public.price_observations), shared by the item's watchers: a user reads and adds
 // only observations of items they watch, and nobody changes or removes one. Every read and write goes through the
@@ -283,6 +300,28 @@ export function priceShopsOf(
     };
   });
   return { shops, pricesFailed: read === null };
+}
+
+/**
+ * The product page's prices for its island, read in one query and handed over as its shops (priceShopsOf): the
+ * product's own item, where it was picked, and each matched shop's item as the page's match steps settled it
+ * (`matched`: a stored match, or one the page's lookup has just stored). "Zobacz w sklepie" goes to the product's own
+ * page for its own item and to the matched item's page in each matched shop. The seam table runs this same composition
+ * (price-pages.test.ts), so the page and its test can't drift apart.
+ */
+export async function productPricesOf(
+  supabase: SupabaseClient,
+  product: Pick<WatchlistProduct, "source" | "sourceItemId" | "productUrl">,
+  matched: readonly { shop: MatchedShop; item: MatchedItem | null }[],
+): Promise<{ shops: PriceComparisonShop[]; pricesFailed: boolean }> {
+  const items = new Map(matched.flatMap(({ shop, item }) => (item === null ? [] : [[shop, item] as const])));
+  const keys = productPriceKeys(
+    product,
+    [...items].map(([shop, item]): PriceDecision => ({ shop, state: "matched", shopItemId: item.shopItemId })),
+  );
+  return priceShopsOf(keys, await readLatestPrices(supabase, keys), (shop) =>
+    shop === "rossmann" ? product.productUrl : (items.get(shop)?.productUrl ?? null),
+  );
 }
 
 /**

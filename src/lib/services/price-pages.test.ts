@@ -2,26 +2,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { unreadableShopsOf, type MatchedShopView } from "@/components/watchlist/match-card";
 import { initialState, selectedRowTagOf, verdictOfState } from "@/components/watchlist/price-comparison-state";
 import { listMatches, listMatchStates } from "@/lib/services/matches";
-import {
-  productPriceKeys,
-  type MatchedShop,
-  type PriceDecision,
-  type PriceVerdict,
-} from "@/lib/services/price-comparison";
-import { listLatestPrices, priceShopsOf, readLatestPrices } from "@/lib/services/prices";
+import type { MatchedShop, PriceVerdict } from "@/lib/services/price-comparison";
+import { listLatestPrices, productPricesOf } from "@/lib/services/prices";
 import { shopGateFor } from "@/lib/services/shop-gate";
 import { runMatchSteps } from "@/lib/services/shop-matching";
 import { stubSupabase, type StubRelation } from "@/lib/services/testing/stub-supabase";
 import { getWatchlistProduct, listWatchlist } from "@/lib/services/watchlist";
 import { listRowsOf, parseListFilter, type PriceTag } from "@/lib/services/watchlist-rows";
-import type { MatchedItem } from "@/types";
 
 // risk: #1 (context/foundation/test-plan.md): a stale, ended-promotion or unread price shows as current, or the wrong
 // shop is marked cheapest, on the list or on the product's page.
 // facet: one stored state per case, served by one stand-in database to both pages' own reads and wiring: the list's
 // three reads and its rows (listRowsOf), and the product page's reads, its match steps on a view that isn't the user's
-// own navigation, so no shop is asked, the island's shops (priceShopsOf) and its first verdict, and the selected row's
-// tag beside it (selectedRowTagOf).
+// own navigation, so no shop is asked, its prices for the island (productPricesOf, the page's own call) and its first
+// verdict, and the selected row's tag beside it (selectedRowTagOf).
 // expected values: written by hand from the PRD's guardrail (a stale or failed price is visible, never silent), US-01
 // (the cheapest shop is marked, and a shop without a current price shows its gap), S-03's decision (only fresh prices
 // orderable online can win; stale after 24 hours or when the promotion ended) and the owner's call of 2026-10-07 (a
@@ -165,8 +159,8 @@ async function listTag(state: StoredState): Promise<PriceTag | undefined> {
 
 /**
  * The product's page, as the page puts it together: its two reads, its match steps on a view that isn't the user's
- * own navigation (no shop is asked), each matched shop's item, the price read, the island's first verdict, and the
- * selected row's tag on the list beside it.
+ * own navigation (no shop is asked), its prices for the island through the page's own call (productPricesOf), the
+ * island's first verdict, and the selected row's tag on the list beside it.
  */
 async function productPage(state: StoredState): Promise<{ verdict: PriceVerdict; selectedTag: PriceTag }> {
   const { client, queries } = stubSupabase({ relations: relationsOf(state) });
@@ -187,14 +181,7 @@ async function productPage(state: StoredState): Promise<{ verdict: PriceVerdict;
     ownNavigation: false,
     filter: parseListFilter(null),
   });
-  const matchedItems = new Map<MatchedShop, MatchedItem>(
-    steps.flatMap(({ shop, item }) => (item === null ? [] : [[shop, item] as const])),
-  );
-  const keys = productPriceKeys(
-    shown,
-    [...matchedItems].map(([shop, item]): PriceDecision => ({ shop, state: "matched", shopItemId: item.shopItemId })),
-  );
-  const { shops, pricesFailed } = priceShopsOf(keys, await readLatestPrices(client, keys), () => null);
+  const { shops, pricesFailed } = await productPricesOf(client, shown, steps);
   const matched: MatchedShopView[] = steps.map(({ shop, view, unsaved }) => ({
     shop,
     view,

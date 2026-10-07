@@ -6,13 +6,23 @@
 // Run against the production preview or the dev server, bound to the local stack:
 //   SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=<anon key> BASE_URL=http://localhost:4321 node scripts/check-two-users.mjs
 // It holds every enabled shop for its whole run, as the local superuser (scripts/e2e-local-db.mjs), and switches back
-// on only the shops it held, also when it fails, so a route that reached the gate would still ask no shop. Each run
-// signs up two fresh users and uses shop item ids of its own, so it can run again without resetting the database and
-// no real product gets a test price.
+// on only the shops it held, also when it fails or is stopped, so a route that reached the gate would still ask no
+// shop. It refuses to start while an e2e run or a manual `stop` holds the shops, whose release mid-run would switch them
+// back on under it, and it needs .env and .dev.vars pointing at the local stack, as that helper does. Each run signs up
+// two fresh users and uses shop item ids of its own, so it can run again without resetting the database and no real
+// product gets a test price.
 
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
-import { assertLocalSupabase, requestLogMark, restoreShops, stopShops } from "./e2e-local-db.mjs";
+import { cookieJar } from "./cookie-jar.mjs";
+import {
+  assertLocalSupabase,
+  e2eHolds,
+  enabledShops,
+  requestLogMark,
+  restoreShops,
+  stopShops,
+} from "./e2e-local-db.mjs";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:4321";
 const { SUPABASE_URL, SUPABASE_KEY } = process.env;
@@ -64,25 +74,20 @@ async function signUpUser(label) {
 // request comes from the app's own origin and follows no redirect, and none of them says it's a prefetch or comes from
 // another site, so a page treats each as the user's own navigation, the one that may ask a shop.
 function browser() {
-  const jar = new Map();
+  const jar = cookieJar();
   return async (path, { method = "GET", form, json } = {}) => {
     const response = await fetch(BASE_URL + path, {
       method,
       redirect: "manual",
       headers: {
-        Cookie: [...jar].map(([name, value]) => `${name}=${value}`).join("; "),
+        Cookie: jar.header(),
         Origin: BASE_URL,
         ...(form ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
         ...(json ? { "Content-Type": "application/json" } : {}),
       },
       body: form ? new URLSearchParams(form).toString() : json ? JSON.stringify(json) : undefined,
     });
-    for (const raw of response.headers.getSetCookie()) {
-      const [pair, ...attributes] = raw.split(";");
-      const [name, ...value] = pair.split("=");
-      if (attributes.some((attribute) => /max-age=0/i.test(attribute.trim()))) jar.delete(name.trim());
-      else jar.set(name.trim(), value.join("="));
-    }
+    jar.store(response);
     return {
       status: response.status,
       location: response.headers.get("location") ?? "",
@@ -94,9 +99,10 @@ function browser() {
 
 // The rows A's product is seeded with: a Rossmann product whose name no page shows anyone else, a decision in each
 // matched shop, so no page looks the product up anywhere, and a stored price for its Rossmann item and its Natura match.
-// Natura's SKUs look like "NV89063" and Rossmann's ids are short numbers, so this run's ids are no real product's.
+// Natura's SKUs look like "NV89063" and Rossmann's ids are short numbers, so this run's ids are no real product's; the
+// Rossmann id still has the 12 digits at most the app reads one by, so a refresh takes it to the gate.
 const marker = `Prywatny${run}`;
-const rossmannId = `${run}9`;
+const rossmannId = `${String(run).slice(-11)}9`;
 const sku = `CHECK-${run}-TU`;
 const product = {
   source: "rossmann",
@@ -134,9 +140,10 @@ const priceOf = (shopId, shopItemId) => ({
 const PRODUCT_COLUMNS = "id, source, source_item_id, brand, name, caption, size_text, size_value, size_unit, eans";
 const DECISION_COLUMNS = "shop_id, state, decided_by, shop_item_id, name, checked_at";
 
-// What A's rows hold, read as A: the product, its decisions and the observations of its two items.
+// What A's rows hold, read as A: the product, its decisions and the observations of its two items, each read's rows or
+// its error, so a read that failed both times can't pass for rows that didn't change.
 async function rowsOf(client, itemId) {
-  const [item, decisions, prices] = await Promise.all([
+  const reads = await Promise.all([
     client.from("watchlist_items").select(PRODUCT_COLUMNS).eq("id", itemId),
     client.from("watchlist_matches").select(DECISION_COLUMNS).eq("watchlist_item_id", itemId).order("shop_id"),
     client
@@ -145,7 +152,17 @@ async function rowsOf(client, itemId) {
       .in("shop_item_id", [rossmannId, sku])
       .order("id"),
   ]);
-  return { item: show(item), decisions: show(decisions), prices: show(prices) };
+  const [item, decisions, prices] = reads.map(({ data, error }) =>
+    error ? { error: `${error.code} ${error.message}` } : { rows: data },
+  );
+  return { item, decisions, prices };
+}
+
+// Whether the shops are all held: no shop may be enabled while either user's requests could reach the gate.
+function noShopEnabled() {
+  const enabled = enabledShops();
+  check("every shop is held", enabled.length === 0, enabled.length ? `enabled: ${enabled.join(", ")}` : "none enabled");
+  return enabled.length === 0;
 }
 
 const NOT_FOUND = "Nie znaleziono produktu.";
@@ -178,6 +195,10 @@ async function main() {
   );
   if (!aId) return;
   const before = await rowsOf(a.client, aId);
+  const seeded =
+    before.item.rows?.length === 1 && before.decisions.rows?.length === 3 && before.prices.rows?.length === 2;
+  check("user A reads back the product, its 3 decisions and its 2 prices", seeded, JSON.stringify(before));
+  if (!seeded) return;
 
   // 2. Both sign in through the app's own Polish form, each in a browser of their own.
   const asA = browser();
@@ -193,7 +214,9 @@ async function main() {
       summary(signedIn),
     );
   }
-  // No reservation is made from here on: every shop is held, and a product no page can see costs none.
+  // No reservation is made from here on: every shop is held, so a stopped shop's reservation inserts nothing, and a
+  // product no page can see costs none.
+  if (!noShopEnabled()) return;
   const mark = requestLogMark();
 
   // 3. As B, every route answers A's product as it answers one no one has: the same status, the same body or the same
@@ -241,10 +264,12 @@ async function main() {
   for (const [what, path, formOf] of forms) {
     const theirs = await asB(path, { method: "POST", form: formOf(aId) });
     const none = await asB(path, { method: "POST", form: formOf(missingId) });
+    // Both stay on the list's pages: two redirects to sign-in, after a lost session, would compare equal too.
     check(
       `as B, ${what} answers A's product as one no one has`,
       theirs.status === 302 &&
         none.status === 302 &&
+        theirs.location.startsWith("/watchlist") &&
         located(theirs, aId) === located(none, missingId) &&
         isPrivate(theirs) &&
         isPrivate(none),
@@ -260,6 +285,8 @@ async function main() {
   );
 
   // 4. The negative control: as A, the same comparison differs, so the check above could see a product it was shown.
+  // A's own requests reach the gate, so the shops must still be held.
+  if (!noShopEnabled()) return;
   const ownPage = await asA(`/watchlist/${aId}`);
   const ownMissing = await asA(`/watchlist/${missingId}`);
   check(
@@ -275,10 +302,22 @@ async function main() {
     ownPrice.status !== ownNoPrice.status && ownNoPrice.status === 404 && isPrivate(ownPrice),
     `A's ${summary(ownPrice)}, missing ${summary(ownNoPrice)}`,
   );
+  // The product's refresh as A asks its two items' shops, both held, so none answers: `failed`, where a product no one
+  // has refreshes nothing: `none`. Nothing is stored, since no shop answered. The decision and the removal have no such
+  // control: as A, they would change A's rows.
+  const ownRefresh = await asA("/api/watchlist/refresh", { method: "POST", form: { itemId: aId } });
+  const ownNoRefresh = await asA("/api/watchlist/refresh", { method: "POST", form: { itemId: missingId } });
+  check(
+    "as A, the product's refresh asks A's shops, unlike one no one has",
+    ownRefresh.location === `/watchlist/${aId}?prices=failed` &&
+      ownNoRefresh.location === `/watchlist/${missingId}?prices=none` &&
+      isPrivate(ownRefresh),
+    `A's ${summary(ownRefresh)}, missing ${summary(ownNoRefresh)}`,
+  );
   const aList = await asA("/watchlist");
   check("as A, the list shows A's product", aList.status === 200 && aList.body.includes(marker), pageSummary(aList));
 
-  // 5. Nothing of A's changed, nothing was added for B, and no shop request was reserved.
+  // 5. Nothing of A's changed, nothing was added for B, and the hold lasted the whole run.
   const after = await rowsOf(a.client, aId);
   check(
     "user A's product, decisions and prices are as they were",
@@ -292,15 +331,27 @@ async function main() {
     bItems.data?.length === 0 && bDecisions.data?.length === 0,
     `list ${show(bItems)}, decisions ${show(bDecisions)}`,
   );
+  // A reservation for a stopped shop inserts nothing, so this shows the shops stayed held, and that no shop request was
+  // reserved: what B was answered shows B's requests never reached the gate.
   const markAfter = requestLogMark();
-  check("no shop request was reserved", markAfter === mark, `${mark} -> ${markAfter}`);
+  check("the shops stayed held: no shop request was reserved", markAfter === mark, `${mark} -> ${markAfter}`);
 }
 
 // Every enabled shop is held under this check's name for its whole run, and only those are switched back on, also when
-// it fails or is interrupted.
+// it fails, is interrupted or is stopped. It refuses while another holder has the shops: that holder could switch them
+// back on mid-run, and a run of its own name would release this one's hold.
 const HOLDER = "two-users";
 let held;
 try {
+  const holds = e2eHolds();
+  if (holds.length) {
+    check(
+      "no other run holds the shops",
+      false,
+      `held: ${holds.join(", ")}; wait for that run, or run \`node scripts/e2e-local-db.mjs restore\` if none is going`,
+    );
+    process.exit(1);
+  }
   held = stopShops(HOLDER);
 } catch (error) {
   check("hold every enabled shop as the local superuser", false, error.message);
@@ -311,10 +362,15 @@ const letGo = () => {
   const restored = restoreShops(HOLDER);
   console.log(`switched back on: ${restored.length ? restored.join(", ") : "none"}`);
 };
-process.once("SIGINT", () => {
-  letGo();
-  process.exit(130);
-});
+for (const [signal, code] of [
+  ["SIGINT", 130],
+  ["SIGTERM", 143],
+]) {
+  process.once(signal, () => {
+    letGo();
+    process.exit(code);
+  });
+}
 try {
   await main();
 } finally {

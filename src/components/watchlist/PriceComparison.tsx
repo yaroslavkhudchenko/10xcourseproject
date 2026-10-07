@@ -9,12 +9,11 @@ import {
   rowShopsOfIsland,
   start,
   tick,
-  type PriceComparisonShop,
   type PricesEventDetail,
 } from "@/components/watchlist/price-comparison-state";
 import PriceComparisonView from "@/components/watchlist/PriceComparisonView";
 import type { TitleProduct } from "@/components/watchlist/ProductTitle";
-import { needsRefetch, type PricedShop } from "@/lib/services/price-comparison";
+import { needsRefetch, type PriceComparisonShop, type PricedShop } from "@/lib/services/price-comparison";
 import type { ListFilter } from "@/lib/services/watchlist-rows";
 
 // Ages move on once a minute, the finest step they show.

@@ -1,10 +1,10 @@
 ---
 change_id: testing-route-and-database-seams
 title: Route and database seams (test plan rollout Phase 2)
-status: implementing
+status: archived
 created: 2026-10-07
 updated: 2026-10-07
-archived_at: null
+archived_at: 2026-10-07T19:04:24Z
 ---
 
 ## Notes

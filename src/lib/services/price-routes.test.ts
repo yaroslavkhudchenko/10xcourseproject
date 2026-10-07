@@ -28,6 +28,7 @@ const ago = (ms: number) => new Date(Date.parse(NOW) - ms).toISOString();
 
 const PRODUCT_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
 const OTHER_ID = "4f1c2a8e-5b7d-4c3e-9a1f-0d2b3c4e5f60";
+const FRESH_ID = "7d3e8b1a-2c4f-4e6a-8b9c-1d2e3f4a5b6c";
 const NOBODYS_ID = "c0ffee00-0000-4000-8000-000000000001";
 const HEBE_SOFT = "000000000000218807";
 
@@ -145,9 +146,19 @@ function world(relations: Record<string, StubRelation>, recordings: ReplayEntry[
   });
 }
 
-/** The URLs the shops were sent, in order. */
+/**
+ * The URLs the shops were sent, in order, whether or not a recording answered them: a request the replay doesn't know
+ * reads as `failed/network`, so a test that needs every shop answered asserts the route's `done` code too.
+ */
 function served(): string[] {
   return fetchMock.mock.calls.map(([input]) => (input instanceof Request ? input.url : String(input)));
+}
+
+/** The bodies sent to `url`, in order: one Algolia URL answers every Super-Pharm request, told apart by its body. */
+function bodiesSentTo(url: string): unknown[] {
+  return fetchMock.mock.calls.flatMap(([input, init]) =>
+    (input instanceof Request ? input.url : String(input)) === url ? [init?.body] : [],
+  );
 }
 
 /** The shops the gate reserved a request for, in order. */
@@ -258,7 +269,12 @@ describe("/api/watchlist/prices asks a shop only for the user's own item, once",
     const response = await postPrices(contextOf(priceRequest(SOFT_REQUEST), client));
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ kind: "price", saved: true });
+    // The offer natura-sku.json recorded for NV89063: 16,99 zł, regular 22,99 zł, 30-day low 17,99 zł.
+    expect(await response.json()).toMatchObject({
+      kind: "price",
+      offer: { price: 16.99, regularPrice: 22.99, lowestPrice30d: 17.99 },
+      saved: true,
+    });
     expect(reservations(queries)).toEqual([{ p_shop_id: "natura" }]);
     expect(served()).toEqual([naturaPriceUrl(["NV89063"])]);
   });
@@ -280,6 +296,7 @@ describe("/api/watchlist/prices asks a shop only for the user's own item, once",
     const response = await postPrices(contextOf(priceRequest(SOFT_REQUEST), client));
 
     expect(await response.json()).toMatchObject({ kind: "unavailable" });
+    expect(reservations(queries)).toEqual([{ p_shop_id: "natura" }]);
     expect(served()).toEqual([naturaPriceUrl(["NV89063"])]);
     expect(queries.filter(([[kind, name]]) => kind === "rpc" && name === "report_shop_block")).toHaveLength(1);
   });
@@ -309,32 +326,49 @@ describe("/api/watchlist/refresh asks each shop only what is due", () => {
 
     const response = await postRefresh(contextOf(refreshRequest({ itemId: PRODUCT_ID }), client));
 
-    expect(response.headers.get("Location")).toMatch(new RegExp(`^/watchlist/${PRODUCT_ID}\\?prices=`));
+    // `done`: every shop answered from its recording and the answers were stored, so none was a request the replay
+    // didn't know, Super-Pharm's body included.
+    expect(response.headers.get("Location")).toBe(`/watchlist/${PRODUCT_ID}?prices=done`);
     expect(reservations(queries)).toHaveLength(4);
     expect(served().sort()).toEqual(
       [detailUrl("26900"), naturaPriceUrl(["NV89063"]), hebePriceUrl([HEBE_SOFT]), SUPER_PHARM_URL].sort(),
     );
+    expect(bodiesSentTo(SUPER_PHARM_URL)).toEqual([superPharmPriceBody(["10132"])]);
   });
 
-  it("asks only for the list's items checked more than 15 minutes ago, Natura's in one batch", async () => {
-    // Two products: Nivea Soft and Felix, each matched in Natura. Felix's Rossmann price is 5 minutes old, the rest 20.
+  it("asks only for the list's items checked more than 15 minutes ago, Rossmann's one by one, Natura's in one batch", async () => {
+    // Three products: Nivea Soft and Felix, each matched in Natura and checked 20 minutes ago everywhere, and a third
+    // checked 5 minutes ago everywhere, which nothing asks about.
     const list: Record<string, StubRelation> = {
-      watchlist_items: [productRow(PRODUCT_ID, "26900"), productRow(OTHER_ID, "131225", "2026-09-26T12:00:00+00:00")],
-      watchlist_matches: [matchRow(PRODUCT_ID, "natura", "NV89063"), matchRow(OTHER_ID, "natura", "NV81063")],
+      watchlist_items: [
+        productRow(PRODUCT_ID, "26900"),
+        productRow(OTHER_ID, "131225", "2026-09-26T12:00:00+00:00"),
+        productRow(FRESH_ID, "88001", "2026-09-25T12:00:00+00:00"),
+      ],
+      watchlist_matches: [
+        matchRow(PRODUCT_ID, "natura", "NV89063"),
+        matchRow(OTHER_ID, "natura", "NV81063"),
+        matchRow(FRESH_ID, "natura", "NV00003"),
+      ],
       latest_price_observations: [
         latestRow("rossmann", "26900", 20 * MINUTE),
-        latestRow("rossmann", "131225", 5 * MINUTE),
+        latestRow("rossmann", "131225", 20 * MINUTE),
+        latestRow("rossmann", "88001", 5 * MINUTE),
         latestRow("natura", "NV89063", 20 * MINUTE),
         latestRow("natura", "NV81063", 20 * MINUTE),
+        latestRow("natura", "NV00003", 5 * MINUTE),
       ],
       price_observations: [],
     };
-    const { client } = world(list, Object.values(RECORDINGS));
+    const { client, queries } = world(list, Object.values(RECORDINGS));
 
     const response = await postRefresh(contextOf(refreshRequest({}), client));
 
-    expect(response.headers.get("Location")).toMatch(/^\/watchlist\?list-prices=/);
-    expect(served().sort()).toEqual([detailUrl("26900"), naturaPriceUrl(["NV89063", "NV81063"])].sort());
+    expect(response.headers.get("Location")).toBe("/watchlist?list-prices=done");
+    expect(reservations(queries)).toHaveLength(3);
+    expect(served().sort()).toEqual(
+      [detailUrl("26900"), detailUrl("131225"), naturaPriceUrl(["NV89063", "NV81063"])].sort(),
+    );
   });
 
   it("asks a shop nothing more once it answered 403", async () => {
@@ -353,6 +387,7 @@ describe("/api/watchlist/refresh asks each shop only what is due", () => {
 
     await postRefresh(contextOf(refreshRequest({}), client));
 
+    expect(reservations(queries)).toEqual([{ p_shop_id: "rossmann" }]);
     expect(served()).toHaveLength(1);
     expect(queries.filter(([[kind, name]]) => kind === "rpc" && name === "report_shop_block")).toHaveLength(1);
   });

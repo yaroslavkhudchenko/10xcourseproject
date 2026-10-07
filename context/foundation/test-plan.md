@@ -52,12 +52,12 @@ Abuse scenarios: #3 (resource abuse: crafted links, firewall-tripping search tex
 
 Each row is a discrete rollout phase that will open its own change folder via `/10x-new`. Status moves left-to-right through the values below; the orchestrator updates Status as artifacts appear on disk.
 
-| #   | Phase name                       | Goal (one line)                                                                                                                                                   | Risks covered  | Test types                                          | Status       | Change folder                                                      |
-| --- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | --------------------------------------------------- | ------------ | ------------------------------------------------------------------ |
-| 1   | Critical flows in a real browser | Prove a signed-in shopper on a phone sees each shop's price with its age and can refresh, remove and re-pin, on the production build and without live shops       | #7, #1, #2     | e2e (Playwright: `/10x-e2e-setup`, then `/10x-e2e`) | complete     | `context/archive/2026-10-02-testing-critical-browser-flows/`       |
-| 2   | Route and database seams         | Prove the list and the product page agree on unread or stale prices, routes refuse other users' rows, a stale decision loses, and every path to a shop is counted | #1, #3, #4, #6 | integration + database contract                     | implementing | `context/changes/testing-route-and-database-seams/`                |
-| 3   | Shop answer contracts            | Prove a changed or refused shop answer becomes a visible gap, never a price or "not found", as the pattern the Hebe and Super-Pharm adapters reuse                | #5, #3         | contract + unit                                     | not started  | —                                                                  |
-| 4   | Deploy and production checks     | Prove a merge can't ship ahead of its migration, and that production still answers, refuses sign-up and protects its pages after each deploy                      | #2, #4         | smoke + gates                                       | complete     | `context/archive/2026-10-06-testing-deploy-and-production-checks/` |
+| #   | Phase name                       | Goal (one line)                                                                                                                                                   | Risks covered  | Test types                                          | Status      | Change folder                                                      |
+| --- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | --------------------------------------------------- | ----------- | ------------------------------------------------------------------ |
+| 1   | Critical flows in a real browser | Prove a signed-in shopper on a phone sees each shop's price with its age and can refresh, remove and re-pin, on the production build and without live shops       | #7, #1, #2     | e2e (Playwright: `/10x-e2e-setup`, then `/10x-e2e`) | complete    | `context/archive/2026-10-02-testing-critical-browser-flows/`       |
+| 2   | Route and database seams         | Prove the list and the product page agree on unread or stale prices, routes refuse other users' rows, a stale decision loses, and every path to a shop is counted | #1, #3, #4, #6 | integration + database contract                     | complete    | `context/archive/2026-10-07-testing-route-and-database-seams/`     |
+| 3   | Shop answer contracts            | Prove a changed or refused shop answer becomes a visible gap, never a price or "not found", as the pattern the Hebe and Super-Pharm adapters reuse                | #5, #3         | contract + unit                                     | not started | —                                                                  |
+| 4   | Deploy and production checks     | Prove a merge can't ship ahead of its migration, and that production still answers, refuses sign-up and protects its pages after each deploy                      | #2, #4         | smoke + gates                                       | complete    | `context/archive/2026-10-06-testing-deploy-and-production-checks/` |
 
 Phase 1 runs first although Risk #1 ranks higher: its cheapest layer, the unit rules, is already covered by the existing suite, the browser is the largest gap named in the interview (Q2, Q4) and the archives, and the course certification needs one user-perspective e2e test.
 
@@ -124,11 +124,12 @@ How to add new tests in this project. Each sub-section is filled in once the rel
   - `stubSupabase({ relations, rpc })` (`src/lib/services/testing/stub-supabase.ts`) answers each relation and RPC by name, applies a query's filters to its canned rows and records every query. A name it wasn't given answers an error, so a forgotten read never reads as empty.
   - Use it for a row the database would refuse, such as an odd price row, which only a stub can serve.
   - Move a page's decision into a service first ("Keep decision logic in tested services"), since no test renders a page.
-  - The seam table serves one stored state to both pages' own reads and wiring, one fault at a time. Its expected values come from the PRD's guardrail, US-01 and the owner's calls, never from the rule under test. Its negative control: no RPC is called, so no shop was asked.
+  - The seam table serves one stored state to both pages' own reads and wiring, the product page's through `productPricesOf`, the page's own call, one fault at a time. Its expected values come from the PRD's guardrail, US-01 and the owner's calls, never from the rule under test. Its negative control: no RPC is called, so no shop was asked.
 - **2. A route's handler through the real gate** (`src/lib/services/price-routes.test.ts`):
   - Import the route's exported handler (`POST`) and call it with a context of `request`, `url`, `locals` (a stand-in client and no user) and `redirect`. Astro builds every file under `src/pages/` as a route, so the test lives under `src/lib/services/`.
   - The gate is the real one, over the stand-in's `reserve_shop_request` and `report_shop_block`. The shop answers come from `createReplayFetch`, stubbed in as the global `fetch` (`vi.stubGlobal`).
   - Assert the reservations and the served URLs, never only the status: none for each refusal, exactly the stated cost for each valid call, and nothing after a 403. A valid call serving its URLs is the negative control.
+  - The served URLs count every request sent, one the replay doesn't know included, which reads as `failed/network`. So a call that needs every shop answered also asserts the route's outcome, such as a refresh's `done`, and a POST's body.
   - A handler test skips the middleware, Astro's origin check and the headers. Smoke and the two-user check (4) cover those on the preview.
 - **3. A database test** (`src/lib/services/matches.db.test.ts`):
   - Name it `<module>.db.test.ts` under `src/`.
@@ -142,9 +143,9 @@ How to add new tests in this project. Each sub-section is filled in once the rel
   - A new route or page that takes a product's id joins its list.
   - A is seeded through supabase-js after an Auth sign-up. B signs in through the app's Polish form.
   - A's product has a name of its own, which none of B's pages may show.
-  - Every enabled shop is held for the run (`stopShops` and `restoreShops`, `scripts/e2e-local-db.mjs`), so a route that leaked would meet a stopped shop.
-  - **Negative control:** as A, the product page and the price route answer differently from a missing id.
-  - **Afterwards:** A's rows are unchanged, B's own are empty, and the request log's mark hasn't moved.
+  - Every enabled shop is held for the run (`stopShops` and `restoreShops`, `scripts/e2e-local-db.mjs`), so a route that leaked would meet a stopped shop. It refuses to start while another run holds them, and checks that none is enabled before either user's requests.
+  - **Negative control:** as A, the product page, the price route and the product's refresh answer differently from a missing id.
+  - **Afterwards:** A's rows, read back before the requests, are unchanged, B's own are empty, and the request log's mark hasn't moved, which shows the hold lasted.
 - **5. The catalogue check** (`scripts/check-catalog-db.mjs`):
   - As the local superuser, it holds `public` to a reviewed list of relations and functions, each with its protection:
     - RLS on every table;
@@ -317,6 +318,12 @@ How to add new tests in this project. Each sub-section is filled in once the rel
     - The request log can't show an attempt on a stopped shop, so the route tests and the two-user check compare answers too.
     - The developer machine has no Docker, so the checks that need the local stack run only in CI's `smoke` job.
     - The edges the owner accepted are in §7.
+  - **The review's fixes (2026-10-07):**
+    - The two-user check refuses to start while another run holds the shops, and every one of its controls can fail.
+    - The route tests assert a refresh's `done` and Super-Pharm's body.
+    - The product page's price wiring is one service, `productPricesOf`, which the page and the seam table both call.
+    - The fetch lint rule covers Astro components' and layouts' frontmatter.
+    - Smoke and the two-user check share one cookie jar.
 
 ## 7. What We Deliberately Don't Test
 
@@ -327,7 +334,7 @@ Exclusions agreed during the rollout (Phase 2 interview, Q5). Future contributor
 - **Coverage targets** — no coverage percentage is tracked, and rules already covered by boundary tables get no new tests for the number's sake. Re-evaluate if mutation testing (Module 3 Lesson 2) shows assertions that miss regressions. (Source: Phase 2 interview Q5.)
 - **Live shop calls in any automated suite** — tests and CI never call a shop (`CLAUDE.md` non-negotiables, `roadmap.md:80`); live drift is a monitoring concern. Re-evaluate only through an official shop feed. (Source: project rule.)
 
-Edges rollout Phase 2 found and the owner accepted rather than fixed (2026-10-07). Each is a known behaviour, so a test may pin it but mustn't expect it gone. (Source: `context/changes/testing-route-and-database-seams/research.md`, Open Questions.)
+Edges rollout Phase 2 found and the owner accepted rather than fixed (2026-10-07). Each is a known behaviour, so a test may pin it but mustn't expect it gone. (Source: `context/archive/2026-10-07-testing-route-and-database-seams/research.md`, Open Questions.)
 
 - **The selected row beside a product** — from lg, its tag follows the island's live prices, while its screen-reader line and the chips' counts stay the list's own read. Re-evaluate if a screen-reader user meets the mismatch.
 - **A block report that fails** — after a 403 or a challenge the gate answers `blocked` to its caller even when it can't record the block, and the shop stays switched on for every other path and user. Re-evaluate if a failed report ever shows in the logs.

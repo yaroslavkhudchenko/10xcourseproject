@@ -202,11 +202,19 @@ const tokenConfig = defineConfig({
 // Every shop request goes through the gate (src/lib/services/shop-gate.ts), which counts it under the shop's cap and
 // stops a shop that refuses, so the server's code names the global fetch nowhere else: not as a call, and not through
 // globalThis, window or self. A new adapter or route that called a shop directly would bypass the cap everyone shares.
-// The gate's file is the one place allowed, the tests and their helpers stub fetch, and the islands' browser code,
-// which posts only to the app's own route, isn't server code.
+// Server code here is every module under src/lib, the pages and the middleware, and the frontmatter of every Astro
+// component and layout, which runs on the server too. The island's modules under src/lib are covered on purpose: none
+// may call a shop either. The gate's file is the one place allowed, the tests and their helpers stub fetch, and the
+// islands' own browser code under src/components, which posts only to the app's own route, isn't server code.
 const SHOP_FETCH_MESSAGE = "Send every shop request through gate.fetch (src/lib/services/shop-gate.ts), never fetch.";
 const serverFetchConfig = defineConfig({
-  files: ["src/lib/**/*.ts", "src/pages/**/*.{ts,astro}", "src/middleware.ts"],
+  files: [
+    "src/lib/**/*.ts",
+    "src/pages/**/*.{ts,astro}",
+    "src/components/**/*.astro",
+    "src/layouts/**/*.astro",
+    "src/middleware.ts",
+  ],
   ignores: ["src/lib/services/shop-gate.ts", "src/lib/services/testing/**", "**/*.test.ts"],
   rules: {
     "no-restricted-globals": ["error", { name: "fetch", message: SHOP_FETCH_MESSAGE }],
