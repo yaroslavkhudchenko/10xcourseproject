@@ -94,7 +94,7 @@ From `change.md`: the owner wants Super-Pharm matched with no tap. When the prod
    - **Unchanged:** grants, RLS and the list's „Do sprawdzenia” logic, which has no mode branch (`watchlist-rows.ts:196-207`).
 
 8. **Earlier decisions this reverses:**
-   - S-06's "no automatic Super-Pharm matches" and "no lookup on a plain view" (`context/changes/super-pharm-in-comparison/plan.md:94-95`, :129);
+   - S-06's "no automatic Super-Pharm matches" and "no lookup on a plain view" (`context/archive/2026-10-04-super-pharm-in-comparison/plan.md:94-95`, :129);
    - FR-006's 2026-10-05 update (`context/foundation/prd.md:108`);
    - test-plan risk #6, "a shop without EANs can't auto-accept" (`context/foundation/test-plan.md:48`).
 
@@ -339,7 +339,7 @@ The right item was judged by reading the names. „likely” marks a judgement o
 
 ## Historical Context (from prior changes)
 
-- `context/changes/super-pharm-in-comparison/plan.md`:
+- `context/archive/2026-10-04-super-pharm-in-comparison/plan.md`:
   - :94: "Automatic Super-Pharm matches, by name similarity or by EANs from product pages … FR-006 stays as written."
   - :95: no lookup "on a plain view, or once after „Dodaj”".
   - :129: "A plain view must never search an on-request shop".
@@ -360,7 +360,7 @@ The right item was judged by reading the names. „likely” marks a judgement o
 ## Related Research
 
 - `context/changes/add-from-other-shops/research.md`: the four-shop search, its live evidence, and Rossmann's need for a name-only lookup on view.
-- `context/changes/super-pharm-in-comparison/research.md`: Super-Pharm's search, costs and the options weighed in S-06.
+- `context/archive/2026-10-04-super-pharm-in-comparison/research.md`: Super-Pharm's search, costs and the options weighed in S-06.
 - `context/archive/2026-10-02-hebe-in-comparison/research.md`: Hebe's names and sizes.
 - `context/archive/2026-10-01-fix-matches-and-watchlist/research.md`: the brand rule and its evidence.
 - `docs/research/polish-drugstore-price-apis.md` §2.3 and §6: Super-Pharm's fields and the original matching notes.
