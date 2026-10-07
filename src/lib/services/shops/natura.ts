@@ -1,7 +1,7 @@
 import { z } from "astro/zod";
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import type { ShopGate } from "@/lib/services/shop-gate";
-import { amountOf, createLuigisBoxClient, eansOf } from "@/lib/services/shops/luigis-box";
+import { amountOf, createLuigisBoxClient, eansOf, isUnreadAmount } from "@/lib/services/shops/luigis-box";
 import { storableOffer } from "@/lib/services/shops/shop-offer";
 import { httpsHost, textOf, within } from "@/lib/services/shops/shop-values";
 import { parseSize } from "@/lib/services/size";
@@ -52,13 +52,20 @@ const natura = createLuigisBoxClient({
   toCandidate,
   toOffer,
   isItemId: isNaturaItemId,
+  hasOddAvailability,
+  // Each costs only itself when it can't be read (offerOf), so only its line shows a renamed or reformatted field.
+  oddValues: [
+    ["30-day low unread", (hit) => hasUnreadAmount(hit, "lowest_price")],
+    ["regular price unread", (hit) => hasUnreadAmount(hit, "price_old_amount")],
+  ],
 });
 
 /**
  * Searches Natura through the gate, asking for at most `size` hits. Resolves to the candidates (possibly none), or to
  * `unavailable` with the reason: the gate skipped or refused the call, the call failed, or the answer wasn't readable,
- * including an answer whose products all fail their check. It never throws. The query must already be an EAN of 8-14
- * digits or have passed `searchQuerySchema`.
+ * including an answer whose hits all fail their check, a hit that isn't a product among them, and an answer without
+ * hits that doesn't say it matched none. It never throws. The query must already be an EAN of 8-14 digits or have
+ * passed `searchQuerySchema`.
  */
 export function searchNatura(gate: ShopGate, query: string, size: number): Promise<ShopSearch> {
   return natura.search(gate, query, size);
@@ -69,7 +76,7 @@ export function searchNatura(gate: ShopGate, query: string, size: number): Promi
  * before. Once Natura refuses, busy under the cap, paused or stopped, the SKUs of the requests after it get that same
  * answer with no request and no reservation. Resolves to a check for every SKU given: its offer, `missing` when Natura
  * answered without it, or `unavailable` when the SKU can't go into a filter, the gate skipped or refused its request,
- * or the answer wasn't readable. It never throws.
+ * or the answer wasn't readable, a hit that isn't a product included. It never throws.
  */
 export function fetchNaturaPrices(gate: ShopGate, skus: string[]): Promise<Map<string, PriceCheck>> {
   return natura.fetchPrices(gate, skus);
@@ -122,8 +129,10 @@ function toOffer(raw: unknown): ShopOffer | null {
 
 /**
  * A hit's offer as it can be stored, or null when its price can't be: the price before a promotion comes from
- * `price_old_amount`, and the 30-day low from `lowest_price`, which Natura reports even without a promotion. Natura
- * names no promotion's end.
+ * `price_old_amount`, and the 30-day low from `lowest_price`, which Natura reports even without a promotion. Either one
+ * that can't be read costs only itself, and is counted in a log line (hasUnreadAmount). Natura names no promotion's
+ * end. Orderable online means an `availability` of 1; any value but 1 or 0 is counted in a log line too
+ * (hasOddAvailability).
  */
 function offerOf(attributes: z.infer<typeof hitSchema>["attributes"]): ShopOffer | null {
   return storableOffer({
@@ -133,6 +142,24 @@ function offerOf(attributes: z.infer<typeof hitSchema>["attributes"]): ShopOffer
     promoEndsOn: null,
     available: attributes.availability === 1,
   });
+}
+
+/**
+ * True for a hit whose `availability` isn't the number 1 or 0, such as one missing or sent as text: its offer reads
+ * that as not orderable online (offerOf), and the client counts such hits in a log line.
+ */
+function hasOddAvailability(hit: unknown): boolean {
+  const parsed = hitSchema.safeParse(hit);
+  return parsed.success && parsed.data.attributes.availability !== 1 && parsed.data.attributes.availability !== 0;
+}
+
+/**
+ * True for a hit whose optional price, `price_old_amount` or `lowest_price`, is there but can't be read
+ * (isUnreadAmount): its offer goes without it (offerOf), and the client counts such hits in a log line.
+ */
+function hasUnreadAmount(hit: unknown, attribute: "price_old_amount" | "lowest_price"): boolean {
+  const parsed = hitSchema.safeParse(hit);
+  return parsed.success && isUnreadAmount(parsed.data.attributes[attribute]);
 }
 
 /**

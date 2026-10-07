@@ -5,14 +5,21 @@ import type { PriceCheck, ShopOffer, ShopUnavailable } from "@/types";
 // The rules every shop's pinned-price requests follow, whatever its search runs on: each id is asked for once, an id
 // that can't go into a request is never sent, the ids go in batches, one request at a time, and once the shop refuses
 // nothing more is asked. Each answer's hits are read one by one, and an id without a hit is missing only when the
-// answer holds every hit it matched and each of them was read and asked for. A shop's client sends the request and
-// tells its item hits apart from anything else its answer holds.
+// answer holds every hit it matched and each of them was read and asked for. A shop's client sends the request, leaves
+// out the hits the shop is known to send besides its items, such as a query suggestion, and reads each other hit,
+// counting one that isn't the shop's item as a hit that can't be read.
 
 /**
- * What one request for pinned items came to: the answer's item hits and whether they're every hit the request matched,
- * or why there's no answer to read, which every id of the request then gets.
+ * What one request for pinned items came to: the answer's hits and whether they're every hit the request matched, or
+ * why there's no answer to read, which every id of the request then gets.
  */
 export type PinnedAnswer = { kind: "hits"; hits: unknown[]; complete: boolean } | ShopUnavailable;
+
+/**
+ * A value an offer reads on its own, so that one that's there but can't be read costs only itself: the reason its log
+ * line gives, and a check that's true for a hit whose value is like that (logOddValues).
+ */
+export type OddValue<T = unknown> = readonly [reason: string, isOdd: (hit: T) => boolean];
 
 /** A shop's pinned-price requests: how they're sent, how their hits read, and how their log lines name things. */
 export interface PinnedPriceShop {
@@ -21,11 +28,12 @@ export interface PinnedPriceShop {
   /** True for an id that can go into a request; any other is never sent. */
   isItemId: (id: string) => boolean;
   /**
-   * Asks the shop for the given ids through the gate. Resolves to the answer's item hits, already told apart from
-   * anything else it holds, such as a query suggestion, or to why there's none to read. It never throws.
+   * Asks the shop for the given ids through the gate. Resolves to the answer's hits, less those the shop is known to
+   * send besides its items, such as a query suggestion, or to why there's none to read. Any other hit that isn't the
+   * shop's item stays, for readHit to count as one that can't be read. It never throws.
    */
   request: (gate: ShopGate, ids: string[]) => Promise<PinnedAnswer>;
-  /** An item hit's id and offer, or null when either can't be read. */
+  /** A hit's id and offer, or null when it isn't the shop's item or either can't be read. */
   readHit: (hit: unknown) => { id: string; offer: ShopOffer } | null;
   /**
    * True for an item hit whose offer couldn't read whether it's orderable online, and so takes it for not orderable.
@@ -153,10 +161,27 @@ export function logOddAvailability(
   kept: unknown[],
   itemHits: number,
 ): void {
-  const odd = kept.filter((hit) => hasOddAvailability?.(hit) === true).length;
-  if (odd > 0) {
-    // How many, never which, as with dropped hits.
-    logFailure(event, "availability unread", `${odd} of ${itemHits} product hits`);
+  const counted: OddValue[] = hasOddAvailability === undefined ? [] : [["availability unread", hasOddAvailability]];
+  logOddValues(event, counted, kept, itemHits);
+}
+
+/**
+ * Logs how many of the kept hits each check is true for (OddValue), one line for each count that isn't zero, in the
+ * order given, out of `total`, the product hits the answer held. Each such value costs only itself, so only its line
+ * shows a changed format.
+ */
+export function logOddValues<T>(
+  event: string,
+  counted: readonly OddValue<T>[],
+  kept: readonly T[],
+  total: number,
+): void {
+  for (const [reason, isOdd] of counted) {
+    const odd = kept.filter(isOdd).length;
+    if (odd > 0) {
+      // How many, never which, as with dropped hits.
+      logFailure(event, reason, `${odd} of ${total} product hits`);
+    }
   }
 }
 

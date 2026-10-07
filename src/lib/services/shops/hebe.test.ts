@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { pickMatch, type NamedProduct } from "@/lib/services/matching";
-import { createShopGate, type ShopGateDeps } from "@/lib/services/shop-gate";
+import { createShopGate, type ShopGateDeps, type ShopGateLogEntry } from "@/lib/services/shop-gate";
 import { fetchHebePrices, isHebeImage, isHebeProductUrl, searchHebe } from "@/lib/services/shops/hebe";
 import { parseSize } from "@/lib/services/size";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
-import type { PriceCheck, ShopCandidate, ShopOffer } from "@/types";
+import type { GateOutcome, PriceCheck, ShopCandidate, ShopOffer, ShopSearch } from "@/types";
 import eanOffline from "@/lib/services/shops/fixtures/hebe-ean-offline.json";
 import eanOnline from "@/lib/services/shops/fixtures/hebe-ean-online.json";
 import idUnknown from "@/lib/services/shops/fixtures/hebe-id-unknown.json";
@@ -60,6 +60,32 @@ const FAILED: PriceCheck = { kind: "unavailable", reason: "failed" };
 // A page where Luigi's Box's JSON should be, as a proxy or a maintenance page would send it.
 const HTML_PAGE =
   '<!DOCTYPE html><html lang="pl"><head><title>Hebe</title></head><body>Przerwa techniczna</body></html>';
+
+/** An answer's status, headers and body, served for whichever URL a test gives it. */
+interface Answer {
+  status: number;
+  headers?: Record<string, string>;
+  body?: string;
+}
+
+// A bot challenge, which Cloudflare marks with `cf-mitigated: challenge` whatever its status.
+const CHALLENGE: Answer = {
+  status: 200,
+  headers: { "cf-mitigated": "challenge" },
+  body: "<html>Just a moment...</html>",
+};
+// Hebe's 30-day low as a changed format could send it, with the one the offer keeps. One that's there but can't be
+// read costs only itself and is counted; one left out or none is normal, and one that reads but can't be stored is
+// dropped as any other would be, so neither is counted.
+const OMNIBUS: { change: string; omnibus: unknown; lowestPrice30d: number | null; unread: boolean }[] = [
+  { change: "a number, as recorded", omnibus: 10.89, lowestPrice30d: 10.89, unread: false },
+  { change: "decimal text", omnibus: "10.89", lowestPrice30d: 10.89, unread: false },
+  { change: "text with a decimal comma", omnibus: "10,89", lowestPrice30d: null, unread: true },
+  { change: "text that isn't a number", omnibus: "brak", lowestPrice30d: null, unread: true },
+  { change: "left out", omnibus: undefined, lowestPrice30d: null, unread: false },
+  { change: "null", omnibus: null, lowestPrice30d: null, unread: false },
+  { change: "zero, which reads but can't be stored", omnibus: 0, lowestPrice30d: null, unread: false },
+];
 // Nivea Soft 200 ml first, then 50 ids Hebe doesn't have: two requests' worth.
 const manyIds = [SOFT_200, ...Array.from({ length: 50 }, (_, i) => `99${String(i).padStart(16, "0")}`)];
 const firstBatch = priceUrl(manyIds.slice(0, 50));
@@ -105,23 +131,35 @@ const AA_LAAB_QUERY = "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżaj�
 
 /**
  * A real gate that gives every reservation the same answer, allowed by default, over a fetch that answers only the
- * given recordings. `reserve` shows which shop each slot was asked for.
+ * given recordings. `reserve` shows which shop each slot was asked for, `reportBlock` each refusal reported, and
+ * `gateLog` the gate's own log lines. `timeoutMs` shortens the gate's limit, so a request that never answers fails at
+ * once.
  */
-function setup(entries: ReplayEntry[], reservation: unknown = { outcome: "allowed" }) {
+function setup(entries: ReplayEntry[], reservation: unknown = { outcome: "allowed" }, timeoutMs?: number) {
   const fetchMock = vi.fn(createReplayFetch(entries));
   const reserve = vi.fn<ShopGateDeps["reserve"]>(() => Promise.resolve(reservation));
-  const gate = createShopGate({
-    reserve,
-    reportBlock: () => Promise.resolve(),
-    fetch: fetchMock,
-    log: () => undefined,
-  });
-  return { gate, fetchMock, reserve };
+  const reportBlock = vi.fn<ShopGateDeps["reportBlock"]>(() => Promise.resolve());
+  const gateLog = vi.fn<(entry: ShopGateLogEntry) => void>();
+  const gate = createShopGate({ reserve, reportBlock, fetch: fetchMock, log: gateLog, timeoutMs });
+  return { gate, fetchMock, reserve, reportBlock, gateLog };
 }
 
 /** Every URL the fetch was asked for, so a test can't pass on the wrong request. */
 function requestedUrls(fetchMock: Mock<typeof fetch>): string[] {
   return fetchMock.mock.calls.map(([input]) => (input instanceof Request ? input.url : new URL(input).href));
+}
+
+/** The outcome of each of the gate's own log lines. */
+function gateOutcomes(gateLog: Mock<(entry: ShopGateLogEntry) => void>): ShopGateLogEntry["outcome"][] {
+  return gateLog.mock.calls.map(([entry]) => entry.outcome);
+}
+
+/** How many seconds from now an answer's pause ends; it must be a pause with its end. */
+function pauseSecondsOf(answer: ShopSearch | PriceCheck | undefined): number {
+  if (answer?.kind !== "unavailable" || answer.reason !== "paused" || answer.until === undefined) {
+    throw new Error(`expected a pause with its end, got ${JSON.stringify(answer)}`);
+  }
+  return (Date.parse(answer.until) - Date.now()) / 1000;
 }
 
 /** A recorded hit, as JSON a test can edit. */
@@ -193,6 +231,11 @@ async function recordedCandidates(query: string, size: number, fixture: object):
 function loggedLine(warn: { mock: { calls: unknown[][] } }): unknown {
   expect(warn.mock.calls).toHaveLength(1);
   return JSON.parse(String(warn.mock.calls[0][0]));
+}
+
+/** Every log line, parsed. */
+function loggedLines(warn: { mock: { calls: unknown[][] } }): unknown[] {
+  return warn.mock.calls.map(([line]) => JSON.parse(String(line)) as unknown);
 }
 
 afterEach(() => {
@@ -491,12 +534,43 @@ describe("Hebe search: what it keeps out", () => {
   });
 
   it("drops only the offer of a price that can't be stored, and an odd offer value costs only itself", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
     const candidates = await candidatesFrom([
       soft200With({ price_amount: 100000 }),
       soft200With({ price_omnibus_amount: "brak" }),
     ]);
 
     expect(candidates.map((candidate) => candidate.offer)).toEqual([null, { ...SOFT_200_OFFER, lowestPrice30d: null }]);
+    // The 30-day low that can't be read is counted; the price that reads, though it can't be stored, isn't.
+    expect(loggedLine(warn)).toEqual({
+      event: "hebe-search",
+      reason: "30-day low unread",
+      detail: "1 of 2 product hits",
+    });
+  });
+
+  it.each(OMNIBUS)(
+    "reads a 30-day low that's $change, and counts it only when it's there but can't be read",
+    async ({ omnibus, lowestPrice30d, unread }) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+      const [candidate] = await candidatesFrom([soft200With({ price_omnibus_amount: omnibus })]);
+
+      expect(candidate.offer).toEqual({ ...SOFT_200_OFFER, lowestPrice30d });
+      expect(loggedLines(warn)).toEqual(
+        unread ? [{ event: "hebe-search", reason: "30-day low unread", detail: "1 of 1 product hits" }] : [],
+      );
+    },
+  );
+
+  it("finds nothing, and logs nothing, when the only hit is the recorded query suggestion", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const suggestions = hitsOf(nameSearch).filter((hit) => hit.type === "query");
+
+    expect(suggestions).toHaveLength(1);
+    expect(await candidatesFrom(suggestions)).toEqual([]);
+    expect(warn).not.toHaveBeenCalled();
   });
 });
 
@@ -571,7 +645,7 @@ describe("Hebe search: the matching rule on its candidates (FR-006)", () => {
 });
 
 describe("Hebe search: broken copies give a gap, never 'not found'", () => {
-  it.each<{ change: string; edit: (hit: Hit) => Hit }>([
+  it.each<{ change: string; edit: (hit: Hit) => unknown }>([
     { change: "prices sent as text", edit: (hit) => withAttributes(hit, { price_amount: "15.99" }) },
     { change: "no price", edit: (hit) => withAttributes(hit, { price_amount: undefined }) },
     { change: "no searchable", edit: (hit) => withAttributes(hit, { searchable: undefined }) },
@@ -579,16 +653,94 @@ describe("Hebe search: broken copies give a gap, never 'not found'", () => {
     { change: "product links in place of the ids", edit: (hit) => ({ ...hit, url: SOFT_200_PAGE }) },
     { change: "no type", edit: (hit) => ({ ...hit, type: undefined }) },
     { change: "empty attributes", edit: (hit) => ({ ...hit, attributes: {} }) },
+    // Hebe's type is "item": another one is no item, and only "query" is a query suggestion, so each counts.
+    { change: "another type", edit: (hit) => ({ ...hit, type: "product" }) },
+    { change: "a type that differs only in case", edit: (hit) => ({ ...hit, type: "Item" }) },
+    { change: "neither a type nor attributes", edit: (hit) => ({ ...hit, type: undefined, attributes: undefined }) },
   ])("gives up when no item can be read, as with $change, and logs how many", async ({ edit }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     // The query suggestion stays as recorded; every item gets the change.
     const hits = hitsOf(nameSearch).map((hit) => (hit.type === "item" ? edit(hit) : hit));
-    const { gate, fetchMock } = setup([{ url: searchUrl(NAME_QUERY, 10), status: 200, body: searchBody(hits) }]);
+    const { gate, fetchMock, reserve, reportBlock } = setup([
+      { url: searchUrl(NAME_QUERY, 10), status: 200, body: searchBody(hits) },
+    ]);
 
     expect(await searchHebe(gate, NAME_QUERY, 10)).toEqual(FAILED);
     expect(requestedUrls(fetchMock)).toEqual([searchUrl(NAME_QUERY, 10)]);
+    expect(reserve).toHaveBeenCalledTimes(1);
+    expect(reportBlock).not.toHaveBeenCalled();
     expect(loggedLine(warn)).toEqual({ event: "hebe-search", reason: "hits dropped", detail: "4 of 4 product hits" });
   });
+
+  it.each<{ change: string; edit: (hit: Hit) => unknown }>([
+    { change: "another type", edit: (hit) => ({ ...hit, type: "product" }) },
+    { change: "neither a type nor attributes", edit: (hit) => ({ ...hit, type: undefined, attributes: undefined }) },
+  ])("gives up on the EAN search's one item with $change, rather than finding nothing", async ({ edit }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const [soft] = hitsOf(eanOnline);
+    const body = JSON.stringify({ ...eanOnline, results: { ...eanOnline.results, hits: [edit(soft)] } });
+    const { gate, fetchMock, reserve } = setup([{ url: searchUrl(SOFT_200_EAN, 5), status: 200, body }]);
+
+    expect(await searchHebe(gate, SOFT_200_EAN, 5)).toEqual(FAILED);
+    expect(requestedUrls(fetchMock)).toEqual([searchUrl(SOFT_200_EAN, 5)]);
+    expect(reserve).toHaveBeenCalledTimes(1);
+    expect(loggedLine(warn)).toEqual({ event: "hebe-search", reason: "hits dropped", detail: "1 of 1 product hits" });
+  });
+
+  // Hebe's one recorded answer without hits, to a price request (hebe-id-unknown.json), served for a search: Luigi's
+  // Box answers both in the same shape, and it says it matched none.
+  it("finds nothing, and logs nothing, in an answer without hits that says it matched none", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { gate, fetchMock, reserve } = setup([
+      { url: searchUrl(NAME_QUERY, 10), status: 200, body: JSON.stringify(idUnknown) },
+    ]);
+
+    expect(await searchHebe(gate, NAME_QUERY, 10)).toEqual({ kind: "results", candidates: [] });
+    expect(requestedUrls(fetchMock)).toEqual([searchUrl(NAME_QUERY, 10)]);
+    expect(reserve).toHaveBeenCalledTimes(1);
+    expect(idUnknown.results.total_hits).toBe(0);
+    expect(idUnknown.next_page).toBeNull();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it.each<{ change: string; answer: () => unknown; detail: string }>([
+    {
+      change: "a count of 15",
+      answer: () => ({ ...idUnknown, results: { ...idUnknown.results, total_hits: 15 } }),
+      detail: "0 hits, total_hits 15, next_page null",
+    },
+    {
+      change: "a next page",
+      answer: () => ({ ...idUnknown, next_page: `${searchUrl(NAME_QUERY, 10)}&page=2` }),
+      detail: "0 hits, total_hits 0, next_page set",
+    },
+    {
+      change: "no next page field",
+      answer: () => ({ ...idUnknown, next_page: undefined }),
+      detail: "0 hits, total_hits 0, next_page missing",
+    },
+    {
+      // The recorded name search, which matched 58 items on more than one page, with its hits emptied.
+      change: "the name search's count and next page",
+      answer: () => ({ ...nameSearch, results: { ...nameSearch.results, hits: [] } }),
+      detail: "0 hits, total_hits 58, next_page set",
+    },
+  ])(
+    "gives up on an answer without hits but with $change, and logs only its count and whether there's a next page",
+    async ({ answer, detail }) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const { gate, fetchMock, reserve } = setup([
+        { url: searchUrl(NAME_QUERY, 10), status: 200, body: JSON.stringify(answer()) },
+      ]);
+
+      expect(await searchHebe(gate, NAME_QUERY, 10)).toEqual(FAILED);
+      expect(requestedUrls(fetchMock)).toEqual([searchUrl(NAME_QUERY, 10)]);
+      expect(reserve).toHaveBeenCalledTimes(1);
+      expect(loggedLine(warn)).toEqual({ event: "hebe-search", reason: "unexpected empty answer", detail });
+      // Never the next page's address, which carries the search.
+      expect(String(warn.mock.calls[0][0])).not.toContain("nivea");
+    },
+  );
 
   it.each([
     { answer: "an HTML page", body: HTML_PAGE, reason: "unreadable body" },
@@ -629,6 +781,88 @@ describe("Hebe search: broken copies give a gap, never 'not found'", () => {
       detail: "HTTP 404: HEBE_TRACKER_ID may have changed",
     });
   });
+});
+
+describe("Hebe search: why it's unavailable", () => {
+  const url = searchUrl(SOFT_200_EAN, 5);
+
+  it.each([
+    { refusal: "the cap is reached", reservation: { outcome: "capped" }, expected: { reason: "busy" } },
+    {
+      refusal: "the shop is paused",
+      reservation: { outcome: "paused", until: "2026-10-04T12:15:00.000Z" },
+      expected: { reason: "paused", until: "2026-10-04T12:15:00.000Z" },
+    },
+    { refusal: "the shop is stopped", reservation: { outcome: "stopped" }, expected: { reason: "stopped" } },
+    { refusal: "the counter can't be read", reservation: null, expected: { reason: "failed" } },
+  ])("says so without calling Luigi's Box when $refusal", async ({ reservation, expected }) => {
+    const { gate, fetchMock, reserve } = setup([{ url, status: 200, body: JSON.stringify(eanOnline) }], reservation);
+
+    expect(await searchHebe(gate, SOFT_200_EAN, 5)).toEqual({ kind: "unavailable", ...expected });
+    expect(reserve.mock.calls).toEqual([["hebe"]]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each<{ refusal: string; answer: Answer; reported: unknown[][] }>([
+    { refusal: "a 403", answer: { status: 403 }, reported: [["hebe", "blocked", undefined, "HTTP 403"]] },
+    {
+      refusal: "a bot challenge, though its status is 200",
+      answer: CHALLENGE,
+      reported: [["hebe", "blocked", undefined, "challenge"]],
+    },
+  ])(
+    "is stopped by $refusal, without blaming the tracker id, and the block is reported",
+    async ({ answer, reported }) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const { gate, fetchMock, reserve, reportBlock } = setup([{ url, ...answer }]);
+
+      expect(await searchHebe(gate, SOFT_200_EAN, 5)).toEqual({ kind: "unavailable", reason: "stopped" });
+      expect(requestedUrls(fetchMock)).toEqual([url]);
+      expect(reserve).toHaveBeenCalledTimes(1);
+      expect(reportBlock.mock.calls).toEqual(reported);
+      expect(warn).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { refusal: "a 429", status: 429 },
+    { refusal: "a 503 that says when to come back", status: 503 },
+  ])("is paused by $refusal until its Retry-After has passed", async ({ status }) => {
+    const { gate, fetchMock, reserve, reportBlock } = setup([{ url, status, headers: { "Retry-After": "120" } }]);
+
+    const secondsAhead = pauseSecondsOf(await searchHebe(gate, SOFT_200_EAN, 5));
+
+    expect(secondsAhead).toBeGreaterThan(115);
+    expect(secondsAhead).toBeLessThanOrEqual(120);
+    expect(requestedUrls(fetchMock)).toEqual([url]);
+    expect(reserve).toHaveBeenCalledTimes(1);
+    expect(reportBlock.mock.calls).toEqual([["hebe", "rate_limited", 120]]);
+  });
+
+  it.each<{ answer: string; entry: ReplayEntry; timeoutMs?: number; outcome: GateOutcome }>([
+    { answer: "a 500", entry: { url, status: 500 }, outcome: { kind: "failed", reason: "http", status: 500 } },
+    { answer: "a network error", entry: { url, error: "network" }, outcome: { kind: "failed", reason: "network" } },
+    {
+      answer: "no answer in time",
+      entry: { url, error: "timeout" },
+      timeoutMs: 20,
+      outcome: { kind: "failed", reason: "timeout" },
+    },
+  ])(
+    "reports $answer as failed, never as nothing found, without blaming the tracker id, and stops nothing",
+    async ({ entry, timeoutMs, outcome }) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const { gate, fetchMock, reserve, reportBlock, gateLog } = setup([entry], undefined, timeoutMs);
+
+      expect(await searchHebe(gate, SOFT_200_EAN, 5)).toEqual(FAILED);
+      expect(requestedUrls(fetchMock)).toEqual([url]);
+      expect(reserve).toHaveBeenCalledTimes(1);
+      expect(reportBlock).not.toHaveBeenCalled();
+      // Only the gate logs it, saying why.
+      expect(gateOutcomes(gateLog)).toStrictEqual([outcome]);
+      expect(warn).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("Hebe prices: recorded answers", () => {
@@ -723,16 +957,6 @@ describe("Hebe prices: what they keep out", () => {
       offer: SOFT_200_OFFER,
     },
     {
-      change: "a 30-day low of zero",
-      attributes: { price_omnibus_amount: 0 },
-      offer: { ...SOFT_200_OFFER, lowestPrice30d: null },
-    },
-    {
-      change: "a 30-day low that isn't a number",
-      attributes: { price_omnibus_amount: "brak" },
-      offer: { ...SOFT_200_OFFER, lowestPrice30d: null },
-    },
-    {
       change: "an item that can't be ordered online",
       attributes: { online_flag: [false] },
       offer: { ...SOFT_200_OFFER, available: false },
@@ -744,6 +968,23 @@ describe("Hebe prices: what they keep out", () => {
 
     expect(await fetchHebePrices(gate, [SOFT_200])).toEqual(new Map([[SOFT_200, { kind: "price", offer }]]));
   });
+
+  it.each(OMNIBUS)(
+    "reads a 30-day low that's $change, and counts it only when it's there but can't be read",
+    async ({ omnibus, lowestPrice30d, unread }) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const [soft] = hitsOf(twoIds);
+      const body = priceBody([withAttributes(soft, { price_omnibus_amount: omnibus })]);
+      const { gate } = setup([{ url: priceUrl([SOFT_200]), status: 200, body }]);
+
+      expect(await fetchHebePrices(gate, [SOFT_200])).toEqual(
+        new Map([[SOFT_200, { kind: "price", offer: { ...SOFT_200_OFFER, lowestPrice30d } }]]),
+      );
+      expect(loggedLines(warn)).toEqual(
+        unread ? [{ event: "hebe-prices", reason: "30-day low unread", detail: "1 of 1 product hits" }] : [],
+      );
+    },
+  );
 
   it.each([{ flag: undefined }, { flag: ["true"] }])(
     "reads online_flag $flag as not orderable, and logs how many hits had a flag that isn't a yes or a no",
@@ -780,16 +1021,20 @@ describe("Hebe prices: what they keep out", () => {
     expect(loggedLine(warn)).toEqual({ event: "hebe-prices", reason: "hits dropped", detail: "1 of 2 product hits" });
   });
 
-  it.each<{ change: string; edit: (hit: Hit) => Hit }>([
+  it.each<{ change: string; edit: (hit: Hit) => unknown }>([
     { change: "its price sent as text", edit: (hit) => withAttributes(hit, { price_amount: "15.99" }) },
     { change: "no price", edit: (hit) => withAttributes(hit, { price_amount: undefined }) },
     { change: "a sale price sent as text", edit: (hit) => withAttributes(hit, { price_sale_amount: "9.99" }) },
     { change: "a price the table can't hold", edit: (hit) => withAttributes(hit, { price_amount: 100000 }) },
     { change: "its product link in place of the id", edit: (hit) => ({ ...hit, url: SOFT_200_PAGE }) },
+    // Its attributes intact: a hit of another type is never priced, and only "query" is a query suggestion.
+    { change: "another type", edit: (hit) => ({ ...hit, type: "product" }) },
+    { change: "a type that differs only in case", edit: (hit) => ({ ...hit, type: "Item" }) },
+    { change: "neither a type nor attributes", edit: (hit) => ({ ...hit, type: undefined, attributes: undefined }) },
   ])("calls every id unavailable, never missing, when the hit can't be read, as with $change", async ({ edit }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const url = priceUrl([SOFT_200, SOFT_300]);
-    const { gate, fetchMock } = setup([{ url, status: 200, body: priceBody(hitsOf(twoIds).map(edit)) }]);
+    const { gate, fetchMock, reserve } = setup([{ url, status: 200, body: priceBody(hitsOf(twoIds).map(edit)) }]);
 
     expect(await fetchHebePrices(gate, [SOFT_200, SOFT_300])).toEqual(
       new Map([
@@ -798,6 +1043,7 @@ describe("Hebe prices: what they keep out", () => {
       ]),
     );
     expect(requestedUrls(fetchMock)).toEqual([url]);
+    expect(reserve).toHaveBeenCalledTimes(1);
     expect(loggedLine(warn)).toEqual({ event: "hebe-prices", reason: "hits dropped", detail: "1 of 1 product hits" });
   });
 

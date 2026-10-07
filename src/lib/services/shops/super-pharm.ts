@@ -7,13 +7,15 @@ import {
   fetchPinnedPrices,
   logFailure,
   logOddAvailability,
+  logOddValues,
+  type OddValue,
   type PinnedAnswer,
   type PinnedPriceShop,
 } from "@/lib/services/shops/pinned-prices";
 import { parsePolishPrice } from "@/lib/services/shops/price-text";
 import { storableOffer } from "@/lib/services/shops/shop-offer";
 import { gateUnavailable } from "@/lib/services/shops/shop-outcome";
-import { httpsHost, textOf, within } from "@/lib/services/shops/shop-values";
+import { httpsHost, isNone, textOf, within } from "@/lib/services/shops/shop-values";
 import { parseSize, trailingSizeText } from "@/lib/services/size";
 import type { GateOutcome, PriceCheck, ShopCandidate, ShopOffer, ShopSearch, ShopUnavailable, Size } from "@/types";
 
@@ -385,7 +387,7 @@ function lowestOf(value: unknown): { amount: number | null; odd: boolean } {
  */
 function logOddOffers(event: string, kept: unknown[], hits: number): void {
   const today = polishDate(Date.now());
-  const counted: [reason: string, isOdd: (hit: OfferHit) => boolean][] = [
+  const counted: OddValue<OfferHit>[] = [
     ["30-day low unread", ({ price }) => lowestOf(price.PLN.default_historical_min_price_formated).odd],
     ["regular price unread", ({ price }) => isUnread(price.PLN.default_original_formated, parsePolishPrice)],
     ["promotion end unread", ({ price }) => isUnread(price.PLN.special_to_date, promoEndOf)],
@@ -395,20 +397,7 @@ function logOddOffers(event: string, kept: unknown[], hits: number): void {
     const parsed = offerHitSchema.safeParse(hit);
     return parsed.success ? [parsed.data] : [];
   });
-  for (const [reason, isOdd] of counted) {
-    const odd = offerHits.filter(isOdd).length;
-    if (odd > 0) {
-      logFailure(event, reason, `${odd} of ${hits} product hits`);
-    }
-  }
-}
-
-/**
- * True for a value that stands for none: a field left out, `null`, `false`, as Super-Pharm sends a price text it
- * doesn't have, or text that's empty once trimmed, as the extension writes an unset date.
- */
-function isNone(value: unknown): boolean {
-  return value === undefined || value === null || value === false || (typeof value === "string" && value.trim() === "");
+  logOddValues(event, counted, offerHits, hits);
 }
 
 /** True for a value that's there and isn't none (isNone), yet `read` gives null for it. */

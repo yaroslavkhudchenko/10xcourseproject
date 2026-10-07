@@ -6,11 +6,13 @@ import {
   fetchPinnedPrices,
   logFailure,
   logOddAvailability,
+  logOddValues,
+  type OddValue,
   type PinnedAnswer,
   type PinnedPriceShop,
 } from "@/lib/services/shops/pinned-prices";
 import { gateUnavailable } from "@/lib/services/shops/shop-outcome";
-import { valuesOf } from "@/lib/services/shops/shop-values";
+import { isNone, kindOf, valuesOf } from "@/lib/services/shops/shop-values";
 import type { GateOutcome, PriceCheck, ShopCandidate, ShopId, ShopOffer, ShopSearch, ShopUnavailable } from "@/types";
 
 // Luigi's Box runs the product search of Drogerie Natura and Hebe (research note §2.2, §2.5): one query, an EAN or
@@ -28,7 +30,8 @@ const IDS_PER_REQUEST = 50;
 const EAN = /^\d{8,14}$/;
 
 // An answer's hits, how many hits the request matched, and the address of its next page, null on the last. Only the hits
-// must be readable: the other two only tell whether the answer holds every hit (readHits).
+// must be readable: the other two only tell whether the answer holds every hit, or, without hits, whether it matched
+// none (readHits).
 const responseSchema = z.object({
   results: z.object({ hits: z.array(z.unknown()), total_hits: z.unknown().optional() }),
   next_page: z.unknown().optional(),
@@ -40,7 +43,10 @@ export interface LuigisBoxShop {
   shop: ShopId;
   /** The shop's public Luigi's Box tracker id. */
   trackerId: string;
-  /** The `type` of the shop's item hits, such as "product"; a hit of another type is a query suggestion. */
+  /**
+   * The `type` of the shop's item hits, such as "product". A hit of another type is never read as an item: a query
+   * suggestion (isQuerySuggestion) is left out, and any other counts as a hit that can't be read.
+   */
   itemType: string;
   /** The attribute a price request filters by, such as "sku", whose value is each item hit's `url`. */
   idField: string;
@@ -72,6 +78,13 @@ export interface LuigisBoxShop {
    * The client counts the kept hits it's true for in a log line, so a changed format shows. Without it, none is counted.
    */
   hasOddAvailability?: (hit: unknown) => boolean;
+  /**
+   * The optional values an offer reads on its own, such as a 30-day low, each with the reason its log line gives and a
+   * check that's true for an item hit whose value is there but can't be read (isUnreadAmount). Such a value costs only
+   * itself, so the client counts the kept hits each check is true for in a log line, on the search and on the prices,
+   * so a changed format shows (logOddValues). Without it, none is counted.
+   */
+  oddValues?: readonly OddValue[];
 }
 
 /** One shop's Luigi's Box search and price requests. Neither ever throws. */
@@ -79,16 +92,18 @@ export interface LuigisBoxClient {
   /**
    * Searches the shop through the gate, asking for at most `size` hits. Resolves to the candidates (possibly none), or
    * to `unavailable` with the reason: the gate skipped or refused the call, the call failed, or the answer wasn't
-   * readable, including an answer whose items all fail their check. The query must already be an EAN of 8-14 digits or
-   * have passed `searchQuerySchema`.
+   * readable, including an answer whose hits all fail their check, a hit that isn't the shop's item among them, and an
+   * answer without hits that doesn't say it matched none. The query must already be an EAN of 8-14 digits or have
+   * passed `searchQuerySchema`.
    */
   search: (gate: ShopGate, query: string, size: number) => Promise<ShopSearch>;
   /**
    * Fetches the offers of pinned items by id through the gate: one request per 50 ids, each after the one before. Once
    * the shop refuses, busy under the cap, paused or stopped, the ids of the requests after it get that same answer with
    * no request and no reservation. Resolves to a check for every id given: its offer, `missing` when the shop answered
-   * without it in an answer that holds every hit it matched, or `unavailable` when the id can't go into a filter, the
-   * gate skipped or refused its request, or the answer wasn't readable or may have left its hit out.
+   * without it in an answer that holds every hit it matched, each one of the shop's items and read, or `unavailable`
+   * when the id can't go into a filter, the gate skipped or refused its request, or the answer wasn't readable or may
+   * have left its hit out.
    */
   fetchPrices: (gate: ShopGate, ids: string[]) => Promise<Map<string, PriceCheck>>;
 }
@@ -122,38 +137,52 @@ async function search(config: LuigisBoxShop, gate: ShopGate, query: string, size
   if (read === null) {
     return failed();
   }
+  // No hits means nothing matched only when the answer says so itself, as every recorded empty answer does: no next
+  // page and a count of 0. An empty list beside another count or a next page, or without either, would be stored as
+  // "not found" for a search whose answer changed.
+  if (read.hits.length === 0) {
+    if (read.nextPage === null && read.totalHits === 0) {
+      return { kind: "results", candidates: [] };
+    }
+    // Only the count, or what stands in its place, and whether there's a next page: its address carries the search.
+    const count = typeof read.totalHits === "number" ? String(read.totalHits) : kindOf(read.totalHits);
+    const nextPage = read.nextPage === undefined || read.nextPage === null ? kindOf(read.nextPage) : "set";
+    logFailure(config.log.search, "unexpected empty answer", `0 hits, total_hits ${count}, next_page ${nextPage}`);
+    return failed();
+  }
 
   // Luigi's Box can send a query suggestion among the items (research note §2.2), and a shop can list an item it
-  // doesn't sell online; only the other items become candidates.
-  const itemHits = read.hits.filter((hit) => isItemHit(hit, config.itemType) && config.isNotSoldOnline?.(hit) !== true);
-  // Each hit is checked on its own, so one odd hit doesn't blank the whole search.
-  const kept = itemHits.flatMap((hit) => {
-    const candidate = config.toCandidate(hit);
+  // doesn't sell online: neither counts. Every other hit is the shop's item, or a format that changed, so each is
+  // checked on its own, and one odd hit doesn't blank the whole search.
+  const considered = read.hits.filter(
+    (hit) => !isQuerySuggestion(hit) && !(isItemHit(hit, config.itemType) && config.isNotSoldOnline?.(hit) === true),
+  );
+  const kept = considered.flatMap((hit) => {
+    const candidate = isItemHit(hit, config.itemType) ? config.toCandidate(hit) : null;
     return candidate ? [{ hit, candidate }] : [];
   });
   const candidates = kept.map(({ candidate }) => candidate);
-  const dropped = itemHits.length - candidates.length;
+  const dropped = considered.length - candidates.length;
   if (dropped > 0) {
     // How many, never which: a hit carries the product's name and EAN, which can echo the search.
-    logFailure(config.log.search, "hits dropped", `${dropped} of ${itemHits.length} product hits`);
+    logFailure(config.log.search, "hits dropped", `${dropped} of ${considered.length} product hits`);
   }
-  logOddAvailability(
-    config.hasOddAvailability,
-    config.log.search,
-    kept.map(({ hit }) => hit),
-    itemHits.length,
-  );
-  // Items that all fail their check point to a changed format, not to a product the shop doesn't sell: a lookup would
-  // store that as "not found".
-  if (itemHits.length > 0 && candidates.length === 0) {
+  const keptHits = kept.map(({ hit }) => hit);
+  logOddAvailability(config.hasOddAvailability, config.log.search, keptHits, considered.length);
+  logOddValues(config.log.search, config.oddValues ?? [], keptHits, considered.length);
+  // Hits that all fail their check, such as items whose type was renamed, point to a changed format, not to a product
+  // the shop doesn't sell: a lookup would store that as "not found".
+  if (considered.length > 0 && candidates.length === 0) {
     return failed();
   }
   return { kind: "results", candidates };
 }
 
 /**
- * One price request for up to 50 ids: the answer's item hits, without a query suggestion among them, and whether
- * they're every hit the request matched; or why there's none to read.
+ * One price request for up to 50 ids: the answer's hits, without a query suggestion among them, and whether they're
+ * every hit the request matched; or why there's none to read. Any other hit that isn't the shop's item goes on to the
+ * shared rules, which count it as a hit that can't be read (readPriceHit): a renamed type must leave every unanswered
+ * id unavailable, never missing. The kept hits' odd optional values are counted here, as Super-Pharm's are.
  */
 async function requestPrices(config: LuigisBoxShop, gate: ShopGate, ids: string[]): Promise<PinnedAnswer> {
   const outcome = await gate.fetch(config.shop, priceUrl(config, ids), {
@@ -167,11 +196,22 @@ async function requestPrices(config: LuigisBoxShop, gate: ShopGate, ids: string[
   if (read === null) {
     return failed();
   }
-  return { kind: "hits", hits: read.hits.filter((hit) => isItemHit(hit, config.itemType)), complete: read.complete };
+  const hits = read.hits.filter((hit) => !isQuerySuggestion(hit));
+  logOddValues(
+    config.log.prices,
+    config.oddValues ?? [],
+    hits.filter((hit) => readPriceHit(config, hit) !== null),
+    hits.length,
+  );
+  return { kind: "hits", hits, complete: read.complete };
 }
 
-/** A price request's item hit as its id and offer, or null when either can't be read. */
+/** A price request's hit as its id and offer, or null when it isn't the shop's item or either can't be read. */
 function readPriceHit(config: LuigisBoxShop, hit: unknown): { id: string; offer: ShopOffer } | null {
+  // The shop's offer check needn't read the type, so a hit of another type, attributes and all, is never priced.
+  if (!isItemHit(hit, config.itemType)) {
+    return null;
+  }
   // The shop's offer check reads the id too, so a hit with an offer has an id.
   const offer = config.toOffer(hit);
   const id = offer === null ? null : idOf(hit);
@@ -196,8 +236,18 @@ function priceUrl(config: LuigisBoxShop, ids: string[]): string {
 }
 
 /**
+ * True for a query suggestion, the only hit besides the shop's items that Luigi's Box was ever recorded sending
+ * (hebe-name-search.json, research note §2.2): an object whose `type` is exactly "query". It's left out and never
+ * counted, while any other hit that isn't the shop's item (isItemHit) points to a changed format.
+ */
+function isQuerySuggestion(hit: unknown): boolean {
+  return typeof hit === "object" && hit !== null && "type" in hit && hit.type === "query";
+}
+
+/**
  * True for a hit that stands for one of the shop's items: its type says so, as on every recorded item hit, or it has no
- * type but carries attributes. Anything else is a query suggestion.
+ * type but carries attributes. Anything else isn't read as an item: a query suggestion (isQuerySuggestion) is left out,
+ * and any other such hit counts as one that can't be read.
  */
 function isItemHit(hit: unknown, itemType: string): boolean {
   if (typeof hit !== "object" || hit === null) {
@@ -235,10 +285,16 @@ function shopUnavailable(
   return gateUnavailable(outcome);
 }
 
-/** An answer's hits, and whether they're every hit the request matched. */
+/**
+ * An answer's hits, whether they're every hit the request matched, and the two values that tell: how many hits it
+ * matched (`total_hits`) and the address of its next page (`next_page`), each as the answer sends it, `undefined` when
+ * it's left out.
+ */
 interface HitsRead {
   hits: unknown[];
   complete: boolean;
+  totalHits: unknown;
+  nextPage: unknown;
 }
 
 /**
@@ -264,8 +320,9 @@ async function readHits(response: Response, event: string): Promise<HitsRead | n
     return null;
   }
   const { hits, total_hits: totalHits } = parsed.data.results;
-  const complete = parsed.data.next_page === null && typeof totalHits === "number" && totalHits <= hits.length;
-  return { hits, complete };
+  const nextPage = parsed.data.next_page;
+  const complete = nextPage === null && typeof totalHits === "number" && totalHits <= hits.length;
+  return { hits, complete, totalHits, nextPage };
 }
 
 /** An attribute's first value as an amount: a number, or decimal text such as "17.990000"; null for anything else. */
@@ -276,6 +333,16 @@ export function amountOf(attribute: unknown): number | null {
   }
   const text = typeof value === "string" ? value.trim() : "";
   return /^\d+(?:\.\d+)?$/.test(text) ? Number(text) : null;
+}
+
+/**
+ * True for an optional amount that's there but can't be read (amountOf): its first value isn't none (isNone), and it
+ * isn't an empty list. One left out, or none, is normal; one that reads but can't be stored, such as 0, isn't counted
+ * either, since the offer drops it as it would any other (storableOffer). A shop counts the rest in a log line.
+ */
+export function isUnreadAmount(attribute: unknown): boolean {
+  const values = valuesOf(attribute);
+  return values.length > 0 && !isNone(values[0]) && amountOf(attribute) === null;
 }
 
 /** An attribute's EANs: the values that are 8-14 digits as text, at most as many as PRODUCT_LIMITS allows. */

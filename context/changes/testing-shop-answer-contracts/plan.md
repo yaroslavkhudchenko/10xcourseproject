@@ -484,6 +484,52 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
   - the availability line removed: 3;
   - the gate without `contentType`: 11 (gate, Rossmann, Super-Pharm).
 
+### Phase 2
+
+- **Odd values log Super-Pharm's reasons,** one line per field, not the plan's single "offers unread" line, so one reason reads the same in every shop:
+  - Natura's `lowest_price` is "30-day low unread" and its `price_old_amount` "regular price unread";
+  - Hebe's `price_omnibus_amount` is "30-day low unread".
+
+  A value counts when it's there (not left out, null, false, blank or an empty list) and doesn't read as an amount. One that reads but can't be stored, such as 0, isn't counted.
+
+- **Shared helpers** (lesson "Define shared constants and helpers once"):
+  - `logOddValues` and its `OddValue` type, in `pinned-prices.ts`, now used by `logOddAvailability`, by the Luigi's Box client (through `LuigisBoxShop.oddValues`) and by Super-Pharm's `logOddOffers`;
+  - `isNone`, moved unchanged from `super-pharm.ts`, and `kindOf`, moved unchanged from `rossmann.ts`, both now in `shop-values.ts`;
+  - `isUnreadAmount`, beside `amountOf`.
+
+  Rossmann's and Super-Pharm's tests pass unchanged.
+
+- **An answer without hits** finds nothing only when `next_page` is null and `total_hits` is exactly the number 0; the plan's `complete` would also let a negative count through. Its line, "unexpected empty answer", gives the count or its kind and whether there's a next page, never the next page's address, which carries the search.
+- **On the prices, the odd-value lines** are logged in the client's `requestPrices`, as Super-Pharm's are, so they come before the shared rules' lines.
+- **Natura's made-up suggestions:**
+  - "finds nothing … when the only hit is a query suggestion" used an untyped `{url, attributes: {}}`. It's now "gives up, rather than finding nothing, when the only hit is no product and no query suggestion", expecting a failed search and "hits dropped" 1 of 1 (the owner's call).
+  - A new test finds nothing for a hit shaped like Hebe's recorded suggestion, with `type: "query"`.
+  - "drops pseudo-hits…" gives its suggestion `type: "query"`, as recorded, so its count stays 3 of 6.
+- **Existing tests that now log:** both shops' "drops only the offer of a price that can't be stored…" assert "30-day low unread". Hebe's price rows for a 30-day low of 0 and of "brak" moved into one `OMNIBUS` table, which runs on the search and the prices.
+- **Natura's tests are restructured,** nothing lost:
+  - the search's unreadable-hit copies run on both recorded searches (`describe.each`);
+  - the prices' broken copies and unreadable answers sit in one block;
+  - the odd availability and optional prices are shared tables, run on both paths.
+- **Hebe has no recorded empty search,** so its empty-answer copies use `hebe-id-unknown.json`, which has the same shape, served for a search. Another copy is the recorded name search with its hits emptied ("total_hits 58, next_page set").
+- **Natura's header** names what each empty recording asked for, as the answers' own query and filters echo: 5901234123457 and ZZ00000000, rather than "served here for".
+- **Cases beyond the plan's list:**
+  - Natura's empty answer with `total_hits` removed or sent as text;
+  - a counter that can't be read, on both searches and on Natura's prices;
+  - on Hebe's search, a challenge, a 503 with Retry-After and a timeout;
+  - a Hebe type that differs only in case ("Item"), on both paths;
+  - the EAN-search copies for both shops;
+  - Natura availability `null`, "1", `[1]` and `true`;
+  - optional prices that are left out, null, `[]`, blank, 0 or equal to the price, which aren't counted.
+- **Accepted, not pinned:**
+  - An answer whose only hits are query suggestions, or items Hebe doesn't sell online, finds nothing whatever its `total_hits` says.
+  - A hit with no `type` but with attributes still counts as an item on both paths (`isItemHit` as before).
+- **Breaks,** with the tests that went red:
+  - other types read as suggestions again on the search: 10;
+  - other types filtered out again on the prices: 5;
+  - any empty answer finding nothing: 9;
+  - unread optional prices not counted: 16;
+  - Natura's odd availability not counted: 10.
+
 ## References
 
 - Research: `context/changes/testing-shop-answer-contracts/research.md`
@@ -500,15 +546,15 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 1.1 Rossmann's, the gate's and the refresh's tests pass
-- [x] 1.2 Lint, type check and the whole unit suite pass
+- [x] 1.1 Rossmann's, the gate's and the refresh's tests pass — 5861475
+- [x] 1.2 Lint, type check and the whole unit suite pass — 5861475
 
 ### Phase 2: Natura and Hebe on Luigi's Box (D2, D3, D4)
 
 #### Automated
 
-- [ ] 2.1 Natura's and Hebe's tests pass
-- [ ] 2.2 Lint, type check and the whole unit suite pass
+- [x] 2.1 Natura's and Hebe's tests pass
+- [x] 2.2 Lint, type check and the whole unit suite pass
 
 ### Phase 3: Super-Pharm's answers (D4)
 

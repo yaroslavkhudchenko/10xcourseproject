@@ -3,6 +3,7 @@ import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import type { ShopGate } from "@/lib/services/shop-gate";
 import { storableOffer } from "@/lib/services/shops/shop-offer";
 import { gateUnavailable } from "@/lib/services/shops/shop-outcome";
+import { kindOf } from "@/lib/services/shops/shop-values";
 import { parseSize } from "@/lib/services/size";
 import type { PriceCheck, ProductCandidate, ProductSearch, ShopOffer } from "@/types";
 
@@ -300,17 +301,6 @@ function cut(value: string | null, max: number): string | null {
 /** Keeps text within its limit, or drops it: a cut-off size or URL would be wrong, not just shorter. */
 function within(value: string | null, max: number): string | null {
   return value !== null && value.length <= max ? value : null;
-}
-
-/** What a field held, for a log line that mustn't quote the answer: "missing", "null", "array" or its type. */
-function kindOf(value: unknown): string {
-  if (value === undefined) {
-    return "missing";
-  }
-  if (value === null) {
-    return "null";
-  }
-  return Array.isArray(value) ? "array" : typeof value;
 }
 
 function logFailure(event: LogEvent, reason: string, detail: string): void {
