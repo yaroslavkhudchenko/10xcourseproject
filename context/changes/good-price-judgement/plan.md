@@ -465,7 +465,7 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 - [x] 3.1 Lint, type check and the whole unit suite pass — dd21054
 - [x] 3.2 The contrast check passes with the new token — dd21054
-- [ ] 3.3 CI's `e2e` job passes, `good-price.spec.ts` included
+- [x] 3.3 CI's `e2e` job passes, `good-price.spec.ts` included — dd21054
 
 #### Manual
 
@@ -475,9 +475,9 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [ ] 4.1 Prettier leaves the edited documents as they are
-- [ ] 4.2 Lint, type check and the whole unit suite pass
-- [ ] 4.3 CI's `ci`, `smoke` and `e2e` pass on the PR
+- [x] 4.1 Prettier leaves the edited documents as they are — 9946f57
+- [x] 4.2 Lint, type check and the whole unit suite pass — 9946f57
+- [x] 4.3 CI's `ci`, `smoke` and `e2e` pass on the PR — 9946f57
 
 #### Manual
 
