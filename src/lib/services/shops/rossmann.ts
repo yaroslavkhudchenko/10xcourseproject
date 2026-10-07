@@ -3,7 +3,7 @@ import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import type { ShopGate } from "@/lib/services/shop-gate";
 import { storableOffer } from "@/lib/services/shops/shop-offer";
 import { gateUnavailable } from "@/lib/services/shops/shop-outcome";
-import { kindOf } from "@/lib/services/shops/shop-values";
+import { countOf, kindOf } from "@/lib/services/shops/shop-values";
 import { parseSize } from "@/lib/services/size";
 import type { PriceCheck, ProductCandidate, ProductSearch, ShopOffer } from "@/types";
 
@@ -84,8 +84,7 @@ export async function searchRossmann(gate: ShopGate, query: string): Promise<Pro
   // list beside another count, or without one, would show „Brak wyników” for a search whose answer changed.
   if (items.length === 0 && totalCount !== 0) {
     // Only the count, never anything else the answer holds.
-    const count = typeof totalCount === "number" ? String(totalCount) : kindOf(totalCount);
-    logFailure("rossmann-search", "unexpected empty answer", `0 items, totalCount ${count}`);
+    logFailure("rossmann-search", "unexpected empty answer", `0 items, totalCount ${countOf(totalCount)}`);
     return { kind: "unavailable", reason: "failed" };
   }
 

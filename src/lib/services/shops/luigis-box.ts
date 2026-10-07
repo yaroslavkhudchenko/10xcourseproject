@@ -12,7 +12,7 @@ import {
   type PinnedPriceShop,
 } from "@/lib/services/shops/pinned-prices";
 import { gateUnavailable } from "@/lib/services/shops/shop-outcome";
-import { isNone, kindOf, valuesOf } from "@/lib/services/shops/shop-values";
+import { countOf, isNone, kindOf, valuesOf } from "@/lib/services/shops/shop-values";
 import type { GateOutcome, PriceCheck, ShopCandidate, ShopId, ShopOffer, ShopSearch, ShopUnavailable } from "@/types";
 
 // Luigi's Box runs the product search of Drogerie Natura and Hebe (research note §2.2, §2.5): one query, an EAN or
@@ -145,9 +145,12 @@ async function search(config: LuigisBoxShop, gate: ShopGate, query: string, size
       return { kind: "results", candidates: [] };
     }
     // Only the count, or what stands in its place, and whether there's a next page: its address carries the search.
-    const count = typeof read.totalHits === "number" ? String(read.totalHits) : kindOf(read.totalHits);
     const nextPage = read.nextPage === undefined || read.nextPage === null ? kindOf(read.nextPage) : "set";
-    logFailure(config.log.search, "unexpected empty answer", `0 hits, total_hits ${count}, next_page ${nextPage}`);
+    logFailure(
+      config.log.search,
+      "unexpected empty answer",
+      `0 hits, total_hits ${countOf(read.totalHits)}, next_page ${nextPage}`,
+    );
     return failed();
   }
 

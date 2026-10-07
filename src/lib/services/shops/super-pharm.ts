@@ -15,7 +15,7 @@ import {
 import { parsePolishPrice } from "@/lib/services/shops/price-text";
 import { storableOffer } from "@/lib/services/shops/shop-offer";
 import { gateUnavailable } from "@/lib/services/shops/shop-outcome";
-import { httpsHost, isNone, textOf, within } from "@/lib/services/shops/shop-values";
+import { countOf, httpsHost, isNone, textOf, within } from "@/lib/services/shops/shop-values";
 import { parseSize, trailingSizeText } from "@/lib/services/size";
 import type { GateOutcome, PriceCheck, ShopCandidate, ShopOffer, ShopSearch, ShopUnavailable, Size } from "@/types";
 
@@ -64,7 +64,8 @@ const PRICES_EVENT = "super-pharm-prices";
 const isoDate = z.iso.date();
 
 // An answer's hits, and how many hits the request matched on how many pages. Only the hits must be readable: the
-// counts only tell whether a price request's answer holds every hit it matched (requestPrices).
+// counts only tell whether a price request's answer holds every hit it matched (requestPrices), and whether a search's
+// answer without hits matched none (searchSuperPharm).
 const answerSchema = z.object({
   hits: z.array(z.unknown()),
   nbHits: z.unknown().optional(),
@@ -113,9 +114,9 @@ const pinned: PinnedPriceShop = {
 /**
  * Searches Super-Pharm through the gate, asking for at most `size` hits. Resolves to the candidates (possibly none), or
  * to `unavailable` with the reason: the gate skipped or refused the call, the call failed (a 400 included), or the
- * answer wasn't readable, including an answer whose hits all fail their check. It never throws. The query must already
- * be an EAN of 8-14 digits or have passed `searchQuerySchema`; it goes into the body as one parameter's value, so it
- * can't add a parameter of its own.
+ * answer wasn't readable, including an answer whose hits all fail their check and an answer without hits whose counts
+ * don't say it matched none. It never throws. The query must already be an EAN of 8-14 digits or have passed
+ * `searchQuerySchema`; it goes into the body as one parameter's value, so it can't add a parameter of its own.
  */
 export async function searchSuperPharm(gate: ShopGate, query: string, size: number): Promise<ShopSearch> {
   const outcome = await gate.fetch("super-pharm", QUERY_URL, post(searchParams(query, size), SEARCH_TIMEOUT_MS));
@@ -125,6 +126,22 @@ export async function searchSuperPharm(gate: ShopGate, query: string, size: numb
   }
   const answer = await readAnswer(outcome.response, SEARCH_EVENT);
   if (answer === null) {
+    return failed();
+  }
+  // No hits means nothing matched only when Algolia's own counts say so, as the recorded empty answer does: no hit
+  // matched (`nbHits` 0), on the first page (`page` 0). An empty list beside another count or page, or without one of
+  // them, would be stored as "not found" for a search whose answer changed. A search with hits isn't compared with its
+  // count: it asks for the first few of the hits it matched.
+  if (answer.hits.length === 0) {
+    if (answer.nbHits === 0 && answer.page === 0) {
+      return { kind: "results", candidates: [] };
+    }
+    // Only the counts, or what stands in their place, never anything else the answer holds: it echoes the search.
+    logFailure(
+      SEARCH_EVENT,
+      "unexpected empty answer",
+      `0 hits, nbHits ${countOf(answer.nbHits)}, page ${countOf(answer.page)}`,
+    );
     return failed();
   }
 
@@ -472,18 +489,13 @@ function hasOddAvailability(hit: unknown): boolean {
  * Super-Pharm's size as text, with the size it stands for, which parseSize reads back the same when a form posts the
  * text. It's `capacity`, such as "300 ml", whenever the record has one. Many records have none (27 of the 47 hits the
  * lookups recorded on 2026-10-06): the index leaves the attribute out, or sends it `false`, `null` or blank, as it does
- * an unset one. Their names often end with the size, as in "…Classic Clean, 400 ml", so then it's the size the name
- * ends with (trailingSizeText), unless the name is a set's (SET_NAME). A `capacity` that doesn't parse, such as a
+ * an unset one (isNone). Their names often end with the size, as in "…Classic Clean, 400 ml", so then it's the size the
+ * name ends with (trailingSizeText), unless the name is a set's (SET_NAME). A `capacity` that doesn't parse, such as a
  * multipack's "2 x 50 ml", or that isn't text, such as a number, gives none rather than the name's, which could be one
  * item's. No such size, or text over its limit, gives neither.
  */
 function readSize(capacity: unknown, name: string): { sizeText: string | null; size: Size | null } {
-  const unset =
-    capacity === undefined ||
-    capacity === null ||
-    capacity === false ||
-    (typeof capacity === "string" && capacity.trim() === "");
-  if (unset) {
+  if (isNone(capacity)) {
     return sizeOf(SET_NAME.test(name) ? null : trailingSizeText(name));
   }
   return sizeOf(textOf(capacity));

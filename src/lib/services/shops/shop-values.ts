@@ -29,6 +29,11 @@ export function kindOf(value: unknown): string {
   return Array.isArray(value) ? "array" : typeof value;
 }
 
+/** A count as a log line shows it: the number, or what stands in its place (kindOf). */
+export function countOf(value: unknown): string {
+  return typeof value === "number" ? String(value) : kindOf(value);
+}
+
 /** An attribute's first value as trimmed text, or null when it isn't text or is empty. */
 export function textOf(attribute: unknown): string | null {
   const [value] = valuesOf(attribute);

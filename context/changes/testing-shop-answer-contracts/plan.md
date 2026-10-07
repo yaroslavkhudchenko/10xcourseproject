@@ -530,6 +530,24 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
   - unread optional prices not counted: 16;
   - Natura's odd availability not counted: 10.
 
+### Phase 3
+
+- **The empty search's line** is "unexpected empty answer" with `nbHits` and `page`, each as its number or its kind (`countOf`). `nbPages` isn't read.
+- **`readSize` calls `isNone`** for an unset `capacity`, in place of its inline copy of the same check (lesson "Define shared constants and helpers once"). Every size test passes unchanged.
+- **`countOf`,** a count as a log line shows it, moved into `shop-values.ts`. It replaced the same inline expression in Rossmann's and Luigi's Box's empty-answer lines, with no change in behaviour.
+- **`ALGOLIA_403` replaces the two empty-body 403s,** on the search and on the prices' first batch. It's Algolia's documented answer to the query endpoint's 403 ("Method not allowed with this API key."), an `ErrorBase` body with its own example message, labelled as documented, never as recorded. The log-hygiene test keeps its empty-body 403.
+- **The prices' unreachable counter is tested on one batch.** It isn't a refusal, so a second batch would be reserved again until Phase 4's stop.
+- **One `FAILURES` table runs on the search and on one price request,** replacing the two 400 tests: a 400, a 500 without a body, a network error and a timeout. It checks the reserved shop instead of the gate entry's `shopId`.
+- **Cases beyond the plan's list:**
+  - a D4 copy with `nbHits` as text;
+  - the search's stopped and paused rows also check the gate's outcome, and that the adapter logs nothing;
+  - the refusal tables check the shop reserved and the blocks reported;
+  - the incomplete and unreadable price answers check the body sent and one reservation.
+- **Breaks:**
+  - any empty search finding nothing: 4 red;
+  - every refusal read as a plain failure: 14;
+  - a null, false or blank capacity no longer read as none: 3.
+
 ## References
 
 - Research: `context/changes/testing-shop-answer-contracts/research.md`
@@ -553,15 +571,15 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 2.1 Natura's and Hebe's tests pass
-- [x] 2.2 Lint, type check and the whole unit suite pass
+- [x] 2.1 Natura's and Hebe's tests pass — 4eb3a95
+- [x] 2.2 Lint, type check and the whole unit suite pass — 4eb3a95
 
 ### Phase 3: Super-Pharm's answers (D4)
 
 #### Automated
 
-- [ ] 3.1 Super-Pharm's tests pass
-- [ ] 3.2 Lint, type check and the whole unit suite pass
+- [x] 3.1 Super-Pharm's tests pass
+- [x] 3.2 Lint, type check and the whole unit suite pass
 
 ### Phase 4: Paths and refresh loops (risk #3)
 
