@@ -627,7 +627,7 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - Research: `context/changes/match-by-name/research.md`
 - The owner's calls: `context/changes/match-by-name/change.md`
 - Recordings: `context/changes/match-by-name/recordings/`, `context/changes/add-from-other-shops/recordings/`
-- The change this reverses in part: `context/changes/super-pharm-in-comparison/plan.md` (:94-95, :129)
+- The change this reverses in part: `context/archive/2026-10-04-super-pharm-in-comparison/plan.md` (:94-95, :129)
 - Fixture rules: `context/foundation/test-plan.md` §6.4
 - Similar implementation: Hebe's size from its legal name, `src/lib/services/shops/hebe.ts:178-183`
 

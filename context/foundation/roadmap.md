@@ -3,7 +3,7 @@ project: Drogeria Radar
 version: 1
 status: draft # draft | active | locked
 created: 2026-09-25
-updated: 2026-10-06
+updated: 2026-10-07
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -47,7 +47,7 @@ A shopper who buys the same drugstore products again and again checks two or thr
 | S-03 | cheapest-shop-today           | see which shop is cheapest today, on the watchlist and on each product      | S-02          | US-01, FR-008, FR-010, FR-011, NFR per-shop feedback, NFR price age, NFR phone-usable, Guardrail failed prices visible | done        |
 | S-04 | good-price-judgement          | see whether today's price is a good one                                     | S-03          | FR-012                                                                                                                 | in-progress |
 | S-05 | hebe-in-comparison            | match their products in Hebe and see Hebe in the comparison                 | S-03, F-01    | US-02, FR-006, FR-013                                                                                                  | done        |
-| S-06 | super-pharm-in-comparison     | match their products in Super-Pharm and see it in the comparison            | S-03, F-01    | US-02, FR-006, FR-013                                                                                                  | in-progress |
+| S-06 | super-pharm-in-comparison     | match their products in Super-Pharm and see it in the comparison            | S-03, F-01    | US-02, FR-006, FR-013                                                                                                  | done        |
 | S-07 | invite-only-access            | sign in with an owner-added account; nobody can register themselves         | —             | FR-001, FR-002                                                                                                         | done        |
 | S-08 | fix-matches-and-watchlist     | re-pin or remove a wrong match and remove a product safely                  | S-02          | FR-007, FR-005                                                                                                         | done        |
 
@@ -194,7 +194,7 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
   - For every shop, a first lookup's choice now lists the candidates of the product's size and brand first, and a product's page forgets `?retry=` once it has rendered, so a reload or Back asks the shop nothing.
   - Super-Pharm's price is the one it sells at, with a regular price only where its record carries one, so a sale without it shows as a plain price with its 30-day low. An item counts as orderable online when it's in stock and not sold only in the shops.
   - Not built: a gate exception for a rejected key, or reading the key from the page (a runbook covers the stop); automatic Super-Pharm matches by product pages' EANs; a promotion mark for a sale without a regular price; club prices; and dm. Automatic Super-Pharm matches by name and a lookup on a plain view or after "Dodaj" came later, with `match-by-name` (2026-10-06).
-- **Status:** in-progress
+- **Status:** done
 
 ### S-07: Invite-only front door
 
@@ -294,3 +294,4 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **S-08: user can re-pin or remove a shop match that turned out wrong, is warned about suspicious matches (size or brand mismatch), and can remove a product from their watchlist without deleting shared price history.** — Archived 2026-10-02 → `context/archive/2026-10-01-fix-matches-and-watchlist/`. Lesson: —.
 - **S-05: user can match their products in Hebe and see Hebe's prices in the comparison. A Hebe candidate whose size doesn't match is flagged, not trusted on its EAN.** — Archived 2026-10-04 → `context/archive/2026-10-02-hebe-in-comparison/`. Lesson: —.
 - **S-07: user can sign in with an account the owner created or an invite link the owner handed out, with no email sent by the app, and land in the app. Nobody can register themselves.** — Archived 2026-10-05 → `context/archive/2026-10-04-invite-only-access/`. Lesson: —.
+- **S-06: user can match their products in Super-Pharm and see its prices in the comparison, even though Super-Pharm's search index carries no EAN.** — Archived 2026-10-07 → `context/archive/2026-10-04-super-pharm-in-comparison/`. Lesson: —.
