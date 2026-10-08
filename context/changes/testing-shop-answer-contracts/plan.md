@@ -586,6 +586,7 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **§7's "Re-evaluate if…" triggers** for this phase's edges are this phase's own wording, not a source's: the owner checks them in 5.4.
 - **§3** says `implementing` until the archive after the merge, which marks it `complete`.
 - **5.3, CI on the PR** (run 37753013093, on 550065e): `ci`, `smoke` and `e2e` passed.
+- **5.4, the owner's review:** the owner merged PR #42 after being asked to review the docs first, so the merge (4f13e8b) closes the row. Production deployed green from it (Workers Builds, with its migration gate and signed-out check, and the `Deploy check` workflow).
 
 ## References
 
@@ -639,4 +640,4 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Manual
 
-- [ ] 5.4 The owner reviews the test plan's §2, §6 and §7 updates and the `CLAUDE.md` changes
+- [x] 5.4 The owner reviews the test plan's §2, §6 and §7 updates and the `CLAUDE.md` changes — 4f13e8b
