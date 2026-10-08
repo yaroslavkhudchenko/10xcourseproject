@@ -2,8 +2,8 @@ import { z } from "astro/zod";
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import type { ShopGate } from "@/lib/services/shop-gate";
 import { storableOffer } from "@/lib/services/shops/shop-offer";
-import { gateUnavailable } from "@/lib/services/shops/shop-outcome";
-import { countOf, kindOf } from "@/lib/services/shops/shop-values";
+import { gateUnavailable, shopResponded } from "@/lib/services/shops/shop-outcome";
+import { countOf, kindOf, within } from "@/lib/services/shops/shop-values";
 import { parseSize } from "@/lib/services/size";
 import type { PriceCheck, ProductCandidate, ProductSearch, ShopOffer } from "@/types";
 
@@ -75,11 +75,11 @@ export async function searchRossmann(gate: ShopGate, query: string): Promise<Pro
     // The gate has already logged why.
     return gateUnavailable(outcome);
   }
-  const body = await readBody(outcome.response, responseSchema, "rossmann-search");
-  if (body === null) {
+  const read = await readBody(outcome.response, responseSchema, "rossmann-search");
+  if (read.kind === "unread") {
     return { kind: "unavailable", reason: "failed" };
   }
-  const { items, totalCount } = body.data;
+  const { items, totalCount } = read.body.data;
   // No items means nothing matched only when Rossmann's own count says 0, as the recorded empty answer does: an empty
   // list beside another count, or without one, would show „Brak wyników” for a search whose answer changed.
   if (items.length === 0 && totalCount !== 0) {
@@ -103,7 +103,7 @@ export async function searchRossmann(gate: ShopGate, query: string): Promise<Pro
   if (items.length > 0 && candidates.length === 0) {
     return { kind: "unavailable", reason: "failed" };
   }
-  const rawHint = body.data.spellCheckHint;
+  const rawHint = read.body.data.spellCheckHint;
   const hint = typeof rawHint === "string" ? clean(rawHint) : null;
   // Rossmann answers a misspelling with results for its correction; a hint equal to the query says nothing new.
   const spellingHint = hint && hint.toLowerCase() !== query.toLowerCase() ? hint : null;
@@ -118,10 +118,25 @@ export async function searchRossmann(gate: ShopGate, query: string): Promise<Pro
  * the answer wasn't readable. It never throws. The stored id is checked again here, before it becomes a path.
  */
 export async function fetchRossmannPrice(gate: ShopGate, sourceItemId: string): Promise<PriceCheck> {
+  return (await requestRossmannPrice(gate, sourceItemId)).check;
+}
+
+/**
+ * Fetches a pinned Rossmann product's current offer as fetchRossmannPrice does, and says beside its check whether
+ * Rossmann responded to the request: true for any answer, whatever its status or body, an error status, a redirect, a
+ * page or a detail that can't be used included (shopResponded); false for a request that got no response, one that
+ * timed out, its body included, failed on the network or that the gate skipped, and for an id that's never sent. A
+ * refresh, asking one product per request, counts only the requests Rossmann gave no response to (price-refresh.ts).
+ * It never throws.
+ */
+export async function requestRossmannPrice(
+  gate: ShopGate,
+  sourceItemId: string,
+): Promise<{ check: PriceCheck; responded: boolean }> {
   if (!isRossmannProductId(sourceItemId)) {
     // Never the id itself: it names the product.
     logFailure("rossmann-price", "invalid product id", "not 1-12 digits, not sent");
-    return { kind: "unavailable", reason: "failed" };
+    return { check: { kind: "unavailable", reason: "failed" }, responded: false };
   }
   const outcome = await gate.fetch("rossmann", `${DETAIL_URL}/${sourceItemId}?shopNumber=null`, {
     headers: { Accept: "application/json" },
@@ -133,13 +148,19 @@ export async function fetchRossmannPrice(gate: ShopGate, sourceItemId: string): 
     // which would mark every product gone for everyone who watches it. Any other refusal is no answer either.
     const gone =
       outcome.kind === "failed" && outcome.status === 404 && outcome.contentType === "application/problem+json";
-    return gone ? { kind: "missing" } : gateUnavailable(outcome);
+    return { check: gone ? { kind: "missing" } : gateUnavailable(outcome), responded: shopResponded(outcome) };
   }
-  const body = await readBody(outcome.response, detailSchema, "rossmann-price");
-  if (body === null) {
-    return { kind: "unavailable", reason: "failed" };
+  const read = await readBody(outcome.response, detailSchema, "rossmann-price");
+  if (read.kind === "unread") {
+    // A body a time limit cut off is no response, as a request that timed out isn't: Rossmann sent its headers, and
+    // the detail never came. Any other body that can't be read is Rossmann's answer.
+    return { check: { kind: "unavailable", reason: "failed" }, responded: !read.timedOut };
   }
-  const item = body.data;
+  return { check: priceCheckOf(read.body.data, sourceItemId), responded: true };
+}
+
+/** The price check a product's detail comes to, by the rules fetchRossmannPrice states. */
+function priceCheckOf(item: z.infer<typeof detailSchema>["data"], sourceItemId: string): PriceCheck {
   // An answer about another product would put its price on this one.
   if (String(item.id) !== sourceItemId) {
     logFailure("rossmann-price", "unexpected product", "the answer's id isn't the one asked for");
@@ -190,10 +211,17 @@ export function isRossmannProductUrl(url: string): boolean {
 type LogEvent = "rossmann-search" | "rossmann-price";
 
 /**
- * An `ok` answer's body in the given shape, or null when it isn't JSON of that shape. Either is logged without the
- * answer's content, which can echo the user's search or name the product.
+ * What reading an `ok` answer's body came to: the body in its shape, or none, `timedOut` when a time limit cut the body
+ * off before it had all come (readBody).
  */
-async function readBody<T>(response: Response, schema: z.ZodType<T>, event: LogEvent): Promise<T | null> {
+type BodyRead<T> = { kind: "body"; body: T } | { kind: "unread"; timedOut: boolean };
+
+/**
+ * An `ok` answer's body in the given shape, or why there's none: a time limit cut it off before it had all come, it
+ * couldn't be read otherwise, or it isn't JSON of that shape. Each is logged without the answer's content, which can
+ * echo the user's search or name the product.
+ */
+async function readBody<T>(response: Response, schema: z.ZodType<T>, event: LogEvent): Promise<BodyRead<T>> {
   let body: unknown;
   try {
     // Read the body right away: the time limits cover it too.
@@ -201,23 +229,32 @@ async function readBody<T>(response: Response, schema: z.ZodType<T>, event: LogE
   } catch (error) {
     // Only the error's name: a parse error quotes the body.
     logFailure(event, "unreadable body", error instanceof Error ? error.name : typeof error);
-    return null;
+    return { kind: "unread", timedOut: isTimeLimit(error) };
   }
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
     // Where the shape differs, not what the answer holds, for the same reason.
     const issues = parsed.error.issues.map((issue) => `${issue.path.map(String).join(".")} ${issue.code}`);
     logFailure(event, "unexpected response shape", issues.join("; "));
-    return null;
+    return { kind: "unread", timedOut: false };
   }
-  return parsed.data;
+  return { kind: "body", body: parsed.data };
+}
+
+/**
+ * True for what a body's read rejects with once a time limit fired before the body had all come: the signal's own
+ * reason, a DOMException named TimeoutError, whether Rossmann's limit fired or the gate's, or one named AbortError,
+ * which a runtime may give in its place. The request's signals are only those two limits, so no other abort is one.
+ */
+function isTimeLimit(error: unknown): boolean {
+  return error instanceof DOMException && (error.name === "TimeoutError" || error.name === "AbortError");
 }
 
 /**
  * A detail's offer as it can be stored, or null when its price can't be. `oldPrice` is the price before a reduction
  * and `lastLowestPrice` the 30-day low, as rossmann-detail-reduced.json shows; an item without a reduction carries
  * neither. `promotionTo` has no UTC offset, so only its date is kept. Only an `availability` of "available" is
- * orderable online; one that's missing or isn't text is counted in a log line (fetchRossmannPrice).
+ * orderable online; one that's missing or isn't text is counted in a log line (priceCheckOf).
  */
 function toOffer(item: z.infer<typeof detailSchema>["data"]): ShopOffer | null {
   return storableOffer({
@@ -303,11 +340,6 @@ function clean(value: string | null | undefined): string | null {
 /** Cuts text to its limit. */
 function cut(value: string | null, max: number): string | null {
   return value === null ? null : value.slice(0, max);
-}
-
-/** Keeps text within its limit, or drops it: a cut-off size or URL would be wrong, not just shorter. */
-function within(value: string | null, max: number): string | null {
-  return value !== null && value.length <= max ? value : null;
 }
 
 function logFailure(event: LogEvent, reason: string, detail: string): void {

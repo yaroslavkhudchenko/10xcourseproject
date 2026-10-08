@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { gateUnavailable } from "@/lib/services/shops/shop-outcome";
+import { gateUnavailable, shopResponded } from "@/lib/services/shops/shop-outcome";
 import type { GateOutcome, ShopUnavailable } from "@/types";
 
 afterEach(() => {
@@ -60,5 +60,35 @@ describe("gateUnavailable", () => {
       reason: "paused",
       until: "2026-09-27T20:02:00.000Z",
     });
+  });
+});
+
+// Whether the shop gave a response, whatever it says, which a refresh asking Rossmann one product at a time counts by.
+describe("shopResponded", () => {
+  it.each<{ when: string; outcome: GateOutcome; responded: boolean }>([
+    { when: "the shop answers", outcome: { kind: "ok", response: new Response("{}") }, responded: true },
+    {
+      when: "the shop answers an error status",
+      outcome: { kind: "failed", reason: "http", status: 500 },
+      responded: true,
+    },
+    { when: "the shop blocks the call", outcome: { kind: "blocked", status: 403 }, responded: true },
+    {
+      when: "the shop asks for a pause",
+      outcome: { kind: "rate-limited", retryAfterSeconds: 120 },
+      responded: true,
+    },
+    { when: "the call times out", outcome: { kind: "failed", reason: "timeout" }, responded: false },
+    { when: "the network fails", outcome: { kind: "failed", reason: "network" }, responded: false },
+    { when: "the cap is reached", outcome: { kind: "skipped", reason: "capped" }, responded: false },
+    {
+      when: "the shop is paused",
+      outcome: { kind: "skipped", reason: "paused", until: "2026-09-27T20:15:00+00:00" },
+      responded: false,
+    },
+    { when: "the shop is stopped", outcome: { kind: "skipped", reason: "stopped" }, responded: false },
+    { when: "the counter can't be reached", outcome: { kind: "skipped", reason: "unavailable" }, responded: false },
+  ])("says $responded when $when", ({ outcome, responded }) => {
+    expect(shopResponded(outcome)).toBe(responded);
   });
 });

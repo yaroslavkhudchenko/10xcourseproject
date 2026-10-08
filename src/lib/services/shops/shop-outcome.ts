@@ -11,6 +11,24 @@ export function isRefusal(check: PriceCheck): check is ShopUnavailable {
   return check.kind === "unavailable" && check.reason !== "failed";
 }
 
+/**
+ * True for a gate outcome that carries the shop's response, whatever it says: an answer to read (`ok`), an error status
+ * (`failed` with reason `http`), a block or a rate limit. False when the shop gave none: the call timed out or failed
+ * on the network, or the gate skipped it, busy under the cap, paused, stopped, or with a counter it couldn't reach.
+ */
+export function shopResponded(outcome: GateOutcome): boolean {
+  switch (outcome.kind) {
+    case "ok":
+    case "blocked":
+    case "rate-limited":
+      return true;
+    case "failed":
+      return outcome.reason === "http";
+    case "skipped":
+      return false;
+  }
+}
+
 /** Says why the gate produced no answer, in the terms the page explains to the user. */
 export function gateUnavailable(outcome: Exclude<GateOutcome, { kind: "ok" }>): ShopUnavailable {
   switch (outcome.kind) {

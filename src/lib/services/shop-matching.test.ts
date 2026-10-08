@@ -12,6 +12,7 @@ import {
   type MatchStepsInput,
 } from "@/lib/services/shop-matching";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
+import { CHALLENGE, loggedLines, type ServedAnswer } from "@/lib/services/testing/shop-answers";
 import hebeEanOffline from "@/lib/services/shops/fixtures/hebe-ean-offline.json";
 import hebeEanOnline from "@/lib/services/shops/fixtures/hebe-ean-online.json";
 import hebeIdUnknown from "@/lib/services/shops/fixtures/hebe-id-unknown.json";
@@ -311,16 +312,42 @@ describe("lookupChoicesInShop in Natura: both searches", () => {
 });
 
 describe("lookupChoicesInShop in Natura: a search without an answer", () => {
-  it.each<{ answer: string; entry: ReplayEntry; reason: string }>([
-    { answer: "a 403", entry: { url: EAN_SEARCH, status: 403 }, reason: "stopped" },
-    { answer: "a 429", entry: { url: EAN_SEARCH, status: 429 }, reason: "paused" },
-    { answer: "a 500", entry: { url: EAN_SEARCH, status: 500 }, reason: "failed" },
-    { answer: "a network failure", entry: { url: EAN_SEARCH, error: "network" }, reason: "failed" },
-  ])("makes no name search after $answer to the EAN search, and says why", async ({ entry, reason }) => {
-    const { gate, fetchMock } = setup([entry, answers.name]);
+  it.each<{ answer: string; entry: ReplayEntry; reason: string; reported: unknown[][] }>([
+    {
+      answer: "a 403",
+      entry: { url: EAN_SEARCH, status: 403 },
+      reason: "stopped",
+      reported: [["natura", "blocked", undefined, "HTTP 403"]],
+    },
+    {
+      answer: "a bot challenge on a 200",
+      entry: { url: EAN_SEARCH, ...CHALLENGE },
+      reason: "stopped",
+      reported: [["natura", "blocked", undefined, "challenge"]],
+    },
+    // Without a Retry-After, the gate pauses the shop for its default 900 seconds.
+    {
+      answer: "a 429",
+      entry: { url: EAN_SEARCH, status: 429 },
+      reason: "paused",
+      reported: [["natura", "rate_limited", 900]],
+    },
+    {
+      answer: "a 503 that says when to come back",
+      entry: { url: EAN_SEARCH, status: 503, headers: { "Retry-After": "120" } },
+      reason: "paused",
+      reported: [["natura", "rate_limited", 120]],
+    },
+    { answer: "a 500", entry: { url: EAN_SEARCH, status: 500 }, reason: "failed", reported: [] },
+    { answer: "a network failure", entry: { url: EAN_SEARCH, error: "network" }, reason: "failed", reported: [] },
+  ])("makes no name search after $answer to the EAN search, and says why", async ({ entry, reason, reported }) => {
+    const { gate, fetchMock, reserve, reportBlock } = setupCharged([entry, answers.name]);
 
     expect(await lookupChoicesInShop("natura", gate, soft)).toMatchObject({ kind: "unavailable", reason });
     expect(requestedUrls(fetchMock)).toEqual([EAN_SEARCH]);
+    // The EAN search's reservation alone, and a refusal reported once, a failure never.
+    expect(reserve.mock.calls).toEqual([["natura"]]);
+    expect(reportBlock.mock.calls).toEqual(reported);
   });
 
   it("asks nothing more when the cap leaves the EAN search no room", async () => {
@@ -889,9 +916,6 @@ function opened(fields: Pick<MatchStepsInput, "supabase" | "gate"> & Partial<Mat
   };
 }
 
-/** The lines the steps logged, read back as JSON. */
-const loggedLines = (warn: Mock) => warn.mock.calls.map(([text]) => JSON.parse(String(text)) as unknown);
-
 /** The items a first choice offers, in its order; any other view fails the test. */
 function choiceIds(view: MatchView): string[] {
   if (view.kind !== "choose") {
@@ -1345,13 +1369,6 @@ const EAN_MISSES: EanMiss[] = [
     nameAnswer: hebeAnswers.name,
   },
 ];
-
-/** A shop's answer, its status, headers and body, served for whichever URL a test gives it. */
-interface ServedAnswer {
-  status: number;
-  headers?: Record<string, string>;
-  body?: string;
-}
 
 const ALLOWED = { outcome: "allowed" };
 // The time the clock stands still at, and the end of a pause a shop asks for with `Retry-After: 120` then.

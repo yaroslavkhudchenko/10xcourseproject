@@ -214,6 +214,7 @@ How to add new tests in this project. Each sub-section is filled in once the rel
   - The refusals: a 403; a challenge (`cf-mitigated: challenge`, whatever its status); a 429 and a 503 with `Retry-After`; a capped, paused or stopped reservation.
   - The plain failures: a 500, a network error, a timeout through the gate's short `timeoutMs`, and an unreachable counter, which sends nothing and reads as a failure, not a refusal.
   - Assert the requests (or POST bodies) served, the reservations, the reported block and the gate's outcome, never the outcome alone.
+  - The answers no recording holds and the readers of what a test got are defined once, in `src/lib/services/testing/shop-answers.ts`: `CHALLENGE`, `NOT_FOUND_PAGE`, `stallingFetch` (a 200 whose body never ends), `pauseSecondsOf`, `gateOutcomes` and `loggedLine(s)`.
 - **Asserting the replay's URLs**: build a real gate (`createShopGate`) over `vi.fn(createReplayFetch(entries))` and assert every URL it served (`requestedUrls`). Spell each URL out in the test, with the tracker, the parameter order and the encoding, rather than building it with the adapter's code. A URL the replay doesn't know rejects, which the gate reports as `failed/network`, so a test that checks only the outcome can pass on the wrong request.
 - **Asserting POST bodies**: an Algolia request goes to one URL whatever it asks, so a recording names the body it answers (`requestBody`), and the replay serves it only for exactly that text. Spell each body out in the test too, with the parameter order and the form encoding (a space as `+`), and assert every body the replay served beside its URL, with the app id and key headers on every request (`sentRequests` in `super-pharm.test.ts`). A test also pins the spelled-out bodies against the ones the recordings were sent with.
 - **Done means**: a deliberate break of each rule the adapter adds turns a named test red, such as offering an item the shop doesn't sell online, pricing from the regular price during a sale, reading the size from the wrong attribute, or counting an item sold only in the shops as orderable.
@@ -345,13 +346,19 @@ How to add new tests in this project. Each sub-section is filled in once the rel
     - each adapter has its own broken-copies block;
     - every fixture is named, with its request and date, in its test's header.
   - **Risk #3:**
-    - A refresh stops asking a shop after two failed requests in a row, its counter's skips included, so a failing shop costs a refresh two requests at most, not up to its cap (`FAILED_REQUESTS_BEFORE_STOP`, logged as "requests stopped").
+    - A refresh stops asking a shop after two failed requests in a row, its counter's skips included, so a failing shop costs a refresh two requests at most, not up to its cap (`FAILED_REQUESTS_BEFORE_STOP`, logged as "requests stopped"). For Rossmann, asked one product per request, only a request it gave no response to counts: a timeout, its body included, a network error, or the counter's skip.
     - The paths pin refusals and changed answers through the real gate: a lookup, a refresh and the price route.
     - The gate's database check proves that a refused reservation inserts no request row, and that a shorter report never shortens a longer pause.
   - **Stated limits:**
     - No live shop request: the recordings stay as they were.
     - The database proofs need Docker, which the developer machine lacks, so they run only in CI's `smoke` job.
     - The edges the owner accepted are in §7.
+  - **The review's fixes (2026-10-08):**
+    - Rossmann's stop counts only requests it gave no response to (the owner's call, Fix A): any answer it gives is about one product, which stores nothing and comes first again on the next list refresh, so two products that always failed would have kept the list's other Rossmann products unasked. A two-refresh test pins it, beside a body that stalls, which counts as a timeout.
+    - A Luigi's Box price answer is complete only with a `total_hits` that's a whole number of 0 or more, so a count of -1 no longer stores every asked id as `missing`.
+    - The gate's database check reads the request log before writing anything, and checks that the allowed reservations move it, so the refused ones' checks can't pass on a mark that never moves.
+    - The re-pin choice's refusal table pins a challenge and a 503 with Retry-After, with the reported blocks.
+    - The shared test answers and readers moved into one module (above, §6.4), and Rossmann's adapter dropped its copy of `within`.
 
 ## 7. What We Deliberately Don't Test
 
@@ -386,6 +393,7 @@ Edges rollout Phase 3 found and the owner accepted rather than fixed (2026-10-07
 - **Hebe's renamed sale price** — a renamed or removed `price_sale_amount` reads as no sale, since a missing sale is normal, so the regular price is stored as the current one, with no log line. Re-evaluate if a Hebe price is seen above the one Hebe's page shows.
 - **The unrecorded rejected key and 20-id batch** — Algolia's real answer to a key it no longer accepts, and a live 20-id price batch, stay unrecorded, since no live request was made, and the 403 is pinned with Algolia's documented answer. Re-evaluate when the owner approves a recording, or when Super-Pharm stops with a 403 (`context/deployment/deploy-plan.md`, "Super-Pharm stopped with HTTP 403").
 - **Answers of only suggestions, and untyped hits** (found in the implementation) — a Luigi's Box answer whose only hits are query suggestions, or items Hebe doesn't sell online, finds nothing whatever its count says, and a hit with no type but with attributes still counts as the shop's item. Re-evaluate if Luigi's Box is ever recorded sending an answer of only suggestions, or a hit without a type.
+- **A Rossmann that answers every product with an error** (the implementation review's F1, Fix A, the owner's call, 2026-10-08) — Rossmann's stop counts only requests it gave no response to, so a Rossmann that answers fast with an error for every product, after a moved route, a flood of 5xx answers or a changed format, is asked every due product on each refresh, up to the cap, as before rollout Phase 3, with nothing stored as a fact (D1 keeps such 404s from storing `missing`). Re-evaluate if one refresh's Rossmann errors fill the cap.
 
 ## 8. Freshness Ledger
 

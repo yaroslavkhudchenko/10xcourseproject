@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { listLatestPrices, productPricesOf, readLatestPrices, recordPriceChecks } from "@/lib/services/prices";
+import { loggedLine } from "@/lib/services/testing/shop-answers";
 import type { LatestPrice, MatchedItem, PriceHistory, PriceKey, ShopOffer } from "@/types";
 
 // Felix at Rossmann during a promotion, and Nivea Soft at Natura, with the offers the 2026-09-28 requests answered
@@ -103,12 +104,6 @@ function stubClient(...answers: Answer[]) {
     return query;
   };
   return { client: { from } as unknown as SupabaseClient, queries };
-}
-
-/** The one log line a test expects, parsed. */
-function loggedLine(warn: { mock: { calls: unknown[][] } }): unknown {
-  expect(warn.mock.calls).toHaveLength(1);
-  return JSON.parse(String(warn.mock.calls[0][0]));
 }
 
 afterEach(() => {
