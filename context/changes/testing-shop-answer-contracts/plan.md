@@ -573,6 +573,19 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
   - Rossmann counting ids it never sends: 1;
   - a refused name search read as not found: 21.
 
+- **4.4, CI's first run of the extended gate check** (run 37750537210, on 2c4bdde): every line passed, the four new ones included. The capped reservation left the request log at `30:true`, the paused and the stopped ones left it at `60:true`, and a 10 s report left natura paused 120 s ahead.
+
+### Phase 5
+
+- **Wording held to the code,** not to the brief:
+  - Luigi's Box's empty answer needs `next_page` present and null, so the docs say "`next_page` null". "No `next_page`" would describe the failing case.
+  - An unreachable counter is listed with the plain failures, not the refusals: it reads as a failure, counts toward the two-failure stop, and doesn't stop the shop at once.
+  - Each log reason "reads the same in every shop that logs it": Rossmann logs only "availability unread", with the value's kind rather than a count, and Hebe has no "regular price unread".
+- **§6.4's broken copies** are nested by provider (every adapter, then Rossmann, Luigi's Box and Algolia). The documented 403 sits in Algolia's item, and the odd values have a bullet of their own.
+- **Beyond the contract:** §5's database-contract gate names the two new proofs, and §6.4's pinned batches name the two-failure stop. The docs pass flagged both as gaps.
+- **§7's "Re-evaluate if…" triggers** for this phase's edges are this phase's own wording, not a source's: the owner checks them in 5.4.
+- **§3** says `implementing` until the archive after the merge, which marks it `complete`.
+
 ## References
 
 - Research: `context/changes/testing-shop-answer-contracts/research.md`
@@ -610,17 +623,17 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 4.1 The paths' tests pass
-- [x] 4.2 The gate script passes Node's syntax check and lint
-- [x] 4.3 Lint, type check and the whole unit suite pass
-- [ ] 4.4 CI's `smoke` job passes with the extended gate check
+- [x] 4.1 The paths' tests pass — 2c4bdde
+- [x] 4.2 The gate script passes Node's syntax check and lint — 2c4bdde
+- [x] 4.3 Lint, type check and the whole unit suite pass — 2c4bdde
+- [x] 4.4 CI's `smoke` job passes with the extended gate check — 2c4bdde
 
 ### Phase 5: Docs and rollout
 
 #### Automated
 
-- [ ] 5.1 Prettier leaves the edited documents as they are
-- [ ] 5.2 Lint and the whole unit suite pass
+- [x] 5.1 Prettier leaves the edited documents as they are
+- [x] 5.2 Lint and the whole unit suite pass
 - [ ] 5.3 CI's `ci`, `smoke` and `e2e` pass on the PR
 
 #### Manual
