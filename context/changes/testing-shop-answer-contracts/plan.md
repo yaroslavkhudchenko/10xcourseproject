@@ -585,6 +585,7 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **Beyond the contract:** §5's database-contract gate names the two new proofs, and §6.4's pinned batches name the two-failure stop. The docs pass flagged both as gaps.
 - **§7's "Re-evaluate if…" triggers** for this phase's edges are this phase's own wording, not a source's: the owner checks them in 5.4.
 - **§3** says `implementing` until the archive after the merge, which marks it `complete`.
+- **5.3, CI on the PR** (run 37753013093, on 550065e): `ci`, `smoke` and `e2e` passed.
 
 ## References
 
@@ -632,9 +633,9 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 5.1 Prettier leaves the edited documents as they are
-- [x] 5.2 Lint and the whole unit suite pass
-- [ ] 5.3 CI's `ci`, `smoke` and `e2e` pass on the PR
+- [x] 5.1 Prettier leaves the edited documents as they are — 550065e
+- [x] 5.2 Lint and the whole unit suite pass — 550065e
+- [x] 5.3 CI's `ci`, `smoke` and `e2e` pass on the PR — 550065e
 
 #### Manual
 
