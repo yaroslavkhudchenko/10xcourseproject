@@ -14,7 +14,8 @@ import type { PriceCheck, ShopOffer, ShopUnavailable } from "@/types";
  * How many of a shop's requests in a row may fail before a refresh stops asking that shop (failuresAfter): a shop that
  * doesn't answer, or whose counter can't be reached, then costs one refresh this many requests or reservations at
  * most, never one for each of its items (research note §7, the owner's call). Rossmann's loop, one product per
- * request, keeps to it too (price-refresh.ts).
+ * request, keeps to it too, counting only the requests Rossmann gave no response to, since any answer it gives is
+ * about one product alone (price-refresh.ts).
  */
 export const FAILED_REQUESTS_BEFORE_STOP = 2;
 
@@ -125,7 +126,8 @@ export async function fetchPinnedPrices(
  * though the shop didn't refuse it (`unavailable`, `failed`), the gate's failures, the counter's skip and an answer
  * that can't be read all included; none once a request got an answer, whatever it holds: a price, a missing item, or
  * hits that couldn't all be read. A refusal leaves the count as it was, since it stops the shop on its own.
- * `answer` is a pinned-price request's answer, or Rossmann's check of one product, which is its request's answer.
+ * `answer` is a pinned-price request's answer, or the check of a Rossmann request that got no response, the only kind
+ * Rossmann's loop counts: any answer Rossmann gave resets its count instead (price-refresh.ts).
  */
 export function failuresAfter(failures: number, answer: PinnedAnswer | PriceCheck): number {
   if (answer.kind !== "unavailable") {

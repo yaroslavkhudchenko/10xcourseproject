@@ -1,6 +1,6 @@
 // Database contract check: proves the shop gate's functions, RLS and grants against a running Supabase. Since test
-// rollout Phase 3 it also proves that a refused reservation, capped, paused or stopped, inserts no request row, and
-// that a shorter rate-limit report never shortens a longer pause.
+// rollout Phase 3 it also proves that a refused reservation, capped, paused or stopped, inserts no request row, while
+// the allowed ones do, and that a shorter rate-limit report never shortens a longer pause.
 // Run: SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=<anon key> node scripts/check-shop-gate-db.mjs
 // The rows it creates persist, so run `npx supabase db reset` before running it again locally.
 // It reads the shop request log's sequence as the local superuser, through Docker (scripts/e2e-local-db.mjs), so the
@@ -21,7 +21,8 @@ if (hostname !== "127.0.0.1" && hostname !== "localhost") {
   process.exit(1);
 }
 // The superuser's helper refuses unless the environment, .env and .dev.vars all name the local stack: checked before
-// anything is written, so a refusal leaves nothing behind.
+// anything is written, as the database container it reads through is too (logMark, below the helpers), so neither a
+// refusal nor a run without Docker leaves anything behind.
 try {
   assertLocalSupabase();
 } catch (error) {
@@ -71,6 +72,10 @@ function checkNoRow(refusal, { before, after }) {
   check(`the ${refusal} reservation inserts no request row`, after === before, `log ${before} -> ${after}`);
 }
 
+// The request log is read through the local stack's database container, so it's read once before anything is written:
+// a run that can't reach the container, without Docker say, stops here, before it signs a user up or reserves a slot.
+logMark();
+
 // Local sign-up is enabled with email confirmation off, so signing up returns a session.
 const email = `shop-gate-${Date.now()}@example.com`;
 const signUp = await user.auth.signUp({ email, password: "Shop-Gate-Passw0rd!" });
@@ -78,12 +83,17 @@ const signedIn = Boolean(signUp.data.session);
 check("sign up a throwaway user", signedIn, signUp.error?.message ?? (signedIn ? email : "no session returned"));
 if (!signedIn) process.exit(1);
 
-// 1. The cap: 30 reservations in a row are allowed, and the 31st inside the same 60 seconds is refused, with no
-// request row.
+// 1. The cap: 30 reservations in a row are allowed, each with its request row, and the 31st inside the same 60 seconds
+// is refused, with no request row.
+const before30 = logMark();
 const first30 = [];
 for (let i = 0; i < 30; i++) first30.push(await reserve(user, "rossmann"));
+const after30 = logMark();
 const refused = first30.find((result) => result.error || result.data?.outcome !== "allowed");
 check("30 reservations for rossmann are allowed", !refused, refused ? show(refused) : "30 x allowed");
+// The allowed ones move the log's mark, so the refused ones' checks below, that it stays where it was, can't pass on a
+// mark that never moves.
+check("the 30 allowed reservations insert request rows", after30 !== before30, `log ${before30} -> ${after30}`);
 const thirtyFirst = await reserveMarked("rossmann");
 check(
   "the 31st reservation for rossmann is capped",

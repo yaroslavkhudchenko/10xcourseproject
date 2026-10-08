@@ -4,7 +4,15 @@ import { createShopGate, type ShopGate, type ShopGateDeps, type ShopGateLogEntry
 import { fetchNaturaPrices, isNaturaImage, isNaturaProductUrl, searchNatura } from "@/lib/services/shops/natura";
 import { parseSize } from "@/lib/services/size";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
-import type { GateOutcome, PriceCheck, ShopCandidate, ShopOffer, ShopSearch } from "@/types";
+import {
+  CHALLENGE,
+  gateOutcomes,
+  loggedLine,
+  loggedLines,
+  pauseSecondsOf,
+  type ServedAnswer,
+} from "@/lib/services/testing/shop-answers";
+import type { GateOutcome, PriceCheck, ShopCandidate, ShopOffer } from "@/types";
 import eanHit from "@/lib/services/shops/fixtures/natura-ean-hit.json";
 import eanMiss from "@/lib/services/shops/fixtures/natura-ean-miss.json";
 import nameSearch from "@/lib/services/shops/fixtures/natura-name-search.json";
@@ -75,20 +83,6 @@ const SUGGESTION = {
   attributes: { boosted_via: [], bool_tags: [], boost: 0, title: NAME_QUERY },
 };
 
-/** An answer's status, headers and body, served for whichever URL a test gives it. */
-interface Answer {
-  status: number;
-  headers?: Record<string, string>;
-  body?: string;
-}
-
-// A bot challenge, which Cloudflare marks with `cf-mitigated: challenge` whatever its status.
-const CHALLENGE: Answer = {
-  status: 200,
-  headers: { "cf-mitigated": "challenge" },
-  body: "<html>Just a moment...</html>",
-};
-
 /**
  * A real gate that gives every reservation the same answer, allowed by default, over a fetch that answers only the
  * given recordings. `reserve` shows each slot asked for, `reportBlock` each refusal reported, and `gateLog` the gate's
@@ -106,30 +100,6 @@ function setup(entries: ReplayEntry[], reservation: unknown = { outcome: "allowe
 /** Every URL the fetch was asked for, so a test can't pass on the wrong request. */
 function requestedUrls(fetchMock: Mock<typeof fetch>): string[] {
   return fetchMock.mock.calls.map(([input]) => (input instanceof Request ? input.url : new URL(input).href));
-}
-
-/** The outcome of each of the gate's own log lines. */
-function gateOutcomes(gateLog: Mock<(entry: ShopGateLogEntry) => void>): ShopGateLogEntry["outcome"][] {
-  return gateLog.mock.calls.map(([entry]) => entry.outcome);
-}
-
-/** The one log line a test expects, parsed. */
-function loggedLine(warn: { mock: { calls: unknown[][] } }): unknown {
-  expect(warn.mock.calls).toHaveLength(1);
-  return JSON.parse(String(warn.mock.calls[0][0]));
-}
-
-/** Every log line, parsed. */
-function loggedLines(warn: { mock: { calls: unknown[][] } }): unknown[] {
-  return warn.mock.calls.map(([line]) => JSON.parse(String(line)) as unknown);
-}
-
-/** How many seconds from now an answer's pause ends; it must be a pause with its end. */
-function pauseSecondsOf(answer: ShopSearch | PriceCheck | undefined): number {
-  if (answer?.kind !== "unavailable" || answer.reason !== "paused" || answer.until === undefined) {
-    throw new Error(`expected a pause with its end, got ${JSON.stringify(answer)}`);
-  }
-  return (Date.parse(answer.until) - Date.now()) / 1000;
 }
 
 /** A recorded hit, as JSON a test can edit. */
@@ -763,7 +733,7 @@ describe("Natura search: why it's unavailable", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it.each<{ refusal: string; answer: Answer; reported: unknown[][] }>([
+  it.each<{ refusal: string; answer: ServedAnswer; reported: unknown[][] }>([
     { refusal: "a 403", answer: { status: 403 }, reported: [["natura", "blocked", undefined, "HTTP 403"]] },
     {
       refusal: "a bot challenge, though its status is 200",
@@ -1018,6 +988,11 @@ describe("Natura prices: what they keep out", () => {
       change: "no count of the hits matched",
       edit: (answer) => ({ ...answer, results: { ...answer.results, total_hits: undefined } }),
     },
+    // Not a whole number, so no count of hits, though it's no more than the hits the answer holds.
+    {
+      change: "a count that isn't whole",
+      edit: (answer) => ({ ...answer, results: { ...answer.results, total_hits: 1.5 } }),
+    },
   ])("calls a SKU without a hit unavailable, never missing, when the answer has $change", async ({ edit }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     // The recorded answer for Nivea Soft and Nivea MEN, edited, as if it had left out a third SKU's hit.
@@ -1036,6 +1011,25 @@ describe("Natura prices: what they keep out", () => {
       event: "natura-prices",
       reason: "answer incomplete",
       detail: "2 product hits for 3 SKUs",
+    });
+  });
+
+  it("calls a SKU unavailable, never missing, when an answer without hits counts -1 of them", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // natura-sku-unknown.json, the recorded answer for a SKU Natura doesn't have, with a count below 0, which no count
+    // of hits can be: it can't say the answer holds every hit it matched.
+    const url = priceUrl(["ZZ00000000"]);
+    const body = JSON.stringify({ ...skuUnknown, results: { ...skuUnknown.results, total_hits: -1 } });
+    const { gate, fetchMock, reserve, reportBlock } = setup([{ url, status: 200, body }]);
+
+    expect(await fetchNaturaPrices(gate, ["ZZ00000000"])).toEqual(new Map([["ZZ00000000", FAILED]]));
+    expect(requestedUrls(fetchMock)).toEqual([url]);
+    expect(reserve).toHaveBeenCalledTimes(1);
+    expect(reportBlock).not.toHaveBeenCalled();
+    expect(loggedLine(warn)).toEqual({
+      event: "natura-prices",
+      reason: "answer incomplete",
+      detail: "0 product hits for 1 SKUs",
     });
   });
 });

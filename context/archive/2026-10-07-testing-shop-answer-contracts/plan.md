@@ -586,6 +586,48 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **§7's "Re-evaluate if…" triggers** for this phase's edges are this phase's own wording, not a source's: the owner checks them in 5.4.
 - **§3** says `implementing` until the archive after the merge, which marks it `complete`.
 - **5.3, CI on the PR** (run 37753013093, on 550065e): `ci`, `smoke` and `e2e` passed.
+- **5.4, the owner's review:** the owner merged PR #42 after being asked to review the docs first, so the merge (4f13e8b) closes the row. Production deployed green from it (Workers Builds, with its migration gate and signed-out check, and the `Deploy check` workflow).
+
+### The review's fixes (2026-10-08)
+
+The full-plan review (`reviews/impl-review.md`) found 0 critical, 3 warnings and 5 observations, and the owner chose to fix all eight:
+
+- **F1, Rossmann's stop (Fix A):**
+  - **Why:** a product whose answer always fails stores nothing, so the list refresh, asking the oldest checks first, asks it first again. Two such products would have stopped every list refresh before the others.
+  - **The rule:** Rossmann's loop now counts only a request Rossmann gave no response to: a timeout, its body included, a network error, or the counter's skip. Any answer resets the count, whatever its status or body.
+  - **The code:** `requestRossmannPrice` returns the check with `responded`, from `shopResponded` in `shop-outcome.ts`, or `false` when a time limit cut the body off (`BodyRead`). `fetchRossmannPrice` keeps its signature.
+  - **This changes Phase 4's contract,** which counted a 500 then a timeout. The tests now:
+    - stop after two requests with no response;
+    - reset on a 500;
+    - never stall two products that always fail ahead of two that answer, over two refreshes;
+    - count two stalled bodies as timeouts, while a page in place of the JSON still resets the count.
+  - **The tradeoff:** a Rossmann that answers fast with an error for every product is asked every due product, up to the cap, as before this change. §7 records that edge.
+- **F2, CLAUDE.md:**
+  - a price answer holding hits of another type leaves its ids unavailable, while a rename on the filtered price request reads as `missing`, the §7 edge;
+  - Rossmann's counting rule is stated;
+  - "a value that can't be read" now includes a missing availability;
+  - a `total_hits` must be a whole number of 0 or more.
+- **F3, the test plan's §3:** marked `complete` with the archive folder, in the archive commit.
+- **F4, Luigi's Box's price path:** an answer is complete only with a `total_hits` that's a whole number of 0 or more. A copy with -1, and one with 1.5 beside two hits, each leave every unanswered id unavailable.
+- **F5, the gate's database check:**
+  - it reads the request log once before signing up, so a run without Docker writes nothing;
+  - it checks that the 30 allowed reservations move the log's mark.
+  - The early read sits after the helpers, since `check()` needs `failed` declared.
+- **F6, the re-pin choice's refusal table** gains a challenge and a 503 with Retry-After. Every row now asserts one reservation and its reported blocks: none for a 500 or a network failure, the block for a 403 or a challenge, and the pause, 900 s by default and 120 s when given, for a 429 or a 503.
+- **F7, shared test helpers:**
+  - `src/lib/services/testing/shop-answers.ts` holds `CHALLENGE`, `NOT_FOUND_PAGE`, `ServedAnswer` (taken from `ReplayEntry`), `stallingFetch`, `pauseSecondsOf`, `gateOutcomes`, `loggedLine` and `loggedLines`. Every shop test, the refresh's, the lookups' and the prices' import them.
+  - `rossmann.ts` imports `within` from `shop-values.ts`.
+  - `shopResponded` has its own table in `shop-outcome.test.ts`.
+- **F8, two adaptations the notes missed:**
+  - **Natura's price-request copy with a removed `title`** is pinned as harmless, prices still read (`natura.test.ts`), since no offer reads the title. The plan had listed it among the broken copies without an outcome.
+  - **The re-pin choice** was named in the Desired End State, but Phase 4's contract had no item for it. F6 adds the two refusal kinds its table lacked.
+- **Breaks,** each restored from the staged file:
+  - the old counting rule: 3 red;
+  - a stalled body read as a response: 1;
+  - a negative count accepted: 1;
+  - a count that isn't whole accepted: 1;
+  - `shopResponded` reading a block as no response: 1.
+- **Checks:** lint, `astro check` (0 errors) and the unit suite (2,602 tests) pass. The gate script passes Node's syntax check and lint; CI's `smoke` job runs it.
 
 ## References
 
@@ -639,4 +681,4 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Manual
 
-- [ ] 5.4 The owner reviews the test plan's §2, §6 and §7 updates and the `CLAUDE.md` changes
+- [x] 5.4 The owner reviews the test plan's §2, §6 and §7 updates and the `CLAUDE.md` changes — 4f13e8b

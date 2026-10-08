@@ -4,7 +4,15 @@ import { createShopGate, type ShopGateDeps, type ShopGateLogEntry } from "@/lib/
 import { fetchHebePrices, isHebeImage, isHebeProductUrl, searchHebe } from "@/lib/services/shops/hebe";
 import { parseSize } from "@/lib/services/size";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
-import type { GateOutcome, PriceCheck, ShopCandidate, ShopOffer, ShopSearch } from "@/types";
+import {
+  CHALLENGE,
+  gateOutcomes,
+  loggedLine,
+  loggedLines,
+  pauseSecondsOf,
+  type ServedAnswer,
+} from "@/lib/services/testing/shop-answers";
+import type { GateOutcome, PriceCheck, ShopCandidate, ShopOffer } from "@/types";
 import eanOffline from "@/lib/services/shops/fixtures/hebe-ean-offline.json";
 import eanOnline from "@/lib/services/shops/fixtures/hebe-ean-online.json";
 import idUnknown from "@/lib/services/shops/fixtures/hebe-id-unknown.json";
@@ -60,20 +68,6 @@ const FAILED: PriceCheck = { kind: "unavailable", reason: "failed" };
 // A page where Luigi's Box's JSON should be, as a proxy or a maintenance page would send it.
 const HTML_PAGE =
   '<!DOCTYPE html><html lang="pl"><head><title>Hebe</title></head><body>Przerwa techniczna</body></html>';
-
-/** An answer's status, headers and body, served for whichever URL a test gives it. */
-interface Answer {
-  status: number;
-  headers?: Record<string, string>;
-  body?: string;
-}
-
-// A bot challenge, which Cloudflare marks with `cf-mitigated: challenge` whatever its status.
-const CHALLENGE: Answer = {
-  status: 200,
-  headers: { "cf-mitigated": "challenge" },
-  body: "<html>Just a moment...</html>",
-};
 // Hebe's 30-day low as a changed format could send it, with the one the offer keeps. One that's there but can't be
 // read costs only itself and is counted; one left out or none is normal, and one that reads but can't be stored is
 // dropped as any other would be, so neither is counted.
@@ -149,19 +143,6 @@ function requestedUrls(fetchMock: Mock<typeof fetch>): string[] {
   return fetchMock.mock.calls.map(([input]) => (input instanceof Request ? input.url : new URL(input).href));
 }
 
-/** The outcome of each of the gate's own log lines. */
-function gateOutcomes(gateLog: Mock<(entry: ShopGateLogEntry) => void>): ShopGateLogEntry["outcome"][] {
-  return gateLog.mock.calls.map(([entry]) => entry.outcome);
-}
-
-/** How many seconds from now an answer's pause ends; it must be a pause with its end. */
-function pauseSecondsOf(answer: ShopSearch | PriceCheck | undefined): number {
-  if (answer?.kind !== "unavailable" || answer.reason !== "paused" || answer.until === undefined) {
-    throw new Error(`expected a pause with its end, got ${JSON.stringify(answer)}`);
-  }
-  return (Date.parse(answer.until) - Date.now()) / 1000;
-}
-
 /** A recorded hit, as JSON a test can edit. */
 interface Hit {
   url: unknown;
@@ -225,17 +206,6 @@ async function recordedCandidates(query: string, size: number, fixture: object):
     throw new Error(`expected results, got ${search.kind}`);
   }
   return search.candidates;
-}
-
-/** The one log line a test expects, parsed. */
-function loggedLine(warn: { mock: { calls: unknown[][] } }): unknown {
-  expect(warn.mock.calls).toHaveLength(1);
-  return JSON.parse(String(warn.mock.calls[0][0]));
-}
-
-/** Every log line, parsed. */
-function loggedLines(warn: { mock: { calls: unknown[][] } }): unknown[] {
-  return warn.mock.calls.map(([line]) => JSON.parse(String(line)) as unknown);
 }
 
 afterEach(() => {
@@ -803,7 +773,7 @@ describe("Hebe search: why it's unavailable", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it.each<{ refusal: string; answer: Answer; reported: unknown[][] }>([
+  it.each<{ refusal: string; answer: ServedAnswer; reported: unknown[][] }>([
     { refusal: "a 403", answer: { status: 403 }, reported: [["hebe", "blocked", undefined, "HTTP 403"]] },
     {
       refusal: "a bot challenge, though its status is 200",

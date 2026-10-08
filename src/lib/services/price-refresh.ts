@@ -16,7 +16,7 @@ import {
   logRequestsStopped,
 } from "@/lib/services/shops/pinned-prices";
 import { SHOP_ADAPTERS } from "@/lib/services/shops/registry";
-import { fetchRossmannPrice, isRossmannProductId } from "@/lib/services/shops/rossmann";
+import { isRossmannProductId, requestRossmannPrice } from "@/lib/services/shops/rossmann";
 import { isRefusal } from "@/lib/services/shops/shop-outcome";
 import { parseWatchlistItemId } from "@/lib/services/watchlist";
 import { filterHref, parseListFilter, type ListFilter } from "@/lib/services/watchlist-rows";
@@ -42,7 +42,8 @@ interface ShopRefresh {
  * Fetches a shop's pinned items by its own ids through the gate, one request at a time: a check for every id given.
  * Once the shop refuses, its remaining ids get that same answer with no request and no reservation. Once
  * FAILED_REQUESTS_BEFORE_STOP of its requests in a row failed, its remaining ids get no request and no reservation
- * either, and stay unanswered. It never throws.
+ * either, and stay unanswered: in a shop asked in batches, a request whose answer can't be read fails, and in Rossmann,
+ * asked one product per request, only a request it gave no response to. It never throws.
  */
 export type PriceFetcher = (gate: ShopGate, ids: string[]) => Promise<Map<string, PriceCheck>>;
 
@@ -70,8 +71,10 @@ export const PRICE_FETCHERS: Record<KnownShop, PriceFetcher> = { rossmann: fetch
  * stopped, its remaining items get that same answer with no request and no reservation, while the other shops go on.
  * Once FAILED_REQUESTS_BEFORE_STOP of a shop's requests in a row failed, its counter's skips included, its remaining
  * items get no request and no reservation either, and stay unanswered, so a shop that doesn't answer costs a refresh
- * that many requests, not one for each item. Each item is checked once, however often it's given, and an item in a
- * shop outside `shops` is `unavailable` with no request.
+ * that many requests, not one for each item. In Rossmann only a request it gave no response to counts, since any
+ * answer it gives is about one product, which, storing nothing, would come first again on the next list refresh and
+ * keep the products after it unasked. Each item is checked once, however often it's given, and an item in a shop
+ * outside `shops` is `unavailable` with no request.
  */
 export async function refreshPrices(
   gate: ShopGate,
@@ -94,12 +97,15 @@ export async function refreshPrices(
 
 /**
  * Asks Rossmann for each product's offer, one request at a time in the order given. Once Rossmann refuses, the
- * products after it get that same answer with no request and no reservation. Each request is one product, so its
- * check is its request's answer (failuresAfter): one that failed, the counter's skip and an answer that can't be read
- * included, counts toward the stop, and a price or a missing product resets the count. Once
- * FAILED_REQUESTS_BEFORE_STOP requests in a row failed, the products after them get no request and no reservation
- * either, and stay unanswered, counted in a log line. A product whose id can't be Rossmann's (isRossmannProductId) is
- * never sent, so it neither counts nor resets: the price check still says why it's unanswered.
+ * products after it get that same answer with no request and no reservation. Only a request Rossmann gave no response
+ * to counts toward the stop (requestRossmannPrice's `responded`): one that timed out, its body included, or failed on
+ * the network, or that the counter's skip kept from being sent. Any answer Rossmann gave resets the count, whatever its
+ * status or body: a redirect, a page or a detail that can't be used is about that one product, which stores nothing,
+ * so a list refresh, asking the oldest checks first, would ask it first again, and counting it would keep the products
+ * after it unasked on every list refresh. Once FAILED_REQUESTS_BEFORE_STOP requests in a row got no response, the
+ * products after them get no request and no reservation either, and stay unanswered, counted in a log line. A product
+ * whose id can't be Rossmann's (isRossmannProductId) is never sent, so it neither counts nor resets: the price check
+ * still says why it's unanswered.
  */
 async function fetchRossmannPrices(gate: ShopGate, ids: string[]): Promise<Map<string, PriceCheck>> {
   const checks = new Map<string, PriceCheck>();
@@ -118,12 +124,12 @@ async function fetchRossmannPrices(gate: ShopGate, ids: string[]): Promise<Map<s
       unasked += 1;
       continue;
     }
-    const check = await fetchRossmannPrice(gate, id);
-    if (sent) {
-      failures = failuresAfter(failures, check);
-    }
+    const { check, responded } = await requestRossmannPrice(gate, id);
     if (isRefusal(check)) {
+      // It stops Rossmann on its own, so it leaves the count as it was.
       refusal = check;
+    } else if (sent) {
+      failures = responded ? 0 : failuresAfter(failures, check);
     }
     checks.set(id, check);
   }

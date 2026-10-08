@@ -303,8 +303,8 @@ interface HitsRead {
 
 /**
  * An `ok` answer's hits, or null when it isn't JSON with a list of hits. Either is logged without the answer. The hits
- * are complete when the answer has no next page and matched no more hits than it holds; a count or a next page that
- * can't be read can't say so.
+ * are complete when the answer has no next page and matched no more hits than it holds, its count a whole number not
+ * below 0; a count or a next page that can't be read can't say so.
  */
 async function readHits(response: Response, event: string): Promise<HitsRead | null> {
   let body: unknown;
@@ -325,7 +325,13 @@ async function readHits(response: Response, event: string): Promise<HitsRead | n
   }
   const { hits, total_hits: totalHits } = parsed.data.results;
   const nextPage = parsed.data.next_page;
-  const complete = nextPage === null && typeof totalHits === "number" && totalHits <= hits.length;
+  // A count below 0, or not whole, is no count of hits: an empty answer with it would store every asked id as missing.
+  const complete =
+    nextPage === null &&
+    typeof totalHits === "number" &&
+    Number.isInteger(totalHits) &&
+    totalHits >= 0 &&
+    totalHits <= hits.length;
   return { hits, complete, totalHits, nextPage };
 }
 

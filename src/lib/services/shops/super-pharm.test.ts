@@ -11,7 +11,15 @@ import {
 } from "@/lib/services/shops/super-pharm";
 import { parseSize } from "@/lib/services/size";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
-import type { GateOutcome, PriceCheck, ShopCandidate, ShopOffer, ShopSearch } from "@/types";
+import {
+  CHALLENGE,
+  gateOutcomes,
+  loggedLine,
+  loggedLines,
+  pauseSecondsOf,
+  type ServedAnswer,
+} from "@/lib/services/testing/shop-answers";
+import type { GateOutcome, PriceCheck, ShopCandidate, ShopOffer } from "@/types";
 import rossmannAaLaab from "@/lib/services/shops/fixtures/rossmann-search-aa-laab.json";
 import rossmannShampoos from "@/lib/services/shops/fixtures/rossmann-search-head-shoulders-classic-clean.json";
 import rossmannMascaras from "@/lib/services/shops/fixtures/rossmann-search-maybelline-lash-sensational.json";
@@ -203,26 +211,12 @@ const FAILED: PriceCheck = { kind: "unavailable", reason: "failed" };
 // A page where Algolia's JSON should be, as a proxy or a maintenance page would send it.
 const HTML_PAGE =
   '<!DOCTYPE html><html lang="pl"><head><title>Super-Pharm</title></head><body>Przerwa techniczna</body></html>';
-
-/** An answer's status, headers and body, served for whichever request a test gives it. */
-interface Answer {
-  status: number;
-  headers?: Record<string, string>;
-  body?: string;
-}
-
-// A bot challenge, which Cloudflare marks with `cf-mitigated: challenge` whatever its status.
-const CHALLENGE: Answer = {
-  status: 200,
-  headers: { "cf-mitigated": "challenge" },
-  body: "<html>Just a moment...</html>",
-};
 // Algolia's documented error answer to a request its key may not make, never a recording: Super-Pharm's answer to a key
 // Algolia no longer accepts was never recorded (research note §2.3; rollout Phase 3's research, §2.4; the test plan's
 // §6.6, S-06's follow-up). Algolia's reference for POST /1/indexes/{indexName}/query documents a 403, "Method not
 // allowed with this API key.", whose body is its error shape, ErrorBase, a `message`, here with ErrorBase's own example
 // (https://www.algolia.com/doc/rest-api/search/search-single-index).
-const ALGOLIA_403: Answer = {
+const ALGOLIA_403: ServedAnswer = {
   status: 403,
   headers: { "Content-Type": "application/json; charset=UTF-8" },
   body: JSON.stringify({ message: "Invalid Application-Id or API-Key" }),
@@ -236,7 +230,7 @@ interface NoAnswer {
 // Plain failures, which refuse nothing and leave nothing to read, so Super-Pharm is asked again next time; each with the
 // outcome the gate logs for it. A failed answer's media type comes with it: the replay sends a text body, an empty one
 // included, as text/plain, and an answer without a body has none.
-const FAILURES: { answer: string; reply: Answer | NoAnswer; timeoutMs?: number; outcome: GateOutcome }[] = [
+const FAILURES: { answer: string; reply: ServedAnswer | NoAnswer; timeoutMs?: number; outcome: GateOutcome }[] = [
   {
     answer: "a 400, as Algolia answers a key past its expiry",
     reply: { status: 400, body: "" },
@@ -292,7 +286,7 @@ function answering(requestBody: string, body: string, status = 200): ReplayEntry
  * The replay's answer to the request with the given body: the given status, headers and body, or none at all, as a
  * request that never answers or fails on the network gets.
  */
-function answeringWith(requestBody: string, answer: Answer | NoAnswer): ReplayEntry {
+function answeringWith(requestBody: string, answer: ServedAnswer | NoAnswer): ReplayEntry {
   return { url: QUERY_URL, requestBody, ...answer };
 }
 
@@ -320,19 +314,6 @@ function sentRequests(fetchMock: Mock<typeof fetch>): { url: string; body: unkno
 /** The parameters a request's body holds, as Algolia reads them. */
 function paramsOf(body: unknown): URLSearchParams {
   return new URLSearchParams((JSON.parse(String(body)) as { params: string }).params);
-}
-
-/** The outcome of each of the gate's own log lines. */
-function gateOutcomes(gateLog: Mock<(entry: ShopGateLogEntry) => void>): ShopGateLogEntry["outcome"][] {
-  return gateLog.mock.calls.map(([entry]) => entry.outcome);
-}
-
-/** How many seconds from now an answer's pause ends; it must be a pause with its end. */
-function pauseSecondsOf(answer: ShopSearch | PriceCheck | undefined): number {
-  if (answer?.kind !== "unavailable" || answer.reason !== "paused" || answer.until === undefined) {
-    throw new Error(`expected a pause with its end, got ${JSON.stringify(answer)}`);
-  }
-  return (Date.parse(answer.until) - Date.now()) / 1000;
 }
 
 /** A recorded hit, as JSON a test can edit: its fields, and its prices in złoty. */
@@ -440,17 +421,6 @@ async function rossmannProduct(
     throw new Error(`no Rossmann product ${id}`);
   }
   return product;
-}
-
-/** The one log line a test expects, parsed. */
-function loggedLine(warn: { mock: { calls: unknown[][] } }): unknown {
-  expect(warn.mock.calls).toHaveLength(1);
-  return JSON.parse(String(warn.mock.calls[0][0]));
-}
-
-/** Every log line, parsed. */
-function loggedLines(warn: { mock: { calls: unknown[][] } }): unknown[] {
-  return warn.mock.calls.map(([line]) => JSON.parse(String(line)) as unknown);
 }
 
 beforeEach(() => {
@@ -1449,7 +1419,7 @@ describe("Super-Pharm search: broken copies give a gap, never 'not found'", () =
     expect(reportBlock).not.toHaveBeenCalled();
   });
 
-  it.each<{ refusal: string; answer: Answer; reported: unknown[][]; outcome: GateOutcome }>([
+  it.each<{ refusal: string; answer: ServedAnswer; reported: unknown[][]; outcome: GateOutcome }>([
     {
       refusal: "a 403 with Algolia's documented error body, as for a key it no longer accepts",
       answer: ALGOLIA_403,

@@ -1,10 +1,10 @@
 ---
 change_id: testing-shop-answer-contracts
 title: Shop answer contracts (test plan rollout Phase 3)
-status: implementing
+status: archived
 created: 2026-10-07
 updated: 2026-10-08
-archived_at: null
+archived_at: 2026-10-08T13:58:33Z
 ---
 
 ## Notes
