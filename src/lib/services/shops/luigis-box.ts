@@ -100,10 +100,11 @@ export interface LuigisBoxClient {
   /**
    * Fetches the offers of pinned items by id through the gate: one request per 50 ids, each after the one before. Once
    * the shop refuses, busy under the cap, paused or stopped, the ids of the requests after it get that same answer with
-   * no request and no reservation. Resolves to a check for every id given: its offer, `missing` when the shop answered
-   * without it in an answer that holds every hit it matched, each one of the shop's items and read, or `unavailable`
-   * when the id can't go into a filter, the gate skipped or refused its request, or the answer wasn't readable or may
-   * have left its hit out.
+   * no request and no reservation, and once two of its requests in a row failed, the ids after them get no request and
+   * no reservation either (fetchPinnedPrices). Resolves to a check for every id given: its offer, `missing` when the
+   * shop answered without it in an answer that holds every hit it matched, each one of the shop's items and read, or
+   * `unavailable` when the id can't go into a filter, the gate skipped or refused its request, the request was never
+   * sent, or the answer wasn't readable or may have left its hit out.
    */
   fetchPrices: (gate: ShopGate, ids: string[]) => Promise<Map<string, PriceCheck>>;
 }

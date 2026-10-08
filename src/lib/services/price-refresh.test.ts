@@ -14,7 +14,7 @@ import {
   type PriceRefresh,
   type PriceRefreshCode,
 } from "@/lib/services/price-refresh";
-import { createShopGate } from "@/lib/services/shop-gate";
+import { createShopGate, type ShopGateDeps } from "@/lib/services/shop-gate";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
 import type { ListFilter } from "@/lib/services/watchlist-rows";
 import type { PriceCheck, PriceKey, ShopId, ShopOffer } from "@/types";
@@ -61,6 +61,11 @@ const MEN: PriceKey = { shop: "natura", shopItemId: "NV81063" };
 const UNKNOWN_SKU: PriceKey = { shop: "natura", shopItemId: "ZZ00000000" };
 const HEBE_SOFT: PriceKey = { shop: "hebe", shopItemId: "000000000000218807" };
 const SUPER_PHARM_SOFT: PriceKey = { shop: "super-pharm", shopItemId: "10132" };
+// Rossmann's Soft Rose lip balm, which no detail recording answers: a test serves it the answer it needs.
+const SOFT_ROSE: PriceKey = { shop: "rossmann", shopItemId: "11790" };
+
+/** The keys of a shop's items, by its own ids, in the order given. */
+const keysIn = (shop: ShopId, ids: string[]): PriceKey[] => ids.map((shopItemId) => ({ shop, shopItemId }));
 
 const answers = {
   felix: { url: detailUrl("131225"), status: 200, body: JSON.stringify(reduced) },
@@ -133,9 +138,34 @@ const FAILED: PriceCheck = { kind: "unavailable", reason: "failed" };
 const BUSY: PriceCheck = { kind: "unavailable", reason: "busy" };
 const STOPPED: PriceCheck = { kind: "unavailable", reason: "stopped" };
 const PAUSE_END = "2026-09-28T12:15:00.000Z";
+// The time a test that needs a pause's exact end stops the clock at, and the end of a pause a shop asks for with
+// `Retry-After: 120` then.
+const NOW = "2026-09-28T12:00:00.000Z";
+const RETRY_AFTER_END = "2026-09-28T12:02:00.000Z";
 // A page where Rossmann's JSON should be, as a moved route, or a page in front of the API, would answer.
 const NOT_FOUND_PAGE =
   '<!DOCTYPE html><html lang="pl"><head><title>Rossmann</title></head><body>Nie znaleziono strony</body></html>';
+
+/** An answer's status, headers and body, served for whichever URL a test gives it. */
+interface Answer {
+  status: number;
+  headers?: Record<string, string>;
+  body?: string;
+}
+
+// A bot challenge, which Cloudflare marks with `cf-mitigated: challenge` whatever its status.
+const CHALLENGE: Answer = {
+  status: 200,
+  headers: { "cf-mitigated": "challenge" },
+  body: "<html>Just a moment...</html>",
+};
+
+// A counter the gate can't read, as a refresh meets one: an answer it can't read, or none at all. The gate then skips
+// the request (`unavailable`), which the adapters read as a failed request.
+const UNREADABLE_COUNTERS: { why: string; counter: () => unknown }[] = [
+  { why: "answers what the gate can't read", counter: () => null },
+  { why: "can't be reached", counter: () => Promise.reject(new Error("connection refused")) },
+];
 
 /** The URL a fetch was asked for. */
 function urlOf(input: RequestInfo | URL): string {
@@ -165,26 +195,36 @@ function shopOf(url: string): KnownShop {
 
 /**
  * A real gate over `fetchMock`; `reserve` answers each reservation. Every reservation is recorded by shop, so a test
- * sees which shops' slots were asked for.
+ * sees which shops' slots were asked for, and `reportBlock` each refusal the gate reported. `timeoutMs` shortens the
+ * gate's limit, so a request that never answers fails at once.
  */
-function gateOver(fetchMock: typeof fetch, reserve: (shop: ShopId) => unknown = () => ({ outcome: "allowed" })) {
+function gateOver(
+  fetchMock: typeof fetch,
+  reserve: (shop: ShopId) => unknown = () => ({ outcome: "allowed" }),
+  timeoutMs?: number,
+) {
   const reservations: ShopId[] = [];
+  const reportBlock = vi.fn<ShopGateDeps["reportBlock"]>(() => Promise.resolve());
   const gate = createShopGate({
     reserve: (shop) => {
       reservations.push(shop);
       return Promise.resolve(reserve(shop));
     },
-    reportBlock: () => Promise.resolve(),
+    reportBlock,
     fetch: fetchMock,
     log: () => undefined,
+    timeoutMs,
   });
-  return { gate, reservations };
+  return { gate, reservations, reportBlock };
 }
 
-/** A real gate over a fetch that answers only the given recordings; `reserve` answers each reservation. */
-function setup(entries: ReplayEntry[], reserve?: (shop: ShopId) => unknown) {
+/**
+ * A real gate over a fetch that answers only the given recordings; `reserve` answers each reservation, and `timeoutMs`
+ * shortens the gate's limit.
+ */
+function setup(entries: ReplayEntry[], reserve?: (shop: ShopId) => unknown, timeoutMs?: number) {
   const fetchMock = vi.fn(createReplayFetch(entries));
-  return { ...gateOver(fetchMock, reserve), fetchMock };
+  return { ...gateOver(fetchMock, reserve, timeoutMs), fetchMock };
 }
 
 /**
@@ -218,6 +258,16 @@ function requestedUrls(fetchMock: Mock<typeof fetch>): string[] {
 /** The URLs one shop was asked for, in the order it was asked. */
 function urlsTo(fetchMock: Mock<typeof fetch>, shop: KnownShop): string[] {
   return requestedUrls(fetchMock).filter((url) => shopOf(url) === shop);
+}
+
+/** The slots one shop's requests were reserved, one entry each. */
+function reservedFor(reservations: ShopId[], shop: ShopId): ShopId[] {
+  return reservations.filter((reserved) => reserved === shop);
+}
+
+/** Every line the adapters logged, parsed: the gate's own lines go to its log, never here. */
+function loggedLines(warn: { mock: { calls: unknown[][] } }): unknown[] {
+  return warn.mock.calls.map(([line]) => JSON.parse(String(line)) as unknown);
 }
 
 /** One builder call a query made, such as `["insert", rows]`. */
@@ -286,7 +336,17 @@ const insertOf = (rows: unknown[]): Call[] => [
   ["abortSignal", true],
 ];
 
+/** A copy of a recorded Luigi's Box answer, as JSON, with every hit's `type` renamed and all else as recorded. */
+function withHitType(fixture: { results: { hits: { type: string }[] } }, type: string): string {
+  const copy = structuredClone(fixture);
+  for (const hit of copy.results.hits) {
+    hit.type = type;
+  }
+  return JSON.stringify(copy);
+}
+
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -375,6 +435,7 @@ describe("refreshPrices: when Rossmann refuses", () => {
       reservation: { outcome: "paused", until: PAUSE_END },
       check: { kind: "unavailable", reason: "paused", until: PAUSE_END },
     },
+    { refusal: "stopped", reservation: { outcome: "stopped" }, check: STOPPED },
   ])(
     "stops once Rossmann is $refusal: the products after it get the same answer, unasked",
     async ({ reservation, check }) => {
@@ -423,6 +484,63 @@ describe("refreshPrices: when Rossmann refuses", () => {
     expect(queries).toEqual([insertOf([priceRow(FELIX, felixOffer)])]);
   });
 
+  it.each<{ refusal: string; answer: Answer; reported: unknown[][]; check: PriceCheck }>([
+    {
+      refusal: "a 429",
+      answer: { status: 429, headers: { "Retry-After": "120" } },
+      reported: [["rossmann", "rate_limited", 120]],
+      check: { kind: "unavailable", reason: "paused", until: RETRY_AFTER_END },
+    },
+    {
+      refusal: "a bot challenge",
+      answer: CHALLENGE,
+      reported: [["rossmann", "blocked", undefined, "challenge"]],
+      check: STOPPED,
+    },
+    {
+      refusal: "a 503 that says when to come back",
+      answer: { status: 503, headers: { "Retry-After": "120" } },
+      reported: [["rossmann", "rate_limited", 120]],
+      check: { kind: "unavailable", reason: "paused", until: RETRY_AFTER_END },
+    },
+  ])(
+    "stops once Rossmann answers its second product with $refusal: the products after it get the same answer, unasked and unreserved, while Natura is asked as usual",
+    async ({ answer, reported, check }) => {
+      // The clock stands still, so a pause's end is exact.
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(NOW));
+      const { gate, fetchMock, reservations, reportBlock } = setup([
+        answers.felix,
+        { url: answers.nivea.url, ...answer },
+        answers.gone,
+        answers.soft,
+      ]);
+      const { client, queries } = stubClient();
+
+      const refresh = await refreshPrices(gate, client, [FELIX, NIVEA, GONE, SOFT_ROSE, SOFT]);
+
+      // Rossmann's third and fourth products are neither reserved nor asked, and the refusal is reported once.
+      expect(reservedFor(reservations, "rossmann")).toEqual(["rossmann", "rossmann"]);
+      expect(urlsTo(fetchMock, "rossmann")).toEqual([answers.felix.url, answers.nivea.url]);
+      expect(reportBlock.mock.calls).toEqual(reported);
+      // Natura, in the same refresh, is asked as usual.
+      expect(reservedFor(reservations, "natura")).toEqual(["natura"]);
+      expect(urlsTo(fetchMock, "natura")).toEqual([answers.soft.url]);
+      expect(refresh.results).toEqual([
+        { key: FELIX, check: { kind: "price", offer: felixOffer } },
+        { key: NIVEA, check },
+        { key: GONE, check },
+        { key: SOFT_ROSE, check },
+        { key: SOFT, check: { kind: "price", offer: softOffer } },
+      ]);
+      // The products Rossmann didn't answer for store nothing, so they keep their last price; Natura's is stored.
+      expect(queries).toHaveLength(2);
+      expect(queries).toEqual(
+        expect.arrayContaining([insertOf([priceRow(FELIX, felixOffer)]), insertOf([priceRow(SOFT, softOffer)])]),
+      );
+    },
+  );
+
   it.each<{ failure: string; answer: ReplayEntry }>([
     { failure: "an error status", answer: { url: answers.nivea.url, status: 500 } },
     { failure: "a network error", answer: { url: answers.nivea.url, error: "network" } },
@@ -441,6 +559,231 @@ describe("refreshPrices: when Rossmann refuses", () => {
     ]);
     expect(queries).toEqual([insertOf([priceRow(FELIX, felixOffer)])]);
   });
+});
+
+// A shop that keeps failing costs a refresh two requests: after two failed requests in a row, a shop's later items get
+// no request and no reservation (the owner's call, research note §7). A request that got an answer resets the count.
+describe("refreshPrices: when Rossmann keeps failing", () => {
+  it("stops after a 500 and then no answer in time: the products after them are neither reserved nor asked", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { gate, fetchMock, reservations, reportBlock } = setup(
+      [
+        { url: answers.nivea.url, status: 500 },
+        { url: answers.felix.url, error: "timeout" },
+        answers.gone,
+        answers.soft,
+      ],
+      undefined,
+      20,
+    );
+    const { client, queries } = stubClient();
+
+    const refresh = await refreshPrices(gate, client, [NIVEA, FELIX, GONE, SOFT_ROSE, SOFT]);
+
+    expect(reservedFor(reservations, "rossmann")).toEqual(["rossmann", "rossmann"]);
+    expect(urlsTo(fetchMock, "rossmann")).toEqual([answers.nivea.url, answers.felix.url]);
+    // A failure is no refusal: nothing is reported, and Natura is asked as usual.
+    expect(reportBlock).not.toHaveBeenCalled();
+    expect(urlsTo(fetchMock, "natura")).toEqual([answers.soft.url]);
+    expect(refresh.results).toEqual([
+      { key: NIVEA, check: FAILED },
+      { key: FELIX, check: FAILED },
+      { key: GONE, check: FAILED },
+      { key: SOFT_ROSE, check: FAILED },
+      { key: SOFT, check: { kind: "price", offer: softOffer } },
+    ]);
+    // Rossmann's products store nothing, so they keep their last prices with their age.
+    expect(queries).toEqual([insertOf([priceRow(SOFT, softOffer)])]);
+    // How many products weren't asked, never which.
+    expect(loggedLines(warn)).toEqual([
+      {
+        event: "rossmann-price",
+        reason: "requests stopped",
+        detail: "2 of 4 products not asked after 2 failed requests in a row",
+      },
+    ]);
+  });
+
+  it("goes on after a failure followed by an answer: a 500, a price, a 500 and a price are all asked", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // The price resets the count, so the second 500 is a first failure again: without the reset, the two 500s would
+    // stop Rossmann before its fourth product.
+    const { gate, fetchMock, reservations } = setup([
+      { url: answers.gone.url, status: 500 },
+      answers.felix,
+      { url: detailUrl(SOFT_ROSE.shopItemId), status: 500 },
+      answers.nivea,
+    ]);
+    const { client, queries } = stubClient();
+
+    const refresh = await refreshPrices(gate, client, [GONE, FELIX, SOFT_ROSE, NIVEA]);
+
+    expect(reservations).toEqual(["rossmann", "rossmann", "rossmann", "rossmann"]);
+    expect(urlsTo(fetchMock, "rossmann")).toEqual([
+      answers.gone.url,
+      answers.felix.url,
+      detailUrl(SOFT_ROSE.shopItemId),
+      answers.nivea.url,
+    ]);
+    expect(refresh.results).toEqual([
+      { key: GONE, check: FAILED },
+      { key: FELIX, check: { kind: "price", offer: felixOffer } },
+      { key: SOFT_ROSE, check: FAILED },
+      { key: NIVEA, check: { kind: "price", offer: niveaOffer } },
+    ]);
+    expect(queries).toEqual([insertOf([priceRow(FELIX, felixOffer), priceRow(NIVEA, niveaOffer)])]);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("counts no failure for a stored id that's never sent: two failures around it still stop Rossmann", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // An id that isn't Rossmann's goes into no request, so it neither counts nor resets: the 500s on either side of it
+    // are two failures in a row.
+    const odd: PriceKey = { shop: "rossmann", shopItemId: ".." };
+    const { gate, fetchMock, reservations } = setup([
+      { url: answers.nivea.url, status: 500 },
+      { url: answers.felix.url, status: 500 },
+      answers.gone,
+    ]);
+    const { client, queries } = stubClient();
+
+    const refresh = await refreshPrices(gate, client, [NIVEA, odd, FELIX, GONE]);
+
+    expect(reservations).toEqual(["rossmann", "rossmann"]);
+    expect(urlsTo(fetchMock, "rossmann")).toEqual([answers.nivea.url, answers.felix.url]);
+    expect(refresh.results).toEqual([
+      { key: NIVEA, check: FAILED },
+      { key: odd, check: FAILED },
+      { key: FELIX, check: FAILED },
+      { key: GONE, check: FAILED },
+    ]);
+    expect(queries).toEqual([]);
+    expect(loggedLines(warn)).toEqual([
+      { event: "rossmann-price", reason: "invalid product id", detail: "not 1-12 digits, not sent" },
+      {
+        event: "rossmann-price",
+        reason: "requests stopped",
+        detail: "1 of 4 products not asked after 2 failed requests in a row",
+      },
+    ]);
+  });
+
+  it.each(UNREADABLE_COUNTERS)(
+    "stops after two reservations when Rossmann's counter $why: no request to Rossmann, and Natura is asked as usual",
+    async ({ counter }) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const { gate, fetchMock, reservations } = setup(
+        [answers.felix, answers.nivea, answers.gone, answers.soft],
+        (shop) => (shop === "rossmann" ? counter() : { outcome: "allowed" }),
+      );
+      const { client, queries } = stubClient();
+
+      const refresh = await refreshPrices(gate, client, [FELIX, NIVEA, GONE, SOFT_ROSE, SOFT]);
+
+      expect(reservedFor(reservations, "rossmann")).toEqual(["rossmann", "rossmann"]);
+      expect(urlsTo(fetchMock, "rossmann")).toEqual([]);
+      expect(reservedFor(reservations, "natura")).toEqual(["natura"]);
+      expect(urlsTo(fetchMock, "natura")).toEqual([answers.soft.url]);
+      expect(refresh.results).toEqual([
+        { key: FELIX, check: FAILED },
+        { key: NIVEA, check: FAILED },
+        { key: GONE, check: FAILED },
+        { key: SOFT_ROSE, check: FAILED },
+        { key: SOFT, check: { kind: "price", offer: softOffer } },
+      ]);
+      expect(queries).toEqual([insertOf([priceRow(SOFT, softOffer)])]);
+      expect(loggedLines(warn)).toEqual([
+        {
+          event: "rossmann-price",
+          reason: "requests stopped",
+          detail: "2 of 4 products not asked after 2 failed requests in a row",
+        },
+      ]);
+    },
+  );
+});
+
+// The same stop for a shop asked in batches, where the failures in a row can fall in different batches: Natura's
+// Nivea Soft, then 150 SKUs Natura doesn't have, four requests' worth of 50, 50, 50 and 1 SKU.
+describe("refreshPrices: when Natura keeps failing, across its batches", () => {
+  const skus = [SOFT.shopItemId, ...Array.from({ length: 150 }, (_, i) => `ZZ${String(i).padStart(8, "0")}`)];
+  const batches = [0, 50, 100, 150].map((start) => skus.slice(start, start + 50));
+  const batchUrls = batches.map(naturaPriceUrl);
+  const keys = keysIn("natura", skus);
+  /** A batch's request answered as natura-sku-unknown.json recorded: no hit, so each of its SKUs is missing. */
+  const emptyAnswer = (url: string): ReplayEntry => ({ url, status: 200, body: JSON.stringify(skuUnknown) });
+
+  it("stops after a 500 on its first request and a 500 on its second: the third and fourth are neither reserved nor asked", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { gate, fetchMock, reservations } = setup([
+      { url: batchUrls[0], status: 500 },
+      { url: batchUrls[1], status: 500 },
+      ...batchUrls.slice(2).map(emptyAnswer),
+    ]);
+    const { client, queries } = stubClient();
+
+    const refresh = await refreshPrices(gate, client, keys);
+
+    expect(reservations).toEqual(["natura", "natura"]);
+    expect(urlsTo(fetchMock, "natura")).toEqual(batchUrls.slice(0, 2));
+    expect(refresh.results).toEqual(keys.map((key) => ({ key, check: FAILED })));
+    expect(queries).toEqual([]);
+    expect(loggedLines(warn)).toEqual([
+      {
+        event: "natura-prices",
+        reason: "requests stopped",
+        detail: "51 of 151 SKUs not asked after 2 failed requests in a row",
+      },
+    ]);
+  });
+
+  it("goes on after a failure followed by an answer: a 500, an answer, a 500 and an answer are all asked", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // The answer resets the count, so the second 500 is a first failure again: without the reset, the two 500s would
+    // stop Natura before its fourth request.
+    const { gate, fetchMock, reservations } = setup([
+      { url: batchUrls[0], status: 500 },
+      emptyAnswer(batchUrls[1]),
+      { url: batchUrls[2], status: 500 },
+      emptyAnswer(batchUrls[3]),
+    ]);
+    const { client, queries } = stubClient();
+
+    const refresh = await refreshPrices(gate, client, keys);
+
+    expect(reservations).toEqual(["natura", "natura", "natura", "natura"]);
+    expect(urlsTo(fetchMock, "natura")).toEqual(batchUrls);
+    // The answered requests' SKUs are missing, each answer holding every hit it matched; the failed ones' get no answer.
+    const answered = new Set([...batches[1], ...batches[3]]);
+    expect(refresh.results).toEqual(
+      keys.map((key) => ({ key, check: answered.has(key.shopItemId) ? { kind: "missing" } : FAILED })),
+    );
+    expect(queries).toEqual([insertOf(keys.filter((key) => answered.has(key.shopItemId)).map(missingRow))]);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it.each(UNREADABLE_COUNTERS)(
+    "stops after two reservations when Natura's counter $why: no request at all",
+    async ({ counter }) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const { gate, fetchMock, reservations } = setup(batchUrls.map(emptyAnswer), counter);
+      const { client, queries } = stubClient();
+
+      const refresh = await refreshPrices(gate, client, keys);
+
+      expect(reservations).toEqual(["natura", "natura"]);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(refresh.results).toEqual(keys.map((key) => ({ key, check: FAILED })));
+      expect(queries).toEqual([]);
+      expect(loggedLines(warn)).toEqual([
+        {
+          event: "natura-prices",
+          reason: "requests stopped",
+          detail: "51 of 151 SKUs not asked after 2 failed requests in a row",
+        },
+      ]);
+    },
+  );
 });
 
 describe("refreshPrices: storing", () => {
@@ -514,6 +857,44 @@ describe("refreshPrices: storing", () => {
     // The item stores nothing, so it keeps its last price with its age.
     expect(queries).toEqual([insertOf([priceRow(FELIX, felixOffer)])]);
     expect(refreshCodeOf(refresh)).toBe("partial");
+  });
+
+  // The same for a changed answer of a shop asked in batches: Luigi's Box renaming its item type, so every hit keeps
+  // its id, price and attributes but is no item. The answer then leaves its items unanswered, never missing.
+  it("stores no missing row for Natura's or Hebe's item when its price answer's hits carry another type", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { gate, fetchMock, reservations } = setup([
+      answers.felix,
+      // Natura's type is "product" and Hebe's "item": the copies change it as a renamed catalog would.
+      { url: answers.soft.url, status: 200, body: withHitType(oneSku, "Product") },
+      { url: answers.hebeSoft.url, status: 200, body: withHitType(hebeIds, "product") },
+    ]);
+    const { client, queries } = stubClient();
+
+    const refresh = await refreshPrices(gate, client, [FELIX, SOFT, HEBE_SOFT]);
+
+    expect([...reservations].sort()).toEqual(["hebe", "natura", "rossmann"]);
+    expect(urlsTo(fetchMock, "natura")).toEqual([answers.soft.url]);
+    expect(urlsTo(fetchMock, "hebe")).toEqual([answers.hebeSoft.url]);
+    expect(refresh).toEqual({
+      results: [
+        { key: FELIX, check: { kind: "price", offer: felixOffer } },
+        { key: SOFT, check: FAILED },
+        { key: HEBE_SOFT, check: FAILED },
+      ],
+      saved: "saved",
+    });
+    // Only Rossmann's price is stored: neither item gets a missing row, so each keeps its last price with its age.
+    expect(queries).toEqual([insertOf([priceRow(FELIX, felixOffer)])]);
+    expect(refreshCodeOf(refresh)).toBe("partial");
+    // Each shop counts its hit as one it couldn't read, so the changed format shows.
+    expect(loggedLines(warn)).toHaveLength(2);
+    expect(loggedLines(warn)).toEqual(
+      expect.arrayContaining([
+        { event: "natura-prices", reason: "hits dropped", detail: "1 of 1 product hits" },
+        { event: "hebe-prices", reason: "hits dropped", detail: "1 of 1 product hits" },
+      ]),
+    );
   });
 
   it("stores Rossmann's checks as soon as Rossmann is done, while Natura is still answering", async () => {
@@ -630,7 +1011,6 @@ describe("refreshPrices: every priced shop, Hebe's and Super-Pharm's too", () =>
     { url: hebeBatches[0], status: 200, body: JSON.stringify(hebeIds) },
     { url: hebeBatches[1], status: 200, body: JSON.stringify(hebeIdUnknown) },
   ];
-  const keysIn = (shop: ShopId, ids: string[]): PriceKey[] => ids.map((shopItemId) => ({ shop, shopItemId }));
   const naturaKeys = keysIn("natura", naturaSkus);
   const hebeKeys = keysIn("hebe", hebeItemIds);
   // Rossmann's two products, then every Natura and Hebe item.

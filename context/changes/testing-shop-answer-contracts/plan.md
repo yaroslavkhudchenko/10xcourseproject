@@ -548,6 +548,31 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
   - every refusal read as a plain failure: 14;
   - a null, false or blank capacity no longer read as none: 3.
 
+### Phase 4
+
+- **One counting rule, shared by both loops** (lesson "Define shared constants and helpers once"): `failuresAfter` in `pinned-prices.ts`, beside `FAILED_REQUESTS_BEFORE_STOP` (2) and `logRequestsStopped`.
+  - A batch request counts when its answer is `unavailable/failed`: the gate's failures, the counter's skip and an unreadable body. Any readable answer resets the count, one whose hits all dropped included.
+  - Rossmann's check is its request's answer, so an unreadable or unexpected detail counts too.
+- **The stop's line, "requests stopped",** counts the ids not asked out of every id given: `checks.size` for the batched shops, as their "invalid SKUs" line does, and `ids.length` for Rossmann. The ids not asked stay `unavailable/failed`.
+- **The adapters' doc comments name the stop too** (`fetchPrices` on Luigi's Box, `fetchNaturaPrices`, `fetchHebePrices`, `fetchSuperPharmPrices`), though the phase's contract listed only the three production files.
+- **"A failure, then a price" needs a fourth request to show the reset:**
+  - Rossmann runs 500, price, 500, price;
+  - Natura's batch tests use four batches (151 SKUs), so its "500, 500" case leaves two batches unasked.
+- **The 429 and 503 rows stop the clock** (`vi.useFakeTimers({ toFake: ["Date"] })`), so a pause ends exactly 120 s ahead.
+- **Cases beyond the plan's list:**
+  - a stopped reservation partway through Rossmann's products;
+  - an invalid id between two 500s, which neither counts nor resets;
+  - Natura's counter unreachable across batches, answering null and rejecting;
+  - all four refusal rows run through `runMatchSteps` for both shops;
+  - the route's capped case also asserts no block report.
+- **`ServedAnswer`** names the new answer type in `shop-matching.test.ts`, whose `Answer` interface already exists for its stand-in client.
+- **The database script** reads the request log's mark through `logMark()`, which fails the run when the database container can't be reached, as `check-prices-db.mjs` does. The proofs add three PASS/FAIL lines (capped, paused, stopped) and one for the shorter report. The script can't run here (no Docker), so its first run is CI's `smoke` job (4.4).
+- **Breaks:**
+  - the stop disabled: 7 red;
+  - an answer no longer resetting the count: 2;
+  - Rossmann counting ids it never sends: 1;
+  - a refused name search read as not found: 21.
+
 ## References
 
 - Research: `context/changes/testing-shop-answer-contracts/research.md`
@@ -578,16 +603,16 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 3.1 Super-Pharm's tests pass
-- [x] 3.2 Lint, type check and the whole unit suite pass
+- [x] 3.1 Super-Pharm's tests pass — ffe03dd
+- [x] 3.2 Lint, type check and the whole unit suite pass — ffe03dd
 
 ### Phase 4: Paths and refresh loops (risk #3)
 
 #### Automated
 
-- [ ] 4.1 The paths' tests pass
-- [ ] 4.2 The gate script passes Node's syntax check and lint
-- [ ] 4.3 Lint, type check and the whole unit suite pass
+- [x] 4.1 The paths' tests pass
+- [x] 4.2 The gate script passes Node's syntax check and lint
+- [x] 4.3 Lint, type check and the whole unit suite pass
 - [ ] 4.4 CI's `smoke` job passes with the extended gate check
 
 ### Phase 5: Docs and rollout

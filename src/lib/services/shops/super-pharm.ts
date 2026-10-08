@@ -171,10 +171,11 @@ export async function searchSuperPharm(gate: ShopGate, query: string, size: numb
 /**
  * Fetches the offers of pinned Super-Pharm items by id through the gate: one request per 20 ids, each after the one
  * before. Once Super-Pharm refuses, busy under the cap, paused or stopped, the ids of the requests after it get that
- * same answer with no request and no reservation. Resolves to a check for every id given: its offer, `missing` when
- * Super-Pharm answered without it in an answer that holds every hit it matched, or `unavailable` when the id can't go
- * into a filter, the gate skipped or refused its request, or the answer wasn't readable or may have left its hit out.
- * It never throws.
+ * same answer with no request and no reservation, and once two of its requests in a row failed, the ids after them get
+ * no request and no reservation either (fetchPinnedPrices). Resolves to a check for every id given: its offer,
+ * `missing` when Super-Pharm answered without it in an answer that holds every hit it matched, or `unavailable` when
+ * the id can't go into a filter, the gate skipped or refused its request, the request was never sent, or the answer
+ * wasn't readable or may have left its hit out. It never throws.
  */
 export function fetchSuperPharmPrices(gate: ShopGate, ids: string[]): Promise<Map<string, PriceCheck>> {
   return fetchPinnedPrices(pinned, gate, ids);

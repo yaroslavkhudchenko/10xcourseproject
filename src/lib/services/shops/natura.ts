@@ -74,9 +74,11 @@ export function searchNatura(gate: ShopGate, query: string, size: number): Promi
 /**
  * Fetches the offers of pinned Natura items by SKU through the gate: one request per 50 SKUs, each after the one
  * before. Once Natura refuses, busy under the cap, paused or stopped, the SKUs of the requests after it get that same
- * answer with no request and no reservation. Resolves to a check for every SKU given: its offer, `missing` when Natura
- * answered without it, or `unavailable` when the SKU can't go into a filter, the gate skipped or refused its request,
- * or the answer wasn't readable, a hit that isn't a product included. It never throws.
+ * answer with no request and no reservation, and once two of its requests in a row failed, the SKUs after them get no
+ * request and no reservation either (fetchPinnedPrices). Resolves to a check for every SKU given: its offer, `missing`
+ * when Natura answered without it, or `unavailable` when the SKU can't go into a filter, the gate skipped or refused
+ * its request, the request was never sent, or the answer wasn't readable, a hit that isn't a product included. It
+ * never throws.
  */
 export function fetchNaturaPrices(gate: ShopGate, skus: string[]): Promise<Map<string, PriceCheck>> {
   return natura.fetchPrices(gate, skus);

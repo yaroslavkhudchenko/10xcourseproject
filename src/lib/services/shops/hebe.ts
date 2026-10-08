@@ -85,10 +85,11 @@ export function searchHebe(gate: ShopGate, query: string, size: number): Promise
 /**
  * Fetches the offers of pinned Hebe items by id through the gate: one request per 50 ids, each after the one before.
  * Once Hebe refuses, busy under the cap, paused or stopped, the ids of the requests after it get that same answer with
- * no request and no reservation. Resolves to a check for every id given: its offer, `missing` when Hebe answered
- * without it (as it does for an item it no longer sells online), or `unavailable` when the id can't go into a filter,
- * the gate skipped or refused its request, or the answer wasn't readable, a hit that isn't an item included. It never
- * throws.
+ * no request and no reservation, and once two of its requests in a row failed, the ids after them get no request and
+ * no reservation either (fetchPinnedPrices). Resolves to a check for every id given: its offer, `missing` when Hebe
+ * answered without it (as it does for an item it no longer sells online), or `unavailable` when the id can't go into a
+ * filter, the gate skipped or refused its request, the request was never sent, or the answer wasn't readable, a hit
+ * that isn't an item included. It never throws.
  */
 export function fetchHebePrices(gate: ShopGate, ids: string[]): Promise<Map<string, PriceCheck>> {
   return hebe.fetchPrices(gate, ids);

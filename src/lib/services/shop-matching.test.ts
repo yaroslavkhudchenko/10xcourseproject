@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import type { MatchView } from "@/lib/services/match-view";
 import type { MatchesRead } from "@/lib/services/matches";
 import type { MatchableShop } from "@/lib/services/price-comparison";
@@ -14,6 +14,7 @@ import {
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
 import hebeEanOffline from "@/lib/services/shops/fixtures/hebe-ean-offline.json";
 import hebeEanOnline from "@/lib/services/shops/fixtures/hebe-ean-online.json";
+import hebeIdUnknown from "@/lib/services/shops/fixtures/hebe-id-unknown.json";
 import hebeNameSearch from "@/lib/services/shops/fixtures/hebe-name-search.json";
 import eanHit from "@/lib/services/shops/fixtures/natura-ean-hit.json";
 import eanMiss from "@/lib/services/shops/fixtures/natura-ean-miss.json";
@@ -52,20 +53,21 @@ const soft: LookupProduct = {
 
 /**
  * A real gate over a fetch that answers only the given recordings, which allows every reservation unless `reserve`
- * answers otherwise.
+ * answers otherwise. `reportBlock` shows each refusal the gate reported.
  */
 function setup(
   entries: ReplayEntry[],
   reserve: ShopGateDeps["reserve"] = () => Promise.resolve({ outcome: "allowed" }),
 ) {
   const fetchMock = vi.fn(createReplayFetch(entries));
+  const reportBlock = vi.fn<ShopGateDeps["reportBlock"]>(() => Promise.resolve());
   const gate = createShopGate({
     reserve,
-    reportBlock: () => Promise.resolve(),
+    reportBlock,
     fetch: fetchMock,
     log: () => undefined,
   });
-  return { gate, fetchMock };
+  return { gate, fetchMock, reportBlock };
 }
 
 /** Every URL the fetch was asked for: a miss would look like a network failure, so each test checks its requests. */
@@ -1311,5 +1313,238 @@ describe("runMatchSteps: Super-Pharm on the product's page, looked up on view", 
     expect(sentRequests(fetchMock)).toEqual([spSearch(SP_SKY_HIGH_SEARCH)]);
     expect(reserve.mock.calls).toEqual([["super-pharm"]]);
     expect(queries).toEqual([]);
+  });
+});
+
+// risk #3 on a first lookup: the name search it sends after an EAN search that found nothing, when that search is
+// refused or fails, ends the lookup with no further request and nothing stored, so a later view can ask again. Natura's
+// recorded empty answer and, for Hebe, its empty price answer (hebe-id-unknown.json), which has a search's shape and
+// serves Hebe's empty searches in hebe.test.ts too, answer the EAN searches.
+interface EanMiss {
+  shop: "natura" | "hebe";
+  product: LookupProduct;
+  eanMiss: ReplayEntry;
+  nameSearch: string;
+  /** The shop's recorded answer to the name search, which a refused reservation never lets it ask. */
+  nameAnswer: ReplayEntry;
+}
+
+const EAN_MISSES: EanMiss[] = [
+  {
+    shop: "natura",
+    product: { ...soft, eans: [MISSING_EAN] },
+    eanMiss: answers.eanMiss,
+    nameSearch: NAME_SEARCH,
+    nameAnswer: answers.name,
+  },
+  {
+    shop: "hebe",
+    product: { ...soft200, eans: [MISSING_EAN] },
+    eanMiss: { url: hebeSearchUrl(MISSING_EAN, 5), status: 200, body: JSON.stringify(hebeIdUnknown) },
+    nameSearch: HEBE_NAME_SEARCH,
+    nameAnswer: hebeAnswers.name,
+  },
+];
+
+/** A shop's answer, its status, headers and body, served for whichever URL a test gives it. */
+interface ServedAnswer {
+  status: number;
+  headers?: Record<string, string>;
+  body?: string;
+}
+
+const ALLOWED = { outcome: "allowed" };
+// The time the clock stands still at, and the end of a pause a shop asks for with `Retry-After: 120` then.
+const NOW = "2026-09-28T12:00:00.000Z";
+const RETRY_AFTER_END = "2026-09-28T12:02:00.000Z";
+
+// What the name search meets: a 403 or a 429 the gate reports, a reservation the counter refuses, which sends
+// nothing, or a failure. `answer` is the name search's answer, the shop's own recording when it's left out, and
+// `second` the counter's answer to the name search's reservation.
+const NAME_SEARCH_REFUSALS: {
+  refusal: string;
+  answer?: ServedAnswer;
+  second: unknown;
+  lookup: ShopLookup;
+  nameSent: boolean;
+  reported: (shop: MatchableShop) => unknown[][];
+}[] = [
+  {
+    refusal: "a 403",
+    answer: { status: 403 },
+    second: ALLOWED,
+    lookup: { kind: "unavailable", reason: "stopped" },
+    nameSent: true,
+    reported: (shop) => [[shop, "blocked", undefined, "HTTP 403"]],
+  },
+  {
+    refusal: "a 429",
+    answer: { status: 429, headers: { "Retry-After": "120" } },
+    second: ALLOWED,
+    lookup: { kind: "unavailable", reason: "paused", until: RETRY_AFTER_END },
+    nameSent: true,
+    reported: (shop) => [[shop, "rate_limited", 120]],
+  },
+  {
+    refusal: "a stopped reservation",
+    second: { outcome: "stopped" },
+    lookup: { kind: "unavailable", reason: "stopped" },
+    nameSent: false,
+    reported: () => [],
+  },
+  {
+    refusal: "a 500",
+    answer: { status: 500 },
+    second: ALLOWED,
+    lookup: { kind: "unavailable", reason: "failed" },
+    nameSent: true,
+    reported: () => [],
+  },
+];
+
+/** A counter that allows the EAN search's reservation and answers the name search's with `second`. */
+function counterAnswering(second: unknown) {
+  return vi
+    .fn<ShopGateDeps["reserve"]>(() => Promise.resolve(ALLOWED))
+    .mockResolvedValueOnce(ALLOWED)
+    .mockResolvedValueOnce(second);
+}
+
+/** The recordings a lookup is served: the EAN search's empty answer, and the name search's `answer` or recording. */
+const lookupEntries = (miss: EanMiss, answer: ServedAnswer | undefined): ReplayEntry[] => [
+  miss.eanMiss,
+  answer === undefined ? miss.nameAnswer : { url: miss.nameSearch, ...answer },
+];
+
+describe.each(EAN_MISSES)("lookupInShop in $shop: a name search after an EAN search that found nothing", (miss) => {
+  beforeEach(() => {
+    // The clock stands still, so a pause's end is exact.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(NOW));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it.each(NAME_SEARCH_REFUSALS)(
+    "ends the lookup at $refusal, says why, and asks nothing more",
+    async ({ answer, second, lookup, nameSent, reported }) => {
+      const reserve = counterAnswering(second);
+      const { gate, fetchMock, reportBlock } = setup(lookupEntries(miss, answer), reserve);
+
+      expect(await lookupInShop(miss.shop, gate, miss.product)).toEqual(lookup);
+      expect(requestedUrls(fetchMock)).toEqual(nameSent ? [miss.eanMiss.url, miss.nameSearch] : [miss.eanMiss.url]);
+      expect(reserve.mock.calls).toEqual([[miss.shop], [miss.shop]]);
+      expect(reportBlock.mock.calls).toEqual(reported(miss.shop));
+    },
+  );
+});
+
+describe.each(EAN_MISSES)("runMatchSteps in $shop: a name search after an EAN search that found nothing", (miss) => {
+  it.each(NAME_SEARCH_REFUSALS)(
+    "stores nothing after $refusal, neither a decision nor a price, so a later view asks again",
+    async ({ answer, second, nameSent }) => {
+      const reserve = counterAnswering(second);
+      const { gate, fetchMock } = setup(lookupEntries(miss, answer), reserve);
+      const { client, queries } = stubClient();
+
+      const steps = await runMatchSteps(
+        opened({ supabase: client, gate, product: watched(miss.product), shops: [miss.shop] }),
+      );
+
+      // The card says the shop gave no answer, in the words of its reason (lookupInShop's tests above).
+      expect(steps).toMatchObject([
+        {
+          shop: miss.shop,
+          step: { kind: "lookup", retry: false },
+          view: { kind: "unavailable" },
+          repin: null,
+          unsaved: false,
+          item: null,
+          retried: false,
+        },
+      ]);
+      expect(requestedUrls(fetchMock)).toEqual(nameSent ? [miss.eanMiss.url, miss.nameSearch] : [miss.eanMiss.url]);
+      expect(reserve).toHaveBeenCalledTimes(2);
+      // No write at all: neither "not found" nor any other decision, and no price.
+      expect(queries).toEqual([]);
+    },
+  );
+});
+
+// risk #5 on a first lookup: a changed search answer reads as no answer, never as "found nothing", so the lookup
+// stores no "not found" for a product the shop may well sell.
+describe("runMatchSteps: a changed search answer stores no 'not found'", () => {
+  it("asks Natura no name search, and stores nothing, when its EAN search answers with the item under another type", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // natura-ean-hit.json's one hit, Nivea Soft, with its type "Product" where Natura's is "product": its attributes
+    // intact, it's no product, and no query suggestion either.
+    const renamed = structuredClone(eanHit);
+    for (const hit of renamed.results.hits) {
+      hit.type = "Product";
+    }
+    const { gate, fetchMock, reserve } = setupCharged([
+      { url: EAN_SEARCH, status: 200, body: JSON.stringify(renamed) },
+      answers.name,
+    ]);
+    const { client, queries } = stubClient();
+
+    const steps = await runMatchSteps(opened({ supabase: client, gate, product: watched(soft), shops: ["natura"] }));
+
+    expect(steps).toEqual([
+      {
+        shop: "natura",
+        step: { kind: "lookup", retry: false },
+        view: { kind: "unavailable", message: NATURA_FAILED },
+        repin: null,
+        unsaved: false,
+        item: null,
+        retried: false,
+      },
+    ]);
+    expect(requestedUrls(fetchMock)).toEqual([EAN_SEARCH]);
+    expect(reserve.mock.calls).toEqual([["natura"]]);
+    expect(queries).toEqual([]);
+    // How many hits couldn't be read, never which.
+    expect(loggedLines(warn)).toEqual([
+      { event: "natura-search", reason: "hits dropped", detail: "1 of 1 product hits" },
+    ]);
+  });
+
+  it("stores nothing when Super-Pharm's search holds no hit though it counts 5", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // The recorded empty answer (probe P5) with its count changed: Algolia says 5 hits matched, yet sends none.
+    const { gate, fetchMock, reserve } = setupCharged([
+      {
+        url: SUPER_PHARM_URL,
+        requestBody: SP_CREAM_SEARCH,
+        status: 200,
+        body: JSON.stringify({ ...superPharmEmpty, nbHits: 5 }),
+      },
+    ]);
+    const { client, queries } = stubClient();
+
+    const steps = await runMatchSteps(
+      opened({ supabase: client, gate, product: watched(spCream), shops: ["super-pharm"] }),
+    );
+
+    expect(steps).toEqual([
+      {
+        shop: "super-pharm",
+        step: { kind: "lookup", retry: false },
+        view: { kind: "unavailable", message: SUPER_PHARM_FAILED },
+        repin: null,
+        unsaved: false,
+        item: null,
+        retried: false,
+      },
+    ]);
+    expect(sentRequests(fetchMock)).toEqual([spSearch(SP_CREAM_SEARCH)]);
+    expect(reserve.mock.calls).toEqual([["super-pharm"]]);
+    expect(queries).toEqual([]);
+    expect(loggedLines(warn)).toEqual([
+      { event: "super-pharm-search", reason: "unexpected empty answer", detail: "0 hits, nbHits 5, page 0" },
+    ]);
   });
 });

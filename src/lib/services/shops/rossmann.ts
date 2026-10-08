@@ -118,7 +118,7 @@ export async function searchRossmann(gate: ShopGate, query: string): Promise<Pro
  * the answer wasn't readable. It never throws. The stored id is checked again here, before it becomes a path.
  */
 export async function fetchRossmannPrice(gate: ShopGate, sourceItemId: string): Promise<PriceCheck> {
-  if (!PRODUCT_ID.test(sourceItemId)) {
+  if (!isRossmannProductId(sourceItemId)) {
     // Never the id itself: it names the product.
     logFailure("rossmann-price", "invalid product id", "not 1-12 digits, not sent");
     return { kind: "unavailable", reason: "failed" };
@@ -156,6 +156,14 @@ export async function fetchRossmannPrice(gate: ShopGate, sourceItemId: string): 
     logFailure("rossmann-price", "availability unread", `availability ${kind}, read as not orderable`);
   }
   return { kind: "price", offer };
+}
+
+/**
+ * True for an id that can go into a price check's path, so the only kind the price check sends: Rossmann's product id,
+ * 1-12 digits, so never a dot segment such as "..". A refresh tells the ids it never sends apart by it, before asking.
+ */
+export function isRossmannProductId(value: string): boolean {
+  return PRODUCT_ID.test(value);
 }
 
 /** True for an https URL on a rossmann.pl host: the only images the watchlist shows. */

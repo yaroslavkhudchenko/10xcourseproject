@@ -3,11 +3,20 @@ import { isRefusal } from "@/lib/services/shops/shop-outcome";
 import type { PriceCheck, ShopOffer, ShopUnavailable } from "@/types";
 
 // The rules every shop's pinned-price requests follow, whatever its search runs on: each id is asked for once, an id
-// that can't go into a request is never sent, the ids go in batches, one request at a time, and once the shop refuses
-// nothing more is asked. Each answer's hits are read one by one, and an id without a hit is missing only when the
-// answer holds every hit it matched and each of them was read and asked for. A shop's client sends the request, leaves
-// out the hits the shop is known to send besides its items, such as a query suggestion, and reads each other hit,
-// counting one that isn't the shop's item as a hit that can't be read.
+// that can't go into a request is never sent, the ids go in batches, one request at a time, and nothing more is asked
+// once the shop refuses, or once FAILED_REQUESTS_BEFORE_STOP of its requests in a row failed. Each answer's hits are
+// read one by one, and an id without a hit is missing only when the answer holds every hit it matched and each of them
+// was read and asked for. A shop's client sends the request, leaves out the hits the shop is known to send besides its
+// items, such as a query suggestion, and reads each other hit, counting one that isn't the shop's item as a hit that
+// can't be read.
+
+/**
+ * How many of a shop's requests in a row may fail before a refresh stops asking that shop (failuresAfter): a shop that
+ * doesn't answer, or whose counter can't be reached, then costs one refresh this many requests or reservations at
+ * most, never one for each of its items (research note §7, the owner's call). Rossmann's loop, one product per
+ * request, keeps to it too (price-refresh.ts).
+ */
+export const FAILED_REQUESTS_BEFORE_STOP = 2;
 
 /**
  * What one request for pinned items came to: the answer's hits and whether they're every hit the request matched, or
@@ -51,9 +60,13 @@ export interface PinnedPriceShop {
 /**
  * Fetches pinned items' offers through the gate: each id once, in requests of at most `batchSize` ids, each after the
  * one before. Once the shop refuses, busy under the cap, paused or stopped, the ids of the requests after it get that
- * same answer with no request and no reservation. Resolves to a check for every id given: its offer, `missing` when
+ * same answer with no request and no reservation. Once FAILED_REQUESTS_BEFORE_STOP requests in a row got no answer to
+ * read (failuresAfter), the counter's skip included, the ids of the requests after them get no request and no
+ * reservation either, and stay unanswered, counted in a log line (logRequestsStopped). An id that can't go into a
+ * request is never sent, so it counts for nothing. Resolves to a check for every id given: its offer, `missing` when
  * the shop answered without it in an answer that holds every hit it matched, or `unavailable` when the id can't go into
- * a request, the request got no answer to read, or the answer may have left its hit out. It never throws.
+ * a request, the request got no answer to read or was never sent, or the answer may have left its hit out. It never
+ * throws.
  */
 export async function fetchPinnedPrices(
   shop: PinnedPriceShop,
@@ -75,8 +88,10 @@ export async function fetchPinnedPrices(
     const word = shop.log.id;
     logFailure(shop.log.event, `invalid ${word}s`, `${unsent} of ${checks.size} ${word}s not sent`);
   }
-  // A failed request doesn't stop the next one; a refusal does.
+  // A refusal stops the shop's requests at once, and FAILED_REQUESTS_BEFORE_STOP failed ones in a row stop them too.
   let refusal: ShopUnavailable | null = null;
+  let failures = 0;
+  let unasked = 0;
   for (let start = 0; start < sendable.length; start += shop.batchSize) {
     const batch = sendable.slice(start, start + shop.batchSize);
     if (refusal !== null) {
@@ -85,14 +100,38 @@ export async function fetchPinnedPrices(
       }
       continue;
     }
-    for (const [id, check] of checksOf(shop, batch, await shop.request(gate, batch))) {
+    if (failures >= FAILED_REQUESTS_BEFORE_STOP) {
+      // The batch's ids keep the unanswered check they started with.
+      unasked += batch.length;
+      continue;
+    }
+    const answer = await shop.request(gate, batch);
+    failures = failuresAfter(failures, answer);
+    for (const [id, check] of checksOf(shop, batch, answer)) {
       checks.set(id, check);
       if (isRefusal(check)) {
         refusal = check;
       }
     }
   }
+  if (unasked > 0) {
+    logRequestsStopped(shop.log.event, shop.log.id, unasked, checks.size);
+  }
   return checks;
+}
+
+/**
+ * A shop's failed requests in a row once one more request is done: one more for a request that got no answer to read,
+ * though the shop didn't refuse it (`unavailable`, `failed`), the gate's failures, the counter's skip and an answer
+ * that can't be read all included; none once a request got an answer, whatever it holds: a price, a missing item, or
+ * hits that couldn't all be read. A refusal leaves the count as it was, since it stops the shop on its own.
+ * `answer` is a pinned-price request's answer, or Rossmann's check of one product, which is its request's answer.
+ */
+export function failuresAfter(failures: number, answer: PinnedAnswer | PriceCheck): number {
+  if (answer.kind !== "unavailable") {
+    return 0;
+  }
+  return answer.reason === "failed" ? failures + 1 : failures;
 }
 
 /** Each asked-for id's check from its request's answer. */
@@ -194,4 +233,17 @@ export function failed(): ShopUnavailable {
 export function logFailure(event: string, reason: string, detail: string): void {
   // eslint-disable-next-line no-console -- one line per unusable shop answer; Workers observability collects it.
   console.warn(JSON.stringify({ event, reason, detail }));
+}
+
+/**
+ * Logs how many of a shop's ids weren't asked for once FAILED_REQUESTS_BEFORE_STOP of its requests in a row had
+ * failed, out of `total`, every id it was given: how many, never which, since an id names the product. `event` is the
+ * shop's log event, such as "natura-prices", and `word` what the line calls an id, such as "SKU" or "product".
+ */
+export function logRequestsStopped(event: string, word: string, unasked: number, total: number): void {
+  logFailure(
+    event,
+    "requests stopped",
+    `${unasked} of ${total} ${word}s not asked after ${FAILED_REQUESTS_BEFORE_STOP} failed requests in a row`,
+  );
 }

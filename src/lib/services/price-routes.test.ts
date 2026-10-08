@@ -19,7 +19,8 @@ import superPharmPinnedOne from "@/lib/services/shops/fixtures/super-pharm-pinne
 // served by the replay, so each test counts the reservations and the requests the shops were sent.
 // expected values: the costs CLAUDE.md states for each route ("one request per shop", a list refresh's items checked
 // more than 15 minutes ago, Rossmann one product per request, Natura's items in one batch) and the gate's rules (a
-// stopped shop is asked nothing; a 403 stops the shop and nothing more is asked of it), never read off the routes.
+// stopped shop, or one busy under the cap, is asked nothing; a 403 stops the shop and a 429 pauses it until its
+// Retry-After, each reported once, and nothing more is asked of it), never read off the routes.
 
 const APP = "https://drogeria.example";
 const NOW = "2026-09-28T12:00:00.000Z";
@@ -166,6 +167,11 @@ function reservations(queries: unknown[][][]): unknown[] {
   return queries.flatMap(([[kind, name, args]]) => (kind === "rpc" && name === "reserve_shop_request" ? [args] : []));
 }
 
+/** The refusals the gate reported, in order, each with its arguments. */
+function blockReports(queries: unknown[][][]): unknown[] {
+  return queries.flatMap(([[kind, name, args]]) => (kind === "rpc" && name === "report_shop_block" ? [args] : []));
+}
+
 /** A route's context, as Astro hands it over: the request, its URL, the request's Supabase client and `redirect`. */
 function contextOf(request: Request, supabase: SupabaseClient | null): APIContext {
   return {
@@ -290,6 +296,18 @@ describe("/api/watchlist/prices asks a shop only for the user's own item, once",
     expect(served()).toEqual([]);
   });
 
+  it("asks nothing of a shop busy under the cap, and says so", async () => {
+    const { client, queries } = world(PRODUCT_RELATIONS, Object.values(RECORDINGS), "capped");
+
+    const response = await postPrices(contextOf(priceRequest(SOFT_REQUEST), client));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ kind: "unavailable", reason: "busy" });
+    expect(reservations(queries)).toEqual([{ p_shop_id: "natura" }]);
+    expect(served()).toEqual([]);
+    expect(blockReports(queries)).toEqual([]);
+  });
+
   it("reports a shop that answers 403, once", async () => {
     const { client, queries } = world(PRODUCT_RELATIONS, [{ ...RECORDINGS.soft, status: 403, body: "Forbidden" }]);
 
@@ -299,6 +317,27 @@ describe("/api/watchlist/prices asks a shop only for the user's own item, once",
     expect(reservations(queries)).toEqual([{ p_shop_id: "natura" }]);
     expect(served()).toEqual([naturaPriceUrl(["NV89063"])]);
     expect(queries.filter(([[kind, name]]) => kind === "rpc" && name === "report_shop_block")).toHaveLength(1);
+  });
+
+  it("reports a shop that answers 429 once, with its delay, and says it's paused until then", async () => {
+    const { client, queries } = world(PRODUCT_RELATIONS, [
+      { ...RECORDINGS.soft, status: 429, headers: { "Retry-After": "120" }, body: "Too Many Requests" },
+    ]);
+
+    const response = await postPrices(contextOf(priceRequest(SOFT_REQUEST), client));
+
+    expect(response.status).toBe(200);
+    // Two minutes from now, the clock standing still.
+    expect(await response.json()).toEqual({
+      kind: "unavailable",
+      reason: "paused",
+      until: new Date(Date.parse(NOW) + 2 * MINUTE).toISOString(),
+    });
+    expect(reservations(queries)).toEqual([{ p_shop_id: "natura" }]);
+    expect(served()).toEqual([naturaPriceUrl(["NV89063"])]);
+    expect(blockReports(queries)).toEqual([
+      { p_shop_id: "natura", p_kind: "rate_limited", p_retry_after_seconds: 120, p_detail: null },
+    ]);
   });
 });
 
