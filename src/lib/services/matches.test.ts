@@ -20,9 +20,11 @@ import eanHit from "@/lib/services/shops/fixtures/natura-ean-hit.json";
 import eanMiss from "@/lib/services/shops/fixtures/natura-ean-miss.json";
 import nameSearch from "@/lib/services/shops/fixtures/natura-name-search.json";
 import unknownTracker from "@/lib/services/shops/fixtures/natura-unknown-tracker.json";
+import rossmannNiveaSoft from "@/lib/services/shops/fixtures/rossmann-search-nivea-soft.json";
 import superPharmNameSearch from "@/lib/services/shops/fixtures/super-pharm-name-search.json";
 import { searchHebe } from "@/lib/services/shops/hebe";
 import { searchNatura } from "@/lib/services/shops/natura";
+import { searchRossmannItems } from "@/lib/services/shops/rossmann";
 import { searchSuperPharm } from "@/lib/services/shops/super-pharm";
 import { createReplayFetch } from "@/lib/services/testing/replay-fetch";
 import type { ListFilter } from "@/lib/services/watchlist-rows";
@@ -294,7 +296,6 @@ describe("parseMatchForm", () => {
 
   it.each<{ field: string; overrides: Record<string, string | string[]> }>([
     { field: "a product id that isn't a UUID", overrides: { itemId: "not-a-uuid" } },
-    { field: "Rossmann, which isn't a matched shop", overrides: { shop: "rossmann" } },
     { field: "an unknown action", overrides: { action: "repin" } },
     { field: "a plain-http product link", overrides: { productUrl: "http://drogerienatura.pl/produkt/nivea-soft" } },
     {
@@ -465,9 +466,63 @@ describe("parseMatchForm: each shop's decision, checked by that shop's own adapt
     });
   });
 
-  it.each(["rossmann", "dm", ""])("refuses a decision in %j, which no matched shop is", (shop) => {
+  it.each(["dm", "", "Rossmann"])("refuses a decision in %j, which no priced shop is", (shop) => {
     expect(parseMatchForm(formOf({ ...declineFields, shop }))).toBeNull();
     expect(parseMatchForm(formOf({ ...confirmFields(soft), shop }))).toBeNull();
+  });
+
+  it("accepts every Rossmann candidate the adapter makes from a recording as Rossmann's decision, and none as another shop's", async () => {
+    // Rossmann is a matched shop of every product picked in another shop, such as one picked in Natura, and the form
+    // doesn't say which shop the product was picked in. The item search Rossmann's lookups send, for "nivea soft", as
+    // recorded with 10 items a page (rossmann.test.ts).
+    const url = "https://www.rossmann.pl/products/v4/api/Products?search=nivea%20soft&page=1&pageSize=10";
+    const fetchMock = vi.fn(createReplayFetch([{ url, status: 200, body: JSON.stringify(rossmannNiveaSoft) }]));
+    const gate = createShopGate({
+      reserve: () => Promise.resolve({ outcome: "allowed" }),
+      reportBlock: () => Promise.resolve(),
+      fetch: fetchMock,
+      log: () => undefined,
+    });
+    const search = await searchRossmannItems(gate, "nivea soft", 10);
+    expect(requestedUrls(fetchMock)).toEqual([url]);
+    const candidates = search.kind === "results" ? search.candidates : [];
+
+    expect(candidates.map((candidate) => candidate.shopItemId)).toEqual([
+      "26900",
+      "2126586",
+      "2103263",
+      "11790",
+      "2079205",
+    ]);
+    for (const candidate of candidates) {
+      expect(parseMatchForm(confirmIn("rossmann", candidate)), candidate.shopItemId).toEqual({
+        itemId: ITEM_ID,
+        shop: "rossmann",
+        decision: { action: "confirm", item: itemOf(candidate) },
+        replaces: null,
+      });
+      // Its page and its image are on Rossmann's hosts, which no other shop's adapter accepts.
+      for (const other of ["natura", "hebe", "super-pharm"]) {
+        expect(parseMatchForm(confirmIn(other, candidate)), `${candidate.shopItemId} as ${other}'s`).toBeNull();
+      }
+    }
+  });
+
+  it("refuses Natura's candidate as Rossmann's decision, whose id and links Rossmann's adapter doesn't accept", () => {
+    expect(parseMatchForm(confirmIn("rossmann", soft))).toBeNull();
+    // Natura's links alone fail too, beside a Rossmann id.
+    expect(parseMatchForm(formOf({ ...confirmFields(soft), shop: "rossmann", shopItemId: "26900" }))).toBeNull();
+  });
+
+  it("accepts Rossmann's decline, and a re-pin's that replaces a match to one of its products, never a Natura SKU", () => {
+    expect(parseMatchForm(formOf({ ...declineFields, shop: "rossmann", replaces: "matched:26900" }))).toEqual({
+      itemId: ITEM_ID,
+      shop: "rossmann",
+      decision: { action: "decline" },
+      replaces: { state: "matched", shopItemId: "26900" },
+    });
+    // Rossmann's product ids are digits only.
+    expect(parseMatchForm(formOf({ ...declineFields, shop: "rossmann", replaces: "matched:NV89063" }))).toBeNull();
   });
 
   it("accepts every Super-Pharm candidate the adapter makes from a recording as Super-Pharm's decision, and none as another shop's", async () => {
@@ -888,6 +943,31 @@ describe("listMatches", () => {
     });
   });
 
+  it("reads a Rossmann decision too, as a product picked in another shop has, every priced shop being read", async () => {
+    // The read can't know which shop the product was picked in: its page reads the product at the same time, and
+    // leaves out the decision of the product's own shop (runMatchSteps).
+    const rossmannRow = {
+      ...matchedRow,
+      shop_id: "rossmann",
+      shop_item_id: "26900",
+      product_url: null,
+      image_url: null,
+    };
+    const { client } = stubClient({ data: [rossmannRow, hebeDeclinedRow] });
+
+    expect(await listMatches(client, ITEM_ID)).toEqual({
+      matches: [
+        {
+          ...matched,
+          shop: "rossmann",
+          item: { ...itemOf(soft), shopItemId: "26900", productUrl: null, imageUrl: null },
+        },
+        hebeDeclined,
+      ],
+      unreadable: [],
+    });
+  });
+
   it.each<{ why: string; row: Record<string, unknown> }>([
     { why: "a state a later migration might add before the code knows it", row: { ...matchedRow, state: "repinned" } },
     { why: "a match without its item", row: { ...matchedRow, shop_item_id: null } },
@@ -950,19 +1030,20 @@ describe("listMatches", () => {
   it.each<{ why: string; shop: unknown }>([
     { why: "names no shop", shop: null },
     { why: "has a shop that isn't text", shop: 7 },
-  ])("says every matched shop without a decision read may be an odd row's that $why", async ({ shop }) => {
+  ])("says every priced shop without a decision read may be an odd row's that $why", async ({ shop }) => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const alone = stubClient({ data: [{ ...declinedRow, shop_id: shop }] });
     const besideNatura = stubClient({ data: [matchedRow, { ...declinedRow, shop_id: shop }] });
 
+    // Rossmann too: it's a matched shop of a product picked in another shop, and the page leaves out the product's own.
     expect(await listMatches(alone.client, ITEM_ID)).toEqual({
       matches: [],
-      unreadable: ["natura", "hebe", "super-pharm"],
+      unreadable: ["rossmann", "natura", "hebe", "super-pharm"],
     });
     // A product has one decision per shop, so a row whose shop can't be read isn't Natura's beside Natura's own.
     expect(await listMatches(besideNatura.client, ITEM_ID)).toEqual({
       matches: [matched],
-      unreadable: ["hebe", "super-pharm"],
+      unreadable: ["rossmann", "hebe", "super-pharm"],
     });
   });
 
@@ -974,7 +1055,7 @@ describe("listMatches", () => {
     expect(await listMatches(ofHebe.client, ITEM_ID)).toEqual({ matches: [matched], unreadable: ["hebe"] });
     expect(await listMatches(ofNoShop.client, ITEM_ID)).toEqual({
       matches: [],
-      unreadable: ["natura", "hebe", "super-pharm"],
+      unreadable: ["rossmann", "natura", "hebe", "super-pharm"],
     });
   });
 
@@ -1143,10 +1224,10 @@ describe("listMatchStates", () => {
       unread: [unreadIn("natura")],
       unattributed: [],
     });
-    // Every matched shop by default.
+    // Every priced shop by default, Rossmann too: the list leaves out each product's own shop (matchStatesOf).
     expect(await listMatchStates(client)).toEqual({
       states: [],
-      unread: [unreadIn("natura"), unreadIn("hebe"), unreadIn("super-pharm")],
+      unread: [unreadIn("rossmann"), unreadIn("natura"), unreadIn("hebe"), unreadIn("super-pharm")],
       unattributed: [],
     });
   });
@@ -1154,8 +1235,8 @@ describe("listMatchStates", () => {
   it.each<{ why: string; row: unknown; shops: MatchableShop[] }>([
     { why: "names no product", row: stateRow({ watchlist_item_id: null }), shops: ["natura"] },
     { why: "has a product id that isn't text", row: noItemRow({ watchlist_item_id: 42 }), shops: ["natura"] },
-    // Its shop can't be read either, so it may be any matched shop's.
-    { why: "isn't a row at all", row: "natura", shops: ["natura", "hebe", "super-pharm"] },
+    // Its shop can't be read either, so it may be any priced shop's.
+    { why: "isn't a row at all", row: "natura", shops: ["rossmann", "natura", "hebe", "super-pharm"] },
   ])(
     "names the shops an odd row that $why may be a decision of, any product's there, and keeps the rest",
     async ({ row, shops }) => {
@@ -1168,7 +1249,7 @@ describe("listMatchStates", () => {
     },
   );
 
-  it("names only the shop of an odd row that names no product, or every matched shop when its shop can't be read either", async () => {
+  it("names only the shop of an odd row that names no product, or every priced shop when its shop can't be read either", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const ofHebe = stubClient({ data: [noItemRow({ watchlist_item_id: null, shop_id: "hebe" }), noItemRow()] });
     const ofNoShop = stubClient({ data: [noItemRow({ watchlist_item_id: null, shop_id: null }), noItemRow()] });
@@ -1181,7 +1262,36 @@ describe("listMatchStates", () => {
     expect(await listMatchStates(ofNoShop.client)).toEqual({
       states: [declined],
       unread: [],
-      unattributed: ["natura", "hebe", "super-pharm"],
+      unattributed: ["rossmann", "natura", "hebe", "super-pharm"],
+    });
+  });
+
+  it("reads a Rossmann decision and a Rossmann row that couldn't be read, as a product picked in another shop has", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({
+      data: [
+        stateRow({ shop_id: "rossmann", shop_item_id: "26900" }),
+        noItemRow({ watchlist_item_id: THIRD_ITEM_ID, shop_id: "rossmann", state: "repinned" }),
+        noItemRow(),
+      ],
+    });
+
+    // Every priced shop's, whichever shop each product was picked in: the list's rows leave out each product's own.
+    expect(await listMatchStates(client)).toEqual({
+      states: [
+        {
+          watchlistItemId: ITEM_ID,
+          shop: "rossmann",
+          state: "matched",
+          shopItemId: "26900",
+          brand: "NIVEA",
+          size: { value: 300, unit: "ml" },
+          decidedBy: "auto",
+        },
+        declined,
+      ],
+      unread: [unreadIn("rossmann", THIRD_ITEM_ID)],
+      unattributed: [],
     });
   });
 

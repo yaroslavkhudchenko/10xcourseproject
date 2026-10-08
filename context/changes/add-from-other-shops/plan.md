@@ -628,6 +628,27 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **Cases beyond the plan's list:** the item search keeps the list search's gaps (every item dropped, an empty answer whose count isn't 0, a 403); a joined name over the limit; an item without an offer counts no availability.
 - **Left for Phase 5:** CLAUDE.md's "Shops and matching" still names `KnownShop` and says only the shops on Luigi's Box and Algolia count odd values through `logOddValues`, and the test plan's §6.4 describes Rossmann's adapter without its registry entry or its search's offers.
 
+### Phase 2
+
+- **`MATCHED_SHOPS` and `MatchedShop` are gone, not aliased.** The type parameters that only let a test pass shops outside `MATCHED_SHOPS` went with them, so `PricedKey`, `PricedItem`, `productPriceKeys`, `listPricedItems`, `matchStatesOf`, `runMatchSteps` (`MatchStepsInput`, `MatchStepResult`), `MatchedShopView`, `MatchCard`, `undecidedShopsOf`, `unreadableShopsOf` and `matchCardOf` name `PricedShop`.
+- **Every rule that takes a list of shops takes the priced shops and narrows per product inside** (`matchedShopsOf(source, shops)`): `productPriceKeys`, `listPricedItems`, `matchStatesOf`, `listTargets` and `productTargets`. `productPriceKeys` finds the own shop in `PRICED_SHOPS` itself, so a test's list without the product's shop still gives its own item.
+- **The page narrows its address and notices through the services:** `repinShopOf`, `retryShopOf`, `decisionNotice` and `decisionError` take an optional `shops`, and the page passes them `matchedShopsOf(product.source)`, as it does `runMatchSteps`, whose default is the same set.
+- **`itemInRows` reads the product first, then its decisions only for a matched shop,** one after the other. So a refetch of the own item stays one query and a match's costs one more round trip, and a product no longer on the list reads as `gone` even when its decisions couldn't be read (before: `failed`).
+- **No `matchesIn` helper:** `listMatches` and `listMatchStates` read every priced shop, and each reader narrows per product (`runMatchSteps`, `shopItemFor`, `productTargets`, `matchStatesOf`, `listPricedItems`), as `matches.ts`' comment on the four read rules says.
+- **`matchesFailedText(shops)` requires its shops,** which a new `listMatchedShops(products)` gives: the shops some listed product is matched in. So `ListRow` and `ListedProduct` carry `source`, and a list of Rossmann products keeps today's alert.
+- **`linksOfShop` and `LinkedFields` moved from `matches.ts` to `form-fields.ts`,** so "Dodaj" and a decision check an item's links by one rule, and `optionalUrl`, then unused, is gone. "Dodaj"'s schema checks `sourceItemId` and the links through `SHOP_ADAPTERS[source]` in one refinement.
+- **`SearchResults.astro`'s empty-result hint** takes `matchedShopsOf("rossmann")`; its text is unchanged until Phase 4.
+- **Existing tests whose expectations followed the new defaults:** `listMatches` and `listMatchStates` now read Rossmann's rows; `?repin=rossmann` and `?shop=rossmann` are read; `shop-matching.test.ts`' `trackerShop` and `slowGate` know Rossmann again, undoing Phase 1's narrowing; and `watchlist.test.ts`' "a shop other than Rossmann" became dm, no shop, and a Rossmann id posted as Hebe's.
+- **The lookup cost cases name the product "nivea soft",** with no brand or size, so each shop's search hits an existing recording. A product from Natura costs 4 requests (Rossmann 1, Hebe 2, Super-Pharm 1) and stores Rossmann's automatic match with its search offer's price; one from Super-Pharm costs 3, one per matched shop.
+- **A decision posted for a product's own shop is still stored,** since the form doesn't say which shop is the product's own; every read leaves it out, as the plan's "Critical Implementation Details" accept.
+- **The e2e seeds:** `addProduct({ source, name, productUrl })` replaces `addRossmannProduct`, with a fresh id in its shop's shape from `FRESH_IDS`, now keyed by `PricedShop`. `addMatchedProduct`, its only caller, adds a product from Rossmann through it, and `matchShop` takes any priced shop.
+- **The spec gives every matched shop a stored match with a fresh price,** so its page compares four shops and looks nothing up: Natura's own 15,49 zł is the cheapest, then Rossmann's 16,99 zł. It also checks that Natura's own card has no „Zmień” and no lookup notice, and that the shop request log doesn't move, as the other specs do.
+- **The product kitchen sink** has a group for the product picked in Natura (6 states) and a "Rossmann" section with Rossmann's card in 18 kinds and its `MatchChoice`. Two of Natura's kinds have no Rossmann version: a re-pin marked incomplete, since Rossmann's re-pin runs only its name search, and "matched + brand", a state from before the brand rule. `leftToUser` takes the product as an optional second argument.
+- **The list kitchen sink** has two rows of products picked in Natura, and a rows state whose alert names Rossmann too.
+- **The watchlist check also proves** that a user can't add a product from Natura to another user's list (42501).
+- **The prices check's Rossmann match** uses the script's own 14-digit `rossmannId`, as its other Rossmann ids do: the database takes it, though the app's rule is 1 to 12 digits. Its reads are checked on the table and on both views.
+- **Left for Phase 5:** the test plan's §6.3 and CLAUDE.md describe `addMatchedProduct` and `matchShop` without `addProduct` or a Rossmann match, and CLAUDE.md's entries for the two database checks don't mention a product from Natura.
+
 ## References
 
 - Research: `context/changes/add-from-other-shops/research.md`, re-checked on 2026-10-08. The owner's calls are in `change.md`.
@@ -644,15 +665,15 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 1.1 Rossmann's, the refresh's and the comparison's tests pass
-- [x] 1.2 Lint, type check and the whole unit suite pass
+- [x] 1.1 Rossmann's, the refresh's and the comparison's tests pass — cc4fdd4
+- [x] 1.2 Lint, type check and the whole unit suite pass — cc4fdd4
 
 ### Phase 2: Each product's own shop
 
 #### Automated
 
-- [ ] 2.1 The services' tests pass
-- [ ] 2.2 Lint, type check and the whole unit suite pass
+- [x] 2.1 The services' tests pass
+- [x] 2.2 Lint, type check and the whole unit suite pass
 - [ ] 2.3 The database checks and the new spec pass in CI's `smoke` and `e2e` jobs on the PR
 
 ### Phase 3: Matching a product without a caption

@@ -23,6 +23,7 @@ import {
   type MatchesRead,
   type MatchStatesRead,
 } from "@/lib/services/matches";
+import { matchedShopsOf } from "@/lib/services/price-comparison";
 import { parsePriceRefreshCode } from "@/lib/services/price-refresh";
 import { listLatestPrices, productPricesOf, type ListPricesRead } from "@/lib/services/prices";
 import { isOwnNavigation } from "@/lib/services/search-query";
@@ -71,19 +72,23 @@ if (product === null) {
 }
 // The product the page shows, when there is one.
 const shown = product !== null && product !== "failed" ? product : null;
+// Its matched shops, every priced shop but its own, the one it was picked in, in the pages' order (matchedShopsOf):
+// the shops the page looks it up in, and the only ones its address and its notices may name. Its decisions were read
+// in every priced shop, and only these shops' count.
+const matchedShops = shown === null ? [] : matchedShopsOf(shown.source);
 
-// The shop the page was opened to look up again (`?retry=natura`) or to change the stored decision of
-// (`?repin=natura`), if any.
-const retryShop = retryShopOf(params);
-const repinShop = repinShopOf(params);
+// The matched shop the page was opened to look up again (`?retry=natura`) or to change the stored decision of
+// (`?repin=natura`), if any: an address naming the product's own shop, or any other, opens the plain page.
+const retryShop = retryShopOf(params, matchedShops);
+const repinShop = repinShopOf(params, matchedShops);
 // The filter the list was shown with, which every link, form and redirect of the page keeps, so the list beside the
 // product keeps its chip; any other value of `f` is the whole list.
 const listFilter = parseListFilter(params.get("f"));
-// What the page does for each matched shop, in MATCHED_SHOPS order (runMatchSteps): its card's view, the choice the
-// user opened to change its stored decision ("Zmień", "Dopasuj ponownie"), whether the lookup's own outcome couldn't
-// be stored, its stored or just stored match, whose prices are shown next to Rossmann's, and whether a retry stored its
-// outcome. The shops' lookups run at once, each shop's searches one after the other, and a shop whose step throws
-// shows as unavailable beside the others. The steps also tell whether the island may refetch on its own.
+// What the page does for each matched shop, in the pages' order (runMatchSteps): its card's view, the choice the user
+// opened to change its stored decision ("Zmień", "Dopasuj ponownie"), whether the lookup's own outcome couldn't be
+// stored, its stored or just stored match, whose prices are shown next to the product's own shop's, and whether a retry
+// stored its outcome. The shops' lookups run at once, each shop's searches one after the other, and a shop whose step
+// throws shows as unavailable beside the others. The steps also tell whether the island may refetch on its own.
 const steps =
   supabase && shown !== null
     ? await runMatchSteps({
@@ -95,6 +100,7 @@ const steps =
         repinShop,
         ownNavigation,
         filter: listFilter,
+        shops: matchedShops,
       })
     : [];
 if (shown !== null && steps.some((each) => each.retried)) {
@@ -102,7 +108,7 @@ if (shown !== null && steps.some((each) => each.retried)) {
   return Astro.redirect(filterHref(`/watchlist/${shown.id}`, listFilter));
 }
 
-// The prices of the product's own Rossmann item, where it was picked, and of each matched shop's item, its stored match
+// The prices of the product's own item, in the shop it was picked in, and of each matched shop's item, its stored match
 // or the one a step has just stored (productPricesOf). They're read after the steps, so a match a step has just stored
 // comes with the price it was found with. Without the stored prices the island still shows every shop, each saying its
 // price couldn't be read until its shop answers, and a shop whose own row couldn't be read says so too.
@@ -121,12 +127,12 @@ const title =
     : product === "failed"
       ? "Nie udało się wczytać produktu"
       : productFullName(product);
-// A decision's notice and a decision's error, each shown by the card of the shop it was for. Without the product, the
-// page shows a decision's error whatever its shop.
-const decision = decisionNotice(params);
-const decisionFailure = decisionError(params);
+// A decision's notice and a decision's error, each shown by the card of the matched shop it was for. Without the
+// product, the page shows a decision's error whatever its shop.
+const decision = decisionNotice(params, matchedShops);
+const decisionFailure = decisionError(params, matchedShops);
 const error = matchErrorMessage(params.get(ERROR_PARAM));
-// Each matched shop for the island's card, in MATCHED_SHOPS order. A choice's candidates stay out of the island: the
+// Each matched shop for the island's card, in the pages' order. A choice's candidates stay out of the island: the
 // shop's section below it holds their forms, a first choice's or the one the user opened to change the stored decision.
 const matched: MatchedShopView[] = steps.map(({ shop, view, unsaved }) => ({
   shop,

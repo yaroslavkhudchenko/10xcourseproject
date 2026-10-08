@@ -16,7 +16,6 @@ import {
   type Comparison,
   type LatestCheck,
   type MatchableShop,
-  type MatchedShop,
   type PriceComparisonShop,
   type PricedShop,
   type PriceJudgement,
@@ -365,7 +364,7 @@ export interface PricesEventDetail {
  * first tag by the rows the island starts with, so the list beside the product and the product agree from the first
  * paint.
  */
-export function rowShopsOfIsland(rows: readonly ShopRow[], unreadable: readonly MatchedShop[] = []): RowShop[] {
+export function rowShopsOfIsland(rows: readonly ShopRow[], unreadable: readonly PricedShop[] = []): RowShop[] {
   const shops: RowShop[] = rows.map(({ shop, latest, readFailed }) => ({ shop, latest, readFailed }));
   for (const unread of unreadable) {
     if (!shops.some(({ shop }) => shop === unread)) {
@@ -384,7 +383,7 @@ export function rowShopsOfIsland(rows: readonly ShopRow[], unreadable: readonly 
 export function selectedRowTagOf(
   shops: PriceComparisonShop[],
   pricesFailed: boolean,
-  unreadable: readonly MatchedShop[],
+  unreadable: readonly PricedShop[],
   renderedAt: string,
 ): PriceTag {
   const { rows } = initialState({ shops, now: renderedAt, pricesFailed });

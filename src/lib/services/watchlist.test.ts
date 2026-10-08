@@ -2,9 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { REMOVAL_ANCHOR } from "@/lib/notices";
 import { createShopGate } from "@/lib/services/shop-gate";
+import hebeNameSearch from "@/lib/services/shops/fixtures/hebe-name-search.json";
 import empty from "@/lib/services/shops/fixtures/rossmann-search-empty.json";
 import misspelled from "@/lib/services/shops/fixtures/rossmann-search-misspelled.json";
 import results from "@/lib/services/shops/fixtures/rossmann-search-results.json";
+import { searchHebe } from "@/lib/services/shops/hebe";
 import { searchRossmann } from "@/lib/services/shops/rossmann";
 import { createReplayFetch } from "@/lib/services/testing/replay-fetch";
 import {
@@ -24,7 +26,7 @@ import {
   type RemovalOutcome,
 } from "@/lib/services/watchlist";
 import type { ListFilter } from "@/lib/services/watchlist-rows";
-import type { ProductCandidate } from "@/types";
+import type { ProductCandidate, ShopCandidate } from "@/types";
 
 // The "Dodaj" form as the results page posts it, built from the first recorded Rossmann item.
 const [soft] = results.data.items;
@@ -115,7 +117,10 @@ describe("parseWatchlistForm", () => {
   });
 
   it.each<{ field: string; overrides: Record<string, string | string[]> }>([
-    { field: "a shop other than Rossmann", overrides: { source: "hebe" } },
+    { field: "a shop the app doesn't price", overrides: { source: "dm" } },
+    { field: "no shop", overrides: { source: "" } },
+    // Rossmann's item posted as Hebe's: its page and its image aren't on Hebe's host.
+    { field: "a Rossmann item as Hebe's", overrides: { source: "hebe" } },
     { field: "a product id that isn't digits", overrides: { sourceItemId: "26900; drop" } },
     { field: "a plain-http image", overrides: { imageUrl: "http://pro-fra-s3-productsassets.rossmann.pl/x.webp" } },
     { field: "an image on another host", overrides: { imageUrl: "https://images.example.com/x.webp" } },
@@ -157,6 +162,99 @@ describe("parseWatchlistForm", () => {
     for (const candidate of search.candidates) {
       expect(parseWatchlistForm(pageForm(candidate)), candidate.sourceItemId).not.toBeNull();
     }
+  });
+});
+
+// "Dodaj" takes an item of any priced shop, which becomes the product's own shop, checked by that shop's own adapter:
+// Hebe's items, as its adapter makes them of its recorded search for "nivea soft" (hebe.test.ts says when it was
+// made), posted with Hebe as their shop and without a caption, which only Rossmann writes apart.
+describe("parseWatchlistForm: an item of another shop", () => {
+  const HEBE_SEARCH = "https://live.luigisbox.com/search?tracker_id=421168-505233&q=nivea%20soft&size=10";
+
+  /** The "Dodaj" form for one of Hebe's items: its own fields, its shop and no caption, with these fields changed. */
+  function hebeForm(item: ShopCandidate, overrides: Record<string, string> = {}): FormData {
+    const form = pageForm({
+      source: "hebe",
+      sourceItemId: item.shopItemId,
+      brand: item.brand,
+      name: item.name,
+      caption: null,
+      sizeText: item.sizeText,
+      size: item.size,
+      eans: item.eans,
+      productUrl: item.productUrl,
+      imageUrl: item.imageUrl,
+    });
+    for (const [field, value] of Object.entries(overrides)) {
+      form.set(field, value);
+    }
+    return form;
+  }
+
+  /** Hebe's items in its recorded answer, through the real gate, which asked Hebe's tracker for exactly them. */
+  async function hebeItems(): Promise<ShopCandidate[]> {
+    const fetchMock = vi.fn(
+      createReplayFetch([{ url: HEBE_SEARCH, status: 200, body: JSON.stringify(hebeNameSearch) }]),
+    );
+    const gate = createShopGate({
+      reserve: () => Promise.resolve({ outcome: "allowed" }),
+      reportBlock: () => Promise.resolve(),
+      fetch: fetchMock,
+      log: () => undefined,
+    });
+    const search = await searchHebe(gate, "nivea soft", 10);
+    expect(fetchMock.mock.calls.map(([input]) => (input instanceof Request ? input.url : String(input)))).toEqual([
+      HEBE_SEARCH,
+    ]);
+    if (search.kind !== "results") {
+      throw new Error(`expected results, got ${search.kind}`);
+    }
+    return search.candidates;
+  }
+
+  it("accepts every Hebe item the adapter makes from the recording, as a product picked in Hebe", async () => {
+    const items = await hebeItems();
+
+    expect(items.length).toBeGreaterThan(0);
+    for (const item of items) {
+      expect(parseWatchlistForm(hebeForm(item)), item.shopItemId).toEqual({
+        source: "hebe",
+        sourceItemId: item.shopItemId,
+        brand: item.brand,
+        name: item.name,
+        caption: null,
+        sizeText: item.sizeText,
+        size: item.size,
+        eans: item.eans,
+        productUrl: item.productUrl,
+        imageUrl: item.imageUrl,
+      });
+    }
+  });
+
+  it.each<{ why: string; overrides: Record<string, string> }>([
+    { why: "a Natura SKU, which no Hebe item has", overrides: { sourceItemId: "NV89063" } },
+    { why: "an id longer than a shop item's", overrides: { sourceItemId: "1".repeat(41) } },
+    {
+      why: "a product page on Rossmann's site",
+      overrides: { productUrl: "https://www.rossmann.pl/Produkt/Kremy-do-twarzy/NIVEA-Soft,26900,13049" },
+    },
+    { why: "a plain-http product page", overrides: { productUrl: "http://www.hebe.pl/nivea-soft.html" } },
+    {
+      why: "an image on Rossmann's image host",
+      overrides: { imageUrl: "https://pro-fra-s3-productsassets.rossmann.pl/x.webp" },
+    },
+  ])("refuses a Hebe item with $why, which fails Hebe's own checks", async ({ overrides }) => {
+    const [item] = await hebeItems();
+
+    expect(parseWatchlistForm(hebeForm(item))).not.toBeNull();
+    expect(parseWatchlistForm(hebeForm(item, overrides))).toBeNull();
+  });
+
+  it("refuses a Hebe item posted as Rossmann's, whose id, page and image Rossmann's adapter doesn't accept", async () => {
+    const [item] = await hebeItems();
+
+    expect(parseWatchlistForm(hebeForm(item, { source: "rossmann" }))).toBeNull();
   });
 });
 

@@ -19,14 +19,14 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import ProductThumb from "@/components/watchlist/ProductThumb";
 import ShopLink from "@/components/watchlist/ShopLink";
 import type { MatchRepin, MatchView, RepinOption } from "@/lib/services/match-view";
-import { SHOP_LABELS, type MatchedShop } from "@/lib/services/price-comparison";
+import { SHOP_LABELS, type PricedShop } from "@/lib/services/price-comparison";
 import { productFullName } from "@/lib/services/watchlist";
 import { rowProductOf, type ListFilter } from "@/lib/services/watchlist-rows";
 import { cn } from "@/lib/utils";
 
 interface Props {
-  /** The shop the candidates are from, which every decision form posts. */
-  shop: MatchedShop;
+  /** The shop the candidates are from, one of the product's matched shops, which every decision form posts. */
+  shop: PricedShop;
   /** The candidates to choose from: a first choice, as the page's view of the shop has it, or a re-pin's. */
   view: Extract<MatchView, { kind: "choose" }> | MatchRepin;
   /** The watched product's id, which the decision forms post. */

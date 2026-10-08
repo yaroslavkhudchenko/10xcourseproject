@@ -6,8 +6,7 @@ import {
   listJoin,
   listPricedItems,
   listSummaryText,
-  MATCHABLE_SHOPS,
-  MATCHED_SHOPS,
+  matchedShopsOf,
   namesOf,
   PRICED_SHOPS,
   priceState,
@@ -15,7 +14,6 @@ import {
   verdictOf,
   type LatestCheck,
   type MatchableShop,
-  type MatchedShop,
   type PricedItem,
   type PricedShop,
   type PriceVerdict,
@@ -62,12 +60,10 @@ export type ListMatchState =
   { state: "matched"; mismatch: ListMismatch } | { state: Exclude<MatchState, "matched"> | "none" | "unreadable" };
 
 /**
- * A listed product's state in every matched shop, as matchStatesOf gives it, which its row says and counts
- * (listRowOf). A test may add a shop the code can match that isn't switched on yet.
+ * A listed product's state in each of its matched shops, as matchStatesOf gives it, which its row says and counts
+ * (listRowOf): a state for every priced shop but the product's own, which has none.
  */
-export type ListMatchStates = Readonly<
-  Record<MatchedShop, ListMatchState> & Partial<Record<MatchableShop, ListMatchState>>
->;
+export type ListMatchStates = Readonly<Partial<Record<PricedShop, ListMatchState>>>;
 
 /**
  * The list's read of the decisions, as listMatchStates gives it: the decisions that were read, the ones that came back
@@ -116,11 +112,13 @@ export interface RowProduct {
 }
 
 /**
- * A product's row on the list: the product, its price tag, the line screen readers hear in its place, and whether the
- * Promocje and Do sprawdzenia chips hold it.
+ * A product's row on the list: the product, and the shop it was picked in (`source`), by which the list's alert names
+ * the shops the decisions are of (listMatchedShops); its price tag, the line screen readers hear in its place, and
+ * whether the Promocje and Do sprawdzenia chips hold it.
  */
 export interface ListRow extends RowProduct {
   itemId: string;
+  source: WatchlistItem["source"];
   tag: PriceTag;
   summary: string;
   promo: boolean;
@@ -131,7 +129,7 @@ export interface ListRow extends RowProduct {
 export type NamedProduct = Pick<WatchlistItem, "brand" | "name" | "caption" | "sizeText" | "imageUrl">;
 
 /** A listed product, as far as its row looks at it. */
-export type ListedProduct = NamedProduct & Pick<WatchlistItem, "id">;
+export type ListedProduct = NamedProduct & Pick<WatchlistItem, "id" | "source">;
 
 /** The product a row draws, the same for a product on the list and a search result. */
 export function rowProductOf(product: NamedProduct): RowProduct {
@@ -144,17 +142,15 @@ export function rowProductOf(product: NamedProduct): RowProduct {
 }
 
 /** A listed product's state in one matched shop, with its shop. */
-type ShopListState = ListMatchState & { shop: MatchableShop };
+type ShopListState = ListMatchState & { shop: PricedShop };
 
 /**
- * Each shop's state among `states`, with its shop, in the order of the shops the code knows (MATCHABLE_SHOPS), which
- * the matched shops keep, so a row names its shops in the pages' order however its states were put together. A shop
- * the code knows that isn't switched on may have no state, so `states` is read as one that may leave any shop out.
+ * Each shop's state among `states`, with its shop, in the pages' order (PRICED_SHOPS), so a row names its shops in that
+ * order however its states were put together. The product's own shop has no state, nor has a shop a test leaves out.
  */
 function shopStatesOf(states: ListMatchStates): ShopListState[] {
-  const known: Readonly<Partial<Record<MatchableShop, ListMatchState>>> = states;
-  return MATCHABLE_SHOPS.flatMap((shop) => {
-    const state = known[shop];
+  return PRICED_SHOPS.flatMap((shop) => {
+    const state = states[shop];
     return state === undefined ? [] : [{ ...state, shop }];
   });
 }
@@ -206,7 +202,7 @@ function needsCheck(shopState: ListMatchState): boolean {
 }
 
 /**
- * A product's row, judged at `now` from its priced shops and its state in every matched shop (`matchStates`,
+ * A product's row, judged at `now` from its priced shops and its state in each of its matched shops (`matchStates`,
  * matchStatesOf). A decision that couldn't be read, in any matched shop, counts as a price that couldn't be read: the
  * match it hides may name a lower price, so no shop is named, and the row never reads as having only the shops whose
  * prices it has. After the price line, the row's line says each matched shop's state other than a match, and what to
@@ -237,6 +233,7 @@ export function listRowOf(
   });
   return {
     itemId: item.id,
+    source: item.source,
     ...rowProductOf(item),
     tag: priceTagOf(verdictOf(compared, now, unread)),
     summary: [priceLine, ...statuses].map(sentence).join(" "),
@@ -411,8 +408,10 @@ export function rowShopsOf(
 }
 
 /**
- * Where a listed product stands in each of `shops`, from the list's read of the decisions, or null when they couldn't
- * be read at all, which makes every shop's unreadable. Each shop is read on its own:
+ * Where a listed product stands in each of its matched shops among `shops` (matchedShopsOf), from the list's read of
+ * the decisions, or null when they couldn't be read at all, which makes every such shop's unreadable. Its own shop, the
+ * one it was picked in, has no state: a decision or an odd row of that shop says nothing about it. Each matched shop is
+ * read on its own:
  *
  * - A decision that was read stands even when another row of the product couldn't be, or a row couldn't say whose it
  *   is: a product has one decision per shop, so that row is another shop's or someone else's.
@@ -422,20 +421,18 @@ export function rowShopsOf(
  *   (matchDifferences), a size or a brand unknown on either side never counting, for an automatic match only. A match
  *   the user confirmed was shown with its flags before they confirmed it, so it differs in nothing here.
  *
- * `shops` are the matched shops unless a test names others.
+ * `shops` are the priced shops unless a test names others.
  */
-export function matchStatesOf<Shop extends MatchableShop = MatchedShop>(
-  item: Pick<WatchlistItem, "id" | "brand" | "size">,
+export function matchStatesOf(
+  item: Pick<WatchlistItem, "id" | "source" | "brand" | "size">,
   read: DecisionsRead | null,
-  shops: readonly Shop[] | typeof MATCHED_SHOPS = MATCHED_SHOPS,
-): Record<Shop, ListMatchState> {
-  const states: Partial<Record<MatchableShop, ListMatchState>> = {};
-  for (const shop of shops) {
+  shops: readonly PricedShop[] = PRICED_SHOPS,
+): ListMatchStates {
+  const states: Partial<Record<PricedShop, ListMatchState>> = {};
+  for (const shop of matchedShopsOf(item.source, shops)) {
     states[shop] = matchStateIn(shop, item, read);
   }
-  // Every shop of `shops` has its state, and the default's shops are the matched shops, which `Shop` defaults to, so
-  // the cast holds.
-  return states as Record<Shop, ListMatchState>;
+  return states;
 }
 
 /** Where a listed product stands in one shop, by matchStatesOf's rules. */
@@ -463,11 +460,12 @@ function matchStateIn(
 
 /**
  * The list's rows, in the list's order, judged at `now` from its three reads: the products, their decisions per shop
- * and the latest prices, each read as its list read gives it, null when it couldn't be read at all. A product whose
- * price or decision in a matched shop couldn't be read says so, and a read that failed altogether marks every
- * product's, so no row reads a failed read as a product without a price or a match. A product whose automatic match in
- * a matched shop differs from it is one to check, and its row says why. The list, and the list beside a product, build
- * their rows here.
+ * and the latest prices, each read as its list read gives it, null when it couldn't be read at all. Each product is
+ * judged in its own shop and its own matched shops alone (listPricedItems, matchStatesOf). A product whose price or
+ * decision in a matched shop couldn't be read says so, and a read that failed altogether marks every product's, so no
+ * row reads a failed read as a product without a price or a match. A product whose automatic match in a matched shop
+ * differs from it is one to check, and its row says why. The list, and the list beside a product, build their rows
+ * here.
  */
 export function listRowsOf(
   items: readonly (ListedProduct & Pick<WatchlistItem, "source" | "sourceItemId" | "size">)[],
@@ -482,12 +480,25 @@ export function listRowsOf(
 }
 
 /**
- * What the list says above its rows when the decisions couldn't be read at all, naming the shops they're of: "Nie
- * udało się wczytać dopasowań w Naturze. Odśwież stronę." Each row then says its decisions couldn't be read, never that
- * its product is still to be matched. One read holds every matched shop's decisions, so `shops` are the matched shops
- * unless a test names others.
+ * The shops the listed products are matched in, each once, in the pages' order: each of `shops`, the priced shops
+ * unless a test names others, that's a matched shop of some product on the list (matchedShopsOf). So a list of products
+ * picked in Rossmann has its decisions in Natura, Hebe and Super-Pharm, and one with a product picked in Natura in
+ * Rossmann too.
  */
-export function matchesFailedText(shops: readonly MatchableShop[] = MATCHED_SHOPS): string {
+export function listMatchedShops(
+  products: readonly Pick<WatchlistItem, "source">[],
+  shops: readonly PricedShop[] = PRICED_SHOPS,
+): PricedShop[] {
+  return shops.filter((shop) => products.some(({ source }) => matchedShopsOf(source, shops).includes(shop)));
+}
+
+/**
+ * What the list says above its rows when the decisions couldn't be read at all, naming `shops`, the shops they're of,
+ * which are the shops the listed products are matched in (listMatchedShops): "Nie udało się wczytać dopasowań w
+ * Naturze. Odśwież stronę." Each row then says its decisions couldn't be read, never that its product is still to be
+ * matched.
+ */
+export function matchesFailedText(shops: readonly MatchableShop[]): string {
   return `Nie udało się wczytać dopasowań ${namesOf(shops, "in")}. Odśwież stronę.`;
 }
 

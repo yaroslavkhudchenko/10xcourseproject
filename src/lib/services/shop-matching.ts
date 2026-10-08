@@ -13,7 +13,7 @@ import {
 } from "@/lib/services/match-view";
 import { recordLookup, type MatchesRead } from "@/lib/services/matches";
 import { judge, orderChoice, pickMatch, type MatchPick, type NamedProduct } from "@/lib/services/matching";
-import { MATCHED_SHOPS, SHOP_LABELS, type MatchableShop, type MatchedShop } from "@/lib/services/price-comparison";
+import { matchedShopsOf, SHOP_LABELS, type MatchableShop, type PricedShop } from "@/lib/services/price-comparison";
 import { recordPriceChecks } from "@/lib/services/prices";
 import { toShopQuery } from "@/lib/services/search-query";
 import type { ShopGate } from "@/lib/services/shop-gate";
@@ -211,7 +211,7 @@ function logNothingFound(shop: MatchableShop, searchedByEan: boolean, searchedBy
 }
 
 /** What the product's page runs its matched shops' steps on (runMatchSteps). */
-export interface MatchStepsInput<Shop extends MatchableShop = MatchedShop> {
+export interface MatchStepsInput {
   /** The user's own client, which stores each shop's automatic outcome and the price an automatic match came with. */
   supabase: SupabaseClient;
   /** The gate every search goes through, charged to the shop it asks. */
@@ -228,8 +228,11 @@ export interface MatchStepsInput<Shop extends MatchableShop = MatchedShop> {
   ownNavigation: boolean;
   /** The filter the list is shown with, which every view's links keep. */
   filter: ListFilter;
-  /** The shops to run, in the pages' order: the matched shops unless a test names others. */
-  shops?: readonly Shop[] | typeof MATCHED_SHOPS;
+  /**
+   * The shops to run, in the pages' order: the product's matched shops, every priced shop but its own (matchedShopsOf),
+   * unless a test names others.
+   */
+  shops?: readonly PricedShop[];
 }
 
 /**
@@ -239,8 +242,8 @@ export interface MatchStepsInput<Shop extends MatchableShop = MatchedShop> {
  * whose prices the page shows (`item`), and whether a retry stored its outcome, so the page goes back to its plain
  * address (`retried`).
  */
-export interface MatchStepResult<Shop extends MatchableShop = MatchedShop> {
-  shop: Shop;
+export interface MatchStepResult {
+  shop: PricedShop;
   step: MatchStep;
   view: MatchView;
   repin: MatchRepin | null;
@@ -262,23 +265,22 @@ const SHOWN_ONLY = { repin: null, unsaved: false, item: null, retried: false } a
 const FAILED: ShopUnavailable = { kind: "unavailable", reason: "failed" };
 
 /**
- * Runs the product page's step for each of `shops`, the matched shops unless a test names others, in their order:
- * decides it from the shop's stored decision and how the page was opened (decideMatchStep), then shows the stored
- * decision, offers only the button, opens the choice that changes the decision with the shop's two searches, or looks
- * the product up and stores what the matching rule settled on its own, with the price an automatic match came with as
- * its first stored price. The shops run at once, and each shop's searches and writes one after the other, so no two of
- * a shop's requests overlap. Each shop settles on its own: one whose lookup, recording or first price throws is logged
- * and shown as unavailable, and the other shops come back as usual. It never throws.
+ * Runs the product page's step for each of `shops`, the product's matched shops (matchedShopsOf) unless a test names
+ * others, in their order, so its own shop, whose own item it's priced by, is never looked up: decides it from the
+ * shop's stored decision and how the page was opened (decideMatchStep), then shows the stored decision, offers only the
+ * button, opens the choice that changes the decision with the shop's two searches, or looks the product up and stores
+ * what the matching rule settled on its own, with the price an automatic match came with as its first stored price.
+ * The shops run at once, and each shop's searches and writes one after the other, so no two of a shop's requests
+ * overlap. Each shop settles on its own: one whose lookup, recording or first price throws is logged and shown as
+ * unavailable, and the other shops come back as usual. It never throws.
  */
-export function runMatchSteps<Shop extends MatchableShop = MatchedShop>({
-  shops = MATCHED_SHOPS,
-  ...input
-}: MatchStepsInput<Shop>): Promise<MatchStepResult<NoInfer<Shop> | MatchedShop>[]> {
-  return Promise.all(shops.map((shop) => runStep(shop, input)));
+export function runMatchSteps({ shops, ...input }: MatchStepsInput): Promise<MatchStepResult[]> {
+  const run = shops ?? matchedShopsOf(input.product.source);
+  return Promise.all(run.map((shop) => runStep(shop, input)));
 }
 
 /** One shop's step (runMatchSteps), settled on its own: a step that throws shows the shop as unavailable. */
-async function runStep<Shop extends MatchableShop>(shop: Shop, input: StepInput): Promise<MatchStepResult<Shop>> {
+async function runStep(shop: PricedShop, input: StepInput): Promise<MatchStepResult> {
   const { matches, retryShop, repinShop, ownNavigation } = input;
   const step = decideMatchStep({ matches, shop, retryShop, repinShop, ownNavigation });
   try {

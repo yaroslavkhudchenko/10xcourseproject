@@ -3,11 +3,12 @@
 // its page, or a "Na liście" pill for one the list already holds; the shop's spelling hint, as a link to the search it
 // names; and the search the results come from. Each "Dodaj" is described by its result's brand, size and name, so
 // screen readers tell the buttons apart. The search asks Rossmann alone, so the heading names it, and an empty result
-// says so and where the matched shops' prices are compared: a name copied from another shop finds nothing here.
+// says so and where a Rossmann product's matched shops' prices are compared: a name copied from another shop finds
+// nothing here.
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import WatchlistRow from "@/components/watchlist/WatchlistRow.astro";
-import { MATCHED_SHOPS, namesOf, SHOP_LABELS } from "@/lib/services/price-comparison";
+import { matchedShopsOf, namesOf, SHOP_LABELS } from "@/lib/services/price-comparison";
 import { rowProductOf } from "@/lib/services/watchlist-rows";
 import { cn } from "@/lib/utils";
 import type { ProductCandidate, WatchlistItem } from "@/types";
@@ -32,8 +33,10 @@ const keyOf = ({ source, sourceItemId }: Pick<WatchlistItem, "source" | "sourceI
 const onList = new Set(listed.map(keyOf));
 const headingId = `${idPrefix}results-heading`;
 const shop = SHOP_LABELS.rossmann;
+// Where a product added from Rossmann's results has its prices compared: in its matched shops.
+const comparedIn = namesOf(matchedShopsOf("rossmann"), "in");
 const noResultsHint =
-  `Wyszukiwarka pokazuje tylko produkty ${shop.of}, a ceny ${namesOf(MATCHED_SHOPS, "in")} porównasz na stronie ` +
+  `Wyszukiwarka pokazuje tylko produkty ${shop.of}, a ceny ${comparedIn} porównasz na stronie ` +
   `dodanego produktu. ${shop.name} może nazywać produkt inaczej: spróbuj krócej, np. „nivea soft 300 ml”.`;
 
 // Each result as its row draws it, with the ids of its brand and size and of its name, which its "Dodaj" is described

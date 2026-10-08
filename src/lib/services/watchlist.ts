@@ -13,9 +13,10 @@ import {
   type RemovalCode,
   type RemovedCode,
 } from "@/lib/notices";
-import { optionalText, optionalUrl } from "@/lib/services/form-fields";
+import { linksOfShop, optionalText } from "@/lib/services/form-fields";
+import { PRICED_SHOPS } from "@/lib/services/price-comparison";
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
-import { isRossmannImage, isRossmannProductUrl } from "@/lib/services/shops/rossmann";
+import { SHOP_ADAPTERS } from "@/lib/services/shops/registry";
 import { parseSize } from "@/lib/services/size";
 import { filterHref, type ListFilter } from "@/lib/services/watchlist-rows";
 import { SHOP_IDS, type ProductCandidate, type WatchlistItem, type WatchlistProduct } from "@/types";
@@ -37,21 +38,30 @@ export function parseWatchlistItemId(value: unknown): string | null {
 }
 
 /**
- * The "Dodaj" form, whose fields come back from the results page. Only the user's own row depends on them, but they
- * are still checked against the same PRODUCT_LIMITS the adapters apply: the size is parsed again from its text, and
- * images and product pages must be Rossmann's.
+ * The "Dodaj" form, whose fields come back from the results page, for an item of any priced shop, which becomes the
+ * product's own shop. Only the user's own row depends on them, but they are still checked against the same
+ * PRODUCT_LIMITS the adapters apply, and by the rules of the item's own shop's adapter (SHOP_ADAPTERS), as a decision's
+ * item is (parseMatchForm): its id must be one that shop's items can have, and its image and product page on that
+ * shop's hosts. The size is parsed again from its text, and the caption, which only Rossmann writes apart from the
+ * name, is optional for every shop.
  */
-export const watchlistAddSchema = z.object({
-  source: z.literal("rossmann"),
-  sourceItemId: z.string().regex(/^\d{1,12}$/),
-  name: z.string().trim().min(1).max(PRODUCT_LIMITS.name),
-  brand: optionalText(PRODUCT_LIMITS.brand),
-  caption: optionalText(PRODUCT_LIMITS.caption),
-  sizeText: optionalText(PRODUCT_LIMITS.sizeText),
-  eans: z.array(z.string().regex(/^\d{8,14}$/)).max(PRODUCT_LIMITS.eans),
-  productUrl: optionalUrl(PRODUCT_LIMITS.productUrl, isRossmannProductUrl),
-  imageUrl: optionalUrl(PRODUCT_LIMITS.imageUrl, isRossmannImage),
-});
+export const watchlistAddSchema = z
+  .object({
+    source: z.enum(PRICED_SHOPS),
+    sourceItemId: z.string(),
+    name: z.string().trim().min(1).max(PRODUCT_LIMITS.name),
+    brand: optionalText(PRODUCT_LIMITS.brand),
+    caption: optionalText(PRODUCT_LIMITS.caption),
+    sizeText: optionalText(PRODUCT_LIMITS.sizeText),
+    eans: z.array(z.string().regex(/^\d{8,14}$/)).max(PRODUCT_LIMITS.eans),
+    // Empty for none; the links that are there must be the item's own shop's, which linksOfShop checks.
+    productUrl: optionalText(PRODUCT_LIMITS.productUrl),
+    imageUrl: optionalText(PRODUCT_LIMITS.imageUrl),
+  })
+  .refine(
+    ({ source, sourceItemId, productUrl, imageUrl }) =>
+      SHOP_ADAPTERS[source].isItemId(sourceItemId) && linksOfShop({ shop: source, productUrl, imageUrl }),
+  );
 
 /** Reads a posted "Dodaj" form into a candidate, or null when any field fails its check. */
 export function parseWatchlistForm(form: FormData): ProductCandidate | null {

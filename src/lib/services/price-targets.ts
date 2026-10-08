@@ -3,7 +3,7 @@ import { z } from "astro/zod";
 import { listMatches, listMatchStates, shopItemIdSchema } from "@/lib/services/matches";
 import {
   listPricedItems,
-  MATCHED_SHOPS,
+  matchedShopsOf,
   PRICED_SHOPS,
   productPriceKeys,
   staleTargets,
@@ -35,10 +35,10 @@ export const priceRequestSchema = z.object({
 export type PriceRequest = z.infer<typeof priceRequestSchema>;
 
 /**
- * The shop item a refresh of the user's product fetches: the product's own item for Rossmann, where it was picked, and
- * its matched item for a matched shop. Null when the product isn't on the user's list (RLS answers another user's
- * product the same way) or has no matched item in that shop; `failed` when the rows couldn't be read, the shop's
- * decision among them, which may hide a match.
+ * The shop item a refresh of the user's product fetches: the product's own item in its own shop, the one it was picked
+ * in, and its matched item in any of its matched shops. Null when the product isn't on the user's list (RLS answers
+ * another user's product the same way) or has no matched item in that shop; `failed` when the rows couldn't be read,
+ * the shop's decision among them, which may hide a match.
  */
 export async function shopItemFor(
   supabase: SupabaseClient,
@@ -72,32 +72,32 @@ export async function priceTargetFor(
 
 /**
  * The product's item in a shop as the user's rows give it: whether the product is still on the user's list, and the
- * item a refresh fetches there, null without one; `failed` when the rows couldn't be read (shopItemFor).
+ * item a refresh fetches there, null without one; `failed` when the rows couldn't be read (shopItemFor). The product is
+ * read first, since it says which shop is its own: there its own item stands, whatever decision is stored in that shop,
+ * and only in another shop, one of its matched shops, are its decisions read for its match. So refetching a product's
+ * own item reads one row, and its match two, one after the other.
  */
 async function itemInRows(
   supabase: SupabaseClient,
   itemId: string,
   shop: PricedShop,
 ): Promise<{ listed: boolean; key: PriceKey | null } | "failed"> {
-  if (shop === "rossmann") {
-    const product = await getWatchlistProduct(supabase, itemId);
-    if (product === "failed") {
-      return "failed";
-    }
-    return {
-      listed: product !== null,
-      key: product?.source === "rossmann" ? { shop, shopItemId: product.sourceItemId } : null,
-    };
+  const product = await getWatchlistProduct(supabase, itemId);
+  if (product === "failed") {
+    return "failed";
   }
-  const [product, read] = await Promise.all([getWatchlistProduct(supabase, itemId), listMatches(supabase, itemId)]);
-  if (product === "failed" || read === null || read.unreadable.includes(shop)) {
+  if (product === null) {
+    return { listed: false, key: null };
+  }
+  if (product.source === shop) {
+    return { listed: true, key: { shop, shopItemId: product.sourceItemId } };
+  }
+  const read = await listMatches(supabase, itemId);
+  if (read === null || read.unreadable.includes(shop)) {
     return "failed";
   }
   const match = read.matches.find((decision) => decision.shop === shop);
-  return {
-    listed: product !== null,
-    key: product !== null && match?.state === "matched" ? { shop, shopItemId: match.item.shopItemId } : null,
-  };
+  return { listed: true, key: match?.state === "matched" ? { shop, shopItemId: match.item.shopItemId } : null };
 }
 
 /**
@@ -112,16 +112,18 @@ export interface RefreshTargets {
 
 /**
  * What the list's "Odśwież ceny" fetches: every shop item of the user's list whose last check is more than 15 minutes
- * old, as the stored prices tell, the oldest first: each product's own Rossmann item and its match in each of `shops`,
- * the matched shops unless a test names others. Odd rows never stop the refresh: an item without a readable price row,
- * whether its row came back odd or an odd row couldn't say whose it is, counts as never checked, so it's fetched, which
- * also repairs its latest row; and a product whose decision in a shop couldn't be read has no item there to fetch. The
- * list names no shop unread, since it asks only for what's out of date, which such a decision can't tell. `failed` when
- * the list, its decisions or its prices couldn't be read at all, since then the refresh can't tell what's out of date.
+ * old, as the stored prices tell, the oldest first: each product's own item and its match in each of its matched shops
+ * (listPricedItems). The decisions are read in every one of `shops`, the priced shops unless a test names others, and
+ * only a product's own matched shops' decisions count for it. Odd rows never stop the refresh: an item without a
+ * readable price row, whether its row came back odd or an odd row couldn't say whose it is, counts as never checked,
+ * so it's fetched, which also repairs its latest row; and a product whose decision in a shop couldn't be read has no
+ * item there to fetch. The list names no shop unread, since it asks only for what's out of date, which such a decision
+ * can't tell. `failed` when the list, its decisions or its prices couldn't be read at all, since then the refresh
+ * can't tell what's out of date.
  */
 export async function listTargets(
   supabase: SupabaseClient,
-  shops: readonly MatchableShop[] = MATCHED_SHOPS,
+  shops: readonly PricedShop[] = PRICED_SHOPS,
 ): Promise<RefreshTargets | "failed"> {
   const [items, matches, prices] = await Promise.all([
     listWatchlist(supabase),
@@ -137,16 +139,18 @@ export async function listTargets(
 
 /**
  * What a product page's "Odśwież ceny" fetches without JavaScript: every shop item of the user's product, however
- * recently it was checked, as the island's button does: its own Rossmann item and its match in each of `shops`, the
- * matched shops unless a test names others. A shop whose decision couldn't be read has no item to fetch and is named
- * unread, while the other shops' items are still fetched, as the island asks each shop on its own (shopItemFor). None
- * for a product that isn't on the user's list (RLS answers another user's product the same way); `failed` when the
- * product or its decisions couldn't be read at all.
+ * recently it was checked, as the island's button does: its own item and its match in each of its matched shops among
+ * `shops`, the priced shops unless a test names others (productPriceKeys). The product and its decisions are read at
+ * once, the decisions in every one of `shops`, and only its matched shops' decisions count: one stored in its own shop
+ * is left out, and so is a row there that couldn't be read. A matched shop whose decision couldn't be read has no item
+ * to fetch and is named unread, while the other shops' items are still fetched, as the island asks each shop on its own
+ * (shopItemFor). None for a product that isn't on the user's list (RLS answers another user's product the same way);
+ * `failed` when the product or its decisions couldn't be read at all.
  */
 export async function productTargets(
   supabase: SupabaseClient,
   itemId: string,
-  shops: readonly MatchableShop[] = MATCHED_SHOPS,
+  shops: readonly PricedShop[] = PRICED_SHOPS,
 ): Promise<RefreshTargets | "failed"> {
   const [product, read] = await Promise.all([
     getWatchlistProduct(supabase, itemId),
@@ -158,7 +162,11 @@ export async function productTargets(
   if (product === null) {
     return { keys: [], unread: [] };
   }
-  return { keys: productPriceKeys(product, read.matches.map(priceDecisionOf), shops), unread: read.unreadable };
+  const matched = matchedShopsOf(product.source, shops);
+  return {
+    keys: productPriceKeys(product, read.matches.map(priceDecisionOf), shops),
+    unread: read.unreadable.filter((shop) => matched.includes(shop)),
+  };
 }
 
 /** A product's stored decision in a shop as its prices read it: a match names its item there, any other none. */

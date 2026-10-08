@@ -1,8 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { repinShopOf, retryShopOf } from "@/lib/services/match-step";
 import type { MatchView } from "@/lib/services/match-view";
 import type { MatchesRead } from "@/lib/services/matches";
-import type { MatchableShop, MatchedShop } from "@/lib/services/price-comparison";
+import { matchedShopsOf, type MatchableShop, type PricedShop } from "@/lib/services/price-comparison";
 import { createShopGate, type ShopGate, type ShopGateDeps } from "@/lib/services/shop-gate";
 import {
   lookupChoicesInShop,
@@ -20,6 +21,8 @@ import hebeNameSearch from "@/lib/services/shops/fixtures/hebe-name-search.json"
 import eanHit from "@/lib/services/shops/fixtures/natura-ean-hit.json";
 import eanMiss from "@/lib/services/shops/fixtures/natura-ean-miss.json";
 import nameSearch from "@/lib/services/shops/fixtures/natura-name-search.json";
+import naturaNiveaSoft from "@/lib/services/shops/fixtures/natura-search-nivea-soft.json";
+import rossmannNiveaSoft from "@/lib/services/shops/fixtures/rossmann-search-nivea-soft.json";
 import superPharmSkyHigh from "@/lib/services/shops/fixtures/super-pharm-lookup-maybelline-sky-high-7-2.json";
 import superPharmNameSearchOne from "@/lib/services/shops/fixtures/super-pharm-name-search-one.json";
 import superPharmNameSearch from "@/lib/services/shops/fixtures/super-pharm-name-search.json";
@@ -857,8 +860,14 @@ function stubClient(answer: (table: string, first: string | undefined) => Answer
 /** What the steps stored: each query's table, its first call and that call's row. */
 const writesOf = (queries: Call[][]) => queries.map((calls) => [calls[0][1], ...(calls.at(1) ?? [])]);
 
-/** The matched shop a URL asks: Super-Pharm by its one query URL, Natura or Hebe by its Luigi's Box tracker id. */
-function trackerShop(url: string): MatchedShop {
+/**
+ * The shop a URL asks: Rossmann by its host, Super-Pharm by its one query URL, Natura or Hebe by its Luigi's Box
+ * tracker id.
+ */
+function trackerShop(url: string): PricedShop {
+  if (url.startsWith("https://www.rossmann.pl/")) {
+    return "rossmann";
+  }
   if (url === SUPER_PHARM_URL) {
     return "super-pharm";
   }
@@ -867,12 +876,12 @@ function trackerShop(url: string): MatchedShop {
 
 /**
  * A real gate over a fetch that answers the recordings a moment after each request, so requests sent together overlap,
- * and keeps the most requests in flight at once, in all and to each matched shop.
+ * and keeps the most requests in flight at once, in all and to each shop.
  */
 function slowGate(entries: ReplayEntry[]) {
   const replay = createReplayFetch(entries);
-  const inFlight: MatchedShop[] = [];
-  const most: Record<"all" | MatchedShop, number> = { all: 0, natura: 0, hebe: 0, "super-pharm": 0 };
+  const inFlight: PricedShop[] = [];
+  const most: Record<"all" | PricedShop, number> = { all: 0, rossmann: 0, natura: 0, hebe: 0, "super-pharm": 0 };
   const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
     const shop = trackerShop(input instanceof Request ? input.url : new URL(input).href);
     inFlight.push(shop);
@@ -980,7 +989,8 @@ describe("runMatchSteps: each matched shop's step on the product's page", () => 
       spSearch(SP_SOFT_IN_BOTH_SEARCH),
     ]);
     expect(reserve.mock.calls.map(([shop]) => shop).sort()).toEqual(["hebe", "hebe", "natura", "super-pharm"]);
-    expect(most).toEqual({ all: 3, natura: 1, hebe: 1, "super-pharm": 1 });
+    // Rossmann, the product's own shop, is asked nothing.
+    expect(most).toEqual({ all: 3, rossmann: 0, natura: 1, hebe: 1, "super-pharm": 1 });
     // Only Natura's automatic match and its first price were stored; a choice stores nothing.
     expect(writesOf(queries)).toEqual([
       [
@@ -1180,6 +1190,145 @@ describe("runMatchSteps: each matched shop's step on the product's page", () => 
     expect(steps.map(({ view }) => view.kind)).toEqual(views);
     expect(requestedUrls(fetchMock)).toEqual([]);
     expect(queries).toEqual([]);
+  });
+});
+
+// A product picked in another shop than Rossmann is matched in every priced shop but its own (matchedShopsOf), Rossmann
+// included, and its page's steps run in those shops alone: its own shop is never looked up, whatever decision is stored
+// there or the address names. Its lookups cost what the plan of add-from-other-shops states: one name search in
+// Rossmann and in Super-Pharm, whose searches can't find an EAN, and in Natura and Hebe an EAN search first when the
+// product has an EAN. Each product is named as the recorded searches asked for it, "nivea soft", 10 hits, so each
+// shop's answer is its own recording: Rossmann's and Natura's of 2026-10-06 (rossmann.test.ts, natura.test.ts).
+const ROSSMANN_SOFT_SEARCH = "https://www.rossmann.pl/products/v4/api/Products?search=nivea%20soft&page=1&pageSize=10";
+const NATURA_SOFT_SEARCH = searchUrl("nivea soft", 10);
+const rossmannSoftAnswer = {
+  url: ROSSMANN_SOFT_SEARCH,
+  status: 200,
+  body: JSON.stringify(rossmannNiveaSoft),
+} satisfies ReplayEntry;
+const naturaSoftAnswer = {
+  url: NATURA_SOFT_SEARCH,
+  status: 200,
+  body: JSON.stringify(naturaNiveaSoft),
+} satisfies ReplayEntry;
+
+describe("runMatchSteps: a product picked in another shop, matched in every priced shop but its own", () => {
+  // Nivea Soft 300 ml picked in Natura, by its SKU, with the EAN Natura's item carries.
+  const fromNatura: WatchlistProduct = { ...softInBoth, source: "natura", sourceItemId: "NV89063" };
+  // The same product picked in Super-Pharm, by its objectID: Super-Pharm's items carry no EAN.
+  const fromSuperPharm: WatchlistProduct = { ...softInBoth, source: "super-pharm", sourceItemId: "10132", eans: [] };
+
+  it("looks a product picked in Natura up in Rossmann, Hebe and Super-Pharm, never in Natura: 4 requests", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // Natura's recordings answer too, so a request to Natura would show among the ones served.
+    const { gate, fetchMock, reserve, most } = slowGate([
+      rossmannSoftAnswer,
+      hebeAnswers.offlineEan,
+      hebeAnswers.name,
+      superPharmFailed,
+      answers.eanHit,
+      answers.name,
+    ]);
+    const { client, queries } = stubClient();
+    // An address naming its own shop, as a crafted link could, opens the plain page, which asks every matched shop.
+    const params = new URLSearchParams("repin=natura&retry=natura");
+    const shops = matchedShopsOf(fromNatura.source);
+
+    const steps = await runMatchSteps(
+      opened({
+        supabase: client,
+        gate,
+        product: fromNatura,
+        // A match stored in Natura, its own shop, as a direct write could store it: no step reads it.
+        matches: stored(naturaMatched),
+        repinShop: repinShopOf(params, shops),
+        retryShop: retryShopOf(params, shops),
+        shops,
+      }),
+    );
+
+    expect(steps.map(({ shop, step }) => [shop, step])).toEqual([
+      ["rossmann", { kind: "lookup", retry: false }],
+      ["hebe", { kind: "lookup", retry: false }],
+      ["super-pharm", { kind: "lookup", retry: false }],
+    ]);
+    // Rossmann's name search finds its Nivea Soft 300 ml, which shares the product's EAN and size: matched on its own,
+    // with the offer its search item carried, so its first price costs no request of its own.
+    expect(steps[0]).toMatchObject({
+      view: {
+        kind: "matched",
+        note: "Dopasowano automatycznie: ten sam EAN i rozmiar.",
+        action: { kind: "repin", href: `${PLAIN_PAGE}?repin=rossmann` },
+      },
+      item: { shopItemId: "26900" },
+      repin: null,
+      unsaved: false,
+      retried: false,
+    });
+    // Hebe's EAN search finds only an item it doesn't sell online, and its name search leaves the choice to the user,
+    // as for the product picked in Rossmann; Super-Pharm's one search got no answer.
+    expect(choiceIds(steps[1].view)).toEqual(["000000000000218807", "000000000000255134", "000000000000742817"]);
+    expect(steps[2].view).toEqual({ kind: "unavailable", message: SUPER_PHARM_FAILED });
+    // One request to Rossmann, Hebe's two, Super-Pharm's one and none to Natura: the shops at once, each one's requests
+    // one at a time, and its own item's refetch, the island's, makes 5 at most.
+    expect(requestedUrls(fetchMock).filter((url) => trackerShop(url) === "rossmann")).toEqual([ROSSMANN_SOFT_SEARCH]);
+    expect(requestedUrls(fetchMock).filter((url) => trackerShop(url) === "hebe")).toEqual([
+      HEBE_OFFLINE_EAN_SEARCH,
+      HEBE_NAME_SEARCH,
+    ]);
+    expect(sentRequests(fetchMock).filter(({ url }) => url === SUPER_PHARM_URL)).toEqual([
+      spSearch(SP_SOFT_IN_BOTH_SEARCH),
+    ]);
+    expect(requestedUrls(fetchMock).filter((url) => trackerShop(url) === "natura")).toEqual([]);
+    expect(reserve.mock.calls.map(([shop]) => shop).sort()).toEqual(["hebe", "hebe", "rossmann", "super-pharm"]);
+    expect(most).toEqual({ all: 3, rossmann: 1, natura: 0, hebe: 1, "super-pharm": 1 });
+    // Rossmann's automatic match and its first price, 15,99 zł on promotion, as the recorded search item carried it.
+    expect(writesOf(queries)).toEqual([
+      [
+        "watchlist_matches",
+        "insert",
+        expect.objectContaining({
+          watchlist_item_id: PRODUCT_ID,
+          shop_id: "rossmann",
+          state: "matched",
+          decided_by: "auto",
+          shop_item_id: "26900",
+        }),
+      ],
+      [
+        "price_observations",
+        "insert",
+        [expect.objectContaining({ shop_id: "rossmann", shop_item_id: "26900", status: "price", price: 15.99 })],
+      ],
+    ]);
+  });
+
+  it("looks a product picked in Super-Pharm up once in each of Rossmann, Natura and Hebe, by name: 3 requests", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // Super-Pharm's answer is served too, so a request to Super-Pharm would show among the ones served.
+    const { gate, fetchMock, reserve, most } = slowGate([
+      rossmannSoftAnswer,
+      naturaSoftAnswer,
+      hebeAnswers.name,
+      superPharmFailed,
+    ]);
+    const { client } = stubClient();
+
+    // The product's own matched shops by default, as the page passes them.
+    const steps = await runMatchSteps(opened({ supabase: client, gate, product: fromSuperPharm }));
+
+    expect(steps.map(({ shop, step }) => [shop, step])).toEqual([
+      ["rossmann", { kind: "lookup", retry: false }],
+      ["natura", { kind: "lookup", retry: false }],
+      ["hebe", { kind: "lookup", retry: false }],
+    ]);
+    // Without an EAN, Natura and Hebe skip their EAN search too: one name search in each matched shop, and none in
+    // Super-Pharm, so its own item's refetch, the island's, makes 4 at most.
+    expect(requestedUrls(fetchMock).sort()).toEqual(
+      [HEBE_NAME_SEARCH, NATURA_SOFT_SEARCH, ROSSMANN_SOFT_SEARCH].sort(),
+    );
+    expect(reserve.mock.calls.map(([shop]) => shop).sort()).toEqual(["hebe", "natura", "rossmann"]);
+    expect(most).toEqual({ all: 3, rossmann: 1, natura: 1, hebe: 1, "super-pharm": 0 });
   });
 });
 

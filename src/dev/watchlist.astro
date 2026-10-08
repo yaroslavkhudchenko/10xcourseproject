@@ -217,7 +217,9 @@ const HEADS: {
                 innym rozmiarze i z decyzją, której nie udało się wczytać, każdy z tym, co słyszy czytnik ekranu.
                 Wiersze Super-Pharmu, od <code>super-pharm-cheapest</code>: najtańszy z czterech sklepów, dopasowany po
                 nazwie albo przez Ciebie, i do dopasowania, gdy jego kandydaci czekają na Twój wybór na stronie
-                produktu, każdy z tym, co słyszy czytnik ekranu.
+                produktu, każdy z tym, co słyszy czytnik ekranu. Wiersze produktów dodanych z Natury, od{" "}
+                <code>natura-picked</code>: z własną ceną Natury, najtańszą obok dopasowania w Rossmannie, i z
+                Rossmannem do dopasowania, każdy z tym, co słyszy czytnik ekranu.
               </p>
               <div class="flex flex-col gap-6">
                 {ROW_FIXTURES.map(({ code, text, row, selected }) => (
@@ -306,8 +308,9 @@ const HEADS: {
                 Wiersze listy
               </h2>
               <p class="text-sm text-muted-foreground">
-                <code>ListRows</code>: pusta lista, nieudane odczyty i filtr bez produktów, z wierszami zbudowanymi z
-                odczytów listy (<code>listRowsOf</code>).
+                <code>ListRows</code>: pusta lista, nieudane odczyty, także decyzji przy produkcie dodanym z Natury, gdy
+                alert wymienia i Rossmanna, i filtr bez produktów, z wierszami zbudowanymi z odczytów listy (
+                <code>listRowsOf</code>).
               </p>
               <div class="flex flex-col gap-6">
                 {ROWS_FIXTURES.map(({ code, text, rows, filter, matchesFailed, pricesFailed }) => (

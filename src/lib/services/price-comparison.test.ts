@@ -12,9 +12,10 @@ import {
   listPricedItems,
   listSummaryText,
   MATCHABLE_SHOPS,
-  MATCHED_SHOPS,
+  matchedShopsOf,
   namesOf,
   needsRefetch,
+  parseMatchedShop,
   PRICE_UNREAD_TEXT,
   PRICED_SHOPS,
   priceParts,
@@ -105,10 +106,45 @@ function marks(rows: { shop: PricedShop; cheapest: boolean }[]) {
 }
 
 describe("the shop lists", () => {
-  it("puts Rossmann first among the shops the code can match and prices, while the matched shops stay Natura, Hebe and Super-Pharm", () => {
+  it("puts Rossmann first among the shops the code can match and prices", () => {
     expect(MATCHABLE_SHOPS).toEqual(["rossmann", "natura", "hebe", "super-pharm"]);
     expect(PRICED_SHOPS).toEqual(["rossmann", "natura", "hebe", "super-pharm"]);
-    expect(MATCHED_SHOPS).toEqual(["natura", "hebe", "super-pharm"]);
+  });
+
+  // The plan of add-from-other-shops: a product's own shop is the one it was picked in, and its matched shops are every
+  // priced shop but that one, in the fixed order Rossmann, Natura, Hebe, Super-Pharm.
+  it.each<{ source: ShopId; matched: PricedShop[] }>([
+    { source: "rossmann", matched: ["natura", "hebe", "super-pharm"] },
+    { source: "natura", matched: ["rossmann", "hebe", "super-pharm"] },
+    { source: "hebe", matched: ["rossmann", "natura", "super-pharm"] },
+    { source: "super-pharm", matched: ["rossmann", "natura", "hebe"] },
+  ])("matches a product picked in $source in every other priced shop, in their order", ({ source, matched }) => {
+    expect(matchedShopsOf(source)).toEqual(matched);
+  });
+
+  it("matches a product in a test's list of shops, but its own", () => {
+    expect(matchedShopsOf("natura", ["rossmann", "natura"])).toEqual(["rossmann"]);
+    expect(matchedShopsOf("rossmann", ["natura", "hebe"])).toEqual(["natura", "hebe"]);
+  });
+});
+
+describe("parseMatchedShop", () => {
+  it.each(PRICED_SHOPS)("reads %s, which some product is matched in", (shop) => {
+    expect(parseMatchedShop(shop)).toBe(shop);
+  });
+
+  it("reads none for the product's own shop, given the product's matched shops", () => {
+    expect(parseMatchedShop("natura", matchedShopsOf("natura"))).toBeNull();
+    expect(parseMatchedShop("rossmann", matchedShopsOf("rossmann"))).toBeNull();
+    expect(parseMatchedShop("rossmann", matchedShopsOf("natura"))).toBe("rossmann");
+  });
+
+  it.each([null, "", "dm", "NATURA", "toString"])("reads none for %j", (raw) => {
+    expect(parseMatchedShop(raw)).toBeNull();
+  });
+
+  it("reads none for a form's field that isn't text", () => {
+    expect(parseMatchedShop(new File(["natura"], "shop.txt"))).toBeNull();
   });
 });
 
@@ -914,10 +950,54 @@ describe("productPriceKeys", () => {
     expect(productPriceKeys(soft, [{ shop: "natura", state }])).toEqual([{ shop: "rossmann", shopItemId: "26900" }]);
   });
 
-  it("leaves out a product's own item when it wasn't picked in Rossmann, the one shop products are picked in", () => {
-    expect(productPriceKeys({ source: "super-pharm", sourceItemId: "39477" }, [matchIn("natura", "NV89063")])).toEqual([
+  // A product can be picked in any priced shop: its own item there comes first, whichever shop it is.
+  it.each<{ source: PricedShop; sourceItemId: string }>([
+    { source: "rossmann", sourceItemId: "26900" },
+    { source: "natura", sourceItemId: "NV89063" },
+    { source: "hebe", sourceItemId: HEBE_SOFT_ID },
+    { source: "super-pharm", sourceItemId: SUPER_PHARM_SOFT_ID },
+  ])("gives the own item of a product picked in $source, first", ({ source, sourceItemId }) => {
+    expect(productPriceKeys({ source, sourceItemId }, [])).toEqual([{ shop: source, shopItemId: sourceItemId }]);
+  });
+
+  it("gives a product picked in Super-Pharm its own item, then its Natura match", () => {
+    expect(
+      productPriceKeys({ source: "super-pharm", sourceItemId: SUPER_PHARM_SOFT_ID }, [matchIn("natura", "NV89063")]),
+    ).toEqual([
+      { shop: "super-pharm", shopItemId: SUPER_PHARM_SOFT_ID },
       { shop: "natura", shopItemId: "NV89063" },
     ]);
+  });
+
+  it("gives a product picked in Natura its own item, then its Rossmann match and its other matches in the shops' order", () => {
+    const fromNatura = { source: "natura", sourceItemId: "NV89063" } as const;
+    const decisions = [
+      matchIn("super-pharm", SUPER_PHARM_SOFT_ID),
+      matchIn("hebe", HEBE_SOFT_ID),
+      matchIn("rossmann", "26900"),
+    ];
+
+    expect(productPriceKeys(fromNatura, decisions)).toEqual([
+      { shop: "natura", shopItemId: "NV89063" },
+      { shop: "rossmann", shopItemId: "26900" },
+      { shop: "hebe", shopItemId: HEBE_SOFT_ID },
+      { shop: "super-pharm", shopItemId: SUPER_PHARM_SOFT_ID },
+    ]);
+  });
+
+  it("ignores a decision stored in the product's own shop, whose own item stands there", () => {
+    const fromNatura = { source: "natura", sourceItemId: "NV89063" } as const;
+
+    // A match to another Natura item, which no page offers, as a direct write could store it: it adds no key, nor
+    // replaces the product's own item, even when a test's list of shops names Natura.
+    expect(productPriceKeys(fromNatura, [matchIn("natura", "NV81063"), matchIn("rossmann", "26900")])).toEqual([
+      { shop: "natura", shopItemId: "NV89063" },
+      { shop: "rossmann", shopItemId: "26900" },
+    ]);
+    expect(productPriceKeys(fromNatura, [matchIn("natura", "NV81063")], ["natura", "hebe"])).toEqual([
+      { shop: "natura", shopItemId: "NV89063" },
+    ]);
+    expect(productPriceKeys(soft, [matchIn("rossmann", "11790")])).toEqual([{ shop: "rossmann", shopItemId: "26900" }]);
   });
 
   it("gives the match of each matched shop, Hebe's and Super-Pharm's too, in the shops' order, whatever the decisions' order", () => {
@@ -1101,6 +1181,58 @@ describe("listPricedItems", () => {
           { shop: "hebe", shopItemId: felixInHebeId, latest: null },
         ],
       ],
+    ]);
+  });
+
+  it("gives a product picked in Natura its own Natura item and its Rossmann match, beside a product picked in Rossmann", () => {
+    // Nivea Soft picked in Natura and matched to Rossmann's item, beside Felix, picked in Rossmann and matched in
+    // Natura. Each product's decision in its own shop, which no page stores, adds nothing.
+    const fromNatura = { id: "soft", source: "natura", sourceItemId: "NV89063" } as const;
+    const felix = { id: "felix", source: "rossmann", sourceItemId: "131225" } as const;
+    const softInNatura: LatestPrice = { shop: "natura", shopItemId: "NV89063", ...check({ price: 16.99 }) };
+    const softInRossmann: LatestPrice = { shop: "rossmann", shopItemId: "26900", ...check({ price: 26.99 }) };
+    const matches: ShopMatchState[] = [
+      {
+        watchlistItemId: "soft",
+        shop: "rossmann",
+        state: "matched",
+        shopItemId: "26900",
+        brand: "NIVEA",
+        size: { value: 300, unit: "ml" },
+        decidedBy: "auto",
+      },
+      {
+        watchlistItemId: "soft",
+        shop: "natura",
+        state: "matched",
+        shopItemId: "NV81063",
+        brand: "NIVEA",
+        size: { value: 200, unit: "ml" },
+        decidedBy: "user",
+      },
+      { watchlistItemId: "felix", shop: "natura", state: "unmatched", shopItemId: null },
+      {
+        watchlistItemId: "felix",
+        shop: "rossmann",
+        state: "matched",
+        shopItemId: "11790",
+        brand: null,
+        size: null,
+        decidedBy: "user",
+      },
+    ];
+
+    const items = listPricedItems([fromNatura, felix], matches, [softInNatura, softInRossmann]);
+
+    expect([...items]).toEqual([
+      [
+        "soft",
+        [
+          { shop: "natura", shopItemId: "NV89063", latest: softInNatura },
+          { shop: "rossmann", shopItemId: "26900", latest: softInRossmann },
+        ],
+      ],
+      ["felix", [{ shop: "rossmann", shopItemId: "131225", latest: null }]],
     ]);
   });
 });

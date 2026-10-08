@@ -1,11 +1,12 @@
 // The list's kitchen sink's fixtures (src/dev/watchlist.astro): made-up products on no one's list, their shops' latest
-// checks and their decisions in Natura, Hebe and Super-Pharm, on a fixed clock, and search results. Every row is built
+// checks and their decisions in the shops they're matched in, on a fixed clock, and search results. Every row is built
 // by the list's own row service (watchlist-rows.ts): one product at a time from its shops, or the whole list from its
 // three reads as the page gets them, so the kitchen sink shows only rows the page can reach. The tag states' rows stand
 // beside a Hebe and a Super-Pharm the user declined, and Hebe's own rows follow them: the cheapest of three, still to
 // match, not found, a match that differs from its product, and a decision that couldn't be read. Super-Pharm's rows
-// close them: the cheapest of four, and still to match. Nothing here is real user data, and nothing here asks Supabase
-// or a shop.
+// follow: the cheapest of four, and still to match. Two products picked in Natura instead close them, each priced by
+// its own item there and matched in Rossmann: the cheapest in Natura, and still to match in Rossmann. Nothing here is
+// real user data, and nothing here asks Supabase or a shop.
 import type { LatestCheck, PricedShop } from "@/lib/services/price-comparison";
 import { parseSize } from "@/lib/services/size";
 import {
@@ -34,7 +35,8 @@ const before = (ago: number) => new Date(NOW_MS - ago).toISOString();
 
 /**
  * A product on no one's list, numbered `n`: its row links to a product page that answers 404 before any lookup, and
- * its made-up Rossmann id is no shop's. Its size is parsed from its text, as "Dodaj" stores it.
+ * its made-up id, a Rossmann one unless `fields` names another shop, is no shop's. Its size is parsed from its text, as
+ * "Dodaj" stores it.
  */
 function product(n: number, fields: Pick<WatchlistItem, "brand" | "name"> & Partial<WatchlistItem>): WatchlistItem {
   return {
@@ -289,6 +291,77 @@ const SUPER_PHARM_NONE_ROW = rowOf(
   "none",
 );
 
+// Products picked in Natura instead of Rossmann, as Natura names them, with the brand and the size, and no caption:
+// each is priced by its own item in Natura and matched in Rossmann, Hebe and Super-Pharm. Their rows come from the
+// list's own reads as the page gets them, so the list's rules decide their own items and their matched shops. A night
+// cream matched in Rossmann on its own, to an item of its brand and size, and declined in Hebe and Super-Pharm: its own
+// Natura price is the lowest.
+const SORAYA = product(23, {
+  source: "natura",
+  sourceItemId: "NV90023",
+  brand: "SORAYA",
+  name: "SORAYA Beauty Sleep krem na noc 50 ml",
+  sizeText: "50 ml",
+});
+const SORAYA_ROSSMANN_ID = "900023";
+const SORAYA_OWN_PRICE: LatestPrice = {
+  shop: "natura",
+  shopItemId: SORAYA.sourceItemId,
+  ...checked(10 * MINUTE, 24.99),
+};
+const [NATURA_PICKED_ROW] = listRowsOf(
+  [SORAYA],
+  {
+    states: [
+      {
+        watchlistItemId: SORAYA.id,
+        shop: "rossmann",
+        state: "matched",
+        shopItemId: SORAYA_ROSSMANN_ID,
+        brand: "Soraya",
+        size: parseSize("50 ml"),
+        decidedBy: "auto",
+      },
+      { watchlistItemId: SORAYA.id, shop: "hebe", state: "unmatched", shopItemId: null },
+      superPharmDeclined(SORAYA.id),
+    ],
+    unread: [],
+    unattributed: [],
+  },
+  {
+    prices: [SORAYA_OWN_PRICE, { shop: "rossmann", shopItemId: SORAYA_ROSSMANN_ID, ...checked(10 * MINUTE, 27.49) }],
+    unread: [],
+    unattributed: 0,
+  },
+  NOW_MS,
+);
+// A face cream picked in Natura with no decision in Rossmann yet, and declined in Hebe and Super-Pharm: its own Natura
+// price is its only one, and the row says Rossmann is still to match, which puts it in "Do sprawdzenia".
+const SYLVECO = product(24, {
+  source: "natura",
+  sourceItemId: "NV90024",
+  brand: "SYLVECO",
+  name: "SYLVECO Lekki krem brzozowy 50 ml",
+  sizeText: "50 ml",
+});
+const [NATURA_ROSSMANN_NONE_ROW] = listRowsOf(
+  [SYLVECO],
+  {
+    states: [
+      { watchlistItemId: SYLVECO.id, shop: "hebe", state: "unmatched", shopItemId: null },
+      superPharmDeclined(SYLVECO.id),
+    ],
+    unread: [],
+    unattributed: [],
+  },
+  {
+    prices: [{ shop: "natura", shopItemId: SYLVECO.sourceItemId, ...checked(30 * MINUTE, 11.99) }],
+    unread: [],
+    unattributed: 0,
+  },
+  NOW_MS,
+);
+
 /** What a screen reader hears of a row, as a fixture's label quotes it. */
 const heard = (row: ListRow) => `czytnik ekranu słyszy: „${row.summary}”`;
 
@@ -405,6 +478,18 @@ export const ROW_FIXTURES: RowFixture[] = [
       "Super-Pharm do dopasowania, bo jego kandydaci czekają na Twój wybór na stronie produktu: wiersz liczy się w " +
       `„Do sprawdzenia”, a ${heard(SUPER_PHARM_NONE_ROW)}`,
     row: SUPER_PHARM_NONE_ROW,
+  },
+  {
+    code: "natura-picked",
+    text:
+      "dodany z Natury: jej własna cena najtańsza, obok Rossmanna dopasowanego automatycznie, etykieta w kolorze sun " +
+      `z nazwą Natury, a ${heard(NATURA_PICKED_ROW)}`,
+    row: NATURA_PICKED_ROW,
+  },
+  {
+    code: "natura-picked-rossmann-none",
+    text: `dodany z Natury, Rossmann do dopasowania: wiersz liczy się w „Do sprawdzenia”, a ${heard(NATURA_ROSSMANN_NONE_ROW)}`,
+    row: NATURA_ROSSMANN_NONE_ROW,
   },
 ];
 
@@ -527,6 +612,16 @@ export const ROWS_FIXTURES: RowsFixture[] = [
     code: "matches-failed",
     text: "nie udało się wczytać decyzji Natury, Hebe i Super-Pharmu: żaden wiersz nie mówi, że czeka na dopasowanie",
     rows: listRowsOf(LIST, null, PRICE_READ, NOW_MS),
+    filter: "all",
+    matchesFailed: true,
+    pricesFailed: false,
+  },
+  {
+    code: "matches-failed + natura",
+    text:
+      "nie udało się wczytać decyzji, a na liście jest też produkt dodany z Natury: alert wymienia i Rossmanna, w " +
+      "którym ten produkt jest dopasowywany",
+    rows: listRowsOf([...LIST, SORAYA], null, { ...PRICE_READ, prices: [...LIST_PRICES, SORAYA_OWN_PRICE] }, NOW_MS),
     filter: "all",
     matchesFailed: true,
     pricesFailed: false,

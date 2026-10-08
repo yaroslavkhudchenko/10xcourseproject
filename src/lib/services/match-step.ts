@@ -1,6 +1,6 @@
 import { REPIN_PARAM, RETRY_PARAM } from "@/lib/notices";
 import type { MatchesRead } from "@/lib/services/matches";
-import { parseMatchedShop, type MatchableShop, type MatchedShop } from "@/lib/services/price-comparison";
+import { parseMatchedShop, type MatchableShop, type PricedShop } from "@/lib/services/price-comparison";
 import type { RepinnableMatch, ShopMatch } from "@/types";
 
 /**
@@ -17,18 +17,20 @@ export type MatchStep =
 
 /**
  * The matched shop whose stored decision the page was opened to change (`?repin=natura`, from "Zmień" or "Dopasuj
- * ponownie"), or null for any other value, the old `?repin=1` included, which then opens the plain page.
+ * ponownie"): one of `shops`, the priced shops unless the page names its product's matched shops (matchedShopsOf). Null
+ * for any other value, the product's own shop and the old `?repin=1` included, which then opens the plain page.
  */
-export function repinShopOf(params: URLSearchParams): MatchedShop | null {
-  return parseMatchedShop(params.get(REPIN_PARAM));
+export function repinShopOf(params: URLSearchParams, shops?: readonly PricedShop[]): PricedShop | null {
+  return parseMatchedShop(params.get(REPIN_PARAM), shops);
 }
 
 /**
  * The matched shop whose stored "not found" the page was opened to look up again (`?retry=natura`, from "Szukaj
- * ponownie"), or null for any other value, the old `?retry=1` included, which then opens the plain page.
+ * ponownie"): one of `shops`, the priced shops unless the page names its product's matched shops (matchedShopsOf). Null
+ * for any other value, the product's own shop and the old `?retry=1` included, which then opens the plain page.
  */
-export function retryShopOf(params: URLSearchParams): MatchedShop | null {
-  return parseMatchedShop(params.get(RETRY_PARAM));
+export function retryShopOf(params: URLSearchParams, shops?: readonly PricedShop[]): PricedShop | null {
+  return parseMatchedShop(params.get(RETRY_PARAM), shops);
 }
 
 /** What the decision rests on: the product's stored decisions, the shop, and how the page was opened. */

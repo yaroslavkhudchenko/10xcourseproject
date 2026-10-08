@@ -13,8 +13,10 @@
 // history, nothing to compare with, the only shop's price, and the sentence after a failed read. Natura's own states,
 // Hebe's and Super-Pharm's include the choice that changes a stored decision, Natura's in each of the outcomes its
 // searches can have, and Super-Pharm's from its automatic match by name and from the user's pick, and the product's
-// removal at the page's foot is drawn closed, open and after a failure. Nothing here is real user data, and nothing
-// here asks Supabase or a shop.
+// removal at the page's foot is drawn closed, open and after a failure. The same product picked in Natura instead is
+// priced by its own item there, in Natura's own card, and matched in Rossmann, Hebe and Super-Pharm: its area's
+// states, and Rossmann's card in each of its kinds, with Rossmann's choices below the cards. Nothing here is real user
+// data, and nothing here asks Supabase or a shop.
 import { unreadableShopsOf, type MatchedShopView } from "@/components/watchlist/match-card";
 import type { PriceSize } from "@/components/watchlist/Price";
 import type { TitleProduct } from "@/components/watchlist/ProductTitle";
@@ -46,12 +48,12 @@ import {
   polishDate,
   SHOP_LABELS,
   STALE_AFTER_MS,
-  type MatchedShop,
   type PriceComparisonShop,
   type PricedShop,
 } from "@/lib/services/price-comparison";
 import { parseSize } from "@/lib/services/size";
 import { removalErrorMessage, removalGoneNotice } from "@/lib/services/watchlist";
+import { rowProductOf } from "@/lib/services/watchlist-rows";
 import { shopUnavailableText } from "@/lib/shop-messages";
 import type {
   CandidateOption,
@@ -122,7 +124,10 @@ const HEBE_ITEM_ID = "990000000000000001";
 // The product's made-up item in Super-Pharm, whose ids are digits, as its records' objectIDs are.
 const SUPER_PHARM_ITEM_ID = "990001";
 
-/** The item the page shows in a shop: the product's own in Rossmann, and its match in Natura, Hebe and Super-Pharm. */
+/**
+ * The item the page shows in a shop: the product's own in Rossmann, and its match in Natura, Hebe and Super-Pharm. The
+ * product picked in Natura instead (FROM_NATURA) has the same items: its own in Natura, and its match in Rossmann.
+ */
 function itemIn(shop: PricedShop): string {
   switch (shop) {
     case "rossmann":
@@ -352,7 +357,7 @@ const SUPER_PHARM_PROMPT = superPharmOf(promptView("super-pharm", PRODUCT, false
 
 /** A matched shop's choice below the island: its first candidates, or the ones that change its stored decision. */
 export interface ShopChoice {
-  shop: MatchedShop;
+  shop: PricedShop;
   view: Extract<MatchView, { kind: "choose" }> | MatchRepin;
 }
 
@@ -364,8 +369,9 @@ export interface PriceFixture {
   /** The product the title names. */
   product: TitleProduct;
   /**
-   * The matched shops as the page read them, Natura, Hebe and Super-Pharm: each one's card among the shops', and, still
-   * to match, what the hero and the hint say.
+   * The product's matched shops as the page read them, in the pages' order: Natura, Hebe and Super-Pharm, or Rossmann,
+   * Hebe and Super-Pharm for the product picked in Natura. Each one's card stands among the shops', and, still to
+   * match, the hero and the hint name it.
    */
   matched: MatchedShopView[];
   /** The choices the page's sections below the island hold, in the shops' order, while each card points to its own. */
@@ -764,9 +770,12 @@ const CANDIDATES: ShopCandidate[] = [
   { ...OTHER_BRAND_ITEM, shop: "natura", offer: null },
 ];
 
-/** The options the matching rule leaves to the user for these candidates, as a lookup hands them to the page. */
-function leftToUser(candidates: ShopCandidate[]): CandidateOption[] {
-  const pick = pickMatch(PRODUCT, candidates);
+/**
+ * The options the matching rule leaves to the user for these candidates of `product`, the made-up product unless a
+ * state names it picked in another shop, as a lookup hands them to the page.
+ */
+function leftToUser(candidates: ShopCandidate[], product: WatchlistProduct = PRODUCT): CandidateOption[] {
+  const pick = pickMatch(product, candidates);
   if (pick.kind !== "choose") {
     // The page never offers a choice the rule settles itself, so neither does the kitchen sink.
     throw new Error(`The kitchen sink's candidates must be left to the user; the rule answered ${pick.kind}.`);
@@ -1555,6 +1564,417 @@ export const SUPER_PHARM_FIXTURES: SuperPharmFixture[] = [
       message: shopUnavailableText(SHOP_LABELS["super-pharm"].name, "stopped"),
     }),
     state: island(CHECKED_WITH_HEBE),
+  },
+];
+
+/**
+ * The made-up product as if picked in Natura instead: Natura's item, as Natura names it, with no caption, which only a
+ * product picked in Rossmann has. It's priced by its own item in Natura and matched in Rossmann, Hebe and Super-Pharm,
+ * where its items are the made-up product's (itemIn): the made-up product's own item in Rossmann is its match there.
+ */
+const FROM_NATURA: WatchlistProduct = {
+  ...PRODUCT,
+  source: "natura",
+  sourceItemId: NATURA_SKU,
+  brand: NATURA_ITEM.brand,
+  name: NATURA_ITEM.name,
+  caption: null,
+};
+
+/**
+ * The product's item in Rossmann, as Rossmann's search offers it to a product picked in another shop: the made-up
+ * product's own item there, its name and caption joined as a list row joins them, its brand as Rossmann writes it, and
+ * the same EAN and size, so the matching rule accepts it on its own.
+ */
+const ROSSMANN_ITEM: MatchedItem = {
+  shopItemId: PRODUCT.sourceItemId,
+  brand: PRODUCT.brand,
+  name: rowProductOf(PRODUCT).name,
+  ...sized("300 ml"),
+  eans: [EAN],
+  productUrl: HERE,
+  imageUrl: null,
+};
+
+// A decision stored in Rossmann for the product picked in Natura, at the same time as the made-up product's in Natura.
+const ROSSMANN_DECISION = { ...DECISION, shop: "rossmann" } as const;
+
+// Rossmann's match, found by its EAN and size, as it's stored; its re-pin's states open its choice.
+const ROSSMANN_AUTO_MATCHED: RepinnableMatch = {
+  ...ROSSMANN_DECISION,
+  decidedBy: "auto",
+  state: "matched",
+  item: ROSSMANN_ITEM,
+};
+// The rule's match in Rossmann, accepted by the item's name: Rossmann's record of the item carried no EAN, so it shares
+// none with the product.
+const ROSSMANN_BY_NAME: ShopMatch = { ...ROSSMANN_AUTO_MATCHED, item: { ...ROSSMANN_ITEM, eans: [] } };
+// The user confirmed Rossmann's item in another size (the first of ROSSMANN_CANDIDATES), so the match's size is flagged.
+// Its re-pin's choice marks it without offering it again.
+const ROSSMANN_CONFIRMED: RepinnableMatch = {
+  ...ROSSMANN_DECISION,
+  decidedBy: "user",
+  state: "matched",
+  item: { ...ROSSMANN_ITEM, shopItemId: "100001", ...sized("200 ml") },
+};
+const ROSSMANN_DECLINED: RepinnableMatch = { ...ROSSMANN_DECISION, decidedBy: "user", state: "unmatched", item: null };
+const ROSSMANN_NOT_FOUND: ShopMatch = { ...ROSSMANN_DECISION, decidedBy: "auto", state: "not_found", item: null };
+
+/** Rossmann as the page hands it to the island, with this view and, unless `extra` adds them, no notices. */
+function rossmannOf(view: MatchView, extra: ViewExtra = {}): MatchedShopView {
+  return { shop: "rossmann", view, notice: null, error: null, unsaved: false, ...extra };
+}
+
+// Rossmann's stored match, beside which most states of the product picked in Natura stand.
+const ROSSMANN_MATCHED = rossmannOf(storedView("rossmann", ROSSMANN_AUTO_MATCHED, FROM_NATURA, LINKS));
+// The same match with its choice open: the card points below and offers "Anuluj", and keeps its price row.
+const ROSSMANN_REPINNING = rossmannOf(storedView("rossmann", ROSSMANN_AUTO_MATCHED, FROM_NATURA, REPINNING));
+// A Rossmann decision that couldn't be read.
+const ROSSMANN_UNREAD = rossmannOf({ kind: "read-failed" });
+// Rossmann with no decision on a page that may not look it up, one opened from a link or for another shop's choice or
+// retry: its card's button, as every matched shop's. The user's own navigation to the plain page looks it up by name.
+const ROSSMANN_PROMPT = rossmannOf(promptView("rossmann", FROM_NATURA, false, "all"));
+
+// Hebe and Super-Pharm for the product picked in Natura: declined, as its states stand beside them unless they give
+// them, matched, as its four shops have them, or with no decision on a page that may not look them up.
+const HEBE_DECLINED_FROM_NATURA = hebeOf(storedView("hebe", HEBE_DECLINED, FROM_NATURA, LINKS));
+const SUPER_PHARM_DECLINED_FROM_NATURA = superPharmOf(
+  storedView("super-pharm", SUPER_PHARM_DECLINED, FROM_NATURA, LINKS),
+);
+const HEBE_MATCHED_FROM_NATURA = hebeOf(storedView("hebe", HEBE_AUTO_MATCHED, FROM_NATURA, LINKS));
+const SUPER_PHARM_MATCHED_FROM_NATURA = superPharmOf(storedView("super-pharm", SUPER_PHARM_PICKED, FROM_NATURA, LINKS));
+const HEBE_PROMPT_FROM_NATURA = hebeOf(promptView("hebe", FROM_NATURA, false, "all"));
+const SUPER_PHARM_PROMPT_FROM_NATURA = superPharmOf(promptView("super-pharm", FROM_NATURA, false, "all"));
+
+// Natura's own price for the product picked there, its promotion, checked in the last 15 minutes, and beside it
+// Rossmann's, as the page hands them to the island: its own item first, then its match.
+const NATURA_OWN = priced("natura", NATURA_PROMO, 5 * MINUTE);
+const OWN_AND_ROSSMANN = [NATURA_OWN, ROSSMANN_CHECKED];
+// Only Natura's own price: Rossmann has none while its match isn't saved.
+const NATURA_OWN_ONLY = island([NATURA_OWN]);
+
+// What Rossmann's search by the name of the product picked in Natura returned besides its item. None shares the EAN and
+// the size without a brand that differs, and none passes the name check, so the matching rule leaves the choice to the
+// user, the best name fit first. It offers at most three.
+const ROSSMANN_CANDIDATES: ShopCandidate[] = [
+  // The same EAN in another size.
+  {
+    ...ROSSMANN_ITEM,
+    shop: "rossmann",
+    shopItemId: "100001",
+    ...sized("200 ml"),
+    imageUrl: "/favicon.png",
+    offer: offer(17.99),
+  },
+  // A sibling in the product's size and brand, whose record carries no EAN, and whose name adds a sun filter the
+  // product's lacks: another product, on promotion.
+  {
+    ...ROSSMANN_ITEM,
+    shop: "rossmann",
+    shopItemId: "100004",
+    name: "Krem nawilżający do twarzy i ciała SPF 30",
+    eans: [],
+    offer: offer(24.99, { regularPrice: 29.99, lowestPrice30d: 23.99, promoEndsOn: "2026-10-05" }),
+  },
+  // Another brand, in the product's size, which Rossmann doesn't sell online just now.
+  {
+    ...ROSSMANN_ITEM,
+    shop: "rossmann",
+    shopItemId: "100003",
+    brand: "Wzór",
+    name: "Krem nawilżający",
+    eans: ["2000000000049"],
+    offer: offer(21.99, { available: false }),
+  },
+];
+
+// Rossmann's candidates to choose from, found by the product's name, as the page's view holds them for Rossmann's choice
+// below the island; Rossmann's card gets the view without them.
+const ROSSMANN_CHOICE = choiceOf(
+  chooseView("rossmann", leftToUser(ROSSMANN_CANDIDATES, FROM_NATURA), "name", new Date(NOW), FROM_NATURA),
+);
+
+// What Rossmann's search by name found again when the user opened the choice to change its decision: its item and the
+// rest, in the choice's order, the one sharing the EAN and the size first, as the re-pin's lookup offers them in a shop
+// whose search can't find an EAN (orderChoice). Rossmann's search is its only one, so its choice is never incomplete.
+const ROSSMANN_FOUND_BY_NAME: ShopChoices = {
+  kind: "choices",
+  options: orderChoice(FROM_NATURA, [
+    { ...ROSSMANN_ITEM, shop: "rossmann", offer: offer(26.99) },
+    ...ROSSMANN_CANDIDATES,
+  ]),
+  via: "name",
+  incomplete: null,
+};
+const ROSSMANN_STOPPED: ShopChoices = { kind: "unavailable", reason: "stopped" };
+
+/** The choice that changes Rossmann's stored decision, as the page builds it once Rossmann's search has answered. */
+function rossmannRepinOf(choices: ShopChoices, current: RepinnableMatch): MatchRepin {
+  return repinView("rossmann", choices, current, new Date(NOW), FROM_NATURA, "all");
+}
+
+/**
+ * One state of the product area for the product picked in Natura, as the fixtures below write it: its matched shops,
+ * Rossmann, Hebe and Super-Pharm, as the page read them, Hebe and Super-Pharm declined unless the state gives them, and
+ * the choices below the island, none unless the state gives them.
+ */
+type FromNaturaState = Omit<PriceFixture, "product" | "matched" | "choices"> & {
+  rossmann: MatchedShopView;
+  hebe?: MatchedShopView;
+  superPharm?: MatchedShopView;
+  choices?: ShopChoice[];
+};
+
+/** The product area's fixture for one written state of the product picked in Natura, its matched shops in order. */
+function fromNaturaFixture({
+  rossmann,
+  hebe = HEBE_DECLINED_FROM_NATURA,
+  superPharm = SUPER_PHARM_DECLINED_FROM_NATURA,
+  choices = [],
+  ...fixture
+}: FromNaturaState): PriceFixture {
+  return { ...fixture, product: FROM_NATURA, matched: [rossmann, hebe, superPharm], choices };
+}
+
+/**
+ * The states of the product picked in Natura: its own price the cheapest, in Natura's own card, beside Rossmann's
+ * match; Rossmann the cheapest of four shops; freshly added on a page opened from a link, with every matched shop still
+ * to match; Rossmann's first choice and its re-pin's choice open below the island; and Rossmann's decision unread.
+ */
+const FROM_NATURA_STATES: FromNaturaState[] = [
+  {
+    code: "natura-own-cheapest",
+    text:
+      "dodany z Natury, najtańszy w jej promocji: jej własna karta, z „Zobacz w sklepie” i bez dopasowania, obok " +
+      "karty Rossmanna z dopasowaniem i „Zmień”",
+    state: island(OWN_AND_ROSSMANN),
+    rossmann: ROSSMANN_MATCHED,
+  },
+  {
+    code: "natura-four-rossmann-cheapest",
+    text: "dodany z Natury, cztery sklepy, Rossmann najtańszy: „Najtaniej” tylko na jego karcie, a hero mówi „w Rossmannie”",
+    state: island([
+      priced("natura", offer(21.49), 5 * MINUTE),
+      priced("rossmann", offer(18.99), 10 * MINUTE),
+      priced("hebe", offer(20.99), 5 * MINUTE),
+      priced("super-pharm", offer(19.49, { lowestPrice30d: 18.49 }), 5 * MINUTE),
+    ]),
+    rossmann: ROSSMANN_MATCHED,
+    hebe: HEBE_MATCHED_FROM_NATURA,
+    superPharm: SUPER_PHARM_MATCHED_FROM_NATURA,
+  },
+  {
+    code: "natura-waiting",
+    text:
+      "świeżo dodany z Natury, strona otwarta z linku: Natura jeszcze niesprawdzona, a Rossmann, Hebe i Super-Pharm " +
+      "czekają na dopasowanie, każdy z przyciskiem",
+    state: island([row("natura", null)]),
+    rossmann: ROSSMANN_PROMPT,
+    hebe: HEBE_PROMPT_FROM_NATURA,
+    superPharm: SUPER_PHARM_PROMPT_FROM_NATURA,
+  },
+  {
+    code: "natura-rossmann-choice",
+    text:
+      "Rossmann szukany po nazwie przy otwarciu produktu, gdy żaden kandydat nie został przyjęty: kandydaci z " +
+      "Rossmanna czekają na wybór pod kartami, najlepiej pasujący najpierw, obok własnej ceny Natury",
+    state: NATURA_OWN_ONLY,
+    rossmann: rossmannOf({ ...ROSSMANN_CHOICE, options: [] }),
+    choices: [{ shop: "rossmann", view: ROSSMANN_CHOICE }],
+  },
+  {
+    code: "natura-rossmann-repin",
+    text: "po „Zmień” w Rossmannie: wybór Rossmanna otwarty, a Hebe i Super-Pharm bez decyzji mają tylko przycisk, bo strona ich nie szuka",
+    state: island(OWN_AND_ROSSMANN),
+    rossmann: ROSSMANN_REPINNING,
+    hebe: HEBE_PROMPT_FROM_NATURA,
+    superPharm: SUPER_PHARM_PROMPT_FROM_NATURA,
+    choices: [{ shop: "rossmann", view: rossmannRepinOf(ROSSMANN_FOUND_BY_NAME, ROSSMANN_AUTO_MATCHED) }],
+  },
+  {
+    code: "natura-rossmann-read-failed",
+    text: "nie udało się wczytać decyzji Rossmanna: świeża cena Natury, ale żaden sklep nie jest nazwany",
+    // Without the decision there's no Rossmann row, and a match it hides could name a lower price.
+    state: islandBeside([ROSSMANN_UNREAD], [NATURA_OWN]),
+    rossmann: ROSSMANN_UNREAD,
+  },
+];
+
+export const FROM_NATURA_FIXTURES: PriceFixture[] = FROM_NATURA_STATES.map(fromNaturaFixture);
+
+/**
+ * One state of Rossmann for the product picked in Natura, with the kitchen sink's label, the prefix that keeps its
+ * choice's ids its own, Rossmann as the page hands it to the island, the island's state beside it, Natura's own price,
+ * with Rossmann's while its match is saved, and, while the user changes Rossmann's stored decision, the choice below
+ * the cards.
+ */
+export interface RossmannFixture {
+  code: string;
+  text: string;
+  idPrefix: string;
+  rossmann: MatchedShopView;
+  state: PriceComparisonState;
+  repin?: MatchRepin;
+}
+
+export const ROSSMANN_FIXTURES: RossmannFixture[] = [
+  {
+    code: "matched",
+    text:
+      "dopasowane automatycznie, ten sam EAN i rozmiar: karta z ceną Rossmanna obok własnej karty Natury, a stopka " +
+      "nazywa pozycję z Rossmanna, bez ostrzeżeń, z „Zmień”",
+    idPrefix: "rossmann-auto",
+    rossmann: ROSSMANN_MATCHED,
+    state: island(OWN_AND_ROSSMANN),
+  },
+  {
+    code: "matched + name",
+    text: "dopasowane automatycznie po nazwie, bo rekord Rossmanna nie miał kodu EAN: stopka mówi „po nazwie”",
+    idPrefix: "rossmann-by-name",
+    rossmann: rossmannOf(storedView("rossmann", ROSSMANN_BY_NAME, FROM_NATURA, LINKS)),
+    state: island(OWN_AND_ROSSMANN),
+  },
+  {
+    code: "matched + unsaved",
+    text: "dopasowane automatycznie, ale zapis się nie udał: bez wiersza ceny karta pokazuje pozycję z Rossmanna, bez „Zmień”",
+    idPrefix: "rossmann-auto-unsaved",
+    rossmann: rossmannOf(matchedView("rossmann", ROSSMANN_ITEM, "auto", FROM_NATURA, { ...LINKS, unsaved: true }), {
+      unsaved: true,
+    }),
+    state: NATURA_OWN_ONLY,
+  },
+  {
+    code: "matched + notice",
+    text: "potwierdzone przez Ciebie w innym rozmiarze, zaraz po zapisie: stopka ostrzega o rozmiarze",
+    idPrefix: "rossmann-confirmed",
+    // The page's notice for `?matched`.
+    rossmann: rossmannOf(storedView("rossmann", ROSSMANN_CONFIRMED, FROM_NATURA, LINKS), {
+      notice: DECISION_NOTICES.matched,
+    }),
+    state: island([NATURA_OWN, priced("rossmann", offer(17.99), 10 * MINUTE)]),
+  },
+  {
+    code: "matched + promo",
+    text: "promocja Rossmanna z ceną regularną, końcem i najniższą ceną z 30 dni: „zamiast” i „promocja do” pod ceną, a Rossmann najtańszy",
+    idPrefix: "rossmann-promo",
+    rossmann: ROSSMANN_MATCHED,
+    state: island([
+      NATURA_OWN,
+      priced(
+        "rossmann",
+        offer(19.99, { regularPrice: 24.99, lowestPrice30d: 20.49, promoEndsOn: "2026-10-05" }),
+        10 * MINUTE,
+      ),
+    ]),
+  },
+  {
+    code: "matched + repin",
+    text:
+      "po „Zmień”: karta ma „Anuluj”, a wybór z wyszukiwania po nazwie, z pozycją o tym samym EAN i rozmiarze na " +
+      "początku, oznacza obecne, automatyczne dopasowanie i daje je potwierdzić",
+    idPrefix: "rossmann-repin",
+    rossmann: ROSSMANN_REPINNING,
+    state: island(OWN_AND_ROSSMANN),
+    repin: rossmannRepinOf(ROSSMANN_FOUND_BY_NAME, ROSSMANN_AUTO_MATCHED),
+  },
+  {
+    code: "confirmed + repin",
+    text: "po „Zmień” przy dopasowaniu potwierdzonym przez Ciebie: wybór oznacza je, ale nie daje go potwierdzić ponownie",
+    idPrefix: "rossmann-confirmed-repin",
+    rossmann: rossmannOf(storedView("rossmann", ROSSMANN_CONFIRMED, FROM_NATURA, REPINNING)),
+    state: island([NATURA_OWN, priced("rossmann", offer(17.99), 10 * MINUTE)]),
+    repin: rossmannRepinOf(ROSSMANN_FOUND_BY_NAME, ROSSMANN_CONFIRMED),
+  },
+  {
+    code: "repin + not found",
+    text: "po „Zmień”: wyszukiwanie po nazwie nic nie znalazło; zostają „Żaden z nich” i „Anuluj”",
+    idPrefix: "rossmann-repin-not-found",
+    rossmann: ROSSMANN_REPINNING,
+    state: island(OWN_AND_ROSSMANN),
+    repin: rossmannRepinOf(NOTHING_FOUND, ROSSMANN_AUTO_MATCHED),
+  },
+  {
+    code: "repin + unavailable",
+    text: "po „Zmień”: Rossmann zablokował zapytania; wybór to mówi, a „Żaden z nich” wciąż odrzuca dopasowanie",
+    idPrefix: "rossmann-repin-unavailable",
+    rossmann: ROSSMANN_REPINNING,
+    state: island(OWN_AND_ROSSMANN),
+    repin: rossmannRepinOf(ROSSMANN_STOPPED, ROSSMANN_AUTO_MATCHED),
+  },
+  {
+    code: "unmatched + notice",
+    text: "odrzucone przez Ciebie, zaraz po „Żaden z nich”: duch karty z „Dopasuj ponownie”, a cena Natury jedyna",
+    idPrefix: "rossmann-declined",
+    rossmann: rossmannOf(storedView("rossmann", ROSSMANN_DECLINED, FROM_NATURA, LINKS), {
+      notice: DECISION_NOTICES.declined("rossmann"),
+    }),
+    state: NATURA_OWN_ONLY,
+  },
+  {
+    code: "unmatched + repin",
+    text: "po „Dopasuj ponownie”: karta wskazuje wybór poniżej, a wybór nie ma „Żaden z nich”, tylko „Anuluj”",
+    idPrefix: "rossmann-declined-repin",
+    rossmann: rossmannOf(storedView("rossmann", ROSSMANN_DECLINED, FROM_NATURA, REPINNING)),
+    state: NATURA_OWN_ONLY,
+    repin: rossmannRepinOf(ROSSMANN_FOUND_BY_NAME, ROSSMANN_DECLINED),
+  },
+  {
+    code: "not-found",
+    text: "zapisane „nie znaleziono” w Rossmannie, z „Szukaj ponownie”",
+    idPrefix: "rossmann-not-found",
+    rossmann: rossmannOf(storedView("rossmann", ROSSMANN_NOT_FOUND, FROM_NATURA, LINKS)),
+    state: NATURA_OWN_ONLY,
+  },
+  {
+    code: "not-found + unsaved",
+    text:
+      "świeże „nie znaleziono”, którego nie udało się zapisać: alert mówi, że przy następnym otwarciu produktu " +
+      "Rossmann zostanie sprawdzony ponownie, jak każdy sklep",
+    idPrefix: "rossmann-unsaved",
+    rossmann: rossmannOf(notFoundView("rossmann", new Date(NOW), FROM_NATURA, "all"), { unsaved: true }),
+    state: NATURA_OWN_ONLY,
+  },
+  {
+    code: "choose + error",
+    text:
+      "kandydaci z Rossmanna znalezieni po nazwie, najlepiej pasujący najpierw, po nieudanym zapisie wyboru: karta " +
+      "wskazuje wybór poniżej",
+    idPrefix: "rossmann-choose",
+    rossmann: rossmannOf(ROSSMANN_CHOICE, { error: matchErrorMessage("failed") }),
+    state: NATURA_OWN_ONLY,
+  },
+  {
+    code: "unavailable",
+    text: "Rossmann zablokował zapytania: wyszukiwanie wyłączone, dopóki właściciel go nie włączy",
+    idPrefix: "rossmann-unavailable",
+    rossmann: rossmannOf({
+      kind: "unavailable",
+      message: shopUnavailableText(SHOP_LABELS.rossmann.name, "stopped"),
+    }),
+    state: NATURA_OWN_ONLY,
+  },
+  {
+    code: "prompt",
+    text:
+      "bez decyzji, strona otwarta z linku albo dla innego sklepu („Zmień”, „Szukaj ponownie”): przycisk zamiast " +
+      "wyszukiwania, prowadzący do samej strony produktu",
+    idPrefix: "rossmann-prompt",
+    rossmann: ROSSMANN_PROMPT,
+    state: NATURA_OWN_ONLY,
+  },
+  {
+    code: "decided",
+    text: "inna karta zapisała decyzję w międzyczasie",
+    idPrefix: "rossmann-decided",
+    rossmann: rossmannOf(decidedView(FROM_NATURA, "all")),
+    state: NATURA_OWN_ONLY,
+  },
+  {
+    code: "read-failed",
+    text: "nie udało się wczytać zapisanej decyzji Rossmanna: cena Natury bez „Najtaniej”",
+    idPrefix: "rossmann-read-failed",
+    rossmann: ROSSMANN_UNREAD,
+    state: islandBeside([ROSSMANN_UNREAD], [NATURA_OWN]),
   },
 ];
 

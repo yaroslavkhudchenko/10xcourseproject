@@ -25,10 +25,11 @@ import {
 import type { PriceCheck, ShopSearch } from "@/types";
 
 // Each shop the code can match a watched product in, mapped to its adapter in one place, in the pages' order: the
-// lookups search it, the decision form checks a decision's item ids and a confirmed candidate's links with it, and the
-// price refresh fetches its pinned items (PRICE_FETCHERS). A shop has an entry here as soon as the code knows it;
-// whether a lookup or a decision reaches it is MATCHED_SHOPS' to say, and whether a refresh does PRICED_SHOPS'.
-// Server-only: the adapters call shops through the gate.
+// lookups search it, the decision form checks a decision's item ids and a confirmed candidate's links with it, "Dodaj"
+// checks a product's id and links with it, and the price refresh fetches its pinned items (PRICE_FETCHERS). A shop has
+// an entry here as soon as the code knows it; whether a lookup, a decision or a refresh reaches it is PRICED_SHOPS' to
+// say, and a product is looked up and decided on only in its matched shops, every priced shop but its own
+// (matchedShopsOf). Server-only: the adapters call shops through the gate.
 
 /** What the app asks of a shop's adapter. None of its calls ever throws. */
 export interface ShopAdapter {

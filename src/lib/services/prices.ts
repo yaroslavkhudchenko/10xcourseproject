@@ -4,7 +4,6 @@ import {
   keyText,
   PRICED_SHOPS,
   productPriceKeys,
-  type MatchedShop,
   type PriceComparisonShop,
   type PricedKey,
   type PricedShop,
@@ -304,15 +303,16 @@ export function priceShopsOf(
 
 /**
  * The product page's prices for its island, read in one query and handed over as its shops (priceShopsOf): the
- * product's own item, where it was picked, and each matched shop's item as the page's match steps settled it
- * (`matched`: a stored match, or one the page's lookup has just stored). "Zobacz w sklepie" goes to the product's own
- * page for its own item and to the matched item's page in each matched shop. The seam table runs this same composition
- * (price-pages.test.ts), so the page and its test can't drift apart.
+ * product's own item, in its own shop, the one it was picked in, and each of its matched shops' items as the page's
+ * match steps settled them (`matched`: a stored match, or one the page's lookup has just stored), so a match in the
+ * product's own shop adds nothing (productPriceKeys). "Zobacz w sklepie" goes to the product's own page for its own
+ * item, whichever shop that is, and to the matched item's page in each matched shop. The seam table runs this same
+ * composition (price-pages.test.ts), so the page and its test can't drift apart.
  */
 export async function productPricesOf(
   supabase: SupabaseClient,
   product: Pick<WatchlistProduct, "source" | "sourceItemId" | "productUrl">,
-  matched: readonly { shop: MatchedShop; item: MatchedItem | null }[],
+  matched: readonly { shop: PricedShop; item: MatchedItem | null }[],
 ): Promise<{ shops: PriceComparisonShop[]; pricesFailed: boolean }> {
   const items = new Map(matched.flatMap(({ shop, item }) => (item === null ? [] : [[shop, item] as const])));
   const keys = productPriceKeys(
@@ -320,7 +320,7 @@ export async function productPricesOf(
     [...items].map(([shop, item]): PriceDecision => ({ shop, state: "matched", shopItemId: item.shopItemId })),
   );
   return priceShopsOf(keys, await readLatestPrices(supabase, keys), (shop) =>
-    shop === "rossmann" ? product.productUrl : (items.get(shop)?.productUrl ?? null),
+    shop === product.source ? product.productUrl : (items.get(shop)?.productUrl ?? null),
   );
 }
 
