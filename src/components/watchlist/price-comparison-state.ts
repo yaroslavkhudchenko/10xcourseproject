@@ -14,7 +14,6 @@ import {
   verdictOf,
   verdictShops,
   type Comparison,
-  type KnownShop,
   type LatestCheck,
   type MatchableShop,
   type MatchedShop,
@@ -88,7 +87,7 @@ export interface PriceComparisonState {
    * The shops whose stored match a refetch found is no longer the item the page shows, each once, in the order their
    * answers came: the page has to be reloaded, and its alert names them.
    */
-  matchChanged: KnownShop[];
+  matchChanged: MatchableShop[];
   /**
    * The matched shops whose stored decision the page couldn't read, as it handed them over: a match one of them hides
    * could name a lower price, so while there's one no shop is named cheapest, in the rows or aloud. The island never
@@ -105,17 +104,17 @@ export interface PriceComparisonState {
 // A refetch names its shop, any shop the code knows: an answer for a shop without a row of its own still says whose
 // match changed.
 export type PriceComparisonAction =
-  | { type: "start"; shop: KnownShop }
-  | { type: "done"; shop: KnownShop; result: RefreshResult; at: number }
+  | { type: "start"; shop: MatchableShop }
+  | { type: "done"; shop: MatchableShop; result: RefreshResult; at: number }
   | { type: "tick"; now: number };
 
 /** A shop's refetch has started. */
-export function start(shop: KnownShop): PriceComparisonAction {
+export function start(shop: MatchableShop): PriceComparisonAction {
   return { type: "start", shop };
 }
 
 /** A shop's refetch came back with `result`, at `at` on the browser's clock. */
-export function done(shop: KnownShop, result: RefreshResult, at: number): PriceComparisonAction {
+export function done(shop: MatchableShop, result: RefreshResult, at: number): PriceComparisonAction {
   return { type: "done", shop, result, at };
 }
 
@@ -205,7 +204,7 @@ export function priceComparisonReducer(
 function announcement(
   rows: ShopRow[],
   now: number,
-  shop: KnownShop,
+  shop: MatchableShop,
   result: RefreshResult,
   unreadable: readonly MatchableShop[],
 ): string | null {
@@ -421,7 +420,7 @@ export interface MatchContext {
  * What the page's alert says when refetches found that these shops' stored matches are no longer the items the page
  * shows, agreeing in number: "Dopasowanie w Naturze się zmieniło." and "Dopasowania w Naturze i w Hebe się zmieniły.".
  */
-export function matchChangedText(shops: readonly KnownShop[]): string {
+export function matchChangedText(shops: readonly MatchableShop[]): string {
   const where = namesOf(shops, "in");
   return shops.length > 1 ? `Dopasowania ${where} się zmieniły.` : `Dopasowanie ${where} się zmieniło.`;
 }

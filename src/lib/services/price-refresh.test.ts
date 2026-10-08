@@ -1,11 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { LIST_PRICES_PARAM, NOTICE_PARAMS, PRICES_PARAM } from "@/lib/notices";
-import { keyText, type KnownShop } from "@/lib/services/price-comparison";
+import { keyText, type MatchableShop } from "@/lib/services/price-comparison";
 import {
   listRefreshBackOf,
   listRefreshBackTo,
   parsePriceRefreshCode,
+  PRICE_FETCHERS,
   PRICE_REFRESH_CODES,
   productRefreshBackTo,
   refreshCodeOf,
@@ -15,6 +16,10 @@ import {
   type PriceRefreshCode,
 } from "@/lib/services/price-refresh";
 import { createShopGate, type ShopGateDeps } from "@/lib/services/shop-gate";
+import { fetchHebePrices } from "@/lib/services/shops/hebe";
+import { fetchNaturaPrices } from "@/lib/services/shops/natura";
+import { fetchRossmannPrices } from "@/lib/services/shops/rossmann";
+import { fetchSuperPharmPrices } from "@/lib/services/shops/super-pharm";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
 import {
   CHALLENGE,
@@ -165,18 +170,18 @@ function urlOf(input: RequestInfo | URL): string {
 }
 
 // Natura and Hebe share Luigi's Box's host, so a request says which of them it asks by its tracker.
-const TRACKER_SHOPS = new Map<string, KnownShop>([
+const TRACKER_SHOPS = new Map<string, MatchableShop>([
   ["703598-939363", "natura"],
   ["421168-505233", "hebe"],
 ]);
 // The hosts only one shop's requests go to.
-const HOST_SHOPS = new Map<string, KnownShop>([
+const HOST_SHOPS = new Map<string, MatchableShop>([
   ["www.rossmann.pl", "rossmann"],
   ["ep43qpdx9q-dsn.algolia.net", "super-pharm"],
 ]);
 
 /** The shop a request asks: Rossmann and Super-Pharm by their hosts, and Natura or Hebe by their trackers. */
-function shopOf(url: string): KnownShop {
+function shopOf(url: string): MatchableShop {
   const { host, searchParams } = new URL(url);
   const shop = HOST_SHOPS.get(host) ?? TRACKER_SHOPS.get(searchParams.get("tracker_id") ?? "");
   if (shop === undefined) {
@@ -225,8 +230,8 @@ function setup(entries: ReplayEntry[], reserve?: (shop: ShopId) => unknown, time
  */
 function slowReplay(entries: ReplayEntry[]) {
   const replay = createReplayFetch(entries);
-  const inFlight: KnownShop[] = [];
-  const most: Record<"all" | KnownShop, number> = { all: 0, rossmann: 0, natura: 0, hebe: 0, "super-pharm": 0 };
+  const inFlight: MatchableShop[] = [];
+  const most: Record<"all" | MatchableShop, number> = { all: 0, rossmann: 0, natura: 0, hebe: 0, "super-pharm": 0 };
   const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
     const shop = shopOf(urlOf(input));
     inFlight.push(shop);
@@ -248,7 +253,7 @@ function requestedUrls(fetchMock: Mock<typeof fetch>): string[] {
 }
 
 /** The URLs one shop was asked for, in the order it was asked. */
-function urlsTo(fetchMock: Mock<typeof fetch>, shop: KnownShop): string[] {
+function urlsTo(fetchMock: Mock<typeof fetch>, shop: MatchableShop): string[] {
   return requestedUrls(fetchMock).filter((url) => shopOf(url) === shop);
 }
 
@@ -335,6 +340,17 @@ function withHitType(fixture: { results: { hits: { type: string }[] } }, type: s
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+});
+
+describe("PRICE_FETCHERS", () => {
+  it("takes every shop's fetcher from its adapter, Rossmann's included", () => {
+    expect(PRICE_FETCHERS).toEqual({
+      rossmann: fetchRossmannPrices,
+      natura: fetchNaturaPrices,
+      hebe: fetchHebePrices,
+      "super-pharm": fetchSuperPharmPrices,
+    });
+  });
 });
 
 describe("refreshPrices: fetching", () => {

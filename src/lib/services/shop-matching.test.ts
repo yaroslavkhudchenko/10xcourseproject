@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import type { MatchView } from "@/lib/services/match-view";
 import type { MatchesRead } from "@/lib/services/matches";
-import type { MatchableShop } from "@/lib/services/price-comparison";
+import type { MatchableShop, MatchedShop } from "@/lib/services/price-comparison";
 import { createShopGate, type ShopGate, type ShopGateDeps } from "@/lib/services/shop-gate";
 import {
   lookupChoicesInShop,
@@ -857,8 +857,8 @@ function stubClient(answer: (table: string, first: string | undefined) => Answer
 /** What the steps stored: each query's table, its first call and that call's row. */
 const writesOf = (queries: Call[][]) => queries.map((calls) => [calls[0][1], ...(calls.at(1) ?? [])]);
 
-/** The shop a URL asks: Super-Pharm by its one query URL, Natura or Hebe by its Luigi's Box tracker id. */
-function trackerShop(url: string): MatchableShop {
+/** The matched shop a URL asks: Super-Pharm by its one query URL, Natura or Hebe by its Luigi's Box tracker id. */
+function trackerShop(url: string): MatchedShop {
   if (url === SUPER_PHARM_URL) {
     return "super-pharm";
   }
@@ -867,12 +867,12 @@ function trackerShop(url: string): MatchableShop {
 
 /**
  * A real gate over a fetch that answers the recordings a moment after each request, so requests sent together overlap,
- * and keeps the most requests in flight at once, in all and to each shop.
+ * and keeps the most requests in flight at once, in all and to each matched shop.
  */
 function slowGate(entries: ReplayEntry[]) {
   const replay = createReplayFetch(entries);
-  const inFlight: MatchableShop[] = [];
-  const most: Record<"all" | MatchableShop, number> = { all: 0, natura: 0, hebe: 0, "super-pharm": 0 };
+  const inFlight: MatchedShop[] = [];
+  const most: Record<"all" | MatchedShop, number> = { all: 0, natura: 0, hebe: 0, "super-pharm": 0 };
   const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
     const shop = trackerShop(input instanceof Request ? input.url : new URL(input).href);
     inFlight.push(shop);

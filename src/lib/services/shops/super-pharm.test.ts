@@ -94,8 +94,8 @@ import searchEmpty from "@/lib/services/shops/fixtures/super-pharm-search-empty.
 // - rossmann-search-head-shoulders-classic-clean.json (11:48:21 UTC): "head & shoulders classic clean", its 4 items.
 // - rossmann-search-maybelline-lash-sensational.json (11:48:24 UTC): "maybelline lash sensational", its 19 items,
 //   which keep each mascara's shade in its caption.
-// The first two asked for 10 items a page, where the adapter asks for 24, and each holds every item its search
-// matched, so each is served for the adapter's own request.
+// The first two asked for 10 items a page, where the list's search asks for 24, and each holds every item its search
+// matched, so each is served for the list's own request.
 const QUERY_URL = "https://ep43qpdx9q-dsn.algolia.net/1/indexes/spprod_drugstore_pl_simple_products/query";
 // Super-Pharm's Algolia application and the public search-only key its pages carry: every request carries both.
 const APP_ID = "EP43QPDX9Q";
@@ -153,7 +153,10 @@ const LOOKUPS = [
   SKY_HIGH_LOOKUP,
   FULL_FAN_LOOKUP,
 ];
-/** A Rossmann search a recording answers: its text, its URL as the adapter asks it, the text spelled out as sent. */
+/**
+ * A Rossmann search a recording answers: its text, and its URL as the list's search asks it, with 24 items a page, the
+ * text spelled out as sent.
+ */
 const rossmannSearch = (query: string, encodedQuery: string, answer: object) => ({
   query,
   url: `https://www.rossmann.pl/products/v4/api/Products?search=${encodedQuery}&page=1&pageSize=24`,
@@ -404,15 +407,15 @@ async function recordedCandidate(
 }
 
 /**
- * A watched product, by its id, as Rossmann's adapter maps it from the recorded search it was picked in, through a
- * real gate that answers only that search's URL.
+ * A watched product, by its id, as Rossmann's adapter maps it from the recorded search it was picked in, the list's
+ * search for 24 items, through a real gate that answers only that search's URL.
  */
 async function rossmannProduct(
   search: { query: string; url: string; answer: object },
   id: string,
 ): Promise<NamedProduct> {
   const { gate, fetchMock } = setup([{ url: search.url, status: 200, body: JSON.stringify(search.answer) }]);
-  const result = await searchRossmann(gate, search.query);
+  const result = await searchRossmann(gate, search.query, 24);
   expect(fetchMock.mock.calls.map(([input]) => (input instanceof Request ? input.url : new URL(input).href))).toEqual([
     search.url,
   ]);

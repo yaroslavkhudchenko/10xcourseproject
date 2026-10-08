@@ -1,26 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { LIST_PRICES_PARAM, PRICES_PARAM } from "@/lib/notices";
-import {
-  keyText,
-  MATCHABLE_SHOPS,
-  PRICED_SHOPS,
-  type KnownShop,
-  type MatchableShop,
-} from "@/lib/services/price-comparison";
+import { keyText, MATCHABLE_SHOPS, PRICED_SHOPS, type MatchableShop } from "@/lib/services/price-comparison";
 import { recordPriceChecks, type PriceRecordResult } from "@/lib/services/prices";
 import type { ShopGate } from "@/lib/services/shop-gate";
-import {
-  failed,
-  FAILED_REQUESTS_BEFORE_STOP,
-  failuresAfter,
-  logRequestsStopped,
-} from "@/lib/services/shops/pinned-prices";
 import { SHOP_ADAPTERS } from "@/lib/services/shops/registry";
-import { isRossmannProductId, requestRossmannPrice } from "@/lib/services/shops/rossmann";
-import { isRefusal } from "@/lib/services/shops/shop-outcome";
 import { parseWatchlistItemId } from "@/lib/services/watchlist";
 import { filterHref, parseListFilter, type ListFilter } from "@/lib/services/watchlist-rows";
-import type { PriceCheck, PriceKey, ShopId, ShopUnavailable } from "@/types";
+import type { PriceCheck, PriceKey, ShopId } from "@/types";
 
 // Refreshing pinned items' prices, for a product's page and for the list: every request goes through the gate, and
 // every price or missing item the shops answer with is stored as a shared observation (prices.ts).
@@ -33,7 +19,7 @@ export interface PriceRefresh {
 
 /** One shop's part of a refresh: its checks by its own id for each item, and how storing them went. */
 interface ShopRefresh {
-  shop: KnownShop;
+  shop: MatchableShop;
   checks: Map<string, PriceCheck>;
   saved: PriceRecordResult;
 }
@@ -47,15 +33,15 @@ interface ShopRefresh {
  */
 export type PriceFetcher = (gate: ShopGate, ids: string[]) => Promise<Map<string, PriceCheck>>;
 
-// Each matchable shop's adapter's fetcher, as many ids per request as its adapter takes (50 on Luigi's Box, 20 on
-// Algolia), taken from the registry (registry.ts), so a shop the registry gains needs no line here. Object.fromEntries
-// can't say which keys it gives; they're every matchable shop's, so the cast holds.
-const MATCHABLE_FETCHERS = Object.fromEntries(
+/**
+ * Each shop's price fetcher, taken from its adapter in the registry (registry.ts), so a shop the registry gains needs
+ * no line here: Rossmann's asks one product per request (fetchRossmannPrices), and the others as many ids per request
+ * as their adapters take (50 on Luigi's Box, 20 on Algolia). Object.fromEntries can't say which keys it gives; they're
+ * every matchable shop's, so the cast holds.
+ */
+export const PRICE_FETCHERS = Object.fromEntries(
   MATCHABLE_SHOPS.map((shop) => [shop, SHOP_ADAPTERS[shop].fetchPrices] as const),
 ) as Record<MatchableShop, PriceFetcher>;
-
-/** Each shop's price fetcher: Rossmann's, one product per request (fetchRossmannPrices), and each matchable shop's. */
-export const PRICE_FETCHERS: Record<KnownShop, PriceFetcher> = { rossmann: fetchRossmannPrices, ...MATCHABLE_FETCHERS };
 
 /**
  * Fetches the current offer of each shop item through the gate, asking every shop of `shops` at once, each through
@@ -80,7 +66,7 @@ export async function refreshPrices(
   gate: ShopGate,
   supabase: SupabaseClient,
   targets: PriceKey[],
-  shops: readonly KnownShop[] = PRICED_SHOPS,
+  shops: readonly MatchableShop[] = PRICED_SHOPS,
 ): Promise<PriceRefresh> {
   const keys = distinct(targets);
   const idsIn = (shop: ShopId) => keys.filter((key) => key.shop === shop).map((key) => key.shopItemId);
@@ -95,54 +81,10 @@ export async function refreshPrices(
   return { results, saved: overall(refreshed.map(({ saved }) => saved)) };
 }
 
-/**
- * Asks Rossmann for each product's offer, one request at a time in the order given. Once Rossmann refuses, the
- * products after it get that same answer with no request and no reservation. Only a request Rossmann gave no response
- * to counts toward the stop (requestRossmannPrice's `responded`): one that timed out, its body included, or failed on
- * the network, or that the counter's skip kept from being sent. Any answer Rossmann gave resets the count, whatever its
- * status or body: a redirect, a page or a detail that can't be used is about that one product, which stores nothing,
- * so a list refresh, asking the oldest checks first, would ask it first again, and counting it would keep the products
- * after it unasked on every list refresh. Once FAILED_REQUESTS_BEFORE_STOP requests in a row got no response, the
- * products after them get no request and no reservation either, and stay unanswered, counted in a log line. A product
- * whose id can't be Rossmann's (isRossmannProductId) is never sent, so it neither counts nor resets: the price check
- * still says why it's unanswered.
- */
-async function fetchRossmannPrices(gate: ShopGate, ids: string[]): Promise<Map<string, PriceCheck>> {
-  const checks = new Map<string, PriceCheck>();
-  let refusal: ShopUnavailable | null = null;
-  let failures = 0;
-  let unasked = 0;
-  for (const id of ids) {
-    if (refusal !== null) {
-      checks.set(id, { ...refusal });
-      continue;
-    }
-    // An id that can't be Rossmann's is never sent: its price check says why, at no request's cost.
-    const sent = isRossmannProductId(id);
-    if (sent && failures >= FAILED_REQUESTS_BEFORE_STOP) {
-      checks.set(id, failed());
-      unasked += 1;
-      continue;
-    }
-    const { check, responded } = await requestRossmannPrice(gate, id);
-    if (isRefusal(check)) {
-      // It stops Rossmann on its own, so it leaves the count as it was.
-      refusal = check;
-    } else if (sent) {
-      failures = responded ? 0 : failuresAfter(failures, check);
-    }
-    checks.set(id, check);
-  }
-  if (unasked > 0) {
-    logRequestsStopped("rossmann-price", "product", unasked, ids.length);
-  }
-  return checks;
-}
-
 /** One shop's checks, stored once the shop is done: recordPriceChecks leaves out the items it gave no answer for. */
 async function stored(
   supabase: SupabaseClient,
-  shop: KnownShop,
+  shop: MatchableShop,
   checks: Map<string, PriceCheck>,
 ): Promise<ShopRefresh> {
   const rows = [...checks].map(([shopItemId, check]) => ({ key: { shop, shopItemId }, check }));

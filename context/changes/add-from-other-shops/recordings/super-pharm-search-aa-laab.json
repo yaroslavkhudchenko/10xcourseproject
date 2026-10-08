@@ -1,0 +1,48 @@
+{
+  "hits": [
+    {
+      "name": "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający",
+      "url": "https://www.superpharm.pl/aa-laab-100-centella-b12-zel-do-mycia-twarzy-nawilzajacy-173983",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/4/14867135_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 12.99,
+          "default_formated": "12,99 zł",
+          "default_recommended_price_formated": "21,99 zł",
+          "default_historical_min_price_formated": "13,19 zł",
+          "special_from_date": 1683849600,
+          "special_to_date": false
+        }
+      },
+      "brand": "AA Cosmetics",
+      "capacity": "150 ml",
+      "inStoreOnly": 0,
+      "objectID": "105870"
+    }
+  ],
+  "nbHits": 1,
+  "page": 0,
+  "nbPages": 1,
+  "hitsPerPage": 10,
+  "exhaustiveNbHits": true,
+  "exhaustiveTypo": true,
+  "exhaustive": {
+    "nbHits": true,
+    "typo": true
+  },
+  "query": "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający",
+  "params": "query=AA+LAAB+100%25+Centella+B12+%C5%BBel+do+mycia+twarzy+nawil%C5%BCaj%C4%85cy&hitsPerPage=10&analytics=false&attributesToRetrieve=name%2Cbrand%2Ccapacity%2Curl%2Cthumbnail_url%2Cprice%2Cin_stock%2CinStoreOnly&attributesToHighlight=%5B%5D&tagFilters=",
+  "processingTimeMS": 3,
+  "processingTimingsMS": {
+    "_request": {
+      "roundTrip": 40
+    },
+    "fetch": {
+      "query": 1,
+      "total": 2
+    },
+    "total": 3
+  },
+  "serverTimeMS": 4
+}

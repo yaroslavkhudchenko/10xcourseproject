@@ -145,7 +145,8 @@ describe("parseWatchlistForm", () => {
       log: () => undefined,
     });
 
-    const search = await searchRossmann(gate, "nivea soft");
+    // The list's search, as the page asks for it: 24 items a page.
+    const search = await searchRossmann(gate, "nivea soft", 24);
 
     if (search.kind !== "results") {
       throw new Error(`expected results, got ${search.kind}`);

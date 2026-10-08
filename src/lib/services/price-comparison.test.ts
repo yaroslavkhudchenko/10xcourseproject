@@ -11,9 +11,12 @@ import {
   listJoin,
   listPricedItems,
   listSummaryText,
+  MATCHABLE_SHOPS,
+  MATCHED_SHOPS,
   namesOf,
   needsRefetch,
   PRICE_UNREAD_TEXT,
+  PRICED_SHOPS,
   priceParts,
   priceState,
   productPriceKeys,
@@ -100,6 +103,14 @@ const row = (shop: PricedShop, latest: LatestCheck | null) => ({ shop, latest })
 function marks(rows: { shop: PricedShop; cheapest: boolean }[]) {
   return rows.map(({ shop, cheapest }) => [shop, cheapest]);
 }
+
+describe("the shop lists", () => {
+  it("puts Rossmann first among the shops the code can match and prices, while the matched shops stay Natura, Hebe and Super-Pharm", () => {
+    expect(MATCHABLE_SHOPS).toEqual(["rossmann", "natura", "hebe", "super-pharm"]);
+    expect(PRICED_SHOPS).toEqual(["rossmann", "natura", "hebe", "super-pharm"]);
+    expect(MATCHED_SHOPS).toEqual(["natura", "hebe", "super-pharm"]);
+  });
+});
 
 describe("needsRefetch", () => {
   it("fetches an item that has never been checked", () => {

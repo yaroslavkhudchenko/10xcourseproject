@@ -37,11 +37,13 @@ const rawQuery = params.get("q");
 // on another site only fills in the form (searchStepOf).
 const searchStep = searchStepOf(rawQuery, Astro.request.headers);
 const query = searchStep.kind === "search" || searchStep.kind === "filled" ? searchStep.query : null;
+// One search asks Rossmann for one page of at most 24 items.
+const SEARCH_SIZE = 24;
 
 // The matches and the prices come from one query each for the whole list, never one per product, and carry only what
 // the list shows. The prices are the stored ones: viewing the list, filtered by a chip or not, asks no shop.
 const [search, items, matchRead, priceRead] = await Promise.all([
-  searchStep.kind === "search" ? searchRossmann(shopGateFor(supabase), searchStep.query) : null,
+  searchStep.kind === "search" ? searchRossmann(shopGateFor(supabase), searchStep.query, SEARCH_SIZE) : null,
   supabase ? listWatchlist(supabase) : null,
   supabase ? listMatchStates(supabase) : null,
   supabase ? listLatestPrices(supabase) : null,

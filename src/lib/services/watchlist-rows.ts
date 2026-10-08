@@ -13,7 +13,6 @@ import {
   priceState,
   SHOP_LABELS,
   verdictOf,
-  type KnownShop,
   type LatestCheck,
   type MatchableShop,
   type MatchedShop,
@@ -497,6 +496,6 @@ export function matchesFailedText(shops: readonly MatchableShop[] = MATCHED_SHOP
  * (FR-010), listed the Polish way (listJoin), "Ceny online z rossmann.pl i drogerienatura.pl". `shops` are the priced
  * shops unless a test names others.
  */
-export function priceSourcesText(shops: readonly KnownShop[] = PRICED_SHOPS): string {
+export function priceSourcesText(shops: readonly MatchableShop[] = PRICED_SHOPS): string {
   return `Ceny online z ${listJoin(shops.map((shop) => SHOP_LABELS[shop].site))}`;
 }

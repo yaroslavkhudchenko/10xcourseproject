@@ -9,6 +9,13 @@ import {
   searchNatura,
 } from "@/lib/services/shops/natura";
 import {
+  fetchRossmannPrices,
+  isRossmannImage,
+  isRossmannProductId,
+  isRossmannProductUrl,
+  searchRossmannItems,
+} from "@/lib/services/shops/rossmann";
+import {
   fetchSuperPharmPrices,
   isSuperPharmImage,
   isSuperPharmItemId,
@@ -17,12 +24,13 @@ import {
 } from "@/lib/services/shops/super-pharm";
 import type { PriceCheck, ShopSearch } from "@/types";
 
-// Each shop the code can match a watched product in, mapped to its adapter in one place: the lookups search it, the
-// decision form checks a decision's item ids and a confirmed candidate's links with it, and the price refresh fetches
-// its pinned items. A shop has an entry here as soon as the code knows it; whether anything reaches it is
-// MATCHED_SHOPS' to say. Server-only: the adapters call shops through the gate.
+// Each shop the code can match a watched product in, mapped to its adapter in one place, in the pages' order: the
+// lookups search it, the decision form checks a decision's item ids and a confirmed candidate's links with it, and the
+// price refresh fetches its pinned items (PRICE_FETCHERS). A shop has an entry here as soon as the code knows it;
+// whether a lookup or a decision reaches it is MATCHED_SHOPS' to say, and whether a refresh does PRICED_SHOPS'.
+// Server-only: the adapters call shops through the gate.
 
-/** What the app asks of a matched shop's adapter. None of its calls ever throws. */
+/** What the app asks of a shop's adapter. None of its calls ever throws. */
 export interface ShopAdapter {
   /**
    * Searches the shop through the gate for an EAN of 8-14 digits or text that passed `searchQuerySchema`, asking for at
@@ -30,8 +38,9 @@ export interface ShopAdapter {
    */
   search: (gate: ShopGate, query: string, size: number) => Promise<ShopSearch>;
   /**
-   * Whether the shop's search finds an item by its EAN. Super-Pharm's index holds none (research note §2.3), so its
-   * lookups search it by name alone: an EAN search there would spend a request to learn nothing.
+   * Whether the shop's search finds an item by its EAN. Rossmann's search is text only (research note §2.1) and
+   * Super-Pharm's index holds no EAN (§2.3), so their lookups search them by name alone: an EAN search there would
+   * spend a request to learn nothing.
    */
   searchesByEan: boolean;
   /** Fetches the offers of pinned items by the shop's own ids through the gate: a check for every id given. */
@@ -45,6 +54,14 @@ export interface ShopAdapter {
 }
 
 export const SHOP_ADAPTERS: Record<MatchableShop, ShopAdapter> = {
+  rossmann: {
+    search: searchRossmannItems,
+    searchesByEan: false,
+    fetchPrices: fetchRossmannPrices,
+    isItemId: isRossmannProductId,
+    isProductUrl: isRossmannProductUrl,
+    isImage: isRossmannImage,
+  },
   natura: {
     search: searchNatura,
     searchesByEan: true,
