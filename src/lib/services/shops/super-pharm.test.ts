@@ -264,6 +264,30 @@ const ROSSMANN_SOFT: NamedProduct = {
   eans: ["4005900009319", "4005808890637", "5900017001234"],
   size: { value: 300, unit: "ml" },
 };
+// Products picked in another shop than Rossmann, as "Dodaj" stores them, without a caption, each as its shop's adapter
+// reads it: Natura's Nivea Soft 300 ml (NV89063, natura-search-nivea-soft.json), and Hebe's AA LAAB face wash and
+// make-up balm, both 150 ml (450251 and 450257, hebe-search-aa-laab.json).
+const NATURA_SOFT: NamedProduct = {
+  brand: "NIVEA",
+  name: "NIVEA SOFT krem intensywnie nawilżający 300 ml",
+  caption: null,
+  eans: ["4005900009319"],
+  size: { value: 300, unit: "ml" },
+};
+const HEBE_FACE_WASH: NamedProduct = {
+  brand: "AA",
+  name: "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający 150 ml",
+  caption: null,
+  eans: ["5900116091877"],
+  size: { value: 150, unit: "ml" },
+};
+const HEBE_MAKE_UP_BALM: NamedProduct = {
+  brand: "AA",
+  name: "AA LAAB 100% Centella B12 Balsam do demakijażu emolientowy 150 ml",
+  caption: null,
+  eans: ["5900116091860"],
+  size: { value: 150, unit: "ml" },
+};
 
 /**
  * A real gate that gives every reservation the same answer, allowed by default, over a fetch that answers only the
@@ -703,6 +727,26 @@ describe("Super-Pharm search: sizes read from names", () => {
     const [candidate] = await candidatesFrom([withFields(lipBalm(), { name })]);
 
     expect(candidate).toMatchObject({ name, sizeText: null, size: null });
+  });
+
+  // The owner's call of 2026-10-08: only a "+" between spaces joins a set's items.
+  it.each([
+    {
+      why: "an SPF's",
+      name: "Nivea Sun Krem do twarzy SPF50+ 50 ml",
+      sizeText: "50 ml",
+      size: { value: 50, unit: "ml" },
+    },
+    {
+      why: "a brand's",
+      name: "Dove Men+Care Żel pod prysznic 250 ml",
+      sizeText: "250 ml",
+      size: { value: 250, unit: "ml" },
+    },
+  ])("reads the size from a name with $why „+”, which joins no items", async ({ name, sizeText, size }) => {
+    const [candidate] = await candidatesFrom([withFields(lipBalm(), { name })]);
+
+    expect(candidate).toMatchObject({ name, sizeText, size });
   });
 
   it("keeps capacity's size, never the name's, when the name ends with another", async () => {
@@ -1326,6 +1370,29 @@ describe("Super-Pharm search: the matching rule on its candidates (FR-006)", () 
 
     expect(candidates).toHaveLength(1);
     expect(pickMatch(product, candidates).kind).toBe("choose");
+  });
+
+  // Without a caption, every word of the product's name tells it apart (the owner's call of 2026-10-08).
+  it.each([
+    { product: "Hebe's face wash", own: HEBE_FACE_WASH, item: "105870" },
+    { product: "Hebe's make-up balm", own: HEBE_MAKE_UP_BALM, item: "105882" },
+  ])(
+    "accepts $item for $product, without a caption, by its name: every word of it, and no other",
+    async ({ own, item }) => {
+      const candidates = await recordedCandidates(AA_LAAB_LOOKUP.search, AA_LAAB_LOOKUP.answer);
+
+      expect(pickMatch(own, candidates)).toMatchObject({ kind: "accepted", candidate: { shopItemId: item } });
+    },
+  );
+
+  it("leaves Nivea Soft 300 ml to the user for Natura's, without a caption, whose name has „intensywnie” besides", async () => {
+    const candidates = await recordedCandidates(SOFT_SEARCH, nameSearchOne);
+
+    // The right item, though its name lacks a word of the product's: the rule's cost, which only the user's pick pays.
+    expect(pickMatch(NATURA_SOFT, candidates)).toEqual({
+      kind: "choose",
+      options: [{ candidate: candidates[0], verdict: { sharesEan: false, size: "equal", brand: "agrees" } }],
+    });
   });
 });
 

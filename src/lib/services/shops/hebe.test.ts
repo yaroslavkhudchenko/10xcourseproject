@@ -122,6 +122,18 @@ const AA_LAAB_WITHOUT_EAN: NamedProduct = {
   size: { value: 150, unit: "ml" },
 };
 const AA_LAAB_QUERY = "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający";
+// Super-Pharm's AA LAAB face wash, 150 ml (105870), as its adapter reads it from its recorded answer
+// (super-pharm-lookup-aa-laab-150.json), and as "Dodaj" stores a product picked in another shop than Rossmann: without
+// a caption, and without an EAN, as every Super-Pharm item comes.
+const SUPER_PHARM_FACE_WASH: NamedProduct = {
+  brand: "AA Cosmetics",
+  name: "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający",
+  caption: null,
+  eans: [],
+  size: { value: 150, unit: "ml" },
+};
+// Hebe's AA LAAB set (764646), which has no legal name: its short description lists its items, each with its size.
+const SET = "000000000000764646";
 
 /**
  * A real gate that gives every reservation the same answer, allowed by default, over a fetch that answers only the
@@ -347,6 +359,91 @@ describe("Hebe search: sizes and names", () => {
 
     expect(candidate).toMatchObject({ shopItemId: "000000000000218607", ...expected });
   });
+
+  it("reads no size for the recorded set, whose short description ends with its micellar water's 33 ml", async () => {
+    const candidates = await recordedCandidates(AA_LAAB_QUERY, 10, aaLaabSearch);
+    const [set] = hitsOf(aaLaabSearch).filter((hit) => hit.url === SET);
+
+    expect(set.attributes.ShortDescription).toEqual([
+      "zestaw: skoncentrowane serum-amupłka, 30 ml + żel do mycia twarzy, 30 ml + płyn micelarny, 33 ml",
+    ]);
+    // Its title is its name, and the set's items' sizes say nothing of the set's.
+    expect(candidates.find(({ shopItemId }) => shopItemId === SET)).toMatchObject({
+      name: "AA LAAB",
+      sizeText: null,
+      size: null,
+    });
+  });
+
+  it.each([
+    { why: "says „Zestaw”", legalName: "AA LAAB Zestaw serum-ampułka i żel do mycia twarzy 30 ml" },
+    {
+      why: "joins its items with a „+” between spaces",
+      legalName: "AA LAAB Żel do mycia twarzy 150 ml + Krem 40 ml",
+    },
+  ])("reads no size from a set's legal name that $why, nor from its short description", async ({ legalName }) => {
+    // The face wash's recorded hit, whose short description ends with 150 ml, with a set's legal name.
+    const [faceWash] = hitsOf(aaLaabSearch);
+    expect(faceWash.attributes.ShortDescription).toEqual(["nawilżający żel do mycia twarzy, 150 ml"]);
+
+    const [candidate] = await candidatesFrom([withAttributes(faceWash, { "Nazwa wymagana przez prawo": [legalName] })]);
+
+    expect(candidate).toMatchObject({ name: legalName, sizeText: null, size: null });
+  });
+
+  it("reads no size from a set's short description when the legal name ends with none", async () => {
+    // The set's recorded hit, given a legal name without a size.
+    const [set] = hitsOf(aaLaabSearch).filter((hit) => hit.url === SET);
+
+    const [candidate] = await candidatesFrom([
+      withAttributes(set, { "Nazwa wymagana przez prawo": ["AA LAAB 100% Centella B12"] }),
+    ]);
+
+    expect(candidate).toMatchObject({ name: "AA LAAB 100% Centella B12", sizeText: null, size: null });
+  });
+
+  it("takes the legal name's size and leaves the short description unread, though that's a set's", async () => {
+    // The face wash's recorded hit, whose legal name ends with 150 ml, with the set's short description.
+    const hits = hitsOf(aaLaabSearch);
+    const [set] = hits.filter((hit) => hit.url === SET);
+
+    const [candidate] = await candidatesFrom([
+      withAttributes(hits[0], { ShortDescription: set.attributes.ShortDescription }),
+    ]);
+
+    expect(candidate).toMatchObject({
+      shopItemId: "000000000000450251",
+      sizeText: "150 ml",
+      size: { value: 150, unit: "ml" },
+    });
+  });
+
+  it.each([
+    {
+      why: "an SPF's",
+      id: "000000000000576736",
+      legalName: "AA LAAB 100% CENTELLA B12 Hydro-krem SPF50+ nawilżająco-ochronny 40 ml",
+      sizeText: "40 ml",
+      size: { value: 40, unit: "ml" },
+    },
+    {
+      why: "a brand's",
+      id: "000000000000450251",
+      legalName: "Dove Men+Care Żel do mycia twarzy 150 ml",
+      sizeText: "150 ml",
+      size: { value: 150, unit: "ml" },
+    },
+  ])(
+    "keeps the size of a legal name with $why „+”, which joins no items",
+    async ({ id, legalName, sizeText, size }) => {
+      // A recorded hit with its legal name changed.
+      const [hit] = hitsOf(aaLaabSearch).filter((each) => each.url === id);
+
+      const [candidate] = await candidatesFrom([withAttributes(hit, { "Nazwa wymagana przez prawo": [legalName] })]);
+
+      expect(candidate).toMatchObject({ name: legalName, sizeText, size });
+    },
+  );
 
   it.each([
     { why: "both are blank", legalName: ["   "], title: "  " },
@@ -610,6 +707,17 @@ describe("Hebe search: the matching rule on its candidates (FR-006)", () => {
         shopItemId: "000000000000450251",
         name: "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający 150 ml",
       },
+    });
+  });
+
+  it("accepts AA LAAB's face wash by name for Super-Pharm's, without a caption: it has every word of that name, and no other", async () => {
+    const candidates = await recordedCandidates(AA_LAAB_QUERY, 10, aaLaabSearch);
+
+    // Without a caption, every word of the product's name tells it apart; the make-up balm in 150 ml has none of „Żel”,
+    // „mycia” and „twarzy”, and words of its own besides.
+    expect(pickMatch(SUPER_PHARM_FACE_WASH, candidates)).toMatchObject({
+      kind: "accepted",
+      candidate: { shopItemId: "000000000000450251" },
     });
   });
 });

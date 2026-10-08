@@ -12,12 +12,20 @@ import {
   type MatchView,
 } from "@/lib/services/match-view";
 import { recordLookup, type MatchesRead } from "@/lib/services/matches";
-import { judge, orderChoice, pickMatch, type MatchPick, type NamedProduct } from "@/lib/services/matching";
+import {
+  foldedWordsOf,
+  judge,
+  orderChoice,
+  pickMatch,
+  type MatchPick,
+  type NamedProduct,
+} from "@/lib/services/matching";
 import { matchedShopsOf, SHOP_LABELS, type MatchableShop, type PricedShop } from "@/lib/services/price-comparison";
 import { recordPriceChecks } from "@/lib/services/prices";
 import { toShopQuery } from "@/lib/services/search-query";
 import type { ShopGate } from "@/lib/services/shop-gate";
 import { SHOP_ADAPTERS } from "@/lib/services/shops/registry";
+import { splitTrailingSize } from "@/lib/services/size";
 import type { ListFilter } from "@/lib/services/watchlist-rows";
 import { shopUnavailableText } from "@/lib/shop-messages";
 import type {
@@ -160,9 +168,42 @@ function lookupEan(shop: MatchableShop, product: LookupProduct): string | null {
   return product.eans.find((value) => EAN.test(value)) ?? null;
 }
 
-/** What a search by name asks for: the product's brand, name and size as shop search text, or null when it can't. */
-function nameQuery(product: LookupProduct): string | null {
-  return toShopQuery([product.brand, product.name, product.sizeText].filter((part) => part !== null).join(" "));
+/**
+ * What a search by name asks for: the product's brand, name and size text as shop search text (toShopQuery), each word
+ * once, or null when it can't be one. A name in Natura, Hebe or Super-Pharm often holds the brand and the size already,
+ * as "NIVEA SOFT krem intensywnie nawilżający 300 ml" does, so the brand goes first only when the name doesn't start
+ * with it, and the size text last, in place of the size the name ends with when that's the same: read as size text
+ * (splitTrailingSize), so "500ml" is "500 ml". Their words are compared folded, as the name check folds them
+ * (foldedWordsOf), so "Nivea" is "NIVEA" and "7,2 ml" is "7.2 ml". Over 80 characters, the name is cut at a word, and
+ * the brand and the size stay whole. A Rossmann product's name holds neither, so its query is its brand, name and size
+ * text. The query keeps the words of the product's own shop, so a shop that writes the product otherwise may find
+ * nothing, which the lookup stores as not found: a known limit (the owner's call of 2026-10-08). Super-Pharm's "Mascara
+ * … 7.2 ml" finds nothing at Rossmann, which writes "tusz do rzęs" and "7,2 ml".
+ */
+export function nameQuery({
+  brand,
+  name,
+  sizeText,
+}: Pick<LookupProduct, "brand" | "name" | "sizeText">): string | null {
+  const ending = splitTrailingSize(name);
+  // The name without the size it ends with, when that's the product's: the size text goes last in its place.
+  const text = ending !== null && sizeText !== null && sameWords(ending.sizeText, sizeText) ? ending.before : name;
+  const before = brand !== null && startsWithWords(name, brand) ? null : brand;
+  return toShopQuery(text, { before, after: sizeText });
+}
+
+/** True when a text's first words, folded as the name check folds them, are all of `start`'s words: one at least. */
+function startsWithWords(text: string, start: string): boolean {
+  const words = foldedWordsOf(text);
+  const first = foldedWordsOf(start);
+  return first.length > 0 && first.every((word, index) => words[index] === word);
+}
+
+/** True when two texts have the same words, folded as the name check folds them: one at least. */
+function sameWords(a: string, b: string): boolean {
+  const left = foldedWordsOf(a);
+  const right = foldedWordsOf(b);
+  return left.length > 0 && left.length === right.length && left.every((word, index) => right[index] === word);
 }
 
 /** The lookup's answer for one search's pick, or null when that search found nothing. */

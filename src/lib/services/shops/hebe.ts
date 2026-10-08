@@ -4,7 +4,7 @@ import type { ShopGate } from "@/lib/services/shop-gate";
 import { amountOf, createLuigisBoxClient, eansOf, isUnreadAmount } from "@/lib/services/shops/luigis-box";
 import { storableOffer } from "@/lib/services/shops/shop-offer";
 import { httpsHost, textOf, valuesOf, within } from "@/lib/services/shops/shop-values";
-import { parseSize, trailingSizeText } from "@/lib/services/size";
+import { isSetName, parseSize, trailingSizeText } from "@/lib/services/size";
 import type { PriceCheck, ShopCandidate, ShopOffer, ShopSearch, Size } from "@/types";
 
 // Hebe's product search runs on Luigi's Box (research note §2.2), through the shared client: one query, an EAN or text,
@@ -187,12 +187,18 @@ export function isHebeItemId(value: string): boolean {
 
 /**
  * Hebe's size: the size its legal name (`name`) ends with, such as "300 ml", else the one its short description ends
- * with, and the size it stands for, which parseSize reads back the same when a form posts the text. No such size, or
- * text over its limit, gives neither.
+ * with, and the size it stands for, which parseSize reads back the same when a form posts the text. A set's text ends
+ * with one of its items' sizes, never the set's (isSetName). So an item whose legal name is a set's has no size, its
+ * description's neither, and a description is the size's source only when it isn't a set's, as item 764646's,
+ * "zestaw: … płyn micelarny, 33 ml", is. No such size, or text over its limit, gives neither.
  */
 function readSize(name: string | null, description: string | null): { sizeText: string | null; size: Size | null } {
-  const trailing = (text: string | null) => (text === null ? null : trailingSizeText(text));
-  const sizeText = within(trailing(name) ?? trailing(description), PRODUCT_LIMITS.sizeText);
+  if (name !== null && isSetName(name)) {
+    return { sizeText: null, size: null };
+  }
+  const fromName = name === null ? null : trailingSizeText(name);
+  const fromDescription = description === null || isSetName(description) ? null : trailingSizeText(description);
+  const sizeText = within(fromName ?? fromDescription, PRODUCT_LIMITS.sizeText);
   const size = parseSize(sizeText);
   return size === null ? { sizeText: null, size: null } : { sizeText, size };
 }

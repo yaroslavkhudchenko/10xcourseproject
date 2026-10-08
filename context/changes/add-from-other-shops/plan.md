@@ -649,6 +649,24 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **The prices check's Rossmann match** uses the script's own 14-digit `rossmannId`, as its other Rossmann ids do: the database takes it, though the app's rule is 1 to 12 digits. Its reads are checked on the table and on both views.
 - **Left for Phase 5:** the test plan's §6.3 and CLAUDE.md describe `addMatchedProduct` and `matchShop` without `addProduct` or a Rossmann match, and CLAUDE.md's entries for the two database checks don't mention a product from Natura.
 
+### Phase 3
+
+- **The recordings,** with the owner's approval of 2026-10-08: three Rossmann name searches for 10 hits, sent at 22:06:40–22:06:47 UTC from the developer machine, one at a time and 3 s apart, with the gate's User-Agent and `Accept: application/json`, following no redirect. Each sent the exact query `nameQuery` builds, computed by running the code offline over the recorded candidates. Each answered 200 JSON, kept whole and prettier-formatted, every value and number as sent:
+  - `rossmann-lookup-nivea-soft-300.json`, for Natura NV89063 („NIVEA SOFT krem intensywnie nawilżający 300 ml”): only 26900, accepted by its shared EAN;
+  - `rossmann-lookup-aa-laab-150.json`, for Hebe 450251 („AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający 150 ml”): 419343 (150 ml), accepted by its shared EAN, then the 75 ml 2132081;
+  - `rossmann-lookup-maybelline-sky-high-cosmic-black.json`, for Super-Pharm 84422 („Maybelline Mascara Lash Sensational Sky High Cosmic Black 7.2 ml”): nothing, so the lookup stores "not found". The shade is Cosmic Black, the PRD's own example of a shade the name check must tell apart.
+- **A known limit, the owner's call of 2026-10-08:** a product added from another shop may not be found at Rossmann when its name uses words Rossmann doesn't, as Super-Pharm's „Mascara” and „7.2 ml”, where Rossmann writes „tusz do rzęs” and „7,2 ml”. The test pins Rossmann's empty answer as "not found", `nameQuery`'s comment names the limit, and Phase 5 documents it. A better Rossmann query can be a later change.
+- **The set rule is narrower, the owner's call of 2026-10-08:** a set's name or description says „zestaw”, or joins its items with a „+” between spaces (`isSetName` in `size.ts`), so „… SPF50+ 50 ml” and „Dove Men+Care …” keep their size. Moved unchanged, as the plan said, its any-„+” form would have taken the size, and with it a match by EAN, from every Hebe item with a „+” in its legal name. Super-Pharm's set tests pass unchanged.
+- **A Hebe item whose legal name is a set's has no size,** with no fallback to its short description, and a description gives a size only when it isn't a set's.
+- **`nameQuery` stays in `shop-matching.ts`,** exported for its tests. The cut that keeps the brand and the size whole is `toShopQuery`'s optional second parameter (`KeptText`), so its one-argument calls are unchanged.
+- **One word rule:** `foldedWordsOf`, exported from `matching.ts`, is the name check's folding and word split, which `wordsOf` and `nameQuery` share.
+- **The size a name ends with is read by `splitTrailingSize`** in `size.ts`, which `trailingSizeText` now uses. So Natura's „…500ml” ends with „500 ml”, and the query puts the product's size text in its place: „…prysznic 500 ml”.
+- **A blank caption** is one without a letter or a digit, as the module reads a blank brand, so "", "   " and " – " take the every-word rule. `size.test.ts`, not in the plan's list, pins `splitTrailingSize` and `isSetName`.
+- **The 4 wrong acceptances and the 2 accepted-cost cases are `pickMatch` cases** on the recorded „nivea soft” answers as each adapter reads them, since no recording answers those products' new queries. Their choices put first the plainer sibling the old rule accepted: the refills' right item is second, as the shops word a refill differently, and Natura's answer holds no SPF15 cream at all. The 2 accepted-cost cases offer the right item first.
+- **Lookups for a product from another shop, on the recordings that exist:** Hebe for Natura NV890500 is the only real product whose new query has a recording (218807, accepted by its shared EAN in 1 request). The other cases use products named as the recorded searches asked, with the brand or the size repeated in the name, which the old query would have missed. The adapters' tests add real-fixture cases: Super-Pharm 105870 and 105882 for Hebe 450251 and 450257, the choice of 10132 for Natura NV89063, and Hebe 450251 for Super-Pharm 105870.
+- **Two of the Rossmann lookup tests run Rossmann alone** (`runMatchSteps` with `shops: ["rossmann"]`), since the products' other matched shops have no recording for their queries. Hebe 450251's re-pin choice on its recording is pinned too: 419343 first, then 2132081 with its size flagged.
+- **Left for Phase 5:** CLAUDE.md's "Shops and matching" (the captionless rule, the narrower set rule in `size.ts`, Hebe's set's legal name, and `nameQuery`'s single brand and size with the cut that keeps the size), the research note's §6 step 6, and the known limit in CLAUDE.md and the test plan's §7.
+
 ## References
 
 - Research: `context/changes/add-from-other-shops/research.md`, re-checked on 2026-10-08. The owner's calls are in `change.md`.
@@ -672,16 +690,16 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 2.1 The services' tests pass
-- [x] 2.2 Lint, type check and the whole unit suite pass
-- [ ] 2.3 The database checks and the new spec pass in CI's `smoke` and `e2e` jobs on the PR
+- [x] 2.1 The services' tests pass — 6b36842
+- [x] 2.2 Lint, type check and the whole unit suite pass — 6b36842
+- [x] 2.3 The database checks and the new spec pass in CI's `smoke` and `e2e` jobs on the PR — 6b36842
 
 ### Phase 3: Matching a product without a caption
 
 #### Automated
 
-- [ ] 3.1 The rule's, the lookups' and the adapters' tests pass
-- [ ] 3.2 Lint, type check and the whole unit suite pass
+- [x] 3.1 The rule's, the lookups' and the adapters' tests pass
+- [x] 3.2 Lint, type check and the whole unit suite pass
 
 ### Phase 4: The four-shop search
 

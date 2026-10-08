@@ -110,3 +110,59 @@ describe("toShopQuery", () => {
     expect(toShopQuery(text)).toBeNull();
   });
 });
+
+// A lookup's search by name: a product's name between its brand and its size, which stay whole (nameQuery).
+describe("toShopQuery: text it keeps whole around what it may cut", () => {
+  // 86 characters.
+  const longName = "Krem nawilżający do twarzy i ciała z olejkiem jojoba oraz witaminą E dla całej rodziny";
+
+  it.each([
+    { why: "they fit", text: "Soft", before: "NIVEA", after: "300 ml", query: "NIVEA Soft 300 ml" },
+    {
+      why: "each is cleaned",
+      text: "Soft <krem>",
+      before: "Bielenda®",
+      after: "(300 ml)",
+      query: "Bielenda Soft krem (300 ml)",
+    },
+    { why: "one is left out", text: "Soft", before: null, after: "300 ml", query: "Soft 300 ml" },
+    {
+      why: "the whole is over 80 characters: only the text is cut, after its last whole word that fits",
+      text: longName,
+      before: "NIVEA",
+      after: "300 ml",
+      query: "NIVEA Krem nawilżający do twarzy i ciała z olejkiem jojoba oraz witaminą 300 ml",
+    },
+    {
+      // Hebe's serum, 450256, whose legal name ends with its size: the name before it, and its size after the cut.
+      why: "a size after the text alone",
+      text: "AA LAAB 100% Centella B12 Skoncentrowane serum-ampułka nawilżająco-odbudowujące",
+      before: null,
+      after: "30 ml",
+      query: "AA LAAB 100% Centella B12 Skoncentrowane serum-ampułka 30 ml",
+    },
+    {
+      why: "no word of the text fits beside them",
+      text: "x".repeat(75),
+      before: "NIVEA",
+      after: "300 ml",
+      query: "NIVEA 300 ml",
+    },
+  ])("joins the text between what it keeps when $why", ({ text, before, after, query }) => {
+    expect(toShopQuery(text, { before, after })).toBe(query);
+  });
+
+  it("cuts the whole after its last whole word that fits when what it keeps alone leaves the text no room", () => {
+    // 77 characters, beside the size's 7.
+    const brand = Array.from({ length: 13 }, () => "Marka").join(" ");
+
+    expect(toShopQuery("Soft", { before: brand, after: "300 ml" })).toBe(brand);
+  });
+
+  it("cuts text over 80 characters as before when it keeps nothing", () => {
+    expect(toShopQuery(longName, {})).toBe(toShopQuery(longName));
+    expect(toShopQuery(longName)).toBe(
+      "Krem nawilżający do twarzy i ciała z olejkiem jojoba oraz witaminą E dla całej",
+    );
+  });
+});
