@@ -11,7 +11,7 @@ import {
 } from "@/lib/services/shops/super-pharm";
 import { parseSize } from "@/lib/services/size";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
-import type { PriceCheck, ShopCandidate, ShopOffer } from "@/types";
+import type { GateOutcome, PriceCheck, ShopCandidate, ShopOffer, ShopSearch } from "@/types";
 import rossmannAaLaab from "@/lib/services/shops/fixtures/rossmann-search-aa-laab.json";
 import rossmannShampoos from "@/lib/services/shops/fixtures/rossmann-search-head-shoulders-classic-clean.json";
 import rossmannMascaras from "@/lib/services/shops/fixtures/rossmann-search-maybelline-lash-sensational.json";
@@ -203,6 +203,54 @@ const FAILED: PriceCheck = { kind: "unavailable", reason: "failed" };
 // A page where Algolia's JSON should be, as a proxy or a maintenance page would send it.
 const HTML_PAGE =
   '<!DOCTYPE html><html lang="pl"><head><title>Super-Pharm</title></head><body>Przerwa techniczna</body></html>';
+
+/** An answer's status, headers and body, served for whichever request a test gives it. */
+interface Answer {
+  status: number;
+  headers?: Record<string, string>;
+  body?: string;
+}
+
+// A bot challenge, which Cloudflare marks with `cf-mitigated: challenge` whatever its status.
+const CHALLENGE: Answer = {
+  status: 200,
+  headers: { "cf-mitigated": "challenge" },
+  body: "<html>Just a moment...</html>",
+};
+// Algolia's documented error answer to a request its key may not make, never a recording: Super-Pharm's answer to a key
+// Algolia no longer accepts was never recorded (research note §2.3; rollout Phase 3's research, §2.4; the test plan's
+// §6.6, S-06's follow-up). Algolia's reference for POST /1/indexes/{indexName}/query documents a 403, "Method not
+// allowed with this API key.", whose body is its error shape, ErrorBase, a `message`, here with ErrorBase's own example
+// (https://www.algolia.com/doc/rest-api/search/search-single-index).
+const ALGOLIA_403: Answer = {
+  status: 403,
+  headers: { "Content-Type": "application/json; charset=UTF-8" },
+  body: JSON.stringify({ message: "Invalid Application-Id or API-Key" }),
+};
+
+/** No answer at all, as the replay stands it in: a request that never answers, or one that fails on the network. */
+interface NoAnswer {
+  error: "timeout" | "network";
+}
+
+// Plain failures, which refuse nothing and leave nothing to read, so Super-Pharm is asked again next time; each with the
+// outcome the gate logs for it. A failed answer's media type comes with it: the replay sends a text body, an empty one
+// included, as text/plain, and an answer without a body has none.
+const FAILURES: { answer: string; reply: Answer | NoAnswer; timeoutMs?: number; outcome: GateOutcome }[] = [
+  {
+    answer: "a 400, as Algolia answers a key past its expiry",
+    reply: { status: 400, body: "" },
+    outcome: { kind: "failed", reason: "http", status: 400, contentType: "text/plain" },
+  },
+  { answer: "a 500 without a body", reply: { status: 500 }, outcome: { kind: "failed", reason: "http", status: 500 } },
+  { answer: "a network error", reply: { error: "network" }, outcome: { kind: "failed", reason: "network" } },
+  {
+    answer: "no answer in time",
+    reply: { error: "timeout" },
+    timeoutMs: 20,
+    outcome: { kind: "failed", reason: "timeout" },
+  },
+];
 // Super-Pharm writes a no-break space before "zł".
 const NBSP = "\u00A0";
 // Nivea Soft first, then 20 ids Super-Pharm doesn't have: two requests' worth.
@@ -223,20 +271,29 @@ const ROSSMANN_SOFT: NamedProduct = {
 /**
  * A real gate that gives every reservation the same answer, allowed by default, over a fetch that answers only the
  * given recordings. `reserve` shows which shop each slot was asked for, `reportBlock` each refusal reported, and
- * `gateLog` the gate's own log lines.
+ * `gateLog` the gate's own log lines. `timeoutMs` shortens the gate's limit, so a request that never answers fails at
+ * once.
  */
-function setup(entries: ReplayEntry[], reservation: unknown = { outcome: "allowed" }) {
+function setup(entries: ReplayEntry[], reservation: unknown = { outcome: "allowed" }, timeoutMs?: number) {
   const fetchMock = vi.fn(createReplayFetch(entries));
   const reserve = vi.fn<ShopGateDeps["reserve"]>(() => Promise.resolve(reservation));
   const reportBlock = vi.fn<ShopGateDeps["reportBlock"]>(() => Promise.resolve());
   const gateLog = vi.fn<(entry: ShopGateLogEntry) => void>();
-  const gate = createShopGate({ reserve, reportBlock, fetch: fetchMock, log: gateLog });
+  const gate = createShopGate({ reserve, reportBlock, fetch: fetchMock, log: gateLog, timeoutMs });
   return { gate, fetchMock, reserve, reportBlock, gateLog };
 }
 
 /** The replay's answer to the request with the given body: JSON or text, with a status. */
 function answering(requestBody: string, body: string, status = 200): ReplayEntry {
   return { url: QUERY_URL, requestBody, status, body };
+}
+
+/**
+ * The replay's answer to the request with the given body: the given status, headers and body, or none at all, as a
+ * request that never answers or fails on the network gets.
+ */
+function answeringWith(requestBody: string, answer: Answer | NoAnswer): ReplayEntry {
+  return { url: QUERY_URL, requestBody, ...answer };
 }
 
 /** A request as the replay saw it: its URL and its body. */
@@ -263,6 +320,19 @@ function sentRequests(fetchMock: Mock<typeof fetch>): { url: string; body: unkno
 /** The parameters a request's body holds, as Algolia reads them. */
 function paramsOf(body: unknown): URLSearchParams {
   return new URLSearchParams((JSON.parse(String(body)) as { params: string }).params);
+}
+
+/** The outcome of each of the gate's own log lines. */
+function gateOutcomes(gateLog: Mock<(entry: ShopGateLogEntry) => void>): ShopGateLogEntry["outcome"][] {
+  return gateLog.mock.calls.map(([entry]) => entry.outcome);
+}
+
+/** How many seconds from now an answer's pause ends; it must be a pause with its end. */
+function pauseSecondsOf(answer: ShopSearch | PriceCheck | undefined): number {
+  if (answer?.kind !== "unavailable" || answer.reason !== "paused" || answer.until === undefined) {
+    throw new Error(`expected a pause with its end, got ${JSON.stringify(answer)}`);
+  }
+  return (Date.parse(answer.until) - Date.now()) / 1000;
 }
 
 /** A recorded hit, as JSON a test can edit: its fields, and its prices in złoty. */
@@ -418,10 +488,19 @@ describe("Super-Pharm search: recorded answers", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it("finds nothing, and logs nothing, for an EAN, which the index doesn't hold", async () => {
+  it("finds nothing, and logs nothing, for an EAN, which the index doesn't hold, as the answer's counts say", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { gate, fetchMock, reserve } = setup([answering(EAN_SEARCH.body, JSON.stringify(searchEmpty))]);
 
-    expect(await recordedCandidates(EAN_SEARCH, searchEmpty)).toEqual([]);
+    expect(await searchSuperPharm(gate, EAN_SEARCH.query, EAN_SEARCH.size)).toEqual({
+      kind: "results",
+      candidates: [],
+    });
+    expect(sentRequests(fetchMock)).toEqual([request(EAN_SEARCH.body)]);
+    expect(reserve).toHaveBeenCalledTimes(1);
+    // No hits, none matched, on the first page: only an answer that says so itself means nothing matched.
+    expect(searchEmpty.nbHits).toBe(0);
+    expect(searchEmpty.page).toBe(0);
     expect(warn).not.toHaveBeenCalled();
   });
 
@@ -1325,19 +1404,26 @@ describe("Super-Pharm search: broken copies give a gap, never 'not found'", () =
     expect(String(warn.mock.calls[0][0]).toLowerCase()).not.toContain("nivea");
   });
 
-  it("gives up on a 400, as Algolia answers a key past its expiry, which only the gate logs", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const { gate, fetchMock, reportBlock, gateLog } = setup([answering(NAME_SEARCH.body, "", 400)]);
+  it.each(FAILURES)(
+    "reports $answer as failed, never as nothing found, without blaming the index, and stops nothing",
+    async ({ reply, timeoutMs, outcome }) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const { gate, fetchMock, reserve, reportBlock, gateLog } = setup(
+        [answeringWith(NAME_SEARCH.body, reply)],
+        undefined,
+        timeoutMs,
+      );
 
-    expect(await searchSuperPharm(gate, NAME_SEARCH.query, NAME_SEARCH.size)).toEqual(FAILED);
-    expect(sentRequests(fetchMock)).toEqual([request(NAME_SEARCH.body)]);
-    expect(warn).not.toHaveBeenCalled();
-    expect(gateLog.mock.calls).toEqual([
-      [expect.objectContaining({ shopId: "super-pharm", outcome: { kind: "failed", reason: "http", status: 400 } })],
-    ]);
-    // A failure, not a stop.
-    expect(reportBlock).not.toHaveBeenCalled();
-  });
+      expect(await searchSuperPharm(gate, NAME_SEARCH.query, NAME_SEARCH.size)).toEqual(FAILED);
+      expect(sentRequests(fetchMock)).toEqual([request(NAME_SEARCH.body)]);
+      expect(reserve.mock.calls).toEqual([["super-pharm"]]);
+      // A failure, not a stop.
+      expect(reportBlock).not.toHaveBeenCalled();
+      // Only the gate logs it, saying why: the adapter's "index rejected" is a 404's.
+      expect(gateOutcomes(gateLog)).toStrictEqual([outcome]);
+      expect(warn).not.toHaveBeenCalled();
+    },
+  );
 
   it("gives up on a 404, as for an index Algolia doesn't have, and says the index may have changed", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -1351,21 +1437,66 @@ describe("Super-Pharm search: broken copies give a gap, never 'not found'", () =
       reason: "index rejected",
       detail: "HTTP 404: QUERY_URL may have changed",
     });
+    // With the answer's media type: the replay sends its empty body as text/plain.
     expect(gateLog.mock.calls).toEqual([
-      [expect.objectContaining({ shopId: "super-pharm", outcome: { kind: "failed", reason: "http", status: 404 } })],
+      [
+        expect.objectContaining({
+          shopId: "super-pharm",
+          outcome: { kind: "failed", reason: "http", status: 404, contentType: "text/plain" },
+        }),
+      ],
     ]);
     expect(reportBlock).not.toHaveBeenCalled();
   });
 
-  it("is stopped by a 403, as Algolia answers a key it no longer accepts", async () => {
-    const { gate, fetchMock, reportBlock } = setup([answering(NAME_SEARCH.body, "", 403)]);
+  it.each<{ refusal: string; answer: Answer; reported: unknown[][]; outcome: GateOutcome }>([
+    {
+      refusal: "a 403 with Algolia's documented error body, as for a key it no longer accepts",
+      answer: ALGOLIA_403,
+      reported: [["super-pharm", "blocked", undefined, "HTTP 403"]],
+      outcome: { kind: "blocked", status: 403 },
+    },
+    {
+      refusal: "a bot challenge, though its status is 200",
+      answer: CHALLENGE,
+      reported: [["super-pharm", "blocked", undefined, "challenge"]],
+      outcome: { kind: "blocked", status: 200 },
+    },
+  ])(
+    "is stopped by $refusal, without blaming the index, and the block is reported",
+    async ({ answer, reported, outcome }) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const { gate, fetchMock, reserve, reportBlock, gateLog } = setup([answeringWith(NAME_SEARCH.body, answer)]);
 
-    expect(await searchSuperPharm(gate, NAME_SEARCH.query, NAME_SEARCH.size)).toEqual({
-      kind: "unavailable",
-      reason: "stopped",
-    });
+      expect(await searchSuperPharm(gate, NAME_SEARCH.query, NAME_SEARCH.size)).toEqual({
+        kind: "unavailable",
+        reason: "stopped",
+      });
+      expect(sentRequests(fetchMock)).toEqual([request(NAME_SEARCH.body)]);
+      expect(reserve).toHaveBeenCalledTimes(1);
+      expect(reportBlock.mock.calls).toEqual(reported);
+      // Only the gate logs it, saying why: the adapter's "index rejected" is a 404's.
+      expect(gateOutcomes(gateLog)).toStrictEqual([outcome]);
+      expect(warn).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { refusal: "a 429", status: 429 },
+    { refusal: "a 503 that says when to come back", status: 503 },
+  ])("is paused by $refusal until its Retry-After has passed", async ({ status }) => {
+    const { gate, fetchMock, reserve, reportBlock, gateLog } = setup([
+      answeringWith(NAME_SEARCH.body, { status, headers: { "Retry-After": "120" } }),
+    ]);
+
+    const secondsAhead = pauseSecondsOf(await searchSuperPharm(gate, NAME_SEARCH.query, NAME_SEARCH.size));
+
+    expect(secondsAhead).toBeGreaterThan(115);
+    expect(secondsAhead).toBeLessThanOrEqual(120);
     expect(sentRequests(fetchMock)).toEqual([request(NAME_SEARCH.body)]);
-    expect(reportBlock.mock.calls).toEqual([["super-pharm", "blocked", undefined, "HTTP 403"]]);
+    expect(reserve).toHaveBeenCalledTimes(1);
+    expect(reportBlock.mock.calls).toEqual([["super-pharm", "rate_limited", 120]]);
+    expect(gateOutcomes(gateLog)).toStrictEqual([{ kind: "rate-limited", retryAfterSeconds: 120 }]);
   });
 
   it.each([
@@ -1376,15 +1507,54 @@ describe("Super-Pharm search: broken copies give a gap, never 'not found'", () =
       reservation: { outcome: "paused", until: "2026-10-05T19:15:00.000Z" },
       expected: { reason: "paused", until: "2026-10-05T19:15:00.000Z" },
     },
+    { refusal: "the counter can't be read", reservation: null, expected: { reason: "failed" } },
   ])("says so without calling Algolia when $refusal", async ({ reservation, expected }) => {
-    const { gate, fetchMock } = setup([answering(NAME_SEARCH.body, JSON.stringify(nameSearch))], reservation);
+    const { gate, fetchMock, reserve, reportBlock } = setup(
+      [answering(NAME_SEARCH.body, JSON.stringify(nameSearch))],
+      reservation,
+    );
 
     expect(await searchSuperPharm(gate, NAME_SEARCH.query, NAME_SEARCH.size)).toEqual({
       kind: "unavailable",
       ...expected,
     });
+    expect(reserve.mock.calls).toEqual([["super-pharm"]]);
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(reportBlock).not.toHaveBeenCalled();
   });
+});
+
+describe("Super-Pharm search: an answer without hits finds nothing only when it says so", () => {
+  it.each<{ change: string; edit: (answer: typeof searchEmpty) => unknown; detail: string }>([
+    { change: "a count of 5", edit: (answer) => ({ ...answer, nbHits: 5 }), detail: "0 hits, nbHits 5, page 0" },
+    { change: "a later page", edit: (answer) => ({ ...answer, page: 1 }), detail: "0 hits, nbHits 0, page 1" },
+    {
+      change: "neither its count nor its page",
+      edit: (answer) => ({ ...answer, nbHits: undefined, page: undefined }),
+      detail: "0 hits, nbHits missing, page missing",
+    },
+    {
+      change: "its count sent as text",
+      edit: (answer) => ({ ...answer, nbHits: "0" }),
+      detail: "0 hits, nbHits string, page 0",
+    },
+  ])(
+    "gives up on the recorded empty answer with $change, rather than finding nothing, and logs only its counts",
+    async ({ edit, detail }) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const { gate, fetchMock, reserve, reportBlock } = setup([
+        answering(EAN_SEARCH.body, JSON.stringify(edit(structuredClone(searchEmpty)))),
+      ]);
+
+      expect(await searchSuperPharm(gate, EAN_SEARCH.query, EAN_SEARCH.size)).toEqual(FAILED);
+      expect(sentRequests(fetchMock)).toEqual([request(EAN_SEARCH.body)]);
+      expect(reserve).toHaveBeenCalledTimes(1);
+      expect(reportBlock).not.toHaveBeenCalled();
+      expect(loggedLine(warn)).toEqual({ event: "super-pharm-search", reason: "unexpected empty answer", detail });
+      // Never the query, which the answer echoes.
+      expect(String(warn.mock.calls[0][0])).not.toContain(EAN_SEARCH.query);
+    },
+  );
 });
 
 describe("Super-Pharm prices: recorded answers", () => {
@@ -1629,6 +1799,29 @@ describe("Super-Pharm prices: what they keep out", () => {
     });
   });
 
+  it("calls every id unavailable, never missing, when every hit lost its objectID, and logs how many", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // The one price answer recorded with the adapter's current body, each of its hits without its id.
+    const ids = [HAND_CREAM, LUMINOUS, SOFT, UNKNOWN_ID];
+    const hits = hitsOf(pinnedRulesOff).map((hit) => withFields(hit, { objectID: undefined }));
+    const { gate, fetchMock, reserve, reportBlock } = setup([
+      answering(priceBody(ids), JSON.stringify({ ...pinnedRulesOff, hits })),
+    ]);
+
+    const checks = await fetchSuperPharmPrices(gate, ids);
+
+    expect([...checks]).toEqual(ids.map((id) => [id, FAILED]));
+    expect(sentRequests(fetchMock)).toEqual([request(priceBody(ids))]);
+    expect(reserve).toHaveBeenCalledTimes(1);
+    expect(reportBlock).not.toHaveBeenCalled();
+    // The answer still counts as many hits as it holds, so only the dropped hits stand between its ids and "missing".
+    expect(loggedLine(warn)).toEqual({
+      event: "super-pharm-prices",
+      reason: "hits dropped",
+      detail: "3 of 3 product hits",
+    });
+  });
+
   it("stores no id as missing when Super-Pharm answers with an item it wasn't asked for", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     // 10132's recorded hit in answer to another id, as if the filter had been ignored.
@@ -1644,6 +1837,8 @@ describe("Super-Pharm prices: what they keep out", () => {
 
   it.each<{ change: string; edit: (answer: typeof pinned) => unknown }>([
     { change: "more hits matched than it holds", edit: (answer) => ({ ...answer, nbHits: 4 }) },
+    // A count below the hits it holds can't say the answer holds every hit either.
+    { change: "fewer hits matched than it holds", edit: (answer) => ({ ...answer, nbHits: 2 }) },
     { change: "no count of the hits matched", edit: (answer) => ({ ...answer, nbHits: undefined }) },
     { change: "the count as text", edit: (answer) => ({ ...answer, nbHits: "3" }) },
     { change: "a later page", edit: (answer) => ({ ...answer, page: 1 }) },
@@ -1653,7 +1848,9 @@ describe("Super-Pharm prices: what they keep out", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     // The recorded answer for four ids, edited: 999999999's hit may be the one it left out.
     const ids = [HAND_CREAM, LUMINOUS, SOFT, UNKNOWN_ID];
-    const { gate } = setup([answering(priceBody(ids), JSON.stringify(edit(structuredClone(pinned))))]);
+    const { gate, fetchMock, reserve } = setup([
+      answering(priceBody(ids), JSON.stringify(edit(structuredClone(pinned)))),
+    ]);
 
     expect(await fetchSuperPharmPrices(gate, ids)).toEqual(
       new Map<string, PriceCheck>([
@@ -1663,6 +1860,8 @@ describe("Super-Pharm prices: what they keep out", () => {
         [UNKNOWN_ID, FAILED],
       ]),
     );
+    expect(sentRequests(fetchMock)).toEqual([request(priceBody(ids))]);
+    expect(reserve).toHaveBeenCalledTimes(1);
     expect(loggedLine(warn)).toEqual({
       event: "super-pharm-prices",
       reason: "answer incomplete",
@@ -1672,12 +1871,20 @@ describe("Super-Pharm prices: what they keep out", () => {
 });
 
 describe("Super-Pharm prices: why they're unavailable", () => {
-  it.each([
+  it.each<{
+    refusal: string;
+    entries: ReplayEntry[];
+    reservation: unknown;
+    requested: { url: string; body: unknown }[];
+    reported: unknown[][];
+    expected: PriceCheck;
+  }>([
     {
       refusal: "busy under the cap",
       entries: [],
       reservation: { outcome: "capped" },
       requested: [],
+      reported: [],
       expected: { kind: "unavailable", reason: "busy" },
     },
     {
@@ -1685,30 +1892,95 @@ describe("Super-Pharm prices: why they're unavailable", () => {
       entries: [],
       reservation: { outcome: "paused", until: "2026-10-05T19:15:00.000Z" },
       requested: [],
+      reported: [],
       expected: { kind: "unavailable", reason: "paused", until: "2026-10-05T19:15:00.000Z" },
     },
     {
-      refusal: "stopped by a 403",
-      entries: [answering(firstBatch, "", 403)],
+      refusal: "stopped",
+      entries: [],
+      reservation: { outcome: "stopped" },
+      requested: [],
+      reported: [],
+      expected: { kind: "unavailable", reason: "stopped" },
+    },
+    {
+      refusal: "stopped by a 403 with Algolia's documented error body, as for a key it no longer accepts",
+      entries: [answeringWith(firstBatch, ALGOLIA_403)],
       reservation: { outcome: "allowed" },
       requested: [request(firstBatch)],
+      reported: [["super-pharm", "blocked", undefined, "HTTP 403"]],
+      expected: { kind: "unavailable", reason: "stopped" },
+    },
+    {
+      refusal: "stopped by a bot challenge",
+      entries: [answeringWith(firstBatch, CHALLENGE)],
+      reservation: { outcome: "allowed" },
+      requested: [request(firstBatch)],
+      reported: [["super-pharm", "blocked", undefined, "challenge"]],
       expected: { kind: "unavailable", reason: "stopped" },
     },
   ])(
     "stops once Super-Pharm is $refusal: the next request's ids get the same answer, unasked and unreserved",
-    async ({ entries, reservation, requested, expected }) => {
-      const { gate, fetchMock, reserve } = setup(entries, reservation);
+    async ({ entries, reservation, requested, reported, expected }) => {
+      const { gate, fetchMock, reserve, reportBlock } = setup(entries, reservation);
 
       const checks = await fetchSuperPharmPrices(gate, manyIds);
 
       expect(reserve).toHaveBeenCalledTimes(1);
       expect(sentRequests(fetchMock)).toEqual(requested);
+      expect(reportBlock.mock.calls).toEqual(reported);
       expect(checks.size).toBe(21);
       for (const id of manyIds) {
         expect(checks.get(id), id).toEqual(expected);
       }
     },
   );
+
+  it.each([
+    { refusal: "a 429", status: 429 },
+    { refusal: "a 503 that says when to come back", status: 503 },
+  ])(
+    "is paused by $refusal until its Retry-After has passed: the next request's ids too, unasked and unreserved",
+    async ({ status }) => {
+      const { gate, fetchMock, reserve, reportBlock, gateLog } = setup([
+        answeringWith(firstBatch, { status, headers: { "Retry-After": "120" } }),
+      ]);
+
+      const checks = await fetchSuperPharmPrices(gate, manyIds);
+
+      expect(sentRequests(fetchMock)).toEqual([request(firstBatch)]);
+      expect(reserve).toHaveBeenCalledTimes(1);
+      expect(reportBlock.mock.calls).toEqual([["super-pharm", "rate_limited", 120]]);
+      expect(gateOutcomes(gateLog)).toStrictEqual([{ kind: "rate-limited", retryAfterSeconds: 120 }]);
+      const pause = checks.get(SOFT);
+      const secondsAhead = pauseSecondsOf(pause);
+      expect(secondsAhead).toBeGreaterThan(115);
+      expect(secondsAhead).toBeLessThanOrEqual(120);
+      expect(checks.size).toBe(21);
+      for (const id of manyIds) {
+        expect(checks.get(id), id).toEqual(pause);
+      }
+    },
+  );
+
+  it("calls every id unavailable without calling Algolia when the counter can't be read", async () => {
+    // One request's worth of ids, so one reservation is all the request costs.
+    const { gate, fetchMock, reserve, reportBlock, gateLog } = setup(
+      [answering(priceBody([SOFT, UNKNOWN_ID]), JSON.stringify(pinnedOne))],
+      null,
+    );
+
+    expect(await fetchSuperPharmPrices(gate, [SOFT, UNKNOWN_ID])).toEqual(
+      new Map([
+        [SOFT, FAILED],
+        [UNKNOWN_ID, FAILED],
+      ]),
+    );
+    expect(reserve.mock.calls).toEqual([["super-pharm"]]);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(reportBlock).not.toHaveBeenCalled();
+    expect(gateOutcomes(gateLog)).toStrictEqual([{ kind: "skipped", reason: "unavailable" }]);
+  });
 
   it("goes on to the next request after one that failed", async () => {
     const { gate, fetchMock } = setup([
@@ -1725,23 +1997,32 @@ describe("Super-Pharm prices: why they're unavailable", () => {
     expect(checks.get(manyIds[20])).toEqual({ kind: "missing" });
   });
 
-  it("calls every id of a request unavailable on a 400, which only the gate logs", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const { gate, fetchMock, reportBlock, gateLog } = setup([answering(priceBody([SOFT, UNKNOWN_ID]), "", 400)]);
+  it.each(FAILURES)(
+    "calls every id of a request unavailable on $answer, never missing, and stops nothing",
+    async ({ reply, timeoutMs, outcome }) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      // One request's worth of ids.
+      const { gate, fetchMock, reserve, reportBlock, gateLog } = setup(
+        [answeringWith(priceBody([SOFT, UNKNOWN_ID]), reply)],
+        undefined,
+        timeoutMs,
+      );
 
-    expect(await fetchSuperPharmPrices(gate, [SOFT, UNKNOWN_ID])).toEqual(
-      new Map([
-        [SOFT, FAILED],
-        [UNKNOWN_ID, FAILED],
-      ]),
-    );
-    expect(sentRequests(fetchMock)).toEqual([request(priceBody([SOFT, UNKNOWN_ID]))]);
-    expect(warn).not.toHaveBeenCalled();
-    expect(gateLog.mock.calls).toEqual([
-      [expect.objectContaining({ shopId: "super-pharm", outcome: { kind: "failed", reason: "http", status: 400 } })],
-    ]);
-    expect(reportBlock).not.toHaveBeenCalled();
-  });
+      expect(await fetchSuperPharmPrices(gate, [SOFT, UNKNOWN_ID])).toEqual(
+        new Map([
+          [SOFT, FAILED],
+          [UNKNOWN_ID, FAILED],
+        ]),
+      );
+      expect(sentRequests(fetchMock)).toEqual([request(priceBody([SOFT, UNKNOWN_ID]))]);
+      expect(reserve.mock.calls).toEqual([["super-pharm"]]);
+      // A failure, not a stop.
+      expect(reportBlock).not.toHaveBeenCalled();
+      // Only the gate logs it, saying why: the adapter's "index rejected" is a 404's.
+      expect(gateOutcomes(gateLog)).toStrictEqual([outcome]);
+      expect(warn).not.toHaveBeenCalled();
+    },
+  );
 
   it("calls every id of a request unavailable on a 404, and says the index may have changed", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -1760,28 +2041,41 @@ describe("Super-Pharm prices: why they're unavailable", () => {
       reason: "index rejected",
       detail: "HTTP 404: QUERY_URL may have changed",
     });
+    // With the answer's media type: the replay sends its empty body as text/plain.
     expect(gateLog.mock.calls).toEqual([
-      [expect.objectContaining({ shopId: "super-pharm", outcome: { kind: "failed", reason: "http", status: 404 } })],
+      [
+        expect.objectContaining({
+          shopId: "super-pharm",
+          outcome: { kind: "failed", reason: "http", status: 404, contentType: "text/plain" },
+        }),
+      ],
     ]);
     expect(reportBlock).not.toHaveBeenCalled();
   });
 
   it.each([
     { answer: "an HTML page", body: HTML_PAGE, reason: "unreadable body" },
+    { answer: "an empty body", body: "", reason: "unreadable body" },
     {
       answer: "the recorded answer without its hits",
       body: JSON.stringify({ ...pinned, hits: undefined }),
       reason: "unexpected response shape",
     },
+    {
+      answer: "the recorded answer with its hits keyed by id",
+      body: JSON.stringify({ ...pinned, hits: Object.fromEntries(pinned.hits.map((hit) => [hit.objectID, hit])) }),
+      reason: "unexpected response shape",
+    },
   ])("gives up on $answer for every id, never missing, and logs it without the ids", async ({ body, reason }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const ids = [HAND_CREAM, LUMINOUS, SOFT, UNKNOWN_ID];
-    const { gate, fetchMock } = setup([answering(priceBody(ids), body)]);
+    const { gate, fetchMock, reserve } = setup([answering(priceBody(ids), body)]);
 
     const checks = await fetchSuperPharmPrices(gate, ids);
 
-    expect([...checks.values()]).toEqual([FAILED, FAILED, FAILED, FAILED]);
+    expect([...checks]).toEqual(ids.map((id) => [id, FAILED]));
     expect(sentRequests(fetchMock)).toEqual([request(priceBody(ids))]);
+    expect(reserve).toHaveBeenCalledTimes(1);
     expect(loggedLine(warn)).toMatchObject({ event: "super-pharm-prices", reason });
     expect(String(warn.mock.calls[0][0])).not.toContain(SOFT);
   });

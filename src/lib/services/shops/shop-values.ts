@@ -9,6 +9,31 @@ export function valuesOf(attribute: unknown): unknown[] {
   return Array.isArray(attribute) ? attribute : [attribute];
 }
 
+/**
+ * True for a value that stands for none: a field left out, `null`, `false`, as Super-Pharm sends a price text it
+ * doesn't have, or text that's empty once trimmed, as Super-Pharm's search extension writes an unset date. An optional
+ * value that's none is normal; one that's there but can't be read is counted in a log line.
+ */
+export function isNone(value: unknown): boolean {
+  return value === undefined || value === null || value === false || (typeof value === "string" && value.trim() === "");
+}
+
+/** What a field held, for a log line that mustn't quote the answer: "missing", "null", "array" or its type. */
+export function kindOf(value: unknown): string {
+  if (value === undefined) {
+    return "missing";
+  }
+  if (value === null) {
+    return "null";
+  }
+  return Array.isArray(value) ? "array" : typeof value;
+}
+
+/** A count as a log line shows it: the number, or what stands in its place (kindOf). */
+export function countOf(value: unknown): string {
+  return typeof value === "number" ? String(value) : kindOf(value);
+}
+
 /** An attribute's first value as trimmed text, or null when it isn't text or is empty. */
 export function textOf(attribute: unknown): string | null {
   const [value] = valuesOf(attribute);

@@ -3,6 +3,7 @@ import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import type { ShopGate } from "@/lib/services/shop-gate";
 import { storableOffer } from "@/lib/services/shops/shop-offer";
 import { gateUnavailable } from "@/lib/services/shops/shop-outcome";
+import { countOf, kindOf } from "@/lib/services/shops/shop-values";
 import { parseSize } from "@/lib/services/size";
 import type { PriceCheck, ProductCandidate, ProductSearch, ShopOffer } from "@/types";
 
@@ -27,7 +28,10 @@ const pictureSchema = z.object({ type: z.number().nullish(), medium: z.string().
 const itemSchema = z.object({
   id: z.union([z.number(), z.string()]),
   brand: z.string().nullish(),
-  name: z.string().nullish(),
+  // Required, though it may be empty or null: every recorded item has it. Its fallbackName is only a generic
+  // description, such as "Krem uniwersalny" beside the name "Soft ", which stands in where the name is empty (11790).
+  // So an item without the field is dropped, rather than shown under that description as if it were its name.
+  name: z.string().nullable(),
   fallbackName: z.string().nullish(),
   caption: z.string().nullish(),
   unit: z.string().nullish(),
@@ -36,8 +40,9 @@ const itemSchema = z.object({
   // Checked on its own too: an odd or missing one costs only the link.
   navigateUrl: z.unknown().optional(),
 });
+// `totalCount` is how many items the search matched, checked only when the answer holds none.
 const responseSchema = z.object({
-  data: z.object({ items: z.array(z.unknown()), spellCheckHint: z.unknown() }),
+  data: z.object({ items: z.array(z.unknown()), totalCount: z.unknown().optional(), spellCheckHint: z.unknown() }),
 });
 
 // Only the fields an offer uses; the detail carries many more, which are ignored. The product's id and a numeric price
@@ -56,8 +61,9 @@ const isoDate = z.iso.date();
 
 /**
  * Searches Rossmann through the gate. Resolves to the candidates (possibly none) with Rossmann's spelling hint, or to
- * `unavailable` with the reason: the gate skipped or refused the call, the call failed, or the answer wasn't readable.
- * It never throws. The query must already have passed `searchQuerySchema`.
+ * `unavailable` with the reason: the gate skipped or refused the call, the call failed, or the answer wasn't readable,
+ * including one whose items all fail their check and one without items whose count isn't 0. It never throws. The
+ * query must already have passed `searchQuerySchema`.
  */
 export async function searchRossmann(gate: ShopGate, query: string): Promise<ProductSearch> {
   const url = `${SEARCH_URL}?search=${encodeURIComponent(query)}&page=1&pageSize=${PAGE_SIZE}`;
@@ -73,12 +79,30 @@ export async function searchRossmann(gate: ShopGate, query: string): Promise<Pro
   if (body === null) {
     return { kind: "unavailable", reason: "failed" };
   }
+  const { items, totalCount } = body.data;
+  // No items means nothing matched only when Rossmann's own count says 0, as the recorded empty answer does: an empty
+  // list beside another count, or without one, would show „Brak wyników” for a search whose answer changed.
+  if (items.length === 0 && totalCount !== 0) {
+    // Only the count, never anything else the answer holds.
+    logFailure("rossmann-search", "unexpected empty answer", `0 items, totalCount ${countOf(totalCount)}`);
+    return { kind: "unavailable", reason: "failed" };
+  }
 
   // Each item is checked on its own, so one odd item doesn't blank the whole search.
-  const candidates = body.data.items.flatMap((item) => {
+  const candidates = items.flatMap((item) => {
     const candidate = toCandidate(item);
     return candidate ? [candidate] : [];
   });
+  const dropped = items.length - candidates.length;
+  if (dropped > 0) {
+    // How many, never which: an item carries the product's name, which can echo the search.
+    logFailure("rossmann-search", "items dropped", `${dropped} of ${items.length} items`);
+  }
+  // Items that all fail their check point to a changed format, not to a search that found nothing: the page would say
+  // „Brak wyników”.
+  if (items.length > 0 && candidates.length === 0) {
+    return { kind: "unavailable", reason: "failed" };
+  }
   const rawHint = body.data.spellCheckHint;
   const hint = typeof rawHint === "string" ? clean(rawHint) : null;
   // Rossmann answers a misspelling with results for its correction; a hint equal to the query says nothing new.
@@ -88,12 +112,13 @@ export async function searchRossmann(gate: ShopGate, query: string): Promise<Pro
 
 /**
  * Fetches a pinned Rossmann product's current offer by its id, through the gate. Resolves to the offer, to `missing`
- * when Rossmann answers that it has no such product (a 404, as rossmann-detail-unknown.json recorded), or to
- * `unavailable` with the reason: the id isn't one of Rossmann's, the gate skipped or refused the call, the call failed,
- * or the answer wasn't readable. It never throws. The stored id is checked again here, before it becomes a path.
+ * when Rossmann answers that it has no such product (a 404 in `application/problem+json`, as
+ * rossmann-detail-unknown.json recorded), or to `unavailable` with the reason: the id isn't one of Rossmann's, the
+ * gate skipped or refused the call, the call failed (any other 404 included, such as a moved route's or a page's), or
+ * the answer wasn't readable. It never throws. The stored id is checked again here, before it becomes a path.
  */
 export async function fetchRossmannPrice(gate: ShopGate, sourceItemId: string): Promise<PriceCheck> {
-  if (!PRODUCT_ID.test(sourceItemId)) {
+  if (!isRossmannProductId(sourceItemId)) {
     // Never the id itself: it names the product.
     logFailure("rossmann-price", "invalid product id", "not 1-12 digits, not sent");
     return { kind: "unavailable", reason: "failed" };
@@ -103,8 +128,12 @@ export async function fetchRossmannPrice(gate: ShopGate, sourceItemId: string): 
     signal: AbortSignal.timeout(PRICE_TIMEOUT_MS),
   });
   if (outcome.kind !== "ok") {
-    // The gate has already logged why. Only Rossmann's 404 says the product is gone; any other refusal is no answer.
-    return outcome.kind === "failed" && outcome.status === 404 ? { kind: "missing" } : gateUnavailable(outcome);
+    // The gate has already logged why, with the status and the media type. Only Rossmann's own "no such product", a
+    // 404 in problem+json, says the product is gone: a 404 of another type, or of none, could be a moved route's,
+    // which would mark every product gone for everyone who watches it. Any other refusal is no answer either.
+    const gone =
+      outcome.kind === "failed" && outcome.status === 404 && outcome.contentType === "application/problem+json";
+    return gone ? { kind: "missing" } : gateUnavailable(outcome);
   }
   const body = await readBody(outcome.response, detailSchema, "rossmann-price");
   if (body === null) {
@@ -121,7 +150,20 @@ export async function fetchRossmannPrice(gate: ShopGate, sourceItemId: string): 
     logFailure("rossmann-price", "unexpected offer", "price not above 0 and within PRICE_LIMITS");
     return { kind: "unavailable", reason: "failed" };
   }
+  if (typeof item.availability !== "string") {
+    // It reads as not orderable, so the price can't be named cheapest, and only this line shows a renamed field.
+    const kind = kindOf(item.availability);
+    logFailure("rossmann-price", "availability unread", `availability ${kind}, read as not orderable`);
+  }
   return { kind: "price", offer };
+}
+
+/**
+ * True for an id that can go into a price check's path, so the only kind the price check sends: Rossmann's product id,
+ * 1-12 digits, so never a dot segment such as "..". A refresh tells the ids it never sends apart by it, before asking.
+ */
+export function isRossmannProductId(value: string): boolean {
+  return PRODUCT_ID.test(value);
 }
 
 /** True for an https URL on a rossmann.pl host: the only images the watchlist shows. */
@@ -174,7 +216,8 @@ async function readBody<T>(response: Response, schema: z.ZodType<T>, event: LogE
 /**
  * A detail's offer as it can be stored, or null when its price can't be. `oldPrice` is the price before a reduction
  * and `lastLowestPrice` the 30-day low, as rossmann-detail-reduced.json shows; an item without a reduction carries
- * neither. `promotionTo` has no UTC offset, so only its date is kept.
+ * neither. `promotionTo` has no UTC offset, so only its date is kept. Only an `availability` of "available" is
+ * orderable online; one that's missing or isn't text is counted in a log line (fetchRossmannPrice).
  */
 function toOffer(item: z.infer<typeof detailSchema>["data"]): ShopOffer | null {
   return storableOffer({

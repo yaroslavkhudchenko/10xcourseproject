@@ -1,7 +1,7 @@
 import { z } from "astro/zod";
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import type { ShopGate } from "@/lib/services/shop-gate";
-import { amountOf, createLuigisBoxClient, eansOf } from "@/lib/services/shops/luigis-box";
+import { amountOf, createLuigisBoxClient, eansOf, isUnreadAmount } from "@/lib/services/shops/luigis-box";
 import { storableOffer } from "@/lib/services/shops/shop-offer";
 import { httpsHost, textOf, valuesOf, within } from "@/lib/services/shops/shop-values";
 import { parseSize, trailingSizeText } from "@/lib/services/size";
@@ -67,13 +67,16 @@ const hebe = createLuigisBoxClient({
   isItemId: isHebeItemId,
   isNotSoldOnline: (hit) => notSoldOnlineSchema.safeParse(hit).success,
   hasOddAvailability: hasOddOnlineFlag,
+  // It costs only itself when it can't be read (offerOf), so only its line shows a renamed or reformatted field.
+  oddValues: [["30-day low unread", hasUnreadLowest]],
 });
 
 /**
  * Searches Hebe through the gate, asking for at most `size` hits. Resolves to the candidates (possibly none: an item
  * Hebe doesn't sell online is left out, as a query suggestion is), or to `unavailable` with the reason: the gate
- * skipped or refused the call, the call failed, or the answer wasn't readable, including an answer whose items all fail
- * their check. It never throws. The query must already be an EAN of 8-14 digits or have passed `searchQuerySchema`.
+ * skipped or refused the call, the call failed, or the answer wasn't readable, including an answer whose hits all fail
+ * their check, a hit that isn't an item among them, and an answer without hits that doesn't say it matched none. It
+ * never throws. The query must already be an EAN of 8-14 digits or have passed `searchQuerySchema`.
  */
 export function searchHebe(gate: ShopGate, query: string, size: number): Promise<ShopSearch> {
   return hebe.search(gate, query, size);
@@ -82,9 +85,11 @@ export function searchHebe(gate: ShopGate, query: string, size: number): Promise
 /**
  * Fetches the offers of pinned Hebe items by id through the gate: one request per 50 ids, each after the one before.
  * Once Hebe refuses, busy under the cap, paused or stopped, the ids of the requests after it get that same answer with
- * no request and no reservation. Resolves to a check for every id given: its offer, `missing` when Hebe answered
- * without it (as it does for an item it no longer sells online), or `unavailable` when the id can't go into a filter,
- * the gate skipped or refused its request, or the answer wasn't readable. It never throws.
+ * no request and no reservation, and once two of its requests in a row failed, the ids after them get no request and
+ * no reservation either (fetchPinnedPrices). Resolves to a check for every id given: its offer, `missing` when Hebe
+ * answered without it (as it does for an item it no longer sells online), or `unavailable` when the id can't go into a
+ * filter, the gate skipped or refused its request, the request was never sent, or the answer wasn't readable, a hit
+ * that isn't an item included. It never throws.
  */
 export function fetchHebePrices(gate: ShopGate, ids: string[]): Promise<Map<string, PriceCheck>> {
   return hebe.fetchPrices(gate, ids);
@@ -139,8 +144,9 @@ function toOffer(raw: unknown): ShopOffer | null {
 /**
  * A hit's offer as it can be stored, or null when its price can't be: the sale price while Hebe has one, with the
  * regular price before it, else the regular price. The 30-day low comes from `price_omnibus_amount`, which Hebe reports
- * without a sale too, and orderable online means `online_flag`, since `availability` is 1 even for an item Hebe doesn't
- * sell online. Hebe names no sale's end.
+ * without a sale too: one that can't be read costs only itself, and is counted in a log line (hasUnreadLowest).
+ * Orderable online means `online_flag`, since `availability` is 1 even for an item Hebe doesn't sell online. Hebe
+ * names no sale's end.
  */
 function offerOf(attributes: z.infer<typeof offerHitSchema>["attributes"]): ShopOffer | null {
   const sale = attributes.price_sale_amount;
@@ -160,6 +166,15 @@ function offerOf(attributes: z.infer<typeof offerHitSchema>["attributes"]): Shop
 function hasOddOnlineFlag(hit: unknown): boolean {
   const parsed = offerHitSchema.safeParse(hit);
   return parsed.success && typeof valuesOf(parsed.data.attributes.online_flag)[0] !== "boolean";
+}
+
+/**
+ * True for an offer's hit whose `price_omnibus_amount` is there but can't be read (isUnreadAmount): its offer goes
+ * without a 30-day low (offerOf), and the client counts such hits in a log line.
+ */
+function hasUnreadLowest(hit: unknown): boolean {
+  const parsed = offerHitSchema.safeParse(hit);
+  return parsed.success && isUnreadAmount(parsed.data.attributes.price_omnibus_amount);
 }
 
 /**
