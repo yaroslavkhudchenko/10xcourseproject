@@ -7,12 +7,12 @@
 // and "Zobacz w sklepie" to the product's own page in Natura, with no match to change and no lookup there, while
 // Rossmann's card names the matched Rossmann item, with its price, its age and "Zmień". Every decision is stored and
 // every price fresh, so neither page asks a shop.
-// expected values: the change's Phase 2 (context/changes/add-from-other-shops/plan.md, "Desired End State": a product
-// added from Natura shows its own shop's price with its age and its own link, and is matched in Rossmann and the other
-// two shops), FR-011 and US-01 (context/foundation/prd.md: the cheapest shop today is marked, and every price shows its
-// source and age), and the S-03 decision (context/archive/2026-09-28-cheapest-shop-today: only fresh prices the shop
-// sells online can win): Natura's 15,49 zł is the lowest of four fresh, orderable prices, 1,50 zł under Rossmann's
-// 16,99 zł. The texts are the running app's. None of it is read off the comparison code.
+// expected values: the change's Phase 2 (context/archive/2026-10-06-add-from-other-shops/plan.md, "Desired End State":
+// a product added from Natura shows its own shop's price with its age and its own link, and is matched in Rossmann and
+// the other two shops), FR-011 and US-01 (context/foundation/prd.md: the cheapest shop today is marked, and every price
+// shows its source and age), and the S-03 decision (context/archive/2026-09-28-cheapest-shop-today: only fresh prices
+// the shop sells online can win): Natura's 15,49 zł is the lowest of four fresh, orderable prices, 1,50 zł under
+// Rossmann's 16,99 zł. The texts are the running app's. None of it is read off the comparison code.
 // seed: tests/e2e/seed.spec.ts
 import { expect, test } from "@playwright/test";
 import { requestLogMark } from "../../scripts/e2e-local-db.mjs";
