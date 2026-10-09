@@ -424,5 +424,5 @@ None. No migration runs, and rows stored earlier in a product's own shop stay as
 
 #### Automated
 
-- [x] 3.1 The changed Markdown passes Prettier: `npx prettier --check CLAUDE.md context/domain/glossary.md context/foundation/roadmap.md context/foundation/test-plan.md`
-- [x] 3.2 The unit suite still passes: `npm run test`
+- [x] 3.1 The changed Markdown passes Prettier: `npx prettier --check CLAUDE.md context/domain/glossary.md context/foundation/roadmap.md context/foundation/test-plan.md` — f1f05b3
+- [x] 3.2 The unit suite still passes: `npm run test` — f1f05b3
