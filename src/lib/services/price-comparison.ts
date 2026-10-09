@@ -30,39 +30,49 @@ const polishCalendar = new Intl.DateTimeFormat("pl-PL", {
 });
 
 /**
- * Every shop the code can match a watched product in, each with its label here and its adapter in the registry
- * (src/lib/services/shops/registry.ts), whether it's switched on or not.
+ * Every shop the code can match a watched product in, in the pages' order, each with its label here and its adapter in
+ * the registry (src/lib/services/shops/registry.ts), whether it's switched on (PRICED_SHOPS) or not: Rossmann first,
+ * then Natura, Hebe and Super-Pharm.
  */
-export const MATCHABLE_SHOPS = ["natura", "hebe", "super-pharm"] as const satisfies readonly ShopId[];
+export const MATCHABLE_SHOPS = ["rossmann", "natura", "hebe", "super-pharm"] as const satisfies readonly ShopId[];
 
-/** A shop the code can match a watched product in. */
+/**
+ * A shop the code can match a watched product in, switched on or not: every shop the code knows. The per-shop tables
+ * are keyed by it.
+ */
 export type MatchableShop = (typeof MATCHABLE_SHOPS)[number];
 
 /**
- * The matchable shops that are switched on, in the pages' order: the only switch. The pages, the routes, the decision
- * and price-request schemas, the list and the island all read it, and the rules that take a list of shops default to
- * it, so a test can pass shops that aren't switched on yet.
+ * The shops whose prices are fetched and compared, in the pages' order: the only switch. A product is priced in the
+ * shop it was picked in, its own (its `source`), and matched in each of the others (matchedShopsOf). The pages, the
+ * routes, the decision and price-request schemas, the list and the island all read it, and the rules that take a list
+ * of shops default to it, so a test can pass others.
  */
-export const MATCHED_SHOPS = ["natura", "hebe", "super-pharm"] as const satisfies readonly MatchableShop[];
+export const PRICED_SHOPS = ["rossmann", "natura", "hebe", "super-pharm"] as const satisfies readonly MatchableShop[];
 
-/** A matched shop that is switched on. */
-export type MatchedShop = (typeof MATCHED_SHOPS)[number];
-
-/** The shops whose prices are fetched and compared: Rossmann, where products are picked, and every matched shop. */
-export const PRICED_SHOPS = ["rossmann", ...MATCHED_SHOPS] as const satisfies readonly ShopId[];
-
-/** A shop whose prices are fetched and compared. */
+/** A shop whose prices are fetched and compared: a product's own shop, or one of its matched shops. */
 export type PricedShop = (typeof PRICED_SHOPS)[number];
 
-/** A shop the code knows, switched on or not: Rossmann and every matchable shop. The per-shop tables are keyed by it. */
-export type KnownShop = "rossmann" | MatchableShop;
+/**
+ * A product's matched shops: every one of `shops`, the priced shops unless a test names others, but `source`, the
+ * product's own shop, whose own item prices it there, in their order. So a product picked in Rossmann is matched in
+ * Natura, Hebe and Super-Pharm, and one picked in Natura in Rossmann, Hebe and Super-Pharm. Every rule about one
+ * product's decisions takes them, and a decision stored in the product's own shop counts in none.
+ */
+export function matchedShopsOf(source: ShopId, shops: readonly PricedShop[] = PRICED_SHOPS): PricedShop[] {
+  return shops.filter((shop) => shop !== source);
+}
 
 /**
- * The matched shop a page's parameter or a form's field names, or null for anything else: a shop that isn't switched
- * on, any other text, or a field that isn't text.
+ * The shop a page's parameter or a form's field names as one a product is matched in: any of `shops`, the priced shops
+ * unless the caller names one product's matched shops (matchedShopsOf), so that the product's own shop reads as none.
+ * Null for anything else: a shop outside `shops`, any other text, or a field that isn't text.
  */
-export function parseMatchedShop(raw: FormDataEntryValue | null): MatchedShop | null {
-  return MATCHED_SHOPS.find((shop) => shop === raw) ?? null;
+export function parseMatchedShop(
+  raw: FormDataEntryValue | null,
+  shops: readonly PricedShop[] = PRICED_SHOPS,
+): PricedShop | null {
+  return shops.find((shop) => shop === raw) ?? null;
 }
 
 /**
@@ -77,7 +87,7 @@ export interface ShopLabel {
   site: string;
 }
 
-export const SHOP_LABELS: Record<KnownShop, ShopLabel> = {
+export const SHOP_LABELS: Record<MatchableShop, ShopLabel> = {
   rossmann: { name: "Rossmann", in: "w Rossmannie", of: "Rossmanna", title: "Rossmann", site: "rossmann.pl" },
   natura: { name: "Natura", in: "w Naturze", of: "Natury", title: "Drogerie Natura", site: "drogerienatura.pl" },
   hebe: { name: "Hebe", in: "w Hebe", of: "Hebe", title: "Hebe", site: "hebe.pl" },
@@ -398,7 +408,7 @@ export type HistoryState = "enough" | "short" | "unread";
  */
 export type PriceJudgement =
   | { kind: "good" | "ordinary"; basis: "shop" | "history"; baseline: number; history: HistoryState }
-  | { kind: "none"; shops: KnownShop[]; history: Exclude<HistoryState, "enough"> };
+  | { kind: "none"; shops: MatchableShop[]; history: Exclude<HistoryState, "enough"> };
 
 /**
  * Whether the price a verdict names is a good one, by the owner's rule of 2026-10-06 as the review of 2026-10-07
@@ -541,16 +551,13 @@ export function formatDayOf(iso: string): string | null {
   return Number.isNaN(time) ? null : formatDay(polishDate(time));
 }
 
-/**
- * A shop item a watched product's prices come from: a shop whose prices are fetched, and the shop's own id for it. A
- * rule given a test's list of shops gives that list's shops too.
- */
-export interface PricedKey<Shop extends KnownShop = PricedShop> extends PriceKey {
-  shop: Shop;
+/** A shop item a watched product's prices come from: a shop whose prices are fetched, and the shop's own id for it. */
+export interface PricedKey extends PriceKey {
+  shop: PricedShop;
 }
 
 /** A priced shop item with its latest check, if any: a row the comparison judges, and an item a refresh may fetch. */
-export type PricedItem<Shop extends KnownShop = PricedShop> = PricedKey<Shop> & { latest: LatestCheck | null };
+export type PricedItem = PricedKey & { latest: LatestCheck | null };
 
 /**
  * One priced shop as the product page hands it to the price island: the shop, the item the page shows there, its
@@ -577,22 +584,23 @@ export type PriceDecision = { shop: ShopId } & (
 );
 
 /**
- * The shop items a watched product's prices come from, in the pages' order: its own item, where it was picked, when
- * that's Rossmann, then the matched item of each of `shops` whose decision is a match, in the order of `shops`. A
- * decision that isn't a match, or one in any other shop, adds nothing. `shops` are the matched shops unless a test
- * names others. Its type names the matched shops' own list beside any other, so the default needs no cast, and the
- * keys' shops are then the priced shops; the result infers nothing (NoInfer), so a typed variable can't widen them.
+ * The shop items a watched product's prices come from: first its own item, in its own shop, the one it was picked in,
+ * whichever priced shop that is, then the matched item of each of its matched shops among `shops` (matchedShopsOf)
+ * whose decision is a match, in the order of `shops`. A decision that isn't a match adds nothing, and neither does one
+ * in the product's own shop, whose own item stands there, nor one in a shop outside `shops`. `shops` are the priced
+ * shops unless a test names others.
  */
-export function productPriceKeys<Shop extends MatchableShop = MatchedShop>(
+export function productPriceKeys(
   product: { source: ShopId; sourceItemId: string },
   decisions: readonly PriceDecision[],
-  shops: readonly Shop[] | typeof MATCHED_SHOPS = MATCHED_SHOPS,
-): PricedKey<PricedShop | NoInfer<Shop>>[] {
-  const keys: PricedKey<PricedShop | Shop>[] = [];
-  if (product.source === "rossmann") {
-    keys.push({ shop: "rossmann", shopItemId: product.sourceItemId });
+  shops: readonly PricedShop[] = PRICED_SHOPS,
+): PricedKey[] {
+  const keys: PricedKey[] = [];
+  const own = PRICED_SHOPS.find((shop) => shop === product.source);
+  if (own !== undefined) {
+    keys.push({ shop: own, shopItemId: product.sourceItemId });
   }
-  for (const shop of shops) {
+  for (const shop of matchedShopsOf(product.source, shops)) {
     // A product has one decision per shop.
     const decision = decisions.find((each) => each.shop === shop);
     if (decision?.state === "matched") {
@@ -604,17 +612,17 @@ export function productPriceKeys<Shop extends MatchableShop = MatchedShop>(
 
 /**
  * Each listed product's priced shop items with their latest checks, by the product's id: what its row on the list
- * compares, and what the list's refresh picks the stale items from. `matches` are the list's decisions, of which a
- * match in one of `shops` adds its item (productPriceKeys), and `prices` the latest states the user can see; an item
- * without one was never checked. `shops` are the matched shops unless a test names others, typed as productPriceKeys
- * types them.
+ * compares, and what the list's refresh picks the stale items from. Each product gets its own item and the match of
+ * each of its own matched shops (productPriceKeys), from `matches`, the list's decisions, and `prices`, the latest
+ * states the user can see; an item without one was never checked. `shops` are the priced shops unless a test names
+ * others.
  */
-export function listPricedItems<Shop extends MatchableShop = MatchedShop>(
+export function listPricedItems(
   products: readonly Pick<WatchlistItem, "id" | "source" | "sourceItemId">[],
   matches: readonly ShopMatchState[],
   prices: readonly LatestPrice[],
-  shops: readonly Shop[] | typeof MATCHED_SHOPS = MATCHED_SHOPS,
-): Map<string, PricedItem<PricedShop | NoInfer<Shop>>[]> {
+  shops: readonly PricedShop[] = PRICED_SHOPS,
+): Map<string, PricedItem[]> {
   const decisions = new Map<string, ShopMatchState[]>();
   for (const match of matches) {
     const own = decisions.get(match.watchlistItemId);
@@ -625,7 +633,7 @@ export function listPricedItems<Shop extends MatchableShop = MatchedShop>(
     }
   }
   const latest = new Map(prices.map((price) => [keyText(price), price] as const));
-  const items = new Map<string, PricedItem<PricedShop | Shop>[]>();
+  const items = new Map<string, PricedItem[]>();
   for (const product of products) {
     const keys = productPriceKeys(product, decisions.get(product.id) ?? [], shops);
     const withLatest = keys.map((key) => ({ ...key, latest: latest.get(keyText(key)) ?? null }));
@@ -639,7 +647,7 @@ export function listPricedItems<Shop extends MatchableShop = MatchedShop>(
  * the items never checked first and then the oldest check first, so the gate's cap cuts off the latest checks. Items
  * that tie keep their order.
  */
-export function staleTargets(entries: readonly PricedItem<KnownShop>[], now: number): PriceKey[] {
+export function staleTargets(entries: readonly PricedItem[], now: number): PriceKey[] {
   const stale = entries.filter((entry) => needsRefetch(entry.latest, now)).sort(byOldestCheck);
   const seen = new Set<string>();
   const targets: PriceKey[] = [];
@@ -655,7 +663,7 @@ export function staleTargets(entries: readonly PricedItem<KnownShop>[], now: num
 }
 
 /** Orders items by their last check, the items never checked first. */
-function byOldestCheck(a: PricedItem<KnownShop>, b: PricedItem<KnownShop>): number {
+function byOldestCheck(a: PricedItem, b: PricedItem): number {
   const first = lastCheckTime(a.latest);
   const second = lastCheckTime(b.latest);
   if (first === second) {
@@ -790,7 +798,7 @@ export function listJoin(parts: readonly string[]): string {
  * Natura", or "w Rossmannie i w Naturze". Any shop the code knows has a label, so a rule can name a matched shop that
  * isn't priced yet.
  */
-export function namesOf(shops: readonly KnownShop[], label: "name" | "in" = "name"): string {
+export function namesOf(shops: readonly MatchableShop[], label: "name" | "in" = "name"): string {
   return listJoin(shops.map((shop) => SHOP_LABELS[shop][label]));
 }
 

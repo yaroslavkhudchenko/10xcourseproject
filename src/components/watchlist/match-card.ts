@@ -1,6 +1,6 @@
 import { DECISION_NOTICES } from "@/lib/notices";
 import type { MatchAction, MatchItemSummary, MatchView } from "@/lib/services/match-view";
-import { SHOP_LABELS, type MatchableShop, type MatchedShop } from "@/lib/services/price-comparison";
+import { SHOP_LABELS, type MatchableShop, type PricedShop } from "@/lib/services/price-comparison";
 
 // A matched shop's card on the product's page, without React: what it says for each view the page builds of the shop
 // (src/lib/services/match-view.ts), with the notices of a decision just made, every text naming the shop by its label.
@@ -30,10 +30,10 @@ export function unreadable(view: MatchView | null): boolean {
  * A matched shop as the product's page hands it to its island: the shop, the view the page built of it, the notice of
  * a decision just saved there (`?matched`, `?declined` or `?decided`), why a decision wasn't (`?error=`), both as text,
  * and whether the lookup's own outcome couldn't be stored, so the next visit looks the product up again. The page hands
- * over the matched shops in their order (MATCHED_SHOPS); a test may name a shop that isn't switched on yet.
+ * over the product's matched shops, every priced shop but its own, in the pages' order (matchedShopsOf).
  */
-export interface MatchedShopView<Shop extends MatchableShop = MatchedShop> {
-  shop: Shop;
+export interface MatchedShopView {
+  shop: PricedShop;
   view: MatchView;
   notice: string | null;
   error: string | null;
@@ -41,7 +41,7 @@ export interface MatchedShopView<Shop extends MatchableShop = MatchedShop> {
 }
 
 /** The shops still to be matched (undecided), in their order: the hero and the track's hint name them. */
-export function undecidedShopsOf<Shop extends MatchableShop>(matched: readonly MatchedShopView<Shop>[]): Shop[] {
+export function undecidedShopsOf(matched: readonly MatchedShopView[]): PricedShop[] {
   return matched.filter(({ view }) => undecided(view)).map(({ shop }) => shop);
 }
 
@@ -49,7 +49,7 @@ export function undecidedShopsOf<Shop extends MatchableShop>(matched: readonly M
  * The shops whose stored decision couldn't be read (unreadable), in their order: while there's one, no shop is named
  * cheapest, on the product's page or on its row on the list.
  */
-export function unreadableShopsOf<Shop extends MatchableShop>(matched: readonly MatchedShopView<Shop>[]): Shop[] {
+export function unreadableShopsOf(matched: readonly MatchedShopView[]): PricedShop[] {
   return matched.filter(({ view }) => unreadable(view)).map(({ shop }) => shop);
 }
 
@@ -83,7 +83,7 @@ export interface MatchCardAlert {
  * that found nothing, or of a decision another tab stored meanwhile; or the line of every other kind. A choice of
  * candidates points to the section below the cards, which holds its forms. Every card names its shop.
  */
-export type MatchCard<Shop extends MatchableShop = MatchedShop> = { shop: Shop; alerts: MatchCardAlert[] } & (
+export type MatchCard = { shop: PricedShop; alerts: MatchCardAlert[] } & (
   | {
       kind: "matched";
       note: string;
@@ -129,13 +129,7 @@ function cardActionOf(shop: MatchableShop, action: MatchAction, decision: "match
  * decision wasn't (`error`), and whether the lookup's outcome couldn't be stored (`unsaved`), in that order as alerts.
  * Every text names the shop by its label.
  */
-export function matchCardOf<Shop extends MatchableShop>({
-  shop,
-  view,
-  notice,
-  error,
-  unsaved,
-}: MatchedShopView<Shop>): MatchCard<Shop> {
+export function matchCardOf({ shop, view, notice, error, unsaved }: MatchedShopView): MatchCard {
   const label = SHOP_LABELS[shop];
   const alerts: MatchCardAlert[] = [];
   if (notice !== null) {

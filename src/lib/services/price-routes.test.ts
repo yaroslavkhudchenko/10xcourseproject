@@ -129,6 +129,34 @@ const PRODUCT_RELATIONS: Record<string, StubRelation> = {
   price_observations: [],
 };
 
+/** A watched product picked in Natura, by Natura's `sku`, as watchlist_items holds it. */
+function naturaProductRow(id: string, sku: string, createdAt?: string) {
+  return { ...productRow(id, sku, createdAt), source: "natura" };
+}
+
+// The same items for a product picked in Natura, Nivea Soft by its SKU: its own Natura item, and its matches in
+// Rossmann, Hebe and Super-Pharm, the shops a product picked in Natura is matched in.
+const NATURA_PRODUCT_RELATIONS: Record<string, StubRelation> = {
+  watchlist_items: [naturaProductRow(PRODUCT_ID, "NV89063")],
+  watchlist_matches: [
+    matchRow(PRODUCT_ID, "rossmann", "26900"),
+    matchRow(PRODUCT_ID, "hebe", HEBE_SOFT),
+    matchRow(PRODUCT_ID, "super-pharm", "10132"),
+  ],
+  price_observations: [],
+};
+
+/** The product picked in Natura with a match stored in Natura too, its own shop, as a direct write could store it. */
+const WITH_OWN_SHOP_MATCH: Record<string, StubRelation> = {
+  ...NATURA_PRODUCT_RELATIONS,
+  watchlist_matches: [
+    matchRow(PRODUCT_ID, "natura", "NV81063"),
+    matchRow(PRODUCT_ID, "rossmann", "26900"),
+    matchRow(PRODUCT_ID, "hebe", HEBE_SOFT),
+    matchRow(PRODUCT_ID, "super-pharm", "10132"),
+  ],
+};
+
 let fetchMock: Mock<typeof fetch>;
 
 /**
@@ -339,6 +367,48 @@ describe("/api/watchlist/prices asks a shop only for the user's own item, once",
       { p_shop_id: "natura", p_kind: "rate_limited", p_retry_after_seconds: 120, p_detail: null },
     ]);
   });
+
+  // The island of a product picked in Natura refetches its own Natura item and its Rossmann match, each through its own
+  // shop's request: the offer natura-sku.json recorded for NV89063, and the regular 26,99 zł
+  // rossmann-detail-regular.json recorded for 26900.
+  it.each<{ shop: string; shopItemId: string; url: string; offer: object }>([
+    {
+      shop: "natura",
+      shopItemId: "NV89063",
+      url: naturaPriceUrl(["NV89063"]),
+      offer: { price: 16.99, regularPrice: 22.99, lowestPrice30d: 17.99 },
+    },
+    {
+      shop: "rossmann",
+      shopItemId: "26900",
+      url: detailUrl("26900"),
+      offer: { price: 26.99, regularPrice: null, lowestPrice30d: null, available: true },
+    },
+  ])(
+    "asks $shop exactly once for the item a product picked in Natura shows there, and answers with its price",
+    async ({ shop, shopItemId, url, offer }) => {
+      const { client, queries } = world(NATURA_PRODUCT_RELATIONS, Object.values(RECORDINGS));
+
+      const response = await postPrices(contextOf(priceRequest({ itemId: PRODUCT_ID, shop, shopItemId }), client));
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ kind: "price", offer, saved: true });
+      expect(reservations(queries)).toEqual([{ p_shop_id: shop }]);
+      expect(served()).toEqual([url]);
+    },
+  );
+
+  it("asks no shop for the item of a match stored in the product's own shop, which its page never shows (409)", async () => {
+    const { client, queries } = world(WITH_OWN_SHOP_MATCH, Object.values(RECORDINGS));
+
+    const response = await postPrices(
+      contextOf(priceRequest({ itemId: PRODUCT_ID, shop: "natura", shopItemId: "NV81063" }), client),
+    );
+
+    expect(response.status).toBe(409);
+    expect(reservations(queries)).toEqual([]);
+    expect(served()).toEqual([]);
+  });
 });
 
 describe("/api/watchlist/refresh asks each shop only what is due", () => {
@@ -407,6 +477,55 @@ describe("/api/watchlist/refresh asks each shop only what is due", () => {
     expect(reservations(queries)).toHaveLength(3);
     expect(served().sort()).toEqual(
       [detailUrl("26900"), detailUrl("131225"), naturaPriceUrl(["NV89063", "NV81063"])].sort(),
+    );
+  });
+
+  it("asks each shop of a product picked in Natura once: its own item, its Rossmann match and the other two", async () => {
+    // A match stored in Natura, its own shop, adds no item: Natura is asked for the product's own item alone.
+    const { client, queries } = world(WITH_OWN_SHOP_MATCH, Object.values(RECORDINGS));
+
+    const response = await postRefresh(contextOf(refreshRequest({ itemId: PRODUCT_ID }), client));
+
+    expect(response.headers.get("Location")).toBe(`/watchlist/${PRODUCT_ID}?prices=done`);
+    expect(reservations(queries)).toHaveLength(4);
+    expect(served().sort()).toEqual(
+      [detailUrl("26900"), naturaPriceUrl(["NV89063"]), hebePriceUrl([HEBE_SOFT]), SUPER_PHARM_URL].sort(),
+    );
+    expect(bodiesSentTo(SUPER_PHARM_URL)).toEqual([superPharmPriceBody(["10132"])]);
+  });
+
+  it("asks for a product picked in Natura's stale own item in Natura's batch, and its Rossmann match one by one", async () => {
+    // Nivea Soft picked in Rossmann and matched to Natura's NV81063, both checked 20 minutes ago, and Nivea Soft picked
+    // in Natura (NV89063), matched to Rossmann's 131225, both checked 30 minutes ago. The latter's match stored in
+    // Natura, its own shop, is no item of its.
+    const list: Record<string, StubRelation> = {
+      watchlist_items: [
+        productRow(PRODUCT_ID, "26900"),
+        naturaProductRow(OTHER_ID, "NV89063", "2026-09-26T12:00:00+00:00"),
+      ],
+      watchlist_matches: [
+        matchRow(PRODUCT_ID, "natura", "NV81063"),
+        matchRow(OTHER_ID, "rossmann", "131225"),
+        matchRow(OTHER_ID, "natura", "NV00003"),
+      ],
+      latest_price_observations: [
+        latestRow("rossmann", "26900", 20 * MINUTE),
+        latestRow("natura", "NV81063", 20 * MINUTE),
+        latestRow("natura", "NV89063", 30 * MINUTE),
+        latestRow("rossmann", "131225", 30 * MINUTE),
+        latestRow("natura", "NV00003", 30 * MINUTE),
+      ],
+      price_observations: [],
+    };
+    const { client, queries } = world(list, Object.values(RECORDINGS));
+
+    const response = await postRefresh(contextOf(refreshRequest({}), client));
+
+    // Natura's two items in one request, the older check first, as natura-skus.json was recorded.
+    expect(response.headers.get("Location")).toBe("/watchlist?list-prices=done");
+    expect(reservations(queries)).toHaveLength(3);
+    expect(served().sort()).toEqual(
+      [detailUrl("131225"), detailUrl("26900"), naturaPriceUrl(["NV89063", "NV81063"])].sort(),
     );
   });
 

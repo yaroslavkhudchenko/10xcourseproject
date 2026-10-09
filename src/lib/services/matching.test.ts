@@ -474,6 +474,156 @@ describe("pickMatch: by name, where EANs can't decide", () => {
   });
 });
 
+// Natura's and Super-Pharm's answers to „nivea soft”, recorded on 2026-10-06 at 10:37 UTC for add-from-other-shops (its
+// recordings natura-search-nivea-soft.json and super-pharm-search-nivea-soft.json), as each shop's adapter reads them:
+// every candidate, in the shop's order, with the fields the rule reads. Natura's carry one EAN each and Super-Pharm's
+// none, and four of Super-Pharm's have no size: a lip balm without one, two multipacks and a set.
+const naturaItem = (shopItemId: string, name: string, sizeText: string, ean: string): ShopCandidate => ({
+  ...named(shopItemId, name, [ean], sizeText),
+  shop: "natura",
+});
+const superPharmItem = (shopItemId: string, name: string, sizeText: string | null): ShopCandidate => ({
+  ...named(shopItemId, name, [], sizeText, "Nivea"),
+  shop: "super-pharm",
+});
+const NATURA_NIVEA_SOFT = [
+  naturaItem("NV89063", "NIVEA SOFT krem intensywnie nawilżający 300 ml", "300 ml", "4005900009319"),
+  naturaItem("NV890500", "NIVEA SOFT krem intensywnie nawilżający 200 ml", "200 ml", "4005900008299"),
+  naturaItem("NV80758", "Nivea Creme Soft żel pod prysznic 500ml", "500 ml", "9005800282503"),
+  naturaItem("NV89059", "NIVEA SOFT krem intensywnie nawilżający 100 ml", "100 ml", "4005900009074"),
+  naturaItem("NV19891", "Nivea Soft krem do ciała i rąk nawilżający 50 ml", "50 ml", "42419891"),
+  naturaItem("NV84067", "Nivea Creme Soft żel pod prysznic opakowanie uzupełniające 500 ml", "500 ml", "4006000184067"),
+  naturaItem("NV18540", "Nivea Creme Soft Kremowy ŻEL POD Prysznic 750 ml", "750 ml", "9005800218540"),
+  naturaItem("NV74420", "NIVEA BABY Soft & Cream chusteczki 4 x 57 sztuk", "228 szt", "9005800374420"),
+  naturaItem("NV80643", "Nivea Soft krem nawilżający do ciała rąk i twarzy 500 ml", "500 ml", "9005800380643"),
+];
+const SUPER_PHARM_NIVEA_SOFT = [
+  superPharmItem("10132", "Nivea Soft Krem nawilżający (Pudełko)", "300 ml"),
+  superPharmItem("145460", "Nivea Soft Krem Intensywnie nawilżający SPF15, 200ml", "200 ml"),
+  superPharmItem("145461", "Nivea Soft Krem Intensywnie nawilżający SPF15, 100ml", "100 ml"),
+  superPharmItem("10139", "Nivea Lip Care Soft Rose", null),
+  superPharmItem("122310", "Nivea Baby Chusteczki biodegradowalne Soft & Cream 4x57 szt.", null),
+  superPharmItem("122353", "Nivea Baby Chusteczki biodegradowalne Soft&Cream 2x57 szt.", null),
+  superPharmItem("20461", "Nivea Żel pod prysznic Creme Soft", "500 ml"),
+  superPharmItem("20377", "Nivea Żel pod prysznic Creme Soft", "750 ml"),
+  superPharmItem("186276", "Nivea Żel pod prysznic Creme Soft Refill, 500 ml", "500 ml"),
+  superPharmItem("163025", "Nivea Zestaw Timeless: Deo AP 50 ml + Krem Soft 100 ml + SG 250 ml", null),
+];
+
+/**
+ * A recorded candidate as the product "Dodaj" adds from its shop: without a caption, which only Rossmann writes apart
+ * from the name.
+ */
+function addedFrom(items: ShopCandidate[], shopItemId: string): NamedProduct {
+  const item = items.find((each) => each.shopItemId === shopItemId);
+  if (item === undefined) {
+    throw new Error(`no recorded item ${shopItemId}`);
+  }
+  return { brand: item.brand, name: item.name, caption: null, eans: item.eans, size: item.size };
+}
+
+// The owner's call of 2026-10-08: a product without a caption has no marked words, so every word of its name is one
+// that tells it apart. Each product below is an item of one of the recorded answers, judged against the other's.
+describe("pickMatch: by name, for a product without a caption", () => {
+  it.each([
+    {
+      product: "Natura's refill NV84067",
+      own: addedFrom(NATURA_NIVEA_SOFT, "NV84067"),
+      items: SUPER_PHARM_NIVEA_SOFT,
+      sibling: "the bottle 20461",
+      lacks: "„opakowanie uzupełniające”",
+      // Super-Pharm's refill, 186276, second: its „Refill” is a word the product's name lacks.
+      chosen: ["20461", "186276", "10132"],
+    },
+    {
+      product: "Super-Pharm's refill 186276",
+      own: addedFrom(SUPER_PHARM_NIVEA_SOFT, "186276"),
+      items: NATURA_NIVEA_SOFT,
+      sibling: "the bottle NV80758",
+      lacks: "„Refill”",
+      // Natura's refill, NV84067, second: its „opakowanie uzupełniające” are words the product's name lacks.
+      chosen: ["NV80758", "NV84067", "NV80643"],
+    },
+    {
+      product: "Super-Pharm's SPF15 cream in 200 ml 145460",
+      own: addedFrom(SUPER_PHARM_NIVEA_SOFT, "145460"),
+      items: NATURA_NIVEA_SOFT,
+      sibling: "the plain cream NV890500",
+      lacks: "„SPF15”",
+      // Natura's answer holds no SPF15 cream.
+      chosen: ["NV890500", "NV89063", "NV80758"],
+    },
+    {
+      product: "Super-Pharm's SPF15 cream in 100 ml 145461",
+      own: addedFrom(SUPER_PHARM_NIVEA_SOFT, "145461"),
+      items: NATURA_NIVEA_SOFT,
+      sibling: "the plain cream NV89059",
+      lacks: "„SPF15”",
+      chosen: ["NV89059", "NV89063", "NV890500"],
+    },
+  ])(
+    "leaves $product to the user, $sibling first, though every word of its name is the product's: it lacks $lacks",
+    ({ own, items, chosen }) => {
+      // The name check accepted the plainer sibling on its own before the owner's call.
+      expect(chosenIds(own, items)).toEqual(chosen);
+    },
+  );
+
+  it.each([
+    {
+      product: "Natura's Nivea Soft in 300 ml NV89063",
+      own: addedFrom(NATURA_NIVEA_SOFT, "NV89063"),
+      lacks: "„intensywnie”",
+      chosen: ["10132", "145460", "145461"],
+    },
+    {
+      product: "Natura's Creme Soft shower gel in 750 ml NV18540",
+      own: addedFrom(NATURA_NIVEA_SOFT, "NV18540"),
+      lacks: "„Kremowy”",
+      chosen: ["20377", "10132", "145460"],
+    },
+  ])(
+    "leaves $product to the user with the right item first, since that item's name lacks $lacks: the rule's cost",
+    ({ own, chosen }) => {
+      expect(chosenIds(own, SUPER_PHARM_NIVEA_SOFT)).toEqual(chosen);
+    },
+  );
+
+  it.each([
+    {
+      product: "Super-Pharm's shower gel in 500 ml 20461",
+      own: addedFrom(SUPER_PHARM_NIVEA_SOFT, "20461"),
+      items: NATURA_NIVEA_SOFT,
+      accepted: "NV80758",
+    },
+    {
+      product: "Natura's shower gel in 500 ml NV80758",
+      own: addedFrom(NATURA_NIVEA_SOFT, "NV80758"),
+      items: SUPER_PHARM_NIVEA_SOFT,
+      accepted: "20461",
+    },
+  ])("accepts $accepted for $product: every word of the name, and no other", ({ own, items, accepted }) => {
+    // The other items of its size each have a word it lacks: Natura's refill and body cream, Super-Pharm's refill.
+    expect(pickMatch(own, items)).toMatchObject({ kind: "accepted", candidate: { shopItemId: accepted } });
+  });
+
+  it.each([
+    { caption: null, kind: "choose" },
+    { caption: "", kind: "choose" },
+    { caption: "   ", kind: "choose" },
+    { caption: " – ", kind: "choose" },
+    // A caption with words keeps the rule of a caption, whose marked words are only those it capitalises or writes with
+    // a digit: here none, so one word of the name is enough, and the bottle passes as it did before the owner's call.
+    { caption: "żel pod prysznic", kind: "accepted" },
+  ])("marks every word of the refill's name only without a caption: $caption gives $kind", ({ caption, kind }) => {
+    const own = { ...addedFrom(NATURA_NIVEA_SOFT, "NV84067"), caption };
+
+    expect(pickMatch(own, SUPER_PHARM_NIVEA_SOFT)).toMatchObject(
+      kind === "accepted" ? { kind, candidate: { shopItemId: "20461" } } : { kind },
+    );
+  });
+});
+
 describe("orderChoice: the choice's order by name fit", () => {
   // None of these passes the name check; each one without an EAN has a word the product lacks, or shares but one.
   const qualifying = candidate("Q1", [SOFT_EAN], "300 ml");

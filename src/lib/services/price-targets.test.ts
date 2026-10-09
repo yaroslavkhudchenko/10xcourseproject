@@ -89,6 +89,27 @@ const superPharmMatchedRow = {
   eans: [],
 };
 
+// The same Nivea Soft picked in Natura instead, by its SKU, with Natura's page: Rossmann is one of its matched shops.
+const NATURA_PAGE = "https://drogerienatura.pl/produkt/nivea-soft-krem-intensywnie-nawilzajacy-300-ml-4005900009319";
+const fromNaturaRow = {
+  ...softRow,
+  source: "natura",
+  source_item_id: "NV89063",
+  name: "NIVEA SOFT krem intensywnie nawilżający 300 ml",
+  caption: null,
+  product_url: NATURA_PAGE,
+};
+
+// Its decision in Rossmann: matched to Rossmann's Nivea Soft 300 ml, by its product id.
+const rossmannMatchedRow = {
+  ...matchedRow,
+  shop_id: "rossmann",
+  shop_item_id: "26900",
+  name: "Soft krem uniwersalny, nawilżający",
+  product_url:
+    "https://www.rossmann.pl/Produkt/Kremy-do-twarzy/NIVEA-Soft-krem-uniwersalny-nawilzajacy-300-ml,26900,13049",
+};
+
 /** One builder call a query made, such as `["eq", "id", SOFT_ID]`. */
 type Call = [method: string, ...args: unknown[]];
 
@@ -266,6 +287,35 @@ describe("priceTargetFor", () => {
 
     expect(await priceTargetFor(client, request("natura", "NV89063"))).toBe("failed");
   });
+
+  // The island of a product picked in Natura refetches its own Natura item and its Rossmann match, each the item its
+  // page shows: neither may answer `changed` (409), which would ask for a reload instead of the price.
+  it.each<{ shop: PricedShop; shopItemId: string }>([
+    { shop: "natura", shopItemId: "NV89063" },
+    { shop: "rossmann", shopItemId: "26900" },
+    { shop: "hebe", shopItemId: HEBE_SOFT_ID },
+  ])(
+    "gives a product picked in Natura its item in $shop when the page shows that item",
+    async ({ shop, shopItemId }) => {
+      const { client } = stubClient({
+        watchlist_items: { data: fromNaturaRow },
+        watchlist_matches: { data: [rossmannMatchedRow, hebeMatchedRow] },
+      });
+
+      expect(await priceTargetFor(client, request(shop, shopItemId))).toEqual({ shop, shopItemId });
+    },
+  );
+
+  it("gives changed for the item of a decision stored in a product's own shop, which its page never shows", async () => {
+    // Natura's NV81063 stored as a match of the product picked in Natura's NV89063, as a direct write could: the page
+    // shows the product's own item there, so a request naming NV81063 is a stale or crafted one.
+    const { client } = stubClient({
+      watchlist_items: { data: fromNaturaRow },
+      watchlist_matches: { data: [{ ...matchedRow, shop_item_id: "NV81063" }] },
+    });
+
+    expect(await priceTargetFor(client, request("natura", "NV81063"))).toBe("changed");
+  });
 });
 
 describe("shopItemFor", () => {
@@ -302,12 +352,63 @@ describe("shopItemFor", () => {
     expect(await shopItemFor(client, SOFT_ID, "natura")).toBeNull();
   });
 
-  it("gives none for Rossmann when the product was picked in another shop", async () => {
-    const { client } = stubClient({
-      watchlist_items: { data: { ...softRow, source: "hebe", source_item_id: "000000000000218807" } },
+  it("gives the Rossmann match of a product picked in another shop, from the user's decision there", async () => {
+    const { client, queries } = stubClient({
+      watchlist_items: { data: fromNaturaRow },
+      watchlist_matches: { data: [rossmannMatchedRow] },
     });
 
+    expect(await shopItemFor(client, SOFT_ID, "rossmann")).toEqual({ shop: "rossmann", shopItemId: "26900" });
+    // The product first, which says Rossmann is one of its matched shops, then its decisions.
+    expect(queries.map((calls) => calls[0])).toEqual([
+      ["from", "watchlist_items"],
+      ["from", "watchlist_matches"],
+    ]);
+  });
+
+  it.each([
+    { why: "no decision", matches: [] },
+    { why: "a decision the user declined", matches: [{ ...undecidedRow("unmatched"), shop_id: "rossmann" }] },
+    { why: "a lookup that found nothing", matches: [{ ...undecidedRow("not_found"), shop_id: "rossmann" }] },
+  ])("gives none for Rossmann when a product picked in another shop has $why there", async ({ matches }) => {
+    const { client } = stubClient({ watchlist_items: { data: fromNaturaRow }, watchlist_matches: { data: matches } });
+
     expect(await shopItemFor(client, SOFT_ID, "rossmann")).toBeNull();
+  });
+
+  it.each<{ source: PricedShop; sourceItemId: string }>([
+    { source: "natura", sourceItemId: "NV89063" },
+    { source: "hebe", sourceItemId: HEBE_SOFT_ID },
+    { source: "super-pharm", sourceItemId: SUPER_PHARM_SOFT_ID },
+  ])(
+    "gives the own item of a product picked in $source, from the user's row alone",
+    async ({ source, sourceItemId }) => {
+      const { client, queries } = stubClient({
+        watchlist_items: { data: { ...softRow, source, source_item_id: sourceItemId } },
+      });
+
+      expect(await shopItemFor(client, SOFT_ID, source)).toEqual({ shop: source, shopItemId: sourceItemId });
+      expect(queries).toHaveLength(1);
+      expect(queries[0]).toContainEqual(["from", "watchlist_items"]);
+    },
+  );
+
+  it("gives a product's own item in its own shop, never a decision stored there, nor one that couldn't be read", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // A match to another Natura item, and an odd Natura row, as direct writes could store them for the product picked
+    // in Natura: neither is read, since its own item stands there.
+    for (const decision of [
+      { ...matchedRow, shop_item_id: "NV81063" },
+      { ...matchedRow, state: "repinned" },
+    ]) {
+      const { client, queries } = stubClient({
+        watchlist_items: { data: fromNaturaRow },
+        watchlist_matches: { data: [decision] },
+      });
+
+      expect(await shopItemFor(client, SOFT_ID, "natura")).toEqual({ shop: "natura", shopItemId: "NV89063" });
+      expect(queries).toHaveLength(1);
+    }
   });
 
   it.each(["rossmann", "natura"] as const)(
@@ -468,6 +569,58 @@ describe("productTargets", () => {
     const { client } = stubClient({ watchlist_items: { data: softRow }, watchlist_matches: { data: decisions } });
 
     expect(await productTargets(client, SOFT_ID)).toEqual(targets);
+  });
+
+  it("gives a product picked in Natura its own Natura item, then its Rossmann match and each other match", async () => {
+    const { client } = stubClient({
+      watchlist_items: { data: fromNaturaRow },
+      watchlist_matches: { data: [superPharmMatchedRow, hebeMatchedRow, rossmannMatchedRow] },
+    });
+
+    expect(await productTargets(client, SOFT_ID)).toEqual<RefreshTargets>({
+      keys: [
+        { shop: "natura", shopItemId: "NV89063" },
+        { shop: "rossmann", shopItemId: "26900" },
+        { shop: "hebe", shopItemId: HEBE_SOFT_ID },
+        { shop: "super-pharm", shopItemId: SUPER_PHARM_SOFT_ID },
+      ],
+      unread: [],
+    });
+  });
+
+  it.each<{ why: string; decision: Record<string, unknown> }>([
+    { why: "a match stored there", decision: { ...matchedRow, shop_item_id: "NV81063" } },
+    { why: "a row there that can't be read", decision: { ...matchedRow, state: "repinned" } },
+  ])("leaves out $why for a product picked in Natura, never naming its own shop unread", async ({ decision }) => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({
+      watchlist_items: { data: fromNaturaRow },
+      watchlist_matches: { data: [decision, rossmannMatchedRow] },
+    });
+
+    expect(await productTargets(client, SOFT_ID)).toEqual<RefreshTargets>({
+      keys: [
+        { shop: "natura", shopItemId: "NV89063" },
+        { shop: "rossmann", shopItemId: "26900" },
+      ],
+      unread: [],
+    });
+  });
+
+  it("names Rossmann unread for a product picked in Natura whose Rossmann decision can't be read", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({
+      watchlist_items: { data: fromNaturaRow },
+      watchlist_matches: { data: [{ ...rossmannMatchedRow, shop_item_id: null }, hebeMatchedRow] },
+    });
+
+    expect(await productTargets(client, SOFT_ID)).toEqual<RefreshTargets>({
+      keys: [
+        { shop: "natura", shopItemId: "NV89063" },
+        { shop: "hebe", shopItemId: HEBE_SOFT_ID },
+      ],
+      unread: ["rossmann"],
+    });
   });
 });
 
@@ -697,6 +850,35 @@ describe("listTargets", () => {
         { shop: "natura", shopItemId: "NV89063" },
         { shop: "hebe", shopItemId: HEBE_SOFT_ID },
         { shop: "super-pharm", shopItemId: SUPER_PHARM_SOFT_ID },
+        { shop: "rossmann", shopItemId: "26900" },
+      ],
+      unread: [],
+    });
+  });
+
+  it("gives a product picked in Natura its stale own item and Rossmann match, and nothing of a decision in Natura", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // Nivea Soft picked in Rossmann, checked 20 minutes ago, beside Felix picked in Natura (NV81063), checked two days
+    // ago there, and matched to Rossmann's 131225, never checked. Felix's match in Natura, its own shop, which no page
+    // stores, and an odd row there, are no item of its to fetch.
+    const { client } = stubClient({
+      watchlist_items: { data: [listRow(SOFT_ID, "26900"), { ...listRow(FELIX_ID, "NV81063"), source: "natura" }] },
+      watchlist_matches: {
+        data: [
+          { ...hebeListRow(FELIX_ID, "131225"), shop_id: "rossmann" },
+          { ...hebeListRow(FELIX_ID, "NV00009"), shop_id: "natura" },
+          { ...hebeListRow(FELIX_ID, "NV00010"), shop_id: "natura", state: "repinned" },
+        ],
+      },
+      latest_price_observations: {
+        data: [latestRow("rossmann", "26900", 20 * MINUTE), latestRow("natura", "NV81063", 2 * 24 * 60 * MINUTE)],
+      },
+    });
+
+    expect(await listTargets(client)).toEqual<RefreshTargets>({
+      keys: [
+        { shop: "rossmann", shopItemId: "131225" },
+        { shop: "natura", shopItemId: "NV81063" },
         { shop: "rossmann", shopItemId: "26900" },
       ],
       unread: [],

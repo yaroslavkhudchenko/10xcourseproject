@@ -8,7 +8,7 @@ import {
   type MatchStepInput,
 } from "@/lib/services/match-step";
 import type { MatchesRead } from "@/lib/services/matches";
-import type { MatchableShop } from "@/lib/services/price-comparison";
+import { matchedShopsOf, type MatchableShop } from "@/lib/services/price-comparison";
 import type { RepinnableMatch, ShopMatch } from "@/types";
 
 const decision = { watchlistItemId: "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb", checkedAt: "2026-09-27T19:45:12+00:00" };
@@ -135,6 +135,19 @@ describe("decideMatchStep: no decision yet", () => {
     expect(naturaStep([hebeMatched])).toEqual({ kind: "lookup", retry: false });
     expect(naturaStep([hebeNotFound])).toEqual({ kind: "lookup", retry: false });
     expect(naturaStep([hebeMatched, unmatched])).toEqual({ kind: "stored", match: unmatched });
+  });
+
+  it("decides Rossmann's step like any matched shop's, for a product picked in Natura", () => {
+    // The product's own Natura decision, which the page never runs a step for, says nothing about Rossmann.
+    const rossmannStep = (ownNavigation: boolean, matches: ShopMatch[]) =>
+      decideMatchStep({ matches: read(...matches), shop: "rossmann", retryShop: null, repinShop: null, ownNavigation });
+
+    expect(rossmannStep(true, [matched])).toEqual({ kind: "lookup", retry: false });
+    expect(rossmannStep(false, [matched])).toEqual({ kind: "prompt" });
+    expect(rossmannStep(true, [{ ...notFound, shop: "rossmann" }])).toEqual({
+      kind: "stored",
+      match: { ...notFound, shop: "rossmann" },
+    });
   });
 });
 
@@ -442,6 +455,8 @@ describe("repinShopOf and retryShopOf: the shop a page was opened for", () => {
     // Super-Pharm is a matched shop: "Szukaj ponownie" opens ?retry=super-pharm, and "Zmień" ?repin=super-pharm.
     { query: "repin=super-pharm", repin: "super-pharm", retry: null },
     { query: "f=check&retry=super-pharm", repin: null, retry: "super-pharm" },
+    // Rossmann is a matched shop of every product picked in another shop.
+    { query: "repin=rossmann&retry=rossmann", repin: "rossmann", retry: "rossmann" },
   ])("reads ?$query", ({ query, repin, retry }) => {
     const params = new URLSearchParams(query);
 
@@ -449,19 +464,34 @@ describe("repinShopOf and retryShopOf: the shop a page was opened for", () => {
     expect(retryShopOf(params)).toBe(retry);
   });
 
-  it.each([
-    "",
-    "repin=1&retry=1",
-    "repin=&retry=",
-    "repin=rossmann&retry=rossmann",
-    "repin=dm&retry=dm",
-    "repin=NATURA&retry=Hebe",
-  ])("ignores ?%s, which names no matched shop, the old ?repin=1 and ?retry=1 included", (query) => {
-    const params = new URLSearchParams(query);
+  it.each(["", "repin=1&retry=1", "repin=&retry=", "repin=dm&retry=dm", "repin=NATURA&retry=Hebe"])(
+    "ignores ?%s, which names no priced shop, the old ?repin=1 and ?retry=1 included",
+    (query) => {
+      const params = new URLSearchParams(query);
 
-    expect(repinShopOf(params)).toBeNull();
-    expect(retryShopOf(params)).toBeNull();
-  });
+      expect(repinShopOf(params)).toBeNull();
+      expect(retryShopOf(params)).toBeNull();
+    },
+  );
+
+  it.each<{ source: MatchableShop; query: string; repin: MatchableShop | null; retry: MatchableShop | null }>([
+    // A product's own shop opens the plain page, like a shop outside the list.
+    { source: "rossmann", query: "repin=rossmann&retry=rossmann", repin: null, retry: null },
+    { source: "natura", query: "repin=natura&retry=natura", repin: null, retry: null },
+    { source: "super-pharm", query: "repin=super-pharm&retry=hebe", repin: null, retry: "hebe" },
+    // Its matched shops are read, Rossmann among them for a product picked elsewhere.
+    { source: "natura", query: "repin=rossmann&retry=super-pharm", repin: "rossmann", retry: "super-pharm" },
+    { source: "rossmann", query: "repin=natura", repin: "natura", retry: null },
+  ])(
+    "reads ?$query on the page of a product picked in $source, given its matched shops",
+    ({ source, query, repin, retry }) => {
+      const params = new URLSearchParams(query);
+      const shops = matchedShopsOf(source);
+
+      expect(repinShopOf(params, shops)).toBe(repin);
+      expect(retryShopOf(params, shops)).toBe(retry);
+    },
+  );
 });
 
 describe("autoRefreshOf: whether opening the page refetches its prices on its own", () => {

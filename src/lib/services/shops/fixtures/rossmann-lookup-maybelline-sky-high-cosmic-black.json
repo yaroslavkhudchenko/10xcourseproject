@@ -1,0 +1,279 @@
+{
+  "data": {
+    "filters": { "categories": [], "price": { "min": 0, "max": 0 }, "facets": [] },
+    "items": [],
+    "recommendedProducts": [
+      {
+        "brand": "Isana",
+        "brandId": 4691,
+        "caption": "płatki kosmetyczne",
+        "fallbackName": "Płatki kosmetyczne",
+        "unit": "140 szt.",
+        "averageRating": 4.85,
+        "totalReviews": 2600,
+        "id": 235164,
+        "rossnetId": 378474,
+        "eanNumber": ["4305615438061"],
+        "navigateUrl": "/Produkt/Waciki/Isana-platki-kosmetyczne-140-szt,235164,13172",
+        "name": "",
+        "price": 3.69,
+        "pricePerUnit": "1 szt. = 0,03 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "cmpType": "regular",
+        "cmpDescription": "1+1 gratis na oznaczone produkty Isana. Miksuj dowolnie. Rabat naliczy się po dodaniu 2 produktów do koszyka i zostanie przypisany proporcjonalnie do cen art. Promocja dotyczy oznaczonych produktów. Obowiązuje w dniach 8-14.10.2026 lub do wyczerpania zapasów.",
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/235164_55_71_1785584610.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/235164_360_350_1785584613.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/235164_338_190_1785584612.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/235164_1280_720_1785584620.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/235164_340_340_1785584622.png",
+            "type": 1,
+            "alt": "Opakowanie płatków kosmetycznych Isana 100% bawełny, 140 sztuk, biało-fioletowe, z grafiką bawełny. Widok z przodu.",
+            "side": "Front"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/235164_55_71_1765182474.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/235164_360_350_1765182477.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/235164_338_190_1765182475.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/235164_1280_720_1765182480.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/235164_340_340_1765182478.png",
+            "type": 0,
+            "alt": "Tył opakowania Isana, 140 sztuk bezchlorowych płatków kosmetycznych. Biała torebka z fioletowym wzorem, widoczne informacje i kod.",
+            "side": "Back"
+          }
+        ],
+        "promotion": { "type": "rossmann", "redirectUrl": "/produkty?Statuses=rossmann" },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Pielęgnacja i higiena-Artykuły higieniczne-Waciki",
+        "attributes": [
+          { "type": "rossmann", "redirectUrl": "/produkty?Statuses=rossmann" },
+          { "type": "seasonal", "redirectUrl": "/produkty?Statuses=seasonal", "attributes": [] },
+          { "type": "superDeal", "redirectUrl": "/produkty?Statuses=superDeal" }
+        ],
+        "badges": [
+          {
+            "type": "rossmann",
+            "name": "TYLKO U NAS",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Statuses=rossmann",
+              "relative": "/produkty?Statuses=rossmann"
+            }
+          }
+        ],
+        "isInOut": false
+      },
+      {
+        "brand": "Alouette",
+        "brandId": 2353,
+        "caption": "papier toaletowy, 3-warstwowy",
+        "fallbackName": "Papier toaletowy",
+        "fallbackCaption": "3-warstwowy",
+        "unit": "16 szt.",
+        "averageRating": 4.9,
+        "totalReviews": 4148,
+        "id": 66173,
+        "rossnetId": 101923,
+        "eanNumber": ["4047196066669", "4047196061886", "4047196046340", "4305615028460"],
+        "navigateUrl": "/Produkt/Papiery-toaletowe/Alouette-Classic-papier-toaletowy-3-warstwowy-16-szt,66173,19236",
+        "name": "Classic ",
+        "price": 21.99,
+        "pricePerUnit": "1 szt. = 1,37 zł",
+        "vat": 23,
+        "dimensional": 1,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/66173_55_71_1785568444.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/66173_360_350_1785568491.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/66173_338_190_1785568481.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/66173_1280_720_1785568539.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/66173_340_340_1785568508.png",
+            "type": 1,
+            "alt": "Niebieskie opakowanie Alouette, papier toaletowy 3-warstwowy Jumbo Pack, 16 rolek, miękki, widok z przodu.",
+            "side": "Front"
+          },
+          {
+            "id": 3,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_mini/66173_55_71_1776431558.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_medium/66173_360_350_1776431588.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_small/66173_338_190_1776431580.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_large/66173_1280_720_1776431622.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_square/66173_340_340_1776431596.png",
+            "type": 0,
+            "alt": "Alouette Jumbo Pack 3-warstwowy papier toaletowy, 16 rolek, miękki i wytrzymały. Niebiesko-żółte opakowanie, widok z przodu.",
+            "side": "Left"
+          }
+        ],
+        "promotion": { "type": "rossmann", "redirectUrl": "/produkty?Statuses=rossmann" },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Dom i ogród-Artykuły papierowe-Papiery toaletowe",
+        "attributes": [
+          { "type": "rossmann", "redirectUrl": "/produkty?Statuses=rossmann" },
+          { "type": "clickAndCollectBagExcluded", "redirectUrl": "/produkty?Statuses=clickAndCollectBagExcluded" }
+        ],
+        "badges": [
+          {
+            "type": "rossmann",
+            "name": "TYLKO U NAS",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Statuses=rossmann",
+              "relative": "/produkty?Statuses=rossmann"
+            }
+          }
+        ],
+        "isInOut": false
+      },
+      {
+        "brand": "WaterWipes",
+        "brandId": 8062,
+        "caption": "chusteczki nawilżane dla dzieci, biodegradowalne",
+        "fallbackName": "Chusteczki nawilżane",
+        "fallbackCaption": "dla dzieci, biodegradowalne",
+        "unit": "60 szt.",
+        "averageRating": 4.88,
+        "totalReviews": 214,
+        "id": 380154,
+        "rossnetId": 514461,
+        "eanNumber": ["5099514200209"],
+        "navigateUrl": "/Produkt/Chusteczki-i-papiery-nawilzane-dla-dzieci/WaterWipes-chusteczki-nawilzane-dla-dzieci-biodegradowalne-60-szt,380154,14013",
+        "name": "",
+        "oldPrice": 13.99,
+        "price": 9.99,
+        "pricePerUnit": "1 szt. = 0,17 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/380154_55_71_1785367793.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/380154_360_350_1785367796.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/380154_338_190_1785367793.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/380154_1280_720_1785367801.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/380154_340_340_1785367803.png",
+            "type": 1,
+            "alt": "WaterWipes Sensitive chusteczki nawilżane dla noworodków, biała paczka z niemowlęciem, 60 szt.",
+            "side": "Front"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/380154_55_71_1765356473.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/380154_360_350_1765356478.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/380154_338_190_1765356474.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/380154_1280_720_1765356483.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/380154_340_340_1765356480.png",
+            "type": 0,
+            "alt": "Tył opakowania WaterWipes, chusteczek 99.9% wody, z kodem kreskowym i info o biodegradowalności.",
+            "side": "Back"
+          },
+          {
+            "id": 3,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_mini/380154_55_71_1765356485.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_medium/380154_360_350_1765356487.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_small/380154_338_190_1765356485.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_large/380154_1280_720_1765356489.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_3_square/380154_340_340_1765356489.png",
+            "type": 0,
+            "alt": "Opakowanie Waterwipes sensitive dla niemowląt. Białe z niebieskimi napisami, front widok. Podkreślona miękkość.",
+            "side": "Left"
+          }
+        ],
+        "promotion": { "type": "mega", "redirectUrl": "/produkty?Statuses=mega" },
+        "promotionFrom": "2026-10-01T00:00:00",
+        "promotionTo": "2026-10-14T00:00:00",
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Dziecko-Przewijanie dziecka-Chusteczki i papiery nawilżane dla dzieci",
+        "attributes": [
+          { "type": "mega", "redirectUrl": "/produkty?Statuses=mega" },
+          { "type": "rossne", "redirectUrl": "/produkty?Statuses=rossne" },
+          { "type": "rossnePregnant", "redirectUrl": "/produkty?Statuses=rossnePregnant" },
+          { "type": "rossneJunior", "redirectUrl": "/produkty?Statuses=rossneJunior" },
+          { "type": "rossneBaby", "redirectUrl": "/produkty?Statuses=rossneBaby" },
+          { "type": "rossneChildren", "redirectUrl": "/produkty?Statuses=rossneChildren" },
+          { "type": "rossnePregnantAndBaby", "redirectUrl": "/produkty?Statuses=rossnePregnantAndBaby" },
+          { "type": "rossnePregnantAndJunior", "redirectUrl": "/produkty?Statuses=rossnePregnantAndJunior" },
+          { "type": "rossnePregnantAndChildren", "redirectUrl": "/produkty?Statuses=rossnePregnantAndChildren" },
+          { "type": "seasonal", "redirectUrl": "/produkty?Statuses=seasonal", "attributes": [] },
+          { "type": "seasonal", "redirectUrl": "/produkty?Statuses=seasonal", "attributes": [] },
+          { "type": "seasonal", "redirectUrl": "/produkty?Statuses=seasonal", "attributes": [] },
+          { "type": "promoAll", "redirectUrl": "/produkty?Statuses=promoAll" }
+        ],
+        "lastLowestPrice": 13.99,
+        "lastLowestPriceType": "basic",
+        "lastLowestPriceV2": 13.99,
+        "lastLowestPriceTypeV2": "basic",
+        "badges": [
+          {
+            "type": "mega",
+            "name": "MEGA!",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Discounts=mega",
+              "relative": "/produkty?Discounts=mega"
+            }
+          }
+        ],
+        "isInOut": false
+      },
+      {
+        "brand": "Purina One",
+        "brandId": 10504,
+        "caption": "karma pełnoporcjowa mokra dla dorosłych kotów sterylizowanych i kastrowanych, 2 x Łosoś z Marchewką, 2 x Indyk z Zieloną Fasolką, w sosie",
+        "fallbackName": "Karma pełnoporcjowa mokra dla dorosłych kotów",
+        "fallbackCaption": "sterylizowanych i kastrowanych, 2 x Łosoś z Marchewką, 2 x Indyk z Zieloną Fasolką, w sosie",
+        "unit": "4 x 85 g",
+        "averageRating": 4.85,
+        "totalReviews": 557,
+        "id": 357000,
+        "rossnetId": 491366,
+        "eanNumber": ["7613038648293", "7613030064268"],
+        "navigateUrl": "/Produkt/Mokre/Purina-One-Sterilcat-karma-pelnoporcjowa-mokra-dla-doroslych-kotow-sterylizowanych-i-kastrowanych-2,357000,19121",
+        "name": "Sterilcat ",
+        "price": 13.49,
+        "pricePerUnit": "100 g = 3,97 zł",
+        "vat": 8,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/357000_55_71_1786344757.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/357000_360_350_1786344763.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/357000_338_190_1786344759.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/357000_1280_720_1786344767.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/357000_340_340_1786344771.png",
+            "type": 1,
+            "alt": "Purina One Sterilcat karma mokra, multipak 4x85g, z indykiem i łososiem, zielono-czerwone opakowanie z kotem.",
+            "side": "Front"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/357000_55_71_1786344775.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/357000_360_350_1786344780.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/357000_338_190_1786344776.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/357000_1280_720_1786344784.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/357000_340_340_1786344787.png",
+            "type": 0,
+            "alt": "Tył turkusowo-białego opakowania Purina ONE Sterilcat karmy mokrej dla kotów sterylizowanych, 4x85g, z kodem kreskowym i listą składników.",
+            "side": "Back"
+          }
+        ],
+        "promotion": { "type": "seasonal", "redirectUrl": "/produkty?Statuses=seasonal", "attributes": [] },
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Zwierzęta-Koty-Karmy-Mokre",
+        "attributes": [{ "type": "seasonal", "redirectUrl": "/produkty?Statuses=seasonal", "attributes": [] }],
+        "badges": [],
+        "isInOut": false
+      }
+    ],
+    "totalPages": 0,
+    "totalCount": 0,
+    "correlationId": "8af72487bee956fd06ef522424112034",
+    "spellCheckHint": ""
+  }
+}

@@ -1,22 +1,23 @@
 // What a spec seeds and removes (test-plan Phase 1, context/changes/testing-critical-browser-flows/plan.md): its own
-// products, their matches in the matched shops and exact price states, written as the run's user through supabase-js on
-// the local stack, as the database checks do, and deleted again after the test. Two reads and writes act as the local
-// superuser (scripts/e2e-local-db.mjs): the check that every shop is stopped, since no API role may read the shops, and
-// backdating a check, since the database stamps each check's time. Every product gets fresh shop ids: price checks are
-// shared and never deleted, so an id an earlier run used would bring that run's prices along.
+// products, from whichever priced shop a story names, their matches in their other shops and exact price states,
+// written as the run's user through supabase-js on the local stack, as the database checks do, and deleted again after
+// the test. Two reads and writes act as the local superuser (scripts/e2e-local-db.mjs): the check that every shop is
+// stopped, since no API role may read the shops, and backdating a check, since the database stamps each check's time.
+// Every product gets fresh shop ids: price checks are shared and never deleted, so an id an earlier run used would
+// bring that run's prices along.
 import { randomBytes, randomInt } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { backdateChecks as backdateLocalChecks, enabledShops } from "../../../scripts/e2e-local-db.mjs";
-import type { MatchedShop } from "@/lib/services/price-comparison";
+import type { PricedShop } from "@/lib/services/price-comparison";
 import type { ShopId } from "@/types";
 import { readRun } from "./run";
 
-/** A seeded product: the row on the run user's list, and the Rossmann item it was added from. */
+/** A seeded product: the row on the run user's list, and the item it was added from, in its own shop. */
 export interface SeededProduct {
   /** The list row's id, which names the product's page (/watchlist/<productId>). */
   productId: string;
-  /** Its Rossmann item, which its Rossmann checks are stored under. */
+  /** Its own item, in the shop it was added from, which its checks there are stored under. */
   itemId: string;
   /** Its name on the list and on its page, carrying the run's token. */
   name: string;
@@ -98,8 +99,9 @@ function freshSuperPharmId(): string {
   return `9${String(randomInt(0, 100_000_000_000)).padStart(11, "0")}`;
 }
 
-/** A fresh item id in each matched shop, in the shape its ids take. */
-const FRESH_IDS: Record<MatchedShop, () => string> = {
+/** A fresh item id in each priced shop, in the shape its ids take: a product's own item, or a match's. */
+const FRESH_IDS: Record<PricedShop, () => string> = {
+  rossmann: freshRossmannId,
   natura: freshNaturaSku,
   hebe: freshHebeId,
   "super-pharm": freshSuperPharmId,
@@ -121,31 +123,47 @@ async function expectNoChecks(client: SupabaseClient, shop: ShopId, shopItemId: 
   expect(data, `${shop} ${shopItemId} is new, so no earlier run's prices come with it`).toEqual([]);
 }
 
-/** Adds a product from Rossmann to the run user's list, with no picture or link, which would load from the shop. */
-export async function addRossmannProduct({ name }: { name: string }): Promise<SeededProduct> {
+/** A product as a spec adds it: the shop it's added from, its name, and its page in that shop, if any. */
+export interface AddedProduct {
+  /**
+   * The shop it's added from, its own shop, where its own item prices it; each of the other priced shops is a shop
+   * it's matched in (matchShop).
+   */
+  source: PricedShop;
+  /** Its name on the list and on its page, to which the run's token is added. */
+  name: string;
+  /** Its page in its own shop, which its own shop's card links to as "Zobacz w sklepie"; none by default. */
+  productUrl?: string;
+}
+
+/**
+ * Adds a product from any priced shop to the run user's list, with a fresh id in that shop's shape (FRESH_IDS) and no
+ * picture, which would load from the shop.
+ */
+export async function addProduct({ source, name, productUrl }: AddedProduct): Promise<SeededProduct> {
   const client = await asRunUser();
-  const itemId = freshRossmannId();
+  const itemId = FRESH_IDS[source]();
   const fullName = `${name} ${runToken()}`;
   const { data, error } = await client
     .from("watchlist_items")
-    .insert({ source: "rossmann", source_item_id: itemId, name: fullName })
+    .insert({ source, source_item_id: itemId, name: fullName, product_url: productUrl ?? null })
     .select("id")
     .single();
-  expect(error, `${fullName} is added to the run user's list`).toBeNull();
+  expect(error, `${fullName} is added to the run user's list from ${source}`).toBeNull();
   const productId = idOf(data);
   seededProducts.push(productId);
   test.info().annotations.push({ type: "test-data", description: `${fullName} (${productId})` });
-  await expectNoChecks(client, "rossmann", itemId);
+  await expectNoChecks(client, source, itemId);
   return { productId, itemId, name: fullName };
 }
 
 /**
- * Adds a product from Rossmann matched in Natura, the shape every spec compares: its name, ids and Natura's SKU. It has
+ * Adds a product from Rossmann matched in Natura, the shape most specs compare: its name, ids and Natura's SKU. It has
  * no decision in Hebe or Super-Pharm, so its page, opened by the user, looks it up in both, which the stopped shops
  * refuse; a spec that needs either settled matches it there too (matchShop).
  */
 export async function addMatchedProduct(name: string): Promise<SeededProduct & { sku: string }> {
-  const product = await addRossmannProduct({ name });
+  const product = await addProduct({ source: "rossmann", name });
   return { ...product, sku: await matchShop("natura", product.productId, { name: `Natura ${name}` }) };
 }
 
@@ -163,13 +181,14 @@ export interface SeededMatch {
 }
 
 /**
- * Stores a match in a matched shop for the product, to a fresh item id there (Natura's `E2E-` SKU, Hebe's 18 digits,
- * Super-Pharm's 12), so its page doesn't look the product up in that shop. Returns the matched item's id. The matched
- * item carries no EAN, and neither does a product addRossmannProduct adds, so they share none, and an automatic match's
- * card says it was matched by name, as a match the rule accepts by name does.
+ * Stores a match for the product in one of its matched shops, any priced shop but the one it was added from, to a fresh
+ * item id there (Rossmann's 12 digits, Natura's `E2E-` SKU, Hebe's 18 digits, Super-Pharm's 12), so its page doesn't
+ * look the product up in that shop. Returns the matched item's id. The matched item carries no EAN, and neither does a
+ * product addProduct adds, so they share none, and an automatic match's card says it was matched by name, as a match
+ * the rule accepts by name does.
  */
 export async function matchShop(
-  shop: MatchedShop,
+  shop: PricedShop,
   productId: string,
   { name, decidedBy = "auto", productUrl }: SeededMatch,
 ): Promise<string> {

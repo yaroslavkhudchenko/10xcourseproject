@@ -8,8 +8,11 @@ import type { CandidateOption, CandidateVerdict, ShopCandidate, Size } from "@/t
 //   note §2.3). Its name passes when each of its words is in the product's name or caption, where Rossmann keeps the
 //   shade or the scent, at least two are, and it has the words that tell the product apart: one of the product's own
 //   name, and each word the caption writes with a capital letter or a digit, where Rossmann writes the shade or the
-//   strength ("Cosmic Black", "SPF15", "100h"). The passing candidate whose words include every other passing one's,
-//   and more, is accepted, so "Cosmic Black" wins over "Black" for a Cosmic Black mascara, and so is a lone one.
+//   strength ("Cosmic Black", "SPF15", "100h"). A product whose caption is missing or blank, as one added from another
+//   shop than Rossmann comes, has no such words to mark, so every word of its name tells it apart (the owner's call of
+//   2026-10-08): a refill's "opakowanie uzupełniające" keeps the bottle from passing, and "SPF15" the plain cream. The
+//   passing candidate whose words include every other passing one's, and more, is accepted, so "Cosmic Black" wins
+//   over "Black" for a Cosmic Black mascara, and so is a lone one.
 // Everything else is the user's choice: no shop's EANs are trusted on their own (research note §2.2: one EAN can come
 // with another size), a name with a word the product lacks may be another shade, scent or strength, and one without a
 // word that tells the product apart may be its plainer sibling, when the shop's answer doesn't hold the product itself.
@@ -52,6 +55,10 @@ const PACKAGING_WORDS = new Set(["pudełko"]);
 // after the text's start or a character that's kept (`$1`). It has no lookbehind, which Safari before 16.4 can't
 // parse: the islands load this module too.
 const SIZE = /(^|[^\p{L}\p{N}])\d+(?:[.,]\d+)?\s*(?:ml|g|l|kg|mg|szt)(?![\p{L}\p{N}])/giu;
+// Where a text breaks into words: at anything but letters and digits.
+const WORD_BREAK = /[^\p{L}\p{N}]+/u;
+// A text with a word in it: a caption without one, a blank one included, has nothing to mark.
+const HAS_WORD = /[\p{L}\p{N}]/u;
 // The fewest words a passing name shares with the product's: one, such as "soft", says too little.
 const SHARED_WORDS = 2;
 
@@ -173,7 +180,10 @@ interface NameFit {
   lacking: number;
 }
 
-/** The product's words, as the name check reads them: its name's and caption's, its name's, and the caption's marked. */
+/**
+ * The product's words, as the name check reads them: its name's and caption's, its name's, and those that tell it apart
+ * (markedWordsOf).
+ */
 interface ProductWords {
   all: string[];
   name: string[];
@@ -192,7 +202,7 @@ interface Weighed extends CandidateOption {
 /** The candidates judged, each with its name's fit when the name check may judge it. */
 function weigh(product: NamedProduct, candidates: ShopCandidate[]): Weighed[] {
   const name = wordsOf(product.name);
-  const own = { all: [...name, ...wordsOf(product.caption)], name, marked: markedWordsOf(product.caption) };
+  const own = { all: [...name, ...wordsOf(product.caption)], name, marked: markedWordsOf(product) };
   return candidates.map((candidate) => {
     const verdict = judge(product, candidate);
     const eanless = candidate.eans.length === 0 || product.eans.length === 0;
@@ -202,8 +212,9 @@ function weigh(product: NamedProduct, candidates: ShopCandidate[]): Weighed[] {
 
 /**
  * How the candidate's name fits the product's words (`own`), with the words of both brands set aside on both sides.
- * The words that tell the product apart are each of the caption's marked words and one of its name's, so a candidate
- * lacks one for each marked word it hasn't, and one more when it has no word of the product's name.
+ * The words that tell the product apart are each of its marked words (markedWordsOf: the caption's, or every word of
+ * its name without one) and one of its name's, so a candidate lacks one for each marked word it hasn't, and one more
+ * when it has no word of the product's name.
  */
 function nameFit(product: NamedProduct, own: ProductWords, candidate: ShopCandidate): NameFit {
   const brands = new Set([...wordsOf(product.brand), ...wordsOf(candidate.brand)]);
@@ -217,17 +228,18 @@ function nameFit(product: NamedProduct, own: ProductWords, candidate: ShopCandid
 }
 
 /**
- * The caption's marked words, which a candidate's name must have: those it starts with a capital letter or writes with
- * a digit, where Rossmann writes the shade or the strength ("tusz do rzęs, Cosmic Black", "krem, SPF15"), as words
- * read them (wordsOf). None for a missing caption.
+ * The product's marked words, which a candidate's name must have, as words read them (wordsOf): the caption's words it
+ * starts with a capital letter or writes with a digit, where Rossmann writes the shade or the strength ("tusz do rzęs,
+ * Cosmic Black", "krem, SPF15"). A caption that's missing or blank, without a letter or a digit, marks nothing, so then
+ * every word of the name is marked, as the header says.
  */
-function markedWordsOf(caption: string | null): string[] {
-  if (caption === null) {
-    return [];
+function markedWordsOf({ name, caption }: Pick<NamedProduct, "name" | "caption">): string[] {
+  if (caption === null || !HAS_WORD.test(caption)) {
+    return wordsOf(name);
   }
   return caption
     .replace(SIZE, "$1 ")
-    .split(/[^\p{L}\p{N}]+/u)
+    .split(WORD_BREAK)
     .filter((word) => /^\p{Lu}/u.test(word) || /\p{N}/u.test(word))
     .flatMap((word) => wordsOf(word));
 }
@@ -240,9 +252,20 @@ function wordsOf(text: string | null): string[] {
   if (text === null) {
     return [];
   }
-  return folded(text.replace(SIZE, "$1 "))
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter((word) => word !== "" && !SMALL_WORDS.has(word) && !KIND_WORDS.has(word) && !PACKAGING_WORDS.has(word));
+  return foldedWordsOf(text.replace(SIZE, "$1 ")).filter(
+    (word) => !SMALL_WORDS.has(word) && !KIND_WORDS.has(word) && !PACKAGING_WORDS.has(word),
+  );
+}
+
+/**
+ * A text's words, folded as the name check folds them and split at anything but letters and digits, with nothing set
+ * aside: "L'Oréal Paris" gives "l", "oreal" and "paris", and "7,2 ml" gives "7", "2" and "ml". A lookup's search by name
+ * tells by them whether a product's name already starts with its brand or ends with its size (nameQuery).
+ */
+export function foldedWordsOf(text: string): string[] {
+  return folded(text)
+    .split(WORD_BREAK)
+    .filter((word) => word !== "");
 }
 
 /**

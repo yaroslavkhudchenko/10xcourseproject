@@ -16,6 +16,7 @@ import {
   type MatchProduct,
   type MatchView,
 } from "@/lib/services/match-view";
+import { matchedShopsOf } from "@/lib/services/price-comparison";
 import { parseSize } from "@/lib/services/size";
 import type {
   CandidateOption,
@@ -627,16 +628,28 @@ describe("decisionNotice", () => {
     });
   });
 
-  it.each([
-    "declined=1",
-    "shop=&declined=1",
-    "shop=rossmann&declined=1",
-    "shop=dm&declined=1",
-    "shop=NATURA&matched=1",
-    "shop=1&decided=1",
-  ])("gives none for ?%s, whose code names no matched shop", (query) => {
-    expect(decisionNotice(new URLSearchParams(query))).toBeNull();
+  it("gives Rossmann's notice, Rossmann being a matched shop of a product picked in another shop", () => {
+    expect(decisionNotice(new URLSearchParams("shop=rossmann&declined=1"))).toEqual({
+      shop: "rossmann",
+      text: "Zapisano: brak w Rossmannie.",
+    });
+    expect(decisionNotice(new URLSearchParams("shop=rossmann&matched=1"), matchedShopsOf("natura"))).toEqual({
+      shop: "rossmann",
+      text: "Zapisano dopasowanie.",
+    });
   });
+
+  it("gives none for a code naming the product's own shop, given its matched shops", () => {
+    expect(decisionNotice(new URLSearchParams("shop=rossmann&declined=1"), matchedShopsOf("rossmann"))).toBeNull();
+    expect(decisionNotice(new URLSearchParams("shop=natura&matched=1"), matchedShopsOf("natura"))).toBeNull();
+  });
+
+  it.each(["declined=1", "shop=&declined=1", "shop=dm&declined=1", "shop=NATURA&matched=1", "shop=1&decided=1"])(
+    "gives none for ?%s, whose code names no priced shop",
+    (query) => {
+      expect(decisionNotice(new URLSearchParams(query))).toBeNull();
+    },
+  );
 });
 
 describe("decisionError", () => {
@@ -665,15 +678,22 @@ describe("decisionError", () => {
     });
   });
 
+  it("gives Rossmann's error for its card on a product picked in another shop, and none on one picked in Rossmann", () => {
+    expect(decisionError(new URLSearchParams("shop=rossmann&error=failed"), matchedShopsOf("natura"))).toEqual({
+      shop: "rossmann",
+      text: "Nie udało się zapisać wyboru. Spróbuj ponownie.",
+    });
+    expect(decisionError(new URLSearchParams("shop=rossmann&error=failed"), matchedShopsOf("rossmann"))).toBeNull();
+  });
+
   it.each([
     "",
     "shop=natura&matched=1",
     "shop=natura&error=",
     "shop=natura&error=Twoje+konto+wygasło",
     "error=failed",
-    "shop=rossmann&error=failed",
     "shop=dm&error=failed",
-  ])("gives none for ?%s: no error the app sent, or no matched shop to show it", (query) => {
+  ])("gives none for ?%s: no error the app sent, or no priced shop to show it", (query) => {
     expect(decisionError(new URLSearchParams(query))).toBeNull();
   });
 });

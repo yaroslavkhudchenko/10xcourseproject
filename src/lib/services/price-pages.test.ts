@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { unreadableShopsOf, type MatchedShopView } from "@/components/watchlist/match-card";
 import { initialState, selectedRowTagOf, verdictOfState } from "@/components/watchlist/price-comparison-state";
 import { listMatches, listMatchStates } from "@/lib/services/matches";
-import type { MatchedShop, PriceVerdict } from "@/lib/services/price-comparison";
+import { matchedShopsOf, type PricedShop, type PriceVerdict } from "@/lib/services/price-comparison";
 import { listLatestPrices, productPricesOf } from "@/lib/services/prices";
 import { shopGateFor } from "@/lib/services/shop-gate";
 import { runMatchSteps } from "@/lib/services/shop-matching";
@@ -53,8 +53,19 @@ const product = {
   created_at: "2026-09-27T12:00:00+00:00",
 };
 
+// The same Nivea Soft picked in Natura instead, by its SKU, as "Dodaj" stores an item of Natura: without a caption, and
+// with Natura's page. Natura is its own shop, and Rossmann, Hebe and Super-Pharm its matched shops.
+const fromNatura = {
+  ...product,
+  source: "natura",
+  source_item_id: NATURA,
+  name: "NIVEA SOFT krem intensywnie nawilżający 300 ml",
+  caption: null,
+  product_url: "https://drogerienatura.pl/produkt/nivea-soft-krem-intensywnie-nawilzajacy-300-ml-4005900009319",
+};
+
 // Its decision in a matched shop: a match to `shopItemId`, as watchlist_matches holds it.
-function matchRow(shop: MatchedShop, shopItemId: string, eans: string[] = []): Record<string, unknown> {
+function matchRow(shop: PricedShop, shopItemId: string, eans: string[] = []): Record<string, unknown> {
   return {
     watchlist_item_id: PRODUCT_ID,
     shop_id: shop,
@@ -74,6 +85,12 @@ function matchRow(shop: MatchedShop, shopItemId: string, eans: string[] = []): R
 }
 const MATCHES = [
   matchRow("natura", NATURA, ["4005900009319"]),
+  matchRow("hebe", HEBE, ["4005900009319"]),
+  matchRow("super-pharm", SUPER_PHARM),
+];
+// The product picked in Natura's decisions: matched in Rossmann, Hebe and Super-Pharm, to the same items.
+const NATURA_MATCHES = [
+  matchRow("rossmann", ROSSMANN, ["4005900009319"]),
   matchRow("hebe", HEBE, ["4005900009319"]),
   matchRow("super-pharm", SUPER_PHARM),
 ];
@@ -125,18 +142,25 @@ const summary = (row: Record<string, unknown>, history: Record<string, unknown> 
 });
 
 /**
- * A stored state: the rows of each relation both pages read. `prices` are the latest rows the list reads; the product
- * page reads the same rows with their history (`summaries`), unless a case gives its own.
+ * A stored state: the rows of each relation both pages read. The product is the one picked in Rossmann unless a case
+ * gives another, beside its decisions. `prices` are the latest rows the list reads; the product page reads the same
+ * rows with their history (`summaries`), unless a case gives its own.
  */
 interface StoredState {
+  product?: Record<string, unknown>;
   matches?: Record<string, unknown>[];
   prices: Record<string, unknown>[];
   summaries?: StubRelation;
 }
 
-function relationsOf({ matches = MATCHES, prices, summaries }: StoredState): Record<string, StubRelation> {
+function relationsOf({
+  product: listed = product,
+  matches = MATCHES,
+  prices,
+  summaries,
+}: StoredState): Record<string, StubRelation> {
   return {
-    watchlist_items: [product],
+    watchlist_items: [listed],
     watchlist_matches: matches,
     latest_price_observations: prices,
     price_summaries: summaries ?? prices.map((row) => summary(row)),
@@ -158,9 +182,9 @@ async function listTag(state: StoredState): Promise<PriceTag | undefined> {
 }
 
 /**
- * The product's page, as the page puts it together: its two reads, its match steps on a view that isn't the user's
- * own navigation (no shop is asked), its prices for the island through the page's own call (productPricesOf), the
- * island's first verdict, and the selected row's tag on the list beside it.
+ * The product's page, as the page puts it together: its two reads, its match steps in its matched shops on a view that
+ * isn't the user's own navigation (no shop is asked), its prices for the island through the page's own call
+ * (productPricesOf), the island's first verdict, and the selected row's tag on the list beside it.
  */
 async function productPage(state: StoredState): Promise<{ verdict: PriceVerdict; selectedTag: PriceTag }> {
   const { client, queries } = stubSupabase({ relations: relationsOf(state) });
@@ -180,6 +204,7 @@ async function productPage(state: StoredState): Promise<{ verdict: PriceVerdict;
     repinShop: null,
     ownNavigation: false,
     filter: parseListFilter(null),
+    shops: matchedShopsOf(shown.source),
   });
   const { shops, pricesFailed } = await productPricesOf(client, shown, steps);
   const matched: MatchedShopView[] = steps.map(({ shop, view, unsaved }) => ({
@@ -338,5 +363,77 @@ describe("the list and the product page over one stored state", () => {
     expect(page.verdict).toMatchObject({ kind: "unread" });
     expect(page.selectedTag).toEqual(UNREAD_TAG);
     expect(await listTag(state)).toEqual({ tone: "sun", price: 11.49, label: "Natura", meta: "Natura · 10 min temu" });
+  });
+});
+
+// The same stored prices for the product picked in Natura, whose own item is Natura's NV89063 and whose Rossmann match
+// is Rossmann's 26900 (the plan of add-from-other-shops): each price is judged by the same rules whichever role its
+// shop plays, and a decision or an odd row stored in Natura, its own shop, is read by neither page.
+describe("the list and the product page over one stored state, for a product picked in Natura", () => {
+  it.each<Agreed>([
+    {
+      why: "its own price the lowest beside its Rossmann match's, Hebe's and Super-Pharm's",
+      state: { prices: BOTH_FRESH },
+      verdict: { kind: "cheapest", shops: ["natura"], price: 11.49 },
+      tag: { tone: "sun", price: 11.49, label: "Natura", meta: "Natura · 10 min temu" },
+    },
+    {
+      why: "its Rossmann match the lowest",
+      state: { prices: [priced("rossmann", ROSSMANN, 9.99), ...BOTH_FRESH.slice(1)] },
+      verdict: { kind: "cheapest", shops: ["rossmann"], price: 9.99 },
+      tag: { tone: "sun", price: 9.99, label: "Rossmann", meta: "Rossmann · 10 min temu" },
+    },
+    {
+      why: "its own price older than 24 hours beside a fresh Rossmann match, one not orderable and one never checked",
+      state: {
+        prices: [
+          priced("rossmann", ROSSMANN, 26.99),
+          priced("natura", NATURA, 19.99, { pricedAgo: 25 * HOUR }),
+          priced("hebe", HEBE, 18.99, { available: false }),
+        ],
+      },
+      verdict: { kind: "cheapest", shops: ["rossmann"], price: 26.99 },
+      tag: { tone: "sun", price: 26.99, label: "Rossmann", meta: "Rossmann · 10 min temu" },
+    },
+    {
+      why: "a match stored in its own shop, to a lower price, which neither page reads",
+      state: {
+        matches: [...NATURA_MATCHES, matchRow("natura", "NV81063")],
+        prices: [...BOTH_FRESH, priced("natura", "NV81063", 1.99)],
+      },
+      verdict: { kind: "cheapest", shops: ["natura"], price: 11.49 },
+      tag: { tone: "sun", price: 11.49, label: "Natura", meta: "Natura · 10 min temu" },
+    },
+    {
+      why: "a row in its own shop that can't be read, which says nothing about its matches",
+      state: {
+        matches: [...NATURA_MATCHES, { ...matchRow("natura", "NV81063"), state: "maybe" }],
+        prices: BOTH_FRESH,
+      },
+      verdict: { kind: "cheapest", shops: ["natura"], price: 11.49 },
+      tag: { tone: "sun", price: 11.49, label: "Natura", meta: "Natura · 10 min temu" },
+    },
+    {
+      why: "a Rossmann decision that can't be read, whose match may hold the lowest price",
+      state: {
+        matches: NATURA_MATCHES.map((row) => (row.shop_id === "rossmann" ? { ...row, state: "maybe" } : row)),
+        prices: BOTH_FRESH,
+      },
+      verdict: { kind: "unread" },
+      tag: UNREAD_TAG,
+    },
+    {
+      why: "its own price row that can't be read, which may hold the lowest price",
+      state: { prices: BOTH_FRESH.map((row) => (row.shop_id === "natura" ? { ...row, available: "yes" } : row)) },
+      verdict: { kind: "unread" },
+      tag: UNREAD_TAG,
+    },
+  ])("agree on $why", async ({ state, verdict, tag }) => {
+    const ofNatura: StoredState = { product: fromNatura, matches: NATURA_MATCHES, ...state };
+    const page = await productPage(ofNatura);
+
+    expect(page.verdict).toMatchObject(verdict);
+    expect(await listTag(ofNatura)).toEqual(tag);
+    expect(page.selectedTag).toEqual(tag);
   });
 });

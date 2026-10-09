@@ -2,9 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { REMOVAL_ANCHOR } from "@/lib/notices";
 import { createShopGate } from "@/lib/services/shop-gate";
+import hebeNameSearch from "@/lib/services/shops/fixtures/hebe-name-search.json";
+import aaLaab from "@/lib/services/shops/fixtures/rossmann-search-aa-laab.json";
 import empty from "@/lib/services/shops/fixtures/rossmann-search-empty.json";
 import misspelled from "@/lib/services/shops/fixtures/rossmann-search-misspelled.json";
+import niveaSoft from "@/lib/services/shops/fixtures/rossmann-search-nivea-soft.json";
 import results from "@/lib/services/shops/fixtures/rossmann-search-results.json";
+import { searchHebe } from "@/lib/services/shops/hebe";
 import { searchRossmann } from "@/lib/services/shops/rossmann";
 import { createReplayFetch } from "@/lib/services/testing/replay-fetch";
 import {
@@ -24,7 +28,7 @@ import {
   type RemovalOutcome,
 } from "@/lib/services/watchlist";
 import type { ListFilter } from "@/lib/services/watchlist-rows";
-import type { ProductCandidate } from "@/types";
+import type { ProductCandidate, ShopCandidate } from "@/types";
 
 // The "Dodaj" form as the results page posts it, built from the first recorded Rossmann item.
 const [soft] = results.data.items;
@@ -115,7 +119,10 @@ describe("parseWatchlistForm", () => {
   });
 
   it.each<{ field: string; overrides: Record<string, string | string[]> }>([
-    { field: "a shop other than Rossmann", overrides: { source: "hebe" } },
+    { field: "a shop the app doesn't price", overrides: { source: "dm" } },
+    { field: "no shop", overrides: { source: "" } },
+    // Rossmann's item posted as Hebe's: its page and its image aren't on Hebe's host.
+    { field: "a Rossmann item as Hebe's", overrides: { source: "hebe" } },
     { field: "a product id that isn't digits", overrides: { sourceItemId: "26900; drop" } },
     { field: "a plain-http image", overrides: { imageUrl: "http://pro-fra-s3-productsassets.rossmann.pl/x.webp" } },
     { field: "an image on another host", overrides: { imageUrl: "https://images.example.com/x.webp" } },
@@ -132,12 +139,65 @@ describe("parseWatchlistForm", () => {
     expect(parseWatchlistForm(dodajForm(overrides))).toBeNull();
   });
 
-  it("accepts every result the adapter makes from the recordings, posted the way the page posts it", async () => {
+  it("accepts every result of the list's Rossmann search on its recorded answers, posted the way the page posts it", async () => {
+    // The list's requests, 10 items a page, which rossmann-search-nivea-soft.json and rossmann-search-aa-laab.json
+    // answer: each was sent as it is spelled out here.
+    const searches = [
+      {
+        query: "nivea soft",
+        url: "https://www.rossmann.pl/products/v4/api/Products?search=nivea%20soft&page=1&pageSize=10",
+        answer: niveaSoft,
+      },
+      {
+        query: "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający",
+        url:
+          "https://www.rossmann.pl/products/v4/api/Products?search=AA%20LAAB%20100%25%20Centella%20B12%20%C5%BBel%20do" +
+          "%20mycia%20twarzy%20nawil%C5%BCaj%C4%85cy&page=1&pageSize=10",
+        answer: aaLaab,
+      },
+    ];
+    const fetchMock = vi.fn(
+      createReplayFetch(searches.map(({ url, answer }) => ({ url, status: 200, body: JSON.stringify(answer) }))),
+    );
+    const gate = createShopGate({
+      reserve: () => Promise.resolve({ outcome: "allowed" }),
+      reportBlock: () => Promise.resolve(),
+      fetch: fetchMock,
+      log: () => undefined,
+    });
+
+    const candidates: ProductCandidate[] = [];
+    for (const { query } of searches) {
+      // The list's search, as the page asks for it: 10 items a page.
+      const search = await searchRossmann(gate, query, 10);
+      candidates.push(...(search.kind === "results" ? search.candidates : []));
+    }
+
+    expect(fetchMock.mock.calls.map(([input]) => (input instanceof Request ? input.url : String(input)))).toEqual(
+      searches.map(({ url }) => url),
+    );
+    expect(candidates.map(({ sourceItemId }) => sourceItemId)).toEqual([
+      "26900",
+      "2126586",
+      "2103263",
+      "11790",
+      "2079205",
+      "2132081",
+      "419343",
+    ]);
+    for (const candidate of candidates) {
+      expect(parseWatchlistForm(pageForm(candidate)), candidate.sourceItemId).toEqual(candidate);
+    }
+  });
+
+  it("accepts every item the earlier recordings hold, the one with 12 EANs among them, posted the way the page posts it", async () => {
+    // One answer of every item of the S-01 recordings, their recommended products included, served for the list's own
+    // request: more than the 10 items it asks for, which the adapter reads all the same.
     const items: unknown[] = [results, misspelled, empty].flatMap((fixture) => [
       ...fixture.data.items,
       ...fixture.data.recommendedProducts,
     ]);
-    const url = "https://www.rossmann.pl/products/v4/api/Products?search=nivea%20soft&page=1&pageSize=24";
+    const url = "https://www.rossmann.pl/products/v4/api/Products?search=nivea%20soft&page=1&pageSize=10";
     const gate = createShopGate({
       reserve: () => Promise.resolve({ outcome: "allowed" }),
       reportBlock: () => Promise.resolve(),
@@ -145,7 +205,7 @@ describe("parseWatchlistForm", () => {
       log: () => undefined,
     });
 
-    const search = await searchRossmann(gate, "nivea soft");
+    const search = await searchRossmann(gate, "nivea soft", 10);
 
     if (search.kind !== "results") {
       throw new Error(`expected results, got ${search.kind}`);
@@ -156,6 +216,99 @@ describe("parseWatchlistForm", () => {
     for (const candidate of search.candidates) {
       expect(parseWatchlistForm(pageForm(candidate)), candidate.sourceItemId).not.toBeNull();
     }
+  });
+});
+
+// "Dodaj" takes an item of any priced shop, which becomes the product's own shop, checked by that shop's own adapter:
+// Hebe's items, as its adapter makes them of its recorded search for "nivea soft" (hebe.test.ts says when it was
+// made), posted with Hebe as their shop and without a caption, which only Rossmann writes apart.
+describe("parseWatchlistForm: an item of another shop", () => {
+  const HEBE_SEARCH = "https://live.luigisbox.com/search?tracker_id=421168-505233&q=nivea%20soft&size=10";
+
+  /** The "Dodaj" form for one of Hebe's items: its own fields, its shop and no caption, with these fields changed. */
+  function hebeForm(item: ShopCandidate, overrides: Record<string, string> = {}): FormData {
+    const form = pageForm({
+      source: "hebe",
+      sourceItemId: item.shopItemId,
+      brand: item.brand,
+      name: item.name,
+      caption: null,
+      sizeText: item.sizeText,
+      size: item.size,
+      eans: item.eans,
+      productUrl: item.productUrl,
+      imageUrl: item.imageUrl,
+    });
+    for (const [field, value] of Object.entries(overrides)) {
+      form.set(field, value);
+    }
+    return form;
+  }
+
+  /** Hebe's items in its recorded answer, through the real gate, which asked Hebe's tracker for exactly them. */
+  async function hebeItems(): Promise<ShopCandidate[]> {
+    const fetchMock = vi.fn(
+      createReplayFetch([{ url: HEBE_SEARCH, status: 200, body: JSON.stringify(hebeNameSearch) }]),
+    );
+    const gate = createShopGate({
+      reserve: () => Promise.resolve({ outcome: "allowed" }),
+      reportBlock: () => Promise.resolve(),
+      fetch: fetchMock,
+      log: () => undefined,
+    });
+    const search = await searchHebe(gate, "nivea soft", 10);
+    expect(fetchMock.mock.calls.map(([input]) => (input instanceof Request ? input.url : String(input)))).toEqual([
+      HEBE_SEARCH,
+    ]);
+    if (search.kind !== "results") {
+      throw new Error(`expected results, got ${search.kind}`);
+    }
+    return search.candidates;
+  }
+
+  it("accepts every Hebe item the adapter makes from the recording, as a product picked in Hebe", async () => {
+    const items = await hebeItems();
+
+    expect(items.length).toBeGreaterThan(0);
+    for (const item of items) {
+      expect(parseWatchlistForm(hebeForm(item)), item.shopItemId).toEqual({
+        source: "hebe",
+        sourceItemId: item.shopItemId,
+        brand: item.brand,
+        name: item.name,
+        caption: null,
+        sizeText: item.sizeText,
+        size: item.size,
+        eans: item.eans,
+        productUrl: item.productUrl,
+        imageUrl: item.imageUrl,
+      });
+    }
+  });
+
+  it.each<{ why: string; overrides: Record<string, string> }>([
+    { why: "a Natura SKU, which no Hebe item has", overrides: { sourceItemId: "NV89063" } },
+    { why: "an id longer than a shop item's", overrides: { sourceItemId: "1".repeat(41) } },
+    {
+      why: "a product page on Rossmann's site",
+      overrides: { productUrl: "https://www.rossmann.pl/Produkt/Kremy-do-twarzy/NIVEA-Soft,26900,13049" },
+    },
+    { why: "a plain-http product page", overrides: { productUrl: "http://www.hebe.pl/nivea-soft.html" } },
+    {
+      why: "an image on Rossmann's image host",
+      overrides: { imageUrl: "https://pro-fra-s3-productsassets.rossmann.pl/x.webp" },
+    },
+  ])("refuses a Hebe item with $why, which fails Hebe's own checks", async ({ overrides }) => {
+    const [item] = await hebeItems();
+
+    expect(parseWatchlistForm(hebeForm(item))).not.toBeNull();
+    expect(parseWatchlistForm(hebeForm(item, overrides))).toBeNull();
+  });
+
+  it("refuses a Hebe item posted as Rossmann's, whose id, page and image Rossmann's adapter doesn't accept", async () => {
+    const [item] = await hebeItems();
+
+    expect(parseWatchlistForm(hebeForm(item, { source: "rossmann" }))).toBeNull();
   });
 });
 

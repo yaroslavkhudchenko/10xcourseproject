@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSize, trailingSizeText } from "@/lib/services/size";
+import { isSetName, parseSize, splitTrailingSize, trailingSizeText } from "@/lib/services/size";
 
 describe("parseSize", () => {
   it.each([
@@ -61,5 +61,54 @@ describe("trailingSizeText", () => {
     "   ",
   ])("gives null for %j, which doesn't end with a size parseSize can read", (text) => {
     expect(trailingSizeText(text)).toBeNull();
+  });
+});
+
+describe("splitTrailingSize", () => {
+  it.each([
+    {
+      text: "Nivea Soft Lekki Krem Nawilżający, 200 ml",
+      before: "Nivea Soft Lekki Krem Nawilżający,",
+      sizeText: "200 ml",
+    },
+    {
+      text: "Nivea Creme Soft żel pod prysznic 500ml",
+      before: "Nivea Creme Soft żel pod prysznic",
+      sizeText: "500 ml",
+    },
+    { text: "  300 ml  ", before: "", sizeText: "300 ml" },
+  ])("splits $text before the size it ends with", ({ text, before, sizeText }) => {
+    expect(splitTrailingSize(text)).toEqual({ before, sizeText });
+  });
+
+  it.each(["Nivea Soft", "Chusteczki nawilżane 4x57 szt.", "Krem 0 ml"])(
+    "gives null for %j, which doesn't end with a size parseSize can read",
+    (text) => {
+      expect(splitTrailingSize(text)).toBeNull();
+    },
+  );
+});
+
+// The owner's call of 2026-10-08: a set's text says "zestaw" or joins its items with a "+" between spaces; a "+" inside a
+// word joins nothing.
+describe("isSetName", () => {
+  it.each([
+    { text: "Nivea Zestaw You Got This: Deo AP 50 ml + SG 250 ml", set: true },
+    { text: "zestaw: skoncentrowane serum-amupłka, 30 ml + płyn micelarny, 33 ml", set: true },
+    { text: "NIVEA ZESTAW Disney Edition Pomadki do ust, 4,8 g", set: true },
+    { text: "Nivea Pomadka do ust Watermelon Shine 4,8 g + Krem do rąk 30 ml", set: true },
+    { text: "Nivea Soft Lekki Krem Nawilżający, 200 ml", set: false },
+    { text: "Nivea Sun Krem do twarzy SPF50+ 50 ml", set: false },
+    { text: "Dove Men+Care Żel pod prysznic 250 ml", set: false },
+    { text: "Krem do rąk 30 ml +Pomadka 4,8 g", set: false },
+  ])("says $text is a set's: $set", ({ text, set }) => {
+    expect(isSetName(text)).toBe(set);
+  });
+
+  it.each([
+    { text: "Nivea Sun Krem do twarzy SPF50+ 50 ml", sizeText: "50 ml" },
+    { text: "Dove Men+Care Żel pod prysznic 250 ml", sizeText: "250 ml" },
+  ])("leaves $text the size it ends with, $sizeText", ({ text, sizeText }) => {
+    expect(trailingSizeText(text)).toBe(sizeText);
   });
 });

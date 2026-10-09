@@ -16,7 +16,7 @@ import { parsePolishPrice } from "@/lib/services/shops/price-text";
 import { storableOffer } from "@/lib/services/shops/shop-offer";
 import { gateUnavailable } from "@/lib/services/shops/shop-outcome";
 import { countOf, httpsHost, isNone, textOf, within } from "@/lib/services/shops/shop-values";
-import { parseSize, trailingSizeText } from "@/lib/services/size";
+import { isSetName, parseSize, trailingSizeText } from "@/lib/services/size";
 import type { GateOutcome, PriceCheck, ShopCandidate, ShopOffer, ShopSearch, ShopUnavailable, Size } from "@/types";
 
 // Super-Pharm's product search runs on Algolia (research note §2.3): a POST to one index's query URL, whose body holds
@@ -56,9 +56,6 @@ const ITEM_ID = /^\d{1,12}$/;
 // The one host Super-Pharm's product pages are on, and the one its images are on.
 const PRODUCT_HOST = "www.superpharm.pl";
 const IMAGE_HOST = "media.superpharm.eu";
-// A set's name, which says "zestaw" in any case or joins its items with "+", as in "Nivea Zestaw You Got This: Deo AP
-// 50 ml + … + Płyn mic. 200 ml": it ends with one of its items' sizes, never the set's.
-const SET_NAME = /zestaw|\+/i;
 const SEARCH_EVENT = "super-pharm-search";
 const PRICES_EVENT = "super-pharm-prices";
 const isoDate = z.iso.date();
@@ -491,13 +488,13 @@ function hasOddAvailability(hit: unknown): boolean {
  * text. It's `capacity`, such as "300 ml", whenever the record has one. Many records have none (27 of the 47 hits the
  * lookups recorded on 2026-10-06): the index leaves the attribute out, or sends it `false`, `null` or blank, as it does
  * an unset one (isNone). Their names often end with the size, as in "…Classic Clean, 400 ml", so then it's the size the
- * name ends with (trailingSizeText), unless the name is a set's (SET_NAME). A `capacity` that doesn't parse, such as a
- * multipack's "2 x 50 ml", or that isn't text, such as a number, gives none rather than the name's, which could be one
- * item's. No such size, or text over its limit, gives neither.
+ * name ends with (trailingSizeText), unless the name is a set's (isSetName), which ends with one of its items' sizes. A
+ * `capacity` that doesn't parse, such as a multipack's "2 x 50 ml", or that isn't text, such as a number, gives none
+ * rather than the name's, which could be one item's. No such size, or text over its limit, gives neither.
  */
 function readSize(capacity: unknown, name: string): { sizeText: string | null; size: Size | null } {
   if (isNone(capacity)) {
-    return sizeOf(SET_NAME.test(name) ? null : trailingSizeText(name));
+    return sizeOf(isSetName(name) ? null : trailingSizeText(name));
   }
   return sizeOf(textOf(capacity));
 }

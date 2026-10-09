@@ -12,12 +12,20 @@ import {
   type MatchView,
 } from "@/lib/services/match-view";
 import { recordLookup, type MatchesRead } from "@/lib/services/matches";
-import { judge, orderChoice, pickMatch, type MatchPick, type NamedProduct } from "@/lib/services/matching";
-import { MATCHED_SHOPS, SHOP_LABELS, type MatchableShop, type MatchedShop } from "@/lib/services/price-comparison";
+import {
+  foldedWordsOf,
+  judge,
+  orderChoice,
+  pickMatch,
+  type MatchPick,
+  type NamedProduct,
+} from "@/lib/services/matching";
+import { matchedShopsOf, SHOP_LABELS, type MatchableShop, type PricedShop } from "@/lib/services/price-comparison";
 import { recordPriceChecks } from "@/lib/services/prices";
 import { toShopQuery } from "@/lib/services/search-query";
 import type { ShopGate } from "@/lib/services/shop-gate";
 import { SHOP_ADAPTERS } from "@/lib/services/shops/registry";
+import { splitTrailingSize } from "@/lib/services/size";
 import type { ListFilter } from "@/lib/services/watchlist-rows";
 import { shopUnavailableText } from "@/lib/shop-messages";
 import type {
@@ -160,9 +168,42 @@ function lookupEan(shop: MatchableShop, product: LookupProduct): string | null {
   return product.eans.find((value) => EAN.test(value)) ?? null;
 }
 
-/** What a search by name asks for: the product's brand, name and size as shop search text, or null when it can't. */
-function nameQuery(product: LookupProduct): string | null {
-  return toShopQuery([product.brand, product.name, product.sizeText].filter((part) => part !== null).join(" "));
+/**
+ * What a search by name asks for: the product's brand, name and size text as shop search text (toShopQuery), each word
+ * once, or null when it can't be one. A name in Natura, Hebe or Super-Pharm often holds the brand and the size already,
+ * as "NIVEA SOFT krem intensywnie nawilżający 300 ml" does, so the brand goes first only when the name doesn't start
+ * with it, and the size text last, in place of the size the name ends with when that's the same: read as size text
+ * (splitTrailingSize), so "500ml" is "500 ml". Their words are compared folded, as the name check folds them
+ * (foldedWordsOf), so "Nivea" is "NIVEA" and "7,2 ml" is "7.2 ml". Over 80 characters, the name is cut at a word, and
+ * the brand and the size stay whole. A Rossmann product's name holds neither, so its query is its brand, name and size
+ * text. The query keeps the words of the product's own shop, so a shop that writes the product otherwise may find
+ * nothing, which the lookup stores as not found: a known limit (the owner's call of 2026-10-08). Super-Pharm's "Mascara
+ * … 7.2 ml" finds nothing at Rossmann, which writes "tusz do rzęs" and "7,2 ml".
+ */
+export function nameQuery({
+  brand,
+  name,
+  sizeText,
+}: Pick<LookupProduct, "brand" | "name" | "sizeText">): string | null {
+  const ending = splitTrailingSize(name);
+  // The name without the size it ends with, when that's the product's: the size text goes last in its place.
+  const text = ending !== null && sizeText !== null && sameWords(ending.sizeText, sizeText) ? ending.before : name;
+  const before = brand !== null && startsWithWords(name, brand) ? null : brand;
+  return toShopQuery(text, { before, after: sizeText });
+}
+
+/** True when a text's first words, folded as the name check folds them, are all of `start`'s words: one at least. */
+function startsWithWords(text: string, start: string): boolean {
+  const words = foldedWordsOf(text);
+  const first = foldedWordsOf(start);
+  return first.length > 0 && first.every((word, index) => words[index] === word);
+}
+
+/** True when two texts have the same words, folded as the name check folds them: one at least. */
+function sameWords(a: string, b: string): boolean {
+  const left = foldedWordsOf(a);
+  const right = foldedWordsOf(b);
+  return left.length > 0 && left.length === right.length && left.every((word, index) => right[index] === word);
 }
 
 /** The lookup's answer for one search's pick, or null when that search found nothing. */
@@ -211,7 +252,7 @@ function logNothingFound(shop: MatchableShop, searchedByEan: boolean, searchedBy
 }
 
 /** What the product's page runs its matched shops' steps on (runMatchSteps). */
-export interface MatchStepsInput<Shop extends MatchableShop = MatchedShop> {
+export interface MatchStepsInput {
   /** The user's own client, which stores each shop's automatic outcome and the price an automatic match came with. */
   supabase: SupabaseClient;
   /** The gate every search goes through, charged to the shop it asks. */
@@ -228,8 +269,11 @@ export interface MatchStepsInput<Shop extends MatchableShop = MatchedShop> {
   ownNavigation: boolean;
   /** The filter the list is shown with, which every view's links keep. */
   filter: ListFilter;
-  /** The shops to run, in the pages' order: the matched shops unless a test names others. */
-  shops?: readonly Shop[] | typeof MATCHED_SHOPS;
+  /**
+   * The shops to run, in the pages' order: the product's matched shops, every priced shop but its own (matchedShopsOf),
+   * unless a test names others.
+   */
+  shops?: readonly PricedShop[];
 }
 
 /**
@@ -239,8 +283,8 @@ export interface MatchStepsInput<Shop extends MatchableShop = MatchedShop> {
  * whose prices the page shows (`item`), and whether a retry stored its outcome, so the page goes back to its plain
  * address (`retried`).
  */
-export interface MatchStepResult<Shop extends MatchableShop = MatchedShop> {
-  shop: Shop;
+export interface MatchStepResult {
+  shop: PricedShop;
   step: MatchStep;
   view: MatchView;
   repin: MatchRepin | null;
@@ -262,23 +306,22 @@ const SHOWN_ONLY = { repin: null, unsaved: false, item: null, retried: false } a
 const FAILED: ShopUnavailable = { kind: "unavailable", reason: "failed" };
 
 /**
- * Runs the product page's step for each of `shops`, the matched shops unless a test names others, in their order:
- * decides it from the shop's stored decision and how the page was opened (decideMatchStep), then shows the stored
- * decision, offers only the button, opens the choice that changes the decision with the shop's two searches, or looks
- * the product up and stores what the matching rule settled on its own, with the price an automatic match came with as
- * its first stored price. The shops run at once, and each shop's searches and writes one after the other, so no two of
- * a shop's requests overlap. Each shop settles on its own: one whose lookup, recording or first price throws is logged
- * and shown as unavailable, and the other shops come back as usual. It never throws.
+ * Runs the product page's step for each of `shops`, the product's matched shops (matchedShopsOf) unless a test names
+ * others, in their order, so its own shop, whose own item it's priced by, is never looked up: decides it from the
+ * shop's stored decision and how the page was opened (decideMatchStep), then shows the stored decision, offers only the
+ * button, opens the choice that changes the decision with the shop's two searches, or looks the product up and stores
+ * what the matching rule settled on its own, with the price an automatic match came with as its first stored price.
+ * The shops run at once, and each shop's searches and writes one after the other, so no two of a shop's requests
+ * overlap. Each shop settles on its own: one whose lookup, recording or first price throws is logged and shown as
+ * unavailable, and the other shops come back as usual. It never throws.
  */
-export function runMatchSteps<Shop extends MatchableShop = MatchedShop>({
-  shops = MATCHED_SHOPS,
-  ...input
-}: MatchStepsInput<Shop>): Promise<MatchStepResult<NoInfer<Shop> | MatchedShop>[]> {
-  return Promise.all(shops.map((shop) => runStep(shop, input)));
+export function runMatchSteps({ shops, ...input }: MatchStepsInput): Promise<MatchStepResult[]> {
+  const run = shops ?? matchedShopsOf(input.product.source);
+  return Promise.all(run.map((shop) => runStep(shop, input)));
 }
 
 /** One shop's step (runMatchSteps), settled on its own: a step that throws shows the shop as unavailable. */
-async function runStep<Shop extends MatchableShop>(shop: Shop, input: StepInput): Promise<MatchStepResult<Shop>> {
+async function runStep(shop: PricedShop, input: StepInput): Promise<MatchStepResult> {
   const { matches, retryShop, repinShop, ownNavigation } = input;
   const step = decideMatchStep({ matches, shop, retryShop, repinShop, ownNavigation });
   try {

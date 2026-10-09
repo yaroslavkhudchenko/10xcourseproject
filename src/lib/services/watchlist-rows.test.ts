@@ -13,6 +13,7 @@ import {
   inFilter,
   LIST_FILTERS,
   listChipsOf,
+  listMatchedShops,
   listRowOf,
   listRowsOf,
   matchesFailedText,
@@ -1362,12 +1363,183 @@ describe("the list with Super-Pharm, matched on the user's pick", () => {
   });
 });
 
+// A product picked in Natura is priced by its own Natura item and matched in Rossmann, Hebe and Super-Pharm (the plan
+// of add-from-other-shops): its row reads its states in those three shops alone, and a decision or an odd row in
+// Natura, its own shop, says nothing about it. The expected verdicts come from FR-011 and the S-03 rule that only a
+// fresh price the shop sells online can win, as for a product picked in Rossmann, not from the comparison's code.
+describe("the list with a product picked in Natura", () => {
+  // Natura's Nivea Soft 300 ml, on the list beside Rossmann's, as "Dodaj" stores an item of Natura: without a caption.
+  const fromNatura: WatchlistItem = {
+    ...soft,
+    id: OTHER_ID,
+    source: "natura",
+    sourceItemId: "NV89063",
+    name: "NIVEA SOFT krem intensywnie nawilżający 300 ml",
+    caption: null,
+  };
+  const UNREADABLE = stateOf("unreadable");
+  const DECLINED = stateOf("unmatched");
+
+  /** Its match in Rossmann, as the list reads it: by default an automatic match of its brand and size. */
+  const rossmannMatch = (fields: MatchFields = {}): ShopMatchState => ({
+    watchlistItemId: OTHER_ID,
+    shop: "rossmann",
+    state: "matched",
+    shopItemId: "26900",
+    brand: "NIVEA",
+    size: { value: 300, unit: "ml" },
+    decidedBy: "auto",
+    ...fields,
+  });
+
+  // Its declines in Hebe and Super-Pharm, which every read below holds, so Rossmann's decision decides its row.
+  const DECLINED_ELSEWHERE: ShopMatchState[] = (["hebe", "super-pharm"] as const).map((shop) => ({
+    watchlistItemId: OTHER_ID,
+    shop,
+    state: "unmatched",
+    shopItemId: null,
+  }));
+
+  /** The list's read of the decisions: these and its declines, beside these odd rows. */
+  const readOf = (
+    states: ShopMatchState[],
+    odd: { unread?: DecisionsRead["unread"]; unattributed?: DecisionsRead["unattributed"] } = {},
+  ): DecisionsRead => ({
+    states: [...states, ...DECLINED_ELSEWHERE],
+    unread: odd.unread ?? [],
+    unattributed: odd.unattributed ?? [],
+  });
+
+  // Its own Natura item at 22,99 zł on promotion, and Rossmann's item at 26,99 zł, both fresh.
+  const prices: LatestPrice[] = [
+    { shop: "natura", shopItemId: "NV89063", ...check({ price: 22.99, regularPrice: 27.99 }) },
+    { shop: "rossmann", shopItemId: "26900", ...check({ price: 26.99, checkedAgo: 10 * MINUTE }) },
+  ];
+
+  /** Its row from this read of the decisions and these prices, as the list builds it (listRowsOf), at NOW. */
+  const rowFrom = (read: DecisionsRead | null, latest: LatestPrice[] = prices): ListRow =>
+    listRowsOf([fromNatura], read, { prices: latest, unread: [], unattributed: 0 }, NOW)[0];
+
+  it("gives its state in Rossmann, Hebe and Super-Pharm, and none in Natura, its own shop", () => {
+    expect(matchStatesOf(fromNatura, readOf([rossmannMatch()]))).toEqual({
+      rossmann: MATCHED,
+      hebe: DECLINED,
+      "super-pharm": DECLINED,
+    });
+    expect(matchStatesOf(fromNatura, readOf([]))).toEqual({
+      rossmann: stateOf("none"),
+      hebe: DECLINED,
+      "super-pharm": DECLINED,
+    });
+    expect(matchStatesOf(fromNatura, null)).toEqual({
+      rossmann: UNREADABLE,
+      hebe: UNREADABLE,
+      "super-pharm": UNREADABLE,
+    });
+  });
+
+  it("names its own Natura price cheapest beside its Rossmann match's, on the row's line and tag", () => {
+    const row = rowFrom(readOf([rossmannMatch()]));
+
+    expect(row).toMatchObject({ itemId: OTHER_ID, source: "natura", check: false, promo: true });
+    expect(row.tag).toEqual({ tone: "sun", price: 22.99, label: "Natura", meta: "Natura · 5 min temu" });
+    expect(row.summary).toBe(
+      `${said("Najtaniej: Natura 22,99 zł, o 4,00 zł taniej niż Rossmann · 5 min temu.")} ${OTHERS_DECLINED_LINE}`,
+    );
+  });
+
+  it("names its Rossmann match cheapest when that's the lowest fresh price", () => {
+    const cheaper: LatestPrice = { shop: "rossmann", shopItemId: "26900", ...check({ price: 19.99 }) };
+
+    expect(rowFrom(readOf([rossmannMatch()]), [prices[0], cheaper]).tag).toEqual({
+      tone: "sun",
+      price: 19.99,
+      label: "Rossmann",
+      meta: "Rossmann · 5 min temu",
+    });
+  });
+
+  it("puts it in Do sprawdzenia while Rossmann is still to be matched, saying so, and compares no Rossmann price", () => {
+    const row = rowFrom(readOf([]));
+
+    expect(row.check).toBe(true);
+    expect(row.summary).toBe(
+      `${said("Tylko w Naturze: 22,99 zł · 5 min temu.")} Rossmann: do dopasowania. ${OTHERS_DECLINED_LINE}`,
+    );
+    // Rossmann's item has a price, but no match names it.
+    expect(row.tag).toEqual({ tone: "muted", price: 22.99, label: "Tylko Natura", meta: "Natura · 5 min temu" });
+  });
+
+  it("counts an automatic Rossmann match of another size in Do sprawdzenia, saying why", () => {
+    const row = rowFrom(readOf([rossmannMatch({ size: { value: 200, unit: "ml" } })]));
+
+    expect(row.check).toBe(true);
+    expect(row.summary).toBe(
+      `${said("Najtaniej: Natura 22,99 zł, o 4,00 zł taniej niż Rossmann · 5 min temu.")} ` +
+        `Rossmann: sprawdź dopasowanie, inny rozmiar. ${OTHERS_DECLINED_LINE}`,
+    );
+  });
+
+  it("names no cheapest shop while its Rossmann decision can't be read, since its match may name a lower price", () => {
+    const row = rowFrom(readOf([], { unread: [{ watchlistItemId: OTHER_ID, shop: "rossmann" }] }));
+
+    expect(row.tag).toEqual({ tone: "outline", price: null, label: "Błąd odczytu", meta: null });
+    expect(row.summary).toBe(
+      `Nie udało się wczytać ceny. Rossmann: nie udało się wczytać dopasowania. ${OTHERS_DECLINED_LINE}`,
+    );
+    expect(row.check).toBe(true);
+  });
+
+  it("ignores a match stored in Natura, its own shop, and Natura's odd rows, which a product picked in Rossmann reads", () => {
+    // A direct write could store a match to Natura's cheaper NV81063 for the product picked in Natura, and odd Natura
+    // rows: one of the product's own, and one that couldn't say whose it is.
+    const inNatura: ShopMatchState = {
+      watchlistItemId: OTHER_ID,
+      shop: "natura",
+      state: "matched",
+      shopItemId: "NV81063",
+      brand: "NIVEA",
+      size: { value: 200, unit: "ml" },
+      decidedBy: "user",
+    };
+    const read = readOf([rossmannMatch(), inNatura], {
+      unread: [{ watchlistItemId: OTHER_ID, shop: "natura" }],
+      unattributed: ["natura"],
+    });
+    const cheaperInNatura: LatestPrice = { shop: "natura", shopItemId: "NV81063", ...check({ price: 9.99 }) };
+
+    expect(matchStatesOf(fromNatura, read)).toEqual({ rossmann: MATCHED, hebe: DECLINED, "super-pharm": DECLINED });
+    // Its own Natura item stays the one compared, and no shop's decision reads as unreadable.
+    expect(rowFrom(read, [...prices, cheaperInNatura]).tag).toEqual({
+      tone: "sun",
+      price: 22.99,
+      label: "Natura",
+      meta: "Natura · 5 min temu",
+    });
+    // The Natura row that couldn't say whose it is may be the Rossmann product's decision there, which has none read.
+    const [rossmannRow] = listRowsOf([soft, fromNatura], read, { prices, unread: [], unattributed: 0 }, NOW);
+    expect(rossmannRow.tag).toEqual({ tone: "outline", price: null, label: "Błąd odczytu", meta: null });
+  });
+});
+
 describe("the list's alert and footer", () => {
-  it("names every matched shop whose decisions couldn't be read, Natura, Hebe and Super-Pharm", () => {
-    expect(matchesFailedText()).toBe(
+  it("names the shops a list of products picked in Rossmann is matched in, Natura, Hebe and Super-Pharm", () => {
+    expect(matchesFailedText(listMatchedShops([soft, { ...soft, id: OTHER_ID }]))).toBe(
       "Nie udało się wczytać dopasowań w Naturze, w Hebe i w Super-Pharmie. Odśwież stronę.",
     );
     expect(matchesFailedText(["natura"])).toBe("Nie udało się wczytać dopasowań w Naturze. Odśwież stronę.");
+  });
+
+  it("names Rossmann too once the list holds a product picked in another shop, whose decisions are in Rossmann", () => {
+    const fromNatura = { ...soft, id: OTHER_ID, source: "natura" } as const;
+
+    expect(listMatchedShops([soft, fromNatura])).toEqual(["rossmann", "natura", "hebe", "super-pharm"]);
+    expect(matchesFailedText(listMatchedShops([soft, fromNatura]))).toBe(
+      "Nie udało się wczytać dopasowań w Rossmannie, w Naturze, w Hebe i w Super-Pharmie. Odśwież stronę.",
+    );
+    // A list of products picked in Natura alone has no decision there.
+    expect(listMatchedShops([fromNatura])).toEqual(["rossmann", "hebe", "super-pharm"]);
+    expect(listMatchedShops([])).toEqual([]);
   });
 
   it("lists every priced shop's site, Hebe's and Super-Pharm's too, the last after 'i'", () => {

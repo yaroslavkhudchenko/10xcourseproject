@@ -19,15 +19,13 @@ import {
   signOutErrorMessage,
 } from "@/lib/notices";
 import { listMatchStates } from "@/lib/services/matches";
-import { SHOP_LABELS } from "@/lib/services/price-comparison";
 import { parsePriceRefreshCode } from "@/lib/services/price-refresh";
 import { listLatestPrices } from "@/lib/services/prices";
+import { searchResultsOf, searchShops } from "@/lib/services/product-search";
 import { shopGateFor } from "@/lib/services/shop-gate";
 import { searchStepOf } from "@/lib/services/search-query";
-import { searchRossmann } from "@/lib/services/shops/rossmann";
 import { listChipsOf, listRowsOf } from "@/lib/services/watchlist-rows";
 import { listWatchlist, removedNotice, watchlistErrorMessage } from "@/lib/services/watchlist";
-import { shopUnavailableText } from "@/lib/shop-messages";
 
 const { user, supabase } = Astro.locals;
 const params = Astro.url.searchParams;
@@ -38,17 +36,19 @@ const rawQuery = params.get("q");
 const searchStep = searchStepOf(rawQuery, Astro.request.headers);
 const query = searchStep.kind === "search" || searchStep.kind === "filled" ? searchStep.query : null;
 
-// The matches and the prices come from one query each for the whole list, never one per product, and carry only what
-// the list shows. The prices are the stored ones: viewing the list, filtered by a chip or not, asks no shop.
+// One search asks each shop once, all at once, for at most 10 items (searchShops). The matches and the prices come from
+// one query each for the whole list, never one per product, and carry only what the list shows. The prices are the
+// stored ones: viewing the list, filtered by a chip or not, asks no shop.
 const [search, items, matchRead, priceRead] = await Promise.all([
-  searchStep.kind === "search" ? searchRossmann(shopGateFor(supabase), searchStep.query) : null,
+  searchStep.kind === "search" ? searchShops(shopGateFor(supabase), searchStep.query) : null,
   supabase ? listWatchlist(supabase) : null,
   supabase ? listMatchStates(supabase) : null,
   supabase ? listLatestPrices(supabase) : null,
 ]);
 
-const unavailableMessage =
-  search?.kind === "unavailable" ? shopUnavailableText(SHOP_LABELS.rossmann.name, search.reason, search.until) : null;
+// The search's entries, those whose items the list holds marked from the list's own reads, and each shop's line: a
+// shop that couldn't be asked says so in its line, with no alert of its own.
+const results = search === null ? null : searchResultsOf(search, items, matchRead?.states ?? null);
 
 // Each product's row, judged now: a product whose price or decision in a matched shop couldn't be read says so.
 const rows = items === null ? null : listRowsOf(items, matchRead, priceRead, Date.now());
@@ -107,20 +107,7 @@ const LIST_HEADING_ID = "list-heading";
           <AlertDescription>Naciśnij „Szukaj”, aby wyszukać „{searchStep.query}”.</AlertDescription>
         </Alert>
       )}
-      {unavailableMessage && (
-        <Alert variant="warning">
-          <AlertDescription>{unavailableMessage}</AlertDescription>
-        </Alert>
-      )}
-      {search?.kind === "results" && query !== null && (
-        <SearchResults
-          query={query}
-          candidates={search.candidates}
-          spellingHint={search.spellingHint}
-          listed={items ?? []}
-          path="/watchlist"
-        />
-      )}
+      {results !== null && query !== null && <SearchResults query={query} results={results} path="/watchlist" />}
     </div>
   )}
   <SubmitOnce />

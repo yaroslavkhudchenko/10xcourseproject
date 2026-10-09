@@ -6,7 +6,9 @@
 // (price_summaries) gives each item's history, its orderable prices of the 30 days in Poland before today, to the
 // item's watchers only, and that the regular price and the 30-day low are bounded as the price is. Since test rollout
 // Phase 2 it proves that a user who watches nothing reads and counts nothing through the list's unfiltered read, and
-// that re-pinning away from an item ends the access to its observations.
+// that re-pinning away from an item ends the access to its observations. Since add-from-other-shops it proves that a
+// product added from another shop than Rossmann, here Natura, makes its own item there watched, and its match in
+// Rossmann the matched Rossmann item, by its owner only.
 // Run: SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=<anon key> node scripts/check-prices-db.mjs
 // Each run signs up two fresh users and uses shop item ids of its own, so it can run again without resetting the
 // database, and it never adds a price to a real product's shared history. The history checks move checks back in time
@@ -68,6 +70,9 @@ const rossmannId = (n) => `${run}${n}`;
 const itemX = rossmannId(0);
 const skuA = `CHECK-${run}-A`;
 const skuB = `CHECK-${run}-B`;
+// A product added from Natura, by its SKU N, and the Rossmann item R it's matched to (12).
+const skuN = `CHECK-${run}-N`;
+const itemR = rossmannId(8);
 
 const rossmannItem = (sourceItemId) => ({
   source: "rossmann",
@@ -89,6 +94,27 @@ const naturaMatch = (itemId, sku) => ({
   decided_by: "auto",
   shop_item_id: sku,
   name: "NIVEA SOFT krem intensywnie nawilżający 300 ml",
+});
+
+// The same product added from Natura instead, which makes its own SKU watched, and its match in Rossmann, which makes
+// the matched Rossmann item watched.
+const naturaItem = (sku) => ({
+  source: "natura",
+  source_item_id: sku,
+  brand: "NIVEA",
+  name: "NIVEA SOFT krem intensywnie nawilżający 300 ml",
+  size_text: "300 ml",
+  size_value: 300,
+  size_unit: "ml",
+  eans: ["4005900009319"],
+});
+const rossmannMatch = (itemId, rossmannItemId) => ({
+  watchlist_item_id: itemId,
+  shop_id: "rossmann",
+  state: "matched",
+  decided_by: "auto",
+  shop_item_id: rossmannItemId,
+  name: "Soft krem uniwersalny, nawilżający",
 });
 
 // The rows the app inserts for one check (src/lib/services/prices.ts): the same columns in every row, and nothing the
@@ -565,6 +591,56 @@ check(
     expectedW.some((each) => JSON.stringify(each) === JSON.stringify(historyW)) &&
     (historyW.low === 8.88 || todaysW.length > 1),
   `history ${JSON.stringify(historyW)}, expected ${JSON.stringify(expectedW)}, checks ${show(wChecks)}`,
+);
+
+// 12. A product added from another shop than Rossmann, here Natura, is watched in that shop by its own item, SKU N, and
+// in Rossmann by its match there, item R. User A, who added it and matched it, records a price for each and reads both
+// from the table and either view. User B, who watches neither, reads none of their prices and records none.
+const naturaProduct = await a.client.from("watchlist_items").insert(naturaItem(skuN)).select("id").single();
+const rossmannMatched = await a.client.from("watchlist_matches").insert(rossmannMatch(naturaProduct.data?.id, itemR));
+check(
+  "user A adds a product from Natura by its SKU N, and matches it in Rossmann to item R",
+  Boolean(naturaProduct.data?.id) && !rossmannMatched.error,
+  `product ${show(naturaProduct)}, match ${show(rossmannMatched)}`,
+);
+const ownAndMatched = [skuN, itemR];
+const aRecords = [
+  await table(a.client).insert(priceRow("natura", skuN)),
+  await table(a.client).insert(priceRow("rossmann", itemR)),
+];
+check(
+  "user A records a price for N in Natura and for R in Rossmann",
+  aRecords.every((result) => !result.error),
+  aRecords.map(show).join(", "),
+);
+// Each read gives the shops of the rows it found, so a read of both items gives Natura's and Rossmann's.
+const readsOf = (client) =>
+  Promise.all(
+    [table(client), view(client), summaries(client)].map((relation) =>
+      relation.select("shop_id").in("shop_item_id", ownAndMatched),
+    ),
+  );
+const shopsOf = (read) =>
+  (read.data ?? [])
+    .map((row) => row.shop_id)
+    .sort()
+    .join();
+const aReads = await readsOf(a.client);
+check(
+  "user A reads the prices of N and R, from the table and either view",
+  aReads.every((read) => !read.error && shopsOf(read) === "natura,rossmann"),
+  aReads.map(show).join(", "),
+);
+const bReads = await readsOf(b.client);
+const bRecords = [
+  await table(b.client).insert(priceRow("natura", skuN)),
+  await table(b.client).insert(priceRow("rossmann", itemR)),
+];
+check(
+  "user B, who watches neither N nor R, reads none of their prices and records none",
+  bReads.every((read) => !read.error && read.data?.length === 0) &&
+    bRecords.every((result) => result.error?.code === "42501"),
+  `reads ${bReads.map(show).join(", ")}, inserts ${bRecords.map(show).join(", ")}`,
 );
 
 console.log(failed ? `\n${failed} check(s) failed` : "\nAll price observations database checks passed");

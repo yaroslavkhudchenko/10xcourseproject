@@ -1,12 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { repinShopOf, retryShopOf } from "@/lib/services/match-step";
 import type { MatchView } from "@/lib/services/match-view";
 import type { MatchesRead } from "@/lib/services/matches";
-import type { MatchableShop } from "@/lib/services/price-comparison";
+import { matchedShopsOf, type MatchableShop, type PricedShop } from "@/lib/services/price-comparison";
 import { createShopGate, type ShopGate, type ShopGateDeps } from "@/lib/services/shop-gate";
 import {
   lookupChoicesInShop,
   lookupInShop,
+  nameQuery,
   runMatchSteps,
   type LookupProduct,
   type MatchStepsInput,
@@ -20,6 +22,11 @@ import hebeNameSearch from "@/lib/services/shops/fixtures/hebe-name-search.json"
 import eanHit from "@/lib/services/shops/fixtures/natura-ean-hit.json";
 import eanMiss from "@/lib/services/shops/fixtures/natura-ean-miss.json";
 import nameSearch from "@/lib/services/shops/fixtures/natura-name-search.json";
+import naturaNiveaSoft from "@/lib/services/shops/fixtures/natura-search-nivea-soft.json";
+import rossmannLookupAaLaab from "@/lib/services/shops/fixtures/rossmann-lookup-aa-laab-150.json";
+import rossmannLookupCosmicBlack from "@/lib/services/shops/fixtures/rossmann-lookup-maybelline-sky-high-cosmic-black.json";
+import rossmannLookupSoft from "@/lib/services/shops/fixtures/rossmann-lookup-nivea-soft-300.json";
+import rossmannNiveaSoft from "@/lib/services/shops/fixtures/rossmann-search-nivea-soft.json";
 import superPharmSkyHigh from "@/lib/services/shops/fixtures/super-pharm-lookup-maybelline-sky-high-7-2.json";
 import superPharmNameSearchOne from "@/lib/services/shops/fixtures/super-pharm-name-search-one.json";
 import superPharmNameSearch from "@/lib/services/shops/fixtures/super-pharm-name-search.json";
@@ -733,6 +740,245 @@ describe("lookups in Super-Pharm, whose search can't find an EAN: one search, by
   );
 });
 
+// What a lookup's search by name asks for (nameQuery): each word once, the name after its brand unless it starts with
+// it, and the size text last, in place of the size the name ends with when that's the same. The products are items as
+// each shop's adapter reads them from its recordings, and Rossmann's products, whose names hold neither.
+describe("nameQuery: what a lookup's search by name asks for", () => {
+  it.each([
+    // Rossmann's products, as Super-Pharm's recorded searches for them asked (super-pharm.test.ts).
+    {
+      product: "Rossmann's Nivea Soft 300 ml",
+      brand: "NIVEA",
+      name: "Soft",
+      sizeText: "300 ml",
+      query: "NIVEA Soft 300 ml",
+    },
+    {
+      product: "Rossmann's Sky High mascara",
+      brand: "Maybelline New York",
+      name: "Lash Sensational Sky High",
+      sizeText: "7,2 ml",
+      query: "Maybelline New York Lash Sensational Sky High 7,2 ml",
+    },
+    // The brand is "AA", while the name starts with "LAAB".
+    {
+      product: "Rossmann's AA LAAB face wash",
+      brand: "AA",
+      name: "LAAB Skin Barrier Protection",
+      sizeText: "150 ml",
+      query: "AA LAAB Skin Barrier Protection 150 ml",
+    },
+    // Natura's titles and Hebe's legal names start with the brand and end with the size.
+    {
+      product: "Natura's Nivea Soft 300 ml (NV89063)",
+      brand: "NIVEA",
+      name: "NIVEA SOFT krem intensywnie nawilżający 300 ml",
+      sizeText: "300 ml",
+      query: "NIVEA SOFT krem intensywnie nawilżający 300 ml",
+    },
+    {
+      product: "Hebe's Nivea Soft 200 ml (218807)",
+      brand: "Nivea",
+      name: "Nivea Soft Lekki Krem Nawilżający, 200 ml",
+      sizeText: "200 ml",
+      query: "Nivea Soft Lekki Krem Nawilżający, 200 ml",
+    },
+    {
+      product: "Hebe's AA LAAB face wash (450251)",
+      brand: "AA",
+      name: "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający 150 ml",
+      sizeText: "150 ml",
+      query: "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający 150 ml",
+    },
+    // Super-Pharm's names start with the brand, and its size is the record's capacity.
+    {
+      product: "Super-Pharm's Nivea Soft 300 ml (10132)",
+      brand: "Nivea",
+      name: "Nivea Soft Krem nawilżający (Pudełko)",
+      sizeText: "300 ml",
+      query: "Nivea Soft Krem nawilżający (Pudełko) 300 ml",
+    },
+    {
+      product: "Super-Pharm's Sky High Cosmic Black (84422)",
+      brand: "Maybelline",
+      name: "Maybelline Mascara Lash Sensational Sky High Cosmic Black",
+      sizeText: "7.2 ml",
+      query: "Maybelline Mascara Lash Sensational Sky High Cosmic Black 7.2 ml",
+    },
+  ])("asks for $product by its brand, name and size, each once", ({ brand, name, sizeText, query }) => {
+    expect(nameQuery({ brand, name, sizeText })).toBe(query);
+  });
+
+  it.each([
+    {
+      why: "in another case",
+      brand: "Nivea",
+      name: "NIVEA BABY Soft & Cream chusteczki",
+      query: "NIVEA BABY Soft & Cream chusteczki",
+    },
+    {
+      why: "in capitals, without its accent",
+      brand: "L'Oréal Paris",
+      name: "L'OREAL PARIS Elseve Szampon",
+      query: "L'OREAL PARIS Elseve Szampon",
+    },
+  ])("names the brand once when the name starts with it $why", ({ brand, name, query }) => {
+    expect(nameQuery({ brand, name, sizeText: null })).toBe(query);
+  });
+
+  it.each([
+    // Super-Pharm's 105870: its brand's second word isn't the name's.
+    {
+      why: "all its words",
+      brand: "AA Cosmetics",
+      name: "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający",
+      query: "AA Cosmetics AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający",
+    },
+    // Ziaja's line for children, whose name starts with the brand's letters, not its word.
+    { why: "its word", brand: "Ziaja", name: "Ziajka krem dla dzieci", query: "Ziaja Ziajka krem dla dzieci" },
+  ])("puts the brand first when the name doesn't start with $why", ({ brand, name, query }) => {
+    expect(nameQuery({ brand, name, sizeText: null })).toBe(query);
+  });
+
+  it.each([
+    // Natura's NV80758: its title writes the size without a space.
+    {
+      why: "written without a space",
+      name: "Nivea Creme Soft żel pod prysznic 500ml",
+      sizeText: "500 ml",
+      query: "Nivea Creme Soft żel pod prysznic 500 ml",
+    },
+    {
+      why: "in capitals, with a decimal comma",
+      name: "Nivea Soft krem 7,2 ML",
+      sizeText: "7.2 ml",
+      query: "Nivea Soft krem 7.2 ml",
+    },
+  ])("names the size once, as its size text, when the name ends with it $why", ({ name, sizeText, query }) => {
+    expect(nameQuery({ brand: "NIVEA", name, sizeText })).toBe(query);
+  });
+
+  it.each([
+    {
+      why: "another size",
+      name: "Nivea Soft krem 200 ml",
+      sizeText: "300 ml",
+      query: "Nivea Soft krem 200 ml 300 ml",
+    },
+    // Natura's NV74420: a multipack's count, not a size.
+    {
+      why: "a multipack",
+      name: "NIVEA BABY Soft & Cream chusteczki 4 x 57 sztuk",
+      sizeText: "228 szt",
+      query: "NIVEA BABY Soft & Cream chusteczki 4 x 57 sztuk 228 szt",
+    },
+  ])("adds the size text when the name ends with $why", ({ name, sizeText, query }) => {
+    expect(nameQuery({ brand: "Nivea", name, sizeText })).toBe(query);
+  });
+
+  it("cuts a name over 80 characters before the size it ends with, which stays", () => {
+    // Hebe's serum (450256): its legal name and size make 87 characters.
+    const name = "AA LAAB 100% Centella B12 Skoncentrowane serum-ampułka nawilżająco-odbudowujące 30 ml";
+
+    expect(nameQuery({ brand: "AA", name, sizeText: "30 ml" })).toBe(
+      "AA LAAB 100% Centella B12 Skoncentrowane serum-ampułka 30 ml",
+    );
+  });
+
+  it("gives null for a product with nothing to search by", () => {
+    expect(nameQuery({ brand: null, name: "?", sizeText: null })).toBeNull();
+  });
+});
+
+// Lookups for a product picked in another shop than Rossmann, without a caption, through the real gate, on the
+// recordings that answer them: a Hebe item's EAN search, and products named as the recorded name searches asked, which
+// their names already start or end with the brand and the size of, so a query that named either twice would miss them.
+describe("lookups for a product picked in another shop than Rossmann", () => {
+  it("accepts Hebe's item by a shared EAN for Natura's Nivea Soft 200 ml, after one request", async () => {
+    const { gate, fetchMock, reserve } = setupCharged([hebeAnswers.ean, hebeAnswers.name]);
+
+    // NV890500, as natura-search-nivea-soft.json gives it.
+    const lookup = await lookupInShop("hebe", gate, {
+      brand: "NIVEA",
+      name: "NIVEA SOFT krem intensywnie nawilżający 200 ml",
+      caption: null,
+      sizeText: "200 ml",
+      size: { value: 200, unit: "ml" },
+      eans: [SOFT_200_EAN],
+    });
+
+    expect(requestedUrls(fetchMock)).toEqual([HEBE_EAN_SEARCH]);
+    expect(reserve.mock.calls).toEqual([["hebe"]]);
+    expect(lookup).toMatchObject({ kind: "accepted", candidate: { shop: "hebe", shopItemId: HEBE_SOFT_200 } });
+  });
+
+  it("searches Hebe by a name that starts with the brand without naming the brand twice", async () => {
+    const { gate, fetchMock, reserve } = setupCharged([hebeAnswers.offlineEan, hebeAnswers.name]);
+
+    // A product picked in Natura, named as Hebe's recorded name search asked, with the EAN only an item Hebe doesn't sell
+    // online carries.
+    const lookup = await lookupInShop("hebe", gate, {
+      brand: "nivea",
+      name: "nivea soft",
+      caption: null,
+      sizeText: null,
+      size: { value: 300, unit: "ml" },
+      eans: [SOFT_EAN],
+    });
+
+    expect(requestedUrls(fetchMock)).toEqual([HEBE_OFFLINE_EAN_SEARCH, HEBE_NAME_SEARCH]);
+    expect(reserve.mock.calls).toEqual([["hebe"], ["hebe"]]);
+    // Its items and the product's both carry EANs, none shared, so the user chooses, in Hebe's order.
+    expect(lookupOptions(lookup).map(([id]) => id)).toEqual([
+      HEBE_SOFT_200,
+      "000000000000255134",
+      "000000000000742817",
+    ]);
+  });
+
+  it("searches Super-Pharm by a name that starts with the brand and ends with the size, naming each once", async () => {
+    const { gate, fetchMock, reserve } = setupCharged([superPharmAnswers.soft]);
+
+    // A product picked in Natura, named as the recorded search asked.
+    const lookup = await lookupInShop("super-pharm", gate, {
+      brand: "NIVEA",
+      name: "NIVEA Soft 300 ml",
+      caption: null,
+      sizeText: "300 ml",
+      size: { value: 300, unit: "ml" },
+      eans: [SOFT_EAN],
+    });
+
+    expect(sentRequests(fetchMock)).toEqual([spSearch(SP_SOFT_SEARCH)]);
+    expect(reserve.mock.calls).toEqual([["super-pharm"]]);
+    // Nivea Soft's „Krem” and „nawilżający” are words the product's name lacks: it's offered, not accepted.
+    expect(lookupOptions(lookup)).toEqual([["10132", { sharesEan: false, size: "equal", brand: "agrees" }]]);
+  });
+
+  it("searches Natura by name alone for a product without an EAN, naming its brand and size once", async () => {
+    const { gate, fetchMock, reserve } = setupCharged([answers.eanHit, answers.name]);
+
+    // A product picked in Super-Pharm, whose items carry no EAN, named as Natura's recorded name search asked.
+    const lookup = await lookupInShop("natura", gate, {
+      brand: "nivea",
+      name: "nivea soft 300 ml",
+      caption: null,
+      sizeText: "300 ml",
+      size: { value: 300, unit: "ml" },
+      eans: [],
+    });
+
+    expect(requestedUrls(fetchMock)).toEqual([NAME_SEARCH]);
+    expect(reserve.mock.calls).toEqual([["natura"]]);
+    // Nivea Soft 300 ml's title has words the product's name lacks, so the user chooses, the likeliest first.
+    expect(lookupOptions(lookup)).toEqual([
+      ["NV89063", { sharesEan: false, size: "equal", brand: "agrees" }],
+      ["JM00370", { sharesEan: false, size: "equal", brand: "differs" }],
+      ["NV81063", { sharesEan: false, size: "differs", brand: "agrees" }],
+    ]);
+  });
+});
+
 // The product page's steps for its matched shops (runMatchSteps), on Natura's and Hebe's recordings together, through
 // the real gate. Each test runs the page's own list of shops, Natura's step first and Super-Pharm's last: a plain view
 // looks every shop with no decision up, Super-Pharm too, by name.
@@ -857,8 +1103,14 @@ function stubClient(answer: (table: string, first: string | undefined) => Answer
 /** What the steps stored: each query's table, its first call and that call's row. */
 const writesOf = (queries: Call[][]) => queries.map((calls) => [calls[0][1], ...(calls.at(1) ?? [])]);
 
-/** The shop a URL asks: Super-Pharm by its one query URL, Natura or Hebe by its Luigi's Box tracker id. */
-function trackerShop(url: string): MatchableShop {
+/**
+ * The shop a URL asks: Rossmann by its host, Super-Pharm by its one query URL, Natura or Hebe by its Luigi's Box
+ * tracker id.
+ */
+function trackerShop(url: string): PricedShop {
+  if (url.startsWith("https://www.rossmann.pl/")) {
+    return "rossmann";
+  }
   if (url === SUPER_PHARM_URL) {
     return "super-pharm";
   }
@@ -871,8 +1123,8 @@ function trackerShop(url: string): MatchableShop {
  */
 function slowGate(entries: ReplayEntry[]) {
   const replay = createReplayFetch(entries);
-  const inFlight: MatchableShop[] = [];
-  const most: Record<"all" | MatchableShop, number> = { all: 0, natura: 0, hebe: 0, "super-pharm": 0 };
+  const inFlight: PricedShop[] = [];
+  const most: Record<"all" | PricedShop, number> = { all: 0, rossmann: 0, natura: 0, hebe: 0, "super-pharm": 0 };
   const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
     const shop = trackerShop(input instanceof Request ? input.url : new URL(input).href);
     inFlight.push(shop);
@@ -980,7 +1232,8 @@ describe("runMatchSteps: each matched shop's step on the product's page", () => 
       spSearch(SP_SOFT_IN_BOTH_SEARCH),
     ]);
     expect(reserve.mock.calls.map(([shop]) => shop).sort()).toEqual(["hebe", "hebe", "natura", "super-pharm"]);
-    expect(most).toEqual({ all: 3, natura: 1, hebe: 1, "super-pharm": 1 });
+    // Rossmann, the product's own shop, is asked nothing.
+    expect(most).toEqual({ all: 3, rossmann: 0, natura: 1, hebe: 1, "super-pharm": 1 });
     // Only Natura's automatic match and its first price were stored; a choice stores nothing.
     expect(writesOf(queries)).toEqual([
       [
@@ -1180,6 +1433,347 @@ describe("runMatchSteps: each matched shop's step on the product's page", () => 
     expect(steps.map(({ view }) => view.kind)).toEqual(views);
     expect(requestedUrls(fetchMock)).toEqual([]);
     expect(queries).toEqual([]);
+  });
+});
+
+// A product picked in another shop than Rossmann is matched in every priced shop but its own (matchedShopsOf), Rossmann
+// included, and its page's steps run in those shops alone: its own shop is never looked up, whatever decision is stored
+// there or the address names. Its lookups cost what the plan of add-from-other-shops states: one name search in
+// Rossmann and in Super-Pharm, whose searches can't find an EAN, and in Natura and Hebe an EAN search first when the
+// product has an EAN. Each product is named as the recorded searches asked for it, "nivea soft", 10 hits, so each
+// shop's answer is its own recording: Rossmann's and Natura's of 2026-10-06 (rossmann.test.ts, natura.test.ts).
+const ROSSMANN_SOFT_SEARCH = "https://www.rossmann.pl/products/v4/api/Products?search=nivea%20soft&page=1&pageSize=10";
+const NATURA_SOFT_SEARCH = searchUrl("nivea soft", 10);
+const rossmannSoftAnswer = {
+  url: ROSSMANN_SOFT_SEARCH,
+  status: 200,
+  body: JSON.stringify(rossmannNiveaSoft),
+} satisfies ReplayEntry;
+const naturaSoftAnswer = {
+  url: NATURA_SOFT_SEARCH,
+  status: 200,
+  body: JSON.stringify(naturaNiveaSoft),
+} satisfies ReplayEntry;
+
+describe("runMatchSteps: a product picked in another shop, matched in every priced shop but its own", () => {
+  // Nivea Soft 300 ml picked in Natura, by its SKU, with the EAN Natura's item carries.
+  const fromNatura: WatchlistProduct = { ...softInBoth, source: "natura", sourceItemId: "NV89063" };
+  // The same product picked in Super-Pharm, by its objectID: Super-Pharm's items carry no EAN.
+  const fromSuperPharm: WatchlistProduct = { ...softInBoth, source: "super-pharm", sourceItemId: "10132", eans: [] };
+
+  it("looks a product picked in Natura up in Rossmann, Hebe and Super-Pharm, never in Natura: 4 requests", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // Natura's recordings answer too, so a request to Natura would show among the ones served.
+    const { gate, fetchMock, reserve, most } = slowGate([
+      rossmannSoftAnswer,
+      hebeAnswers.offlineEan,
+      hebeAnswers.name,
+      superPharmFailed,
+      answers.eanHit,
+      answers.name,
+    ]);
+    const { client, queries } = stubClient();
+    // An address naming its own shop, as a crafted link could, opens the plain page, which asks every matched shop.
+    const params = new URLSearchParams("repin=natura&retry=natura");
+    const shops = matchedShopsOf(fromNatura.source);
+
+    const steps = await runMatchSteps(
+      opened({
+        supabase: client,
+        gate,
+        product: fromNatura,
+        // A match stored in Natura, its own shop, as a direct write could store it: no step reads it.
+        matches: stored(naturaMatched),
+        repinShop: repinShopOf(params, shops),
+        retryShop: retryShopOf(params, shops),
+        shops,
+      }),
+    );
+
+    expect(steps.map(({ shop, step }) => [shop, step])).toEqual([
+      ["rossmann", { kind: "lookup", retry: false }],
+      ["hebe", { kind: "lookup", retry: false }],
+      ["super-pharm", { kind: "lookup", retry: false }],
+    ]);
+    // Rossmann's name search finds its Nivea Soft 300 ml, which shares the product's EAN and size: matched on its own,
+    // with the offer its search item carried, so its first price costs no request of its own.
+    expect(steps[0]).toMatchObject({
+      view: {
+        kind: "matched",
+        note: "Dopasowano automatycznie: ten sam EAN i rozmiar.",
+        action: { kind: "repin", href: `${PLAIN_PAGE}?repin=rossmann` },
+      },
+      item: { shopItemId: "26900" },
+      repin: null,
+      unsaved: false,
+      retried: false,
+    });
+    // Hebe's EAN search finds only an item it doesn't sell online, and its name search leaves the choice to the user,
+    // as for the product picked in Rossmann; Super-Pharm's one search got no answer.
+    expect(choiceIds(steps[1].view)).toEqual(["000000000000218807", "000000000000255134", "000000000000742817"]);
+    expect(steps[2].view).toEqual({ kind: "unavailable", message: SUPER_PHARM_FAILED });
+    // One request to Rossmann, Hebe's two, Super-Pharm's one and none to Natura: the shops at once, each one's requests
+    // one at a time, and its own item's refetch, the island's, makes 5 at most.
+    expect(requestedUrls(fetchMock).filter((url) => trackerShop(url) === "rossmann")).toEqual([ROSSMANN_SOFT_SEARCH]);
+    expect(requestedUrls(fetchMock).filter((url) => trackerShop(url) === "hebe")).toEqual([
+      HEBE_OFFLINE_EAN_SEARCH,
+      HEBE_NAME_SEARCH,
+    ]);
+    expect(sentRequests(fetchMock).filter(({ url }) => url === SUPER_PHARM_URL)).toEqual([
+      spSearch(SP_SOFT_IN_BOTH_SEARCH),
+    ]);
+    expect(requestedUrls(fetchMock).filter((url) => trackerShop(url) === "natura")).toEqual([]);
+    expect(reserve.mock.calls.map(([shop]) => shop).sort()).toEqual(["hebe", "hebe", "rossmann", "super-pharm"]);
+    expect(most).toEqual({ all: 3, rossmann: 1, natura: 0, hebe: 1, "super-pharm": 1 });
+    // Rossmann's automatic match and its first price, 15,99 zł on promotion, as the recorded search item carried it.
+    expect(writesOf(queries)).toEqual([
+      [
+        "watchlist_matches",
+        "insert",
+        expect.objectContaining({
+          watchlist_item_id: PRODUCT_ID,
+          shop_id: "rossmann",
+          state: "matched",
+          decided_by: "auto",
+          shop_item_id: "26900",
+        }),
+      ],
+      [
+        "price_observations",
+        "insert",
+        [expect.objectContaining({ shop_id: "rossmann", shop_item_id: "26900", status: "price", price: 15.99 })],
+      ],
+    ]);
+  });
+
+  it("looks a product picked in Super-Pharm up once in each of Rossmann, Natura and Hebe, by name: 3 requests", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // Super-Pharm's answer is served too, so a request to Super-Pharm would show among the ones served.
+    const { gate, fetchMock, reserve, most } = slowGate([
+      rossmannSoftAnswer,
+      naturaSoftAnswer,
+      hebeAnswers.name,
+      superPharmFailed,
+    ]);
+    const { client } = stubClient();
+
+    // The product's own matched shops by default, as the page passes them.
+    const steps = await runMatchSteps(opened({ supabase: client, gate, product: fromSuperPharm }));
+
+    expect(steps.map(({ shop, step }) => [shop, step])).toEqual([
+      ["rossmann", { kind: "lookup", retry: false }],
+      ["natura", { kind: "lookup", retry: false }],
+      ["hebe", { kind: "lookup", retry: false }],
+    ]);
+    // Without an EAN, Natura and Hebe skip their EAN search too: one name search in each matched shop, and none in
+    // Super-Pharm, so its own item's refetch, the island's, makes 4 at most.
+    expect(requestedUrls(fetchMock).sort()).toEqual(
+      [HEBE_NAME_SEARCH, NATURA_SOFT_SEARCH, ROSSMANN_SOFT_SEARCH].sort(),
+    );
+    expect(reserve.mock.calls.map(([shop]) => shop).sort()).toEqual(["hebe", "natura", "rossmann"]);
+    expect(most).toEqual({ all: 3, rossmann: 1, natura: 1, hebe: 1, "super-pharm": 0 });
+  });
+});
+
+// Rossmann looked up for products picked in another shop than Rossmann, as "Dodaj" stores each from its shop's
+// candidate, without a caption. Its answers to the searches by name those lookups send, with the text nameQuery builds
+// and 10 items a page, were recorded on 2026-10-08 with curl from the developer machine, with the gate's User-Agent and
+// `Accept: application/json`, 3 s apart and following no redirect, each kept whole:
+// - rossmann-lookup-nivea-soft-300.json (22:06:40 UTC): "NIVEA SOFT krem intensywnie nawilżający 300 ml", for Natura's
+//   Nivea Soft 300 ml (NV89063): its one item, Nivea Soft 300 ml (26900), on promotion at 15,99 zł.
+// - rossmann-lookup-aa-laab-150.json (22:06:43 UTC): "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający
+//   150 ml", for Hebe's AA LAAB face wash (450251): its two items, the face wash in 150 ml (419343), then in 75 ml
+//   (2132081).
+// - rossmann-lookup-maybelline-sky-high-cosmic-black.json (22:06:46 UTC): "Maybelline Mascara Lash Sensational Sky High
+//   Cosmic Black 7.2 ml", for Super-Pharm's Sky High Cosmic Black (84422): no item and a totalCount of 0, beside four
+//   products Rossmann recommends instead, which its search doesn't read. Rossmann writes the mascara's "Mascara" as
+//   "tusz do rzęs" and its "7.2 ml" as "7,2 ml": a product picked in another shop may not be found at Rossmann when its
+//   name uses words Rossmann doesn't, a known limit (the owner's call of 2026-10-08).
+/** Rossmann's search for a lookup by name, 10 items a page, with the text the lookup sends spelled out as sent. */
+const rossmannLookupUrl = (encodedQuery: string) =>
+  `https://www.rossmann.pl/products/v4/api/Products?search=${encodedQuery}&page=1&pageSize=10`;
+const ROSSMANN_SOFT_LOOKUP = rossmannLookupUrl("NIVEA%20SOFT%20krem%20intensywnie%20nawil%C5%BCaj%C4%85cy%20300%20ml");
+const ROSSMANN_AA_LAAB_LOOKUP = rossmannLookupUrl(
+  "AA%20LAAB%20100%25%20Centella%20B12%20%C5%BBel%20do%20mycia%20twarzy%20nawil%C5%BCaj%C4%85cy%20150%20ml",
+);
+const ROSSMANN_COSMIC_BLACK_LOOKUP = rossmannLookupUrl(
+  "Maybelline%20Mascara%20Lash%20Sensational%20Sky%20High%20Cosmic%20Black%207.2%20ml",
+);
+// Every test is served all three answers, so a request for another one's text would show among the ones served.
+const ROSSMANN_LOOKUP_ANSWERS: ReplayEntry[] = [
+  { url: ROSSMANN_SOFT_LOOKUP, status: 200, body: JSON.stringify(rossmannLookupSoft) },
+  { url: ROSSMANN_AA_LAAB_LOOKUP, status: 200, body: JSON.stringify(rossmannLookupAaLaab) },
+  { url: ROSSMANN_COSMIC_BLACK_LOOKUP, status: 200, body: JSON.stringify(rossmannLookupCosmicBlack) },
+];
+
+/** A product picked in `source`, as "Dodaj" stores its item there: without a caption, which only Rossmann writes. */
+function pickedIn(source: PricedShop, sourceItemId: string, fields: Omit<LookupProduct, "caption">): WatchlistProduct {
+  return { ...watched({ ...fields, caption: null }), source, sourceItemId };
+}
+
+// Each product as its shop's adapter read it from its recording: natura-search-nivea-soft.json, hebe-search-aa-laab.json
+// and super-pharm-lookup-maybelline-sky-high-7-2.json.
+const NATURA_SOFT_300 = pickedIn("natura", "NV89063", {
+  brand: "NIVEA",
+  name: "NIVEA SOFT krem intensywnie nawilżający 300 ml",
+  sizeText: "300 ml",
+  size: { value: 300, unit: "ml" },
+  eans: [SOFT_EAN],
+});
+const HEBE_FACE_WASH = pickedIn("hebe", "000000000000450251", {
+  brand: "AA",
+  name: "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający 150 ml",
+  sizeText: "150 ml",
+  size: { value: 150, unit: "ml" },
+  eans: ["5900116091877"],
+});
+const SUPER_PHARM_COSMIC_BLACK = pickedIn("super-pharm", "84422", {
+  brand: "Maybelline",
+  name: "Maybelline Mascara Lash Sensational Sky High Cosmic Black",
+  sizeText: "7.2 ml",
+  size: { value: 7.2, unit: "ml" },
+  eans: [],
+});
+
+describe("Rossmann looked up for a product picked in another shop, on its recorded answers", () => {
+  it("matches Natura's Nivea Soft 300 ml to Rossmann's by the shared EAN, with its search offer as the first price", async () => {
+    const { gate, fetchMock, reserve } = setupCharged(ROSSMANN_LOOKUP_ANSWERS);
+    const { client, queries } = stubClient();
+
+    const steps = await runMatchSteps(
+      opened({ supabase: client, gate, product: NATURA_SOFT_300, shops: ["rossmann"] }),
+    );
+
+    // One request, by name, since Rossmann's search can't find an EAN.
+    expect(requestedUrls(fetchMock)).toEqual([ROSSMANN_SOFT_LOOKUP]);
+    expect(reserve.mock.calls).toEqual([["rossmann"]]);
+    expect(steps).toMatchObject([
+      {
+        shop: "rossmann",
+        step: { kind: "lookup", retry: false },
+        view: { kind: "matched", note: "Dopasowano automatycznie: ten sam EAN i rozmiar.", warnings: [] },
+        item: { shopItemId: "26900" },
+        unsaved: false,
+      },
+    ]);
+    // The match, and the price its search item came with: on promotion until 14 October, below its 30-day low.
+    expect(writesOf(queries)).toEqual([
+      [
+        "watchlist_matches",
+        "insert",
+        expect.objectContaining({
+          watchlist_item_id: PRODUCT_ID,
+          shop_id: "rossmann",
+          state: "matched",
+          decided_by: "auto",
+          shop_item_id: "26900",
+          size_text: "300 ml",
+          eans: [SOFT_EAN, "4005808890637", "5900017001234"],
+        }),
+      ],
+      [
+        "price_observations",
+        "insert",
+        [
+          {
+            shop_id: "rossmann",
+            shop_item_id: "26900",
+            status: "price",
+            price: 15.99,
+            regular_price: 26.99,
+            lowest_price_30d: 26.99,
+            promo_ends_on: "2026-10-14",
+            available: true,
+          },
+        ],
+      ],
+    ]);
+  });
+
+  it("accepts Rossmann's AA LAAB face wash in 150 ml for Hebe's by the shared EAN, never the one in 75 ml", async () => {
+    const { gate, fetchMock, reserve } = setupCharged(ROSSMANN_LOOKUP_ANSWERS);
+
+    const lookup = await lookupInShop("rossmann", gate, HEBE_FACE_WASH);
+
+    expect(requestedUrls(fetchMock)).toEqual([ROSSMANN_AA_LAAB_LOOKUP]);
+    expect(reserve.mock.calls).toEqual([["rossmann"]]);
+    expect(lookup).toMatchObject({
+      kind: "accepted",
+      candidate: {
+        shop: "rossmann",
+        shopItemId: "419343",
+        name: "LAAB Skin Barrier Protection żel do mycia twarzy nawilżający, 100% Centella B12",
+        sizeText: "150 ml",
+        eans: ["5900116091877"],
+        offer: { price: 16.49, regularPrice: 19.99, lowestPrice30d: 19.99, promoEndsOn: "2026-10-14", available: true },
+      },
+    });
+  });
+
+  it("offers both face washes in a re-pin's choice from the same one search, the 75 ml one with its size flagged", async () => {
+    const { gate, fetchMock, reserve } = setupCharged(ROSSMANN_LOOKUP_ANSWERS);
+
+    const choices = await lookupChoicesInShop("rossmann", gate, HEBE_FACE_WASH);
+
+    expect(requestedUrls(fetchMock)).toEqual([ROSSMANN_AA_LAAB_LOOKUP]);
+    expect(reserve.mock.calls).toEqual([["rossmann"]]);
+    expect(choices).toMatchObject({ kind: "choices", via: "name", incomplete: null });
+    expect(offered(choices)).toEqual([
+      ["419343", { sharesEan: true, size: "equal", brand: "agrees" }],
+      ["2132081", { sharesEan: false, size: "differs", brand: "agrees" }],
+    ]);
+  });
+
+  it("stores „not found” for Super-Pharm's Sky High Cosmic Black, whose words Rossmann's answer holds nothing for", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { gate, fetchMock, reserve } = setupCharged(ROSSMANN_LOOKUP_ANSWERS);
+    const { client, queries } = stubClient();
+
+    const steps = await runMatchSteps(
+      opened({ supabase: client, gate, product: SUPER_PHARM_COSMIC_BLACK, shops: ["rossmann"] }),
+    );
+
+    expect(requestedUrls(fetchMock)).toEqual([ROSSMANN_COSMIC_BLACK_LOOKUP]);
+    expect(reserve.mock.calls).toEqual([["rossmann"]]);
+    // Rossmann's answer says it matched nothing, so it's nothing found, never a gap: the card says so, with a retry.
+    expect(steps).toMatchObject([
+      {
+        shop: "rossmann",
+        step: { kind: "lookup", retry: false },
+        view: { kind: "not-found", href: `${PLAIN_PAGE}?retry=rossmann` },
+        item: null,
+        unsaved: false,
+        retried: false,
+      },
+    ]);
+    const { view } = steps[0];
+    if (view.kind !== "not-found") {
+      throw new Error(`expected not-found, got ${view.kind}`);
+    }
+    expect(view.text).toMatch(/^Nie znaleziono w Rossmannie \(sprawdzono /);
+    expect(writesOf(queries)).toEqual([
+      [
+        "watchlist_matches",
+        "insert",
+        expect.objectContaining({
+          watchlist_item_id: PRODUCT_ID,
+          shop_id: "rossmann",
+          state: "not_found",
+          decided_by: "auto",
+          shop_item_id: null,
+        }),
+      ],
+    ]);
+    // Which searches ran, never what they asked for.
+    expect(loggedLines(warn)).toEqual([
+      {
+        event: "shop-lookup",
+        shop: "rossmann",
+        reason: "nothing found for the EAN or name",
+        searchedByEan: false,
+        searchedByName: true,
+      },
+    ]);
   });
 });
 

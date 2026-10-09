@@ -1,0 +1,258 @@
+{
+  "data": {
+    "filters": {
+      "categories": [
+        {
+          "id": 12001,
+          "name": "Pielęgnacja i higiena",
+          "priority": 2,
+          "productsCount": 1,
+          "children": [
+            {
+              "id": 13047,
+              "name": "Twarz",
+              "priority": 1,
+              "productsCount": 1,
+              "children": [
+                {
+                  "id": 13048,
+                  "name": "Pielęgnacja twarzy",
+                  "priority": 1,
+                  "productsCount": 1,
+                  "children": [
+                    {
+                      "id": 13049,
+                      "name": "Kremy do twarzy",
+                      "priority": 1,
+                      "productsCount": 1,
+                      "children": [],
+                      "faqs": []
+                    }
+                  ],
+                  "faqs": []
+                }
+              ],
+              "faqs": []
+            }
+          ],
+          "faqs": []
+        },
+        {
+          "id": 13224,
+          "name": "Mężczyzna",
+          "priority": 4,
+          "productsCount": 1,
+          "children": [
+            {
+              "id": 13225,
+              "name": "Pielęgnacja",
+              "priority": 3,
+              "productsCount": 1,
+              "children": [
+                {
+                  "id": 13226,
+                  "name": "Pielęgnacja twarzy",
+                  "priority": 1,
+                  "productsCount": 1,
+                  "children": [],
+                  "faqs": []
+                }
+              ],
+              "faqs": []
+            }
+          ],
+          "faqs": []
+        }
+      ],
+      "price": { "min": 15, "max": 16 },
+      "facets": [
+        { "key": "brands", "name": "Marka", "values": [{ "key": "5500", "name": "NIVEA", "productCount": 1 }] },
+        {
+          "key": "promotions",
+          "name": "Promocje",
+          "values": [
+            { "key": "mega", "name": "Mega", "productCount": 1 },
+            { "key": "promotion", "name": "Promocja", "productCount": 1 }
+          ]
+        },
+        {
+          "key": "składniki",
+          "name": "Składniki",
+          "type": 0,
+          "values": [
+            { "key": "składniki^olej jojoba", "name": "Olej jojoba", "productCount": 1 },
+            { "key": "składniki^witamina e", "name": "Witamina e", "productCount": 1 }
+          ]
+        },
+        {
+          "key": "właściwości",
+          "name": "Właściwości",
+          "type": 0,
+          "values": [
+            { "key": "właściwości^łagodzące", "name": "Łagodzące", "productCount": 1 },
+            { "key": "właściwości^nawilżające", "name": "Nawilżające", "productCount": 1 }
+          ]
+        },
+        {
+          "key": "dla kogo",
+          "name": "Dla kogo",
+          "type": 0,
+          "values": [{ "key": "dla kogo^kobieta", "name": "Kobieta", "productCount": 1 }]
+        },
+        {
+          "key": "format",
+          "name": "Format",
+          "type": 0,
+          "values": [{ "key": "format^w słoiku", "name": "W słoiku", "productCount": 1 }]
+        },
+        {
+          "key": "przeznaczenie",
+          "name": "Przeznaczenie",
+          "type": 0,
+          "values": [{ "key": "przeznaczenie^twarz", "name": "Twarz", "productCount": 1 }]
+        },
+        {
+          "key": "rodzaj skóry",
+          "name": "Rodzaj skóry",
+          "type": 0,
+          "values": [{ "key": "rodzaj skóry^każdy rodzaj", "name": "Każdy rodzaj", "productCount": 1 }]
+        }
+      ]
+    },
+    "items": [
+      {
+        "brand": "NIVEA",
+        "brandId": 5500,
+        "caption": "krem do twarzy, ciała i dłoni, nawilżający",
+        "fallbackName": "Krem do twarzy, ciała i dłoni",
+        "fallbackCaption": "nawilżający",
+        "unit": "300 ml",
+        "averageRating": 4.88,
+        "totalReviews": 320,
+        "id": 26900,
+        "rossnetId": 100118,
+        "eanNumber": ["4005900009319", "4005808890637", "5900017001234"],
+        "navigateUrl": "/Produkt/Kremy-do-twarzy/NIVEA-Soft-krem-do-twarzy-ciala-i-dloni-nawilzajacy-300-ml,26900,13049",
+        "name": "Soft ",
+        "oldPrice": 26.99,
+        "price": 15.99,
+        "pricePerUnit": "100 ml = 5,33 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 7,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_mini/26900_55_71_1790938780.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_medium/26900_360_350_1790938780.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_small/26900_338_190_1790938780.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_large/26900_1280_720_1790938780.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_7_square/26900_340_340_1790938780.png",
+            "type": 2,
+            "alt": "NIVEA Soft intensywnie nawilżający krem do ciała i rąk 300 ml w otwartym białym słoiczku z pokrywką.",
+            "side": "Compositional2"
+          },
+          {
+            "id": 11,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_mini/26900_55_71_1790938781.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_medium/26900_360_350_1790938782.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_small/26900_338_190_1790938782.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_large/26900_1280_720_1790938782.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_square/26900_340_340_1790938782.png",
+            "type": 0,
+            "alt": "Biały słoik kremu Nivea Soft Fresh Light Moisturising na niebieskim tle, widok z przodu, z niebieskim logo.",
+            "side": "Rc1"
+          },
+          {
+            "id": 12,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_mini/26900_55_71_1790938784.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_medium/26900_360_350_1790938784.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_small/26900_338_190_1790938784.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_large/26900_1280_720_1790938784.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_square/26900_340_340_1790938785.png",
+            "type": 0,
+            "alt": "NIVEA Soft: dwoje roześmianych młodych ludzi, tekst 'TWARZ, CIAŁO I DŁONIE', symbolizuje uczucie gładkiej skóry.",
+            "side": "Rc2"
+          },
+          {
+            "id": 13,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_mini/26900_55_71_1790938786.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_medium/26900_360_350_1790938786.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_small/26900_338_190_1790938786.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_large/26900_1280_720_1790938787.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_13_square/26900_340_340_1790938787.png",
+            "type": 0,
+            "alt": "NIVEA Soft krem nawilżający. Biała, lekka formuła z odświeżającym zapachem na niebieskim tle.",
+            "side": "Rc3"
+          },
+          {
+            "id": 14,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_mini/26900_55_71_1790938788.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_medium/26900_360_350_1790938788.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_small/26900_338_190_1790938788.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_large/26900_1280_720_1790938789.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_14_square/26900_340_340_1790938789.png",
+            "type": 0,
+            "alt": "Grafika: wegański krem NIVEA Soft. Duże krople olejku jojoba i witaminy E na niebieskim tle.",
+            "side": "Rc4"
+          },
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/26900_55_71_1790938775.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/26900_360_350_1790938776.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/26900_338_190_1790938775.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/26900_1280_720_1790938776.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/26900_340_340_1790938776.png",
+            "type": 1,
+            "alt": "Biały, okrągły słoik kremu NIVEA Soft Fresh Light Moisturizing Cream, z góry. Niebieskie logo, krople wody.",
+            "side": "Front"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/26900_55_71_1790938778.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/26900_360_350_1790938778.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/26900_338_190_1790938778.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/26900_1280_720_1790938778.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/26900_340_340_1790938779.png",
+            "type": 0,
+            "alt": "Tył białego słoika NIVEA Soft 300ml z listą składników, kodem kreskowym i logo Beiersdorf.",
+            "side": "Back"
+          }
+        ],
+        "promotion": { "type": "mega", "redirectUrl": "/produkty?Statuses=mega" },
+        "promotionFrom": "2026-10-01T00:00:00",
+        "promotionTo": "2026-10-14T00:00:00",
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Pielęgnacja i higiena-Twarz-Pielęgnacja twarzy-Kremy do twarzy",
+        "attributes": [
+          { "type": "mega", "redirectUrl": "/produkty?Statuses=mega" },
+          { "type": "seasonal", "redirectUrl": "/produkty?Statuses=seasonal", "attributes": [] },
+          { "type": "seasonal", "redirectUrl": "/produkty?Statuses=seasonal", "attributes": [] },
+          { "type": "seasonal", "redirectUrl": "/produkty?Statuses=seasonal", "attributes": [] },
+          { "type": "seasonal", "redirectUrl": "/produkty?Statuses=seasonal", "attributes": [] },
+          { "type": "promoAll", "redirectUrl": "/produkty?Statuses=promoAll" }
+        ],
+        "lastLowestPrice": 26.99,
+        "lastLowestPriceType": "basic",
+        "lastLowestPriceV2": 26.99,
+        "lastLowestPriceTypeV2": "basic",
+        "badges": [
+          {
+            "type": "mega",
+            "name": "MEGA!",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Discounts=mega",
+              "relative": "/produkty?Discounts=mega"
+            }
+          }
+        ],
+        "isInOut": false
+      }
+    ],
+    "recommendedProducts": [],
+    "totalPages": 1,
+    "totalCount": 1,
+    "correlationId": "75c6e609d5eec27f8a8359a09bac561a",
+    "spellCheckHint": ""
+  }
+}

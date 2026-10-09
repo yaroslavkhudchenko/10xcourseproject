@@ -94,8 +94,8 @@ import searchEmpty from "@/lib/services/shops/fixtures/super-pharm-search-empty.
 // - rossmann-search-head-shoulders-classic-clean.json (11:48:21 UTC): "head & shoulders classic clean", its 4 items.
 // - rossmann-search-maybelline-lash-sensational.json (11:48:24 UTC): "maybelline lash sensational", its 19 items,
 //   which keep each mascara's shade in its caption.
-// The first two asked for 10 items a page, where the adapter asks for 24, and each holds every item its search
-// matched, so each is served for the adapter's own request.
+// The first two asked for 10 items a page, the list's search's own request, and the other three for 24, the list's
+// request when they were recorded, so the 19 mascaras fit. Each is served for the request it was sent with.
 const QUERY_URL = "https://ep43qpdx9q-dsn.algolia.net/1/indexes/spprod_drugstore_pl_simple_products/query";
 // Super-Pharm's Algolia application and the public search-only key its pages carry: every request carries both.
 const APP_ID = "EP43QPDX9Q";
@@ -153,31 +153,41 @@ const LOOKUPS = [
   SKY_HIGH_LOOKUP,
   FULL_FAN_LOOKUP,
 ];
-/** A Rossmann search a recording answers: its text, its URL as the adapter asks it, the text spelled out as sent. */
-const rossmannSearch = (query: string, encodedQuery: string, answer: object) => ({
+/**
+ * A Rossmann search a recording answers: its text, as many items a page as it asked for, its URL with the text spelled
+ * out as sent, and its answer.
+ */
+const rossmannSearch = (query: string, encodedQuery: string, size: number, answer: object) => ({
   query,
-  url: `https://www.rossmann.pl/products/v4/api/Products?search=${encodedQuery}&page=1&pageSize=24`,
+  size,
+  url: `https://www.rossmann.pl/products/v4/api/Products?search=${encodedQuery}&page=1&pageSize=${size}`,
   answer,
 });
-const ROSSMANN_NIVEA_SOFT = rossmannSearch("nivea soft", "nivea%20soft", rossmannNiveaSoft);
+// The list's search asks for 10 items a page, as these two recordings did.
+const ROSSMANN_NIVEA_SOFT = rossmannSearch("nivea soft", "nivea%20soft", 10, rossmannNiveaSoft);
 const ROSSMANN_AA_LAAB = rossmannSearch(
   "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający",
   "AA%20LAAB%20100%25%20Centella%20B12%20%C5%BBel%20do%20mycia%20twarzy%20nawil%C5%BCaj%C4%85cy",
+  10,
   rossmannAaLaab,
 );
+// Recorded with the 24 items a page the list's search asked for then.
 const ROSSMANN_SHOWER_GELS = rossmannSearch(
   "nivea creme soft żel pod prysznic",
   "nivea%20creme%20soft%20%C5%BCel%20pod%20prysznic",
+  24,
   rossmannShowerGels,
 );
 const ROSSMANN_SHAMPOOS = rossmannSearch(
   "head & shoulders classic clean",
   "head%20%26%20shoulders%20classic%20clean",
+  24,
   rossmannShampoos,
 );
 const ROSSMANN_MASCARAS = rossmannSearch(
   "maybelline lash sensational",
   "maybelline%20lash%20sensational",
+  24,
   rossmannMascaras,
 );
 // Nivea Soft 300 ml, which every recording holds, and an id Super-Pharm doesn't have.
@@ -260,6 +270,30 @@ const ROSSMANN_SOFT: NamedProduct = {
   caption: "krem uniwersalny, nawilżający",
   eans: ["4005900009319", "4005808890637", "5900017001234"],
   size: { value: 300, unit: "ml" },
+};
+// Products picked in another shop than Rossmann, as "Dodaj" stores them, without a caption, each as its shop's adapter
+// reads it: Natura's Nivea Soft 300 ml (NV89063, natura-search-nivea-soft.json), and Hebe's AA LAAB face wash and
+// make-up balm, both 150 ml (450251 and 450257, hebe-search-aa-laab.json).
+const NATURA_SOFT: NamedProduct = {
+  brand: "NIVEA",
+  name: "NIVEA SOFT krem intensywnie nawilżający 300 ml",
+  caption: null,
+  eans: ["4005900009319"],
+  size: { value: 300, unit: "ml" },
+};
+const HEBE_FACE_WASH: NamedProduct = {
+  brand: "AA",
+  name: "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający 150 ml",
+  caption: null,
+  eans: ["5900116091877"],
+  size: { value: 150, unit: "ml" },
+};
+const HEBE_MAKE_UP_BALM: NamedProduct = {
+  brand: "AA",
+  name: "AA LAAB 100% Centella B12 Balsam do demakijażu emolientowy 150 ml",
+  caption: null,
+  eans: ["5900116091860"],
+  size: { value: 150, unit: "ml" },
 };
 
 /**
@@ -404,15 +438,15 @@ async function recordedCandidate(
 }
 
 /**
- * A watched product, by its id, as Rossmann's adapter maps it from the recorded search it was picked in, through a
- * real gate that answers only that search's URL.
+ * A watched product, by its id, as Rossmann's adapter maps it from the recorded search it was picked in, the list's
+ * search for as many items as that search asked for, through a real gate that answers only that search's URL.
  */
 async function rossmannProduct(
-  search: { query: string; url: string; answer: object },
+  search: { query: string; size: number; url: string; answer: object },
   id: string,
 ): Promise<NamedProduct> {
   const { gate, fetchMock } = setup([{ url: search.url, status: 200, body: JSON.stringify(search.answer) }]);
-  const result = await searchRossmann(gate, search.query);
+  const result = await searchRossmann(gate, search.query, search.size);
   expect(fetchMock.mock.calls.map(([input]) => (input instanceof Request ? input.url : new URL(input).href))).toEqual([
     search.url,
   ]);
@@ -700,6 +734,26 @@ describe("Super-Pharm search: sizes read from names", () => {
     const [candidate] = await candidatesFrom([withFields(lipBalm(), { name })]);
 
     expect(candidate).toMatchObject({ name, sizeText: null, size: null });
+  });
+
+  // The owner's call of 2026-10-08: only a "+" between spaces joins a set's items.
+  it.each([
+    {
+      why: "an SPF's",
+      name: "Nivea Sun Krem do twarzy SPF50+ 50 ml",
+      sizeText: "50 ml",
+      size: { value: 50, unit: "ml" },
+    },
+    {
+      why: "a brand's",
+      name: "Dove Men+Care Żel pod prysznic 250 ml",
+      sizeText: "250 ml",
+      size: { value: 250, unit: "ml" },
+    },
+  ])("reads the size from a name with $why „+”, which joins no items", async ({ name, sizeText, size }) => {
+    const [candidate] = await candidatesFrom([withFields(lipBalm(), { name })]);
+
+    expect(candidate).toMatchObject({ name, sizeText, size });
   });
 
   it("keeps capacity's size, never the name's, when the name ends with another", async () => {
@@ -1323,6 +1377,29 @@ describe("Super-Pharm search: the matching rule on its candidates (FR-006)", () 
 
     expect(candidates).toHaveLength(1);
     expect(pickMatch(product, candidates).kind).toBe("choose");
+  });
+
+  // Without a caption, every word of the product's name tells it apart (the owner's call of 2026-10-08).
+  it.each([
+    { product: "Hebe's face wash", own: HEBE_FACE_WASH, item: "105870" },
+    { product: "Hebe's make-up balm", own: HEBE_MAKE_UP_BALM, item: "105882" },
+  ])(
+    "accepts $item for $product, without a caption, by its name: every word of it, and no other",
+    async ({ own, item }) => {
+      const candidates = await recordedCandidates(AA_LAAB_LOOKUP.search, AA_LAAB_LOOKUP.answer);
+
+      expect(pickMatch(own, candidates)).toMatchObject({ kind: "accepted", candidate: { shopItemId: item } });
+    },
+  );
+
+  it("leaves Nivea Soft 300 ml to the user for Natura's, without a caption, whose name has „intensywnie” besides", async () => {
+    const candidates = await recordedCandidates(SOFT_SEARCH, nameSearchOne);
+
+    // The right item, though its name lacks a word of the product's: the rule's cost, which only the user's pick pays.
+    expect(pickMatch(NATURA_SOFT, candidates)).toEqual({
+      kind: "choose",
+      options: [{ candidate: candidates[0], verdict: { sharesEan: false, size: "equal", brand: "agrees" } }],
+    });
   });
 });
 

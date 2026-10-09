@@ -1,4 +1,5 @@
-// Database contract check: proves that watchlist rows stay private to their owner against a running Supabase.
+// Database contract check: proves that watchlist rows stay private to their owner against a running Supabase, a
+// product added from another shop than Rossmann, here Natura, as much as one from Rossmann.
 // Run: SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=<anon key> node scripts/check-watchlist-db.mjs
 // Each run signs up two fresh users, so it can run again without resetting the database.
 
@@ -51,6 +52,19 @@ const rossmannItem = (sourceItemId) => ({
   brand: "NIVEA",
   name: "Soft",
   caption: "krem uniwersalny, nawilżający",
+  size_text: "300 ml",
+  size_value: 300,
+  size_unit: "ml",
+  eans: ["4005900009319"],
+});
+
+// The same product as Natura's search finds it (research note §2.5): its SKU, its title, which carries the brand and
+// the size, and no caption, which only Rossmann's products have.
+const naturaItem = (sku) => ({
+  source: "natura",
+  source_item_id: sku,
+  brand: "NIVEA",
+  name: "NIVEA SOFT krem intensywnie nawilżający 300 ml",
   size_text: "300 ml",
   size_value: 300,
   size_unit: "ml",
@@ -124,6 +138,35 @@ check("anon can't add to a watchlist", anonWrite.error?.code === "42501", show(a
 // 8. The source has to be a known shop.
 const unknownShop = await a.client.from("watchlist_items").insert({ ...rossmannItem("1"), source: "dm" });
 check("a product from an unknown shop is refused", unknownShop.error?.code === "23503", show(unknownShop));
+
+// 9. A product added from another shop than Rossmann, here Natura, is a row like any other: its owner adds it and reads
+// it back, no one adds one to another user's list, and another user reads none of it, by its shop or by its id.
+const naturaAdded = await a.client
+  .from("watchlist_items")
+  .insert(naturaItem("NV89063"))
+  .select("id, user_id, source")
+  .single();
+const naturaRowId = naturaAdded.data?.id;
+check(
+  "user A adds a product from Natura",
+  !naturaAdded.error && naturaAdded.data?.user_id === a.id && naturaAdded.data?.source === "natura",
+  show(naturaAdded),
+);
+const aNatura = await a.client.from("watchlist_items").select("id, source_item_id").eq("source", "natura");
+check(
+  "user A reads back their product from Natura",
+  aNatura.data?.length === 1 && aNatura.data[0].id === naturaRowId && aNatura.data[0].source_item_id === "NV89063",
+  show(aNatura),
+);
+const forgedNatura = await b.client.from("watchlist_items").insert({ ...naturaItem("NV81063"), user_id: a.id });
+check("user B can't add a product from Natura for user A", forgedNatura.error?.code === "42501", show(forgedNatura));
+const bNatura = await b.client.from("watchlist_items").select("id").eq("source", "natura");
+const bNaturaById = await b.client.from("watchlist_items").select("id").eq("id", naturaRowId);
+check(
+  "user B reads none of user A's product from Natura",
+  bNatura.data?.length === 0 && bNaturaById.data?.length === 0,
+  `by shop ${show(bNatura)}, by id ${show(bNaturaById)}`,
+);
 
 console.log(failed ? `\n${failed} check(s) failed` : "\nAll watchlist database checks passed");
 process.exit(failed ? 1 : 0);

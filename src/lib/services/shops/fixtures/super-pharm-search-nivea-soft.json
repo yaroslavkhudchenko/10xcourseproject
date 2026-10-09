@@ -1,0 +1,208 @@
+{
+  "hits": [
+    {
+      "name": "Nivea Soft Krem nawilżający (Pudełko)",
+      "url": "https://www.superpharm.pl/nivea-soft-krem-nawilzajacy-pudelko-39477",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/n/i/nivea-soft-krem-do-twarzy-i-ciala-200ml-1_2.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 19.49,
+          "default_formated": "19,49 zł",
+          "default_historical_min_price_formated": "33,99 zł",
+          "special_from_date": 1480001487,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "capacity": "300 ml",
+      "inStoreOnly": 0,
+      "objectID": "10132"
+    },
+    {
+      "name": "Nivea Soft Krem Intensywnie nawilżający SPF15, 200ml",
+      "url": "https://www.superpharm.pl/nivea-soft-krem-intensywnie-nawilzajacy-spf15-200ml-208877",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/6/16088951_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 30.99,
+          "default_formated": "30,99 zł",
+          "default_historical_min_price_formated": "31,99 zł",
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "145460"
+    },
+    {
+      "name": "Nivea Soft Krem Intensywnie nawilżający SPF15, 100ml",
+      "url": "https://www.superpharm.pl/nivea-soft-krem-intensywnie-nawilzajacy-spf15-100ml-208876",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/6/16088950_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 20.99,
+          "default_formated": "20,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "145461"
+    },
+    {
+      "name": "Nivea Lip Care Soft Rose",
+      "url": "https://www.superpharm.pl/nivea-lip-care-soft-rose-5562",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/5/15022529_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 14.99,
+          "default_formated": "14,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": 1480001487,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "10139"
+    },
+    {
+      "name": "Nivea Baby Chusteczki biodegradowalne Soft & Cream 4x57 szt.",
+      "url": "https://www.superpharm.pl/nivea-baby-chusteczki-biodegradowalne-soft-cream-4x57-szt-187004",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/7/17274947_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 38.39,
+          "default_formated": "38,39 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": 1706054400,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "122310"
+    },
+    {
+      "name": "Nivea Baby Chusteczki biodegradowalne Soft&Cream 2x57 szt.",
+      "url": "https://www.superpharm.pl/nivea-baby-chusteczki-biodegradowalne-softcream-2x57-szt-187003",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/7/17274925_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 18.99,
+          "default_formated": "18,99 zł",
+          "default_historical_min_price_formated": "24,99 zł",
+          "special_from_date": 1706054400,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "122353"
+    },
+    {
+      "name": "Nivea Żel pod prysznic Creme Soft",
+      "url": "https://www.superpharm.pl/nivea-zel-pod-prysznic-creme-soft-66397",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/7/17125597_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 11.99,
+          "default_formated": "11,99 zł",
+          "default_historical_min_price_formated": "20,99 zł",
+          "special_from_date": 1604102400,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "capacity": "500 ml",
+      "inStoreOnly": 0,
+      "objectID": "20461"
+    },
+    {
+      "name": "Nivea Żel pod prysznic Creme Soft",
+      "url": "https://www.superpharm.pl/nivea-zel-pod-prysznic-creme-soft-106744",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/7/17221669_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 26.99,
+          "default_formated": "26,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": 1604102400,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "capacity": "750 ml",
+      "inStoreOnly": 0,
+      "objectID": "20377"
+    },
+    {
+      "name": "Nivea Żel pod prysznic Creme Soft Refill, 500 ml",
+      "url": "https://www.superpharm.pl/nivea-zel-pod-prysznic-creme-soft-refill-500-ml-229274",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/1/7/17125599_T1.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 17.99,
+          "default_formated": "17,99 zł",
+          "default_historical_min_price_formated": "19,99 zł",
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "186276"
+    },
+    {
+      "name": "Nivea Zestaw Timeless: Deo AP 50 ml + Krem Soft 100 ml + SG 250 ml",
+      "url": "https://www.superpharm.pl/nivea-zestaw-timeless-deo-ap-50-ml-krem-soft-100-ml-sg-250-ml-218328",
+      "thumbnail_url": "https://media.superpharm.eu/media/catalog/product/cache/c67a6870c5ebea7eb5ebe1ca04d0c8c1/9/5/95703-01966-00_NIVEA_XMAS_Timeless_2025.jpg",
+      "in_stock": 1,
+      "price": {
+        "PLN": {
+          "default": 50.99,
+          "default_formated": "50,99 zł",
+          "default_recommended_price_formated": "59,99 zł",
+          "default_historical_min_price_formated": false,
+          "special_from_date": false,
+          "special_to_date": false
+        }
+      },
+      "brand": "Nivea",
+      "inStoreOnly": 0,
+      "objectID": "163025"
+    }
+  ],
+  "nbHits": 13,
+  "page": 0,
+  "nbPages": 2,
+  "hitsPerPage": 10,
+  "exhaustiveNbHits": true,
+  "exhaustiveTypo": true,
+  "exhaustive": {
+    "nbHits": true,
+    "typo": true
+  },
+  "query": "nivea soft",
+  "params": "query=nivea+soft&hitsPerPage=10&analytics=false&attributesToRetrieve=name%2Cbrand%2Ccapacity%2Curl%2Cthumbnail_url%2Cprice%2Cin_stock%2CinStoreOnly&attributesToHighlight=%5B%5D&tagFilters=",
+  "processingTimeMS": 1,
+  "processingTimingsMS": {
+    "_request": {
+      "roundTrip": 42
+    },
+    "total": 1
+  },
+  "serverTimeMS": 2
+}

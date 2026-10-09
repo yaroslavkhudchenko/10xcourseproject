@@ -1,12 +1,15 @@
 // The list's kitchen sink's fixtures (src/dev/watchlist.astro): made-up products on no one's list, their shops' latest
-// checks and their decisions in Natura, Hebe and Super-Pharm, on a fixed clock, and search results. Every row is built
+// checks and their decisions in the shops they're matched in, on a fixed clock, and search results. Every row is built
 // by the list's own row service (watchlist-rows.ts): one product at a time from its shops, or the whole list from its
 // three reads as the page gets them, so the kitchen sink shows only rows the page can reach. The tag states' rows stand
 // beside a Hebe and a Super-Pharm the user declined, and Hebe's own rows follow them: the cheapest of three, still to
 // match, not found, a match that differs from its product, and a decision that couldn't be read. Super-Pharm's rows
-// close them: the cheapest of four, and still to match. Nothing here is real user data, and nothing here asks Supabase
-// or a shop.
+// follow: the cheapest of four, and still to match. Two products picked in Natura instead close them, each priced by
+// its own item there and matched in Rossmann: the cheapest in Natura, and still to match in Rossmann. The search's
+// results are built by the search's own rules (product-search.ts) from each shop's made-up products, as the four
+// shops' searches would come back with them. Nothing here is real user data, and nothing here asks Supabase or a shop.
 import type { LatestCheck, PricedShop } from "@/lib/services/price-comparison";
+import { searchResultsOf, type SearchResultsView, type ShopFound } from "@/lib/services/product-search";
 import { parseSize } from "@/lib/services/size";
 import {
   filterCounts,
@@ -34,7 +37,8 @@ const before = (ago: number) => new Date(NOW_MS - ago).toISOString();
 
 /**
  * A product on no one's list, numbered `n`: its row links to a product page that answers 404 before any lookup, and
- * its made-up Rossmann id is no shop's. Its size is parsed from its text, as "Dodaj" stores it.
+ * its made-up id, a Rossmann one unless `fields` names another shop, is no shop's. Its size is parsed from its text, as
+ * "Dodaj" stores it.
  */
 function product(n: number, fields: Pick<WatchlistItem, "brand" | "name"> & Partial<WatchlistItem>): WatchlistItem {
   return {
@@ -289,6 +293,77 @@ const SUPER_PHARM_NONE_ROW = rowOf(
   "none",
 );
 
+// Products picked in Natura instead of Rossmann, as Natura names them, with the brand and the size, and no caption:
+// each is priced by its own item in Natura and matched in Rossmann, Hebe and Super-Pharm. Their rows come from the
+// list's own reads as the page gets them, so the list's rules decide their own items and their matched shops. A night
+// cream matched in Rossmann on its own, to an item of its brand and size, and declined in Hebe and Super-Pharm: its own
+// Natura price is the lowest.
+const SORAYA = product(23, {
+  source: "natura",
+  sourceItemId: "NV90023",
+  brand: "SORAYA",
+  name: "SORAYA Beauty Sleep krem na noc 50 ml",
+  sizeText: "50 ml",
+});
+const SORAYA_ROSSMANN_ID = "900023";
+const SORAYA_OWN_PRICE: LatestPrice = {
+  shop: "natura",
+  shopItemId: SORAYA.sourceItemId,
+  ...checked(10 * MINUTE, 24.99),
+};
+const [NATURA_PICKED_ROW] = listRowsOf(
+  [SORAYA],
+  {
+    states: [
+      {
+        watchlistItemId: SORAYA.id,
+        shop: "rossmann",
+        state: "matched",
+        shopItemId: SORAYA_ROSSMANN_ID,
+        brand: "Soraya",
+        size: parseSize("50 ml"),
+        decidedBy: "auto",
+      },
+      { watchlistItemId: SORAYA.id, shop: "hebe", state: "unmatched", shopItemId: null },
+      superPharmDeclined(SORAYA.id),
+    ],
+    unread: [],
+    unattributed: [],
+  },
+  {
+    prices: [SORAYA_OWN_PRICE, { shop: "rossmann", shopItemId: SORAYA_ROSSMANN_ID, ...checked(10 * MINUTE, 27.49) }],
+    unread: [],
+    unattributed: 0,
+  },
+  NOW_MS,
+);
+// A face cream picked in Natura with no decision in Rossmann yet, and declined in Hebe and Super-Pharm: its own Natura
+// price is its only one, and the row says Rossmann is still to match, which puts it in "Do sprawdzenia".
+const SYLVECO = product(24, {
+  source: "natura",
+  sourceItemId: "NV90024",
+  brand: "SYLVECO",
+  name: "SYLVECO Lekki krem brzozowy 50 ml",
+  sizeText: "50 ml",
+});
+const [NATURA_ROSSMANN_NONE_ROW] = listRowsOf(
+  [SYLVECO],
+  {
+    states: [
+      { watchlistItemId: SYLVECO.id, shop: "hebe", state: "unmatched", shopItemId: null },
+      superPharmDeclined(SYLVECO.id),
+    ],
+    unread: [],
+    unattributed: [],
+  },
+  {
+    prices: [{ shop: "natura", shopItemId: SYLVECO.sourceItemId, ...checked(30 * MINUTE, 11.99) }],
+    unread: [],
+    unattributed: 0,
+  },
+  NOW_MS,
+);
+
 /** What a screen reader hears of a row, as a fixture's label quotes it. */
 const heard = (row: ListRow) => `czytnik ekranu słyszy: „${row.summary}”`;
 
@@ -405,6 +480,18 @@ export const ROW_FIXTURES: RowFixture[] = [
       "Super-Pharm do dopasowania, bo jego kandydaci czekają na Twój wybór na stronie produktu: wiersz liczy się w " +
       `„Do sprawdzenia”, a ${heard(SUPER_PHARM_NONE_ROW)}`,
     row: SUPER_PHARM_NONE_ROW,
+  },
+  {
+    code: "natura-picked",
+    text:
+      "dodany z Natury: jej własna cena najtańsza, obok Rossmanna dopasowanego automatycznie, etykieta w kolorze sun " +
+      `z nazwą Natury, a ${heard(NATURA_PICKED_ROW)}`,
+    row: NATURA_PICKED_ROW,
+  },
+  {
+    code: "natura-picked-rossmann-none",
+    text: `dodany z Natury, Rossmann do dopasowania: wiersz liczy się w „Do sprawdzenia”, a ${heard(NATURA_ROSSMANN_NONE_ROW)}`,
+    row: NATURA_ROSSMANN_NONE_ROW,
   },
 ];
 
@@ -532,6 +619,16 @@ export const ROWS_FIXTURES: RowsFixture[] = [
     pricesFailed: false,
   },
   {
+    code: "matches-failed + natura",
+    text:
+      "nie udało się wczytać decyzji, a na liście jest też produkt dodany z Natury: alert wymienia i Rossmanna, w " +
+      "którym ten produkt jest dopasowywany",
+    rows: listRowsOf([...LIST, SORAYA], null, { ...PRICE_READ, prices: [...LIST_PRICES, SORAYA_OWN_PRICE] }, NOW_MS),
+    filter: "all",
+    matchesFailed: true,
+    pricesFailed: false,
+  },
+  {
     code: "prices-failed",
     text: "nie udało się wczytać cen: żaden wiersz nie mówi, że nie ma ceny",
     rows: listRowsOf(LIST, MATCH_READ, null, NOW_MS),
@@ -549,15 +646,20 @@ export const ROWS_FIXTURES: RowsFixture[] = [
   },
 ];
 
-/** A search result, as Rossmann's search gives it: an item of no real product. */
-function candidate(
+/**
+ * A search result, as `source`'s search gives it: an item of no real product, its size parsed from its text, with no
+ * caption unless Rossmann's. Its made-up id, "dev:" and a number, is one no shop's adapter takes, so a stray "Dodaj"
+ * stores nothing and comes back to the list with its error.
+ */
+function found(
+  source: PricedShop,
   fields: Pick<ProductCandidate, "sourceItemId" | "brand" | "name"> & Partial<ProductCandidate>,
 ): ProductCandidate {
   return {
-    source: "rossmann",
+    source,
     caption: null,
     sizeText: null,
-    size: null,
+    size: parseSize(fields.sizeText ?? null),
     eans: [],
     productUrl: null,
     imageUrl: null,
@@ -565,37 +667,154 @@ function candidate(
   };
 }
 
-/**
- * The search results, one of them already on the list. The one "Dodaj" offers has an id the add form refuses, so a
- * stray tap stores nothing and comes back to the list with its error.
- */
-export const SEARCH_CANDIDATES: ProductCandidate[] = [
-  candidate({
-    sourceItemId: "dev-sink",
-    brand: "NIVEA",
-    name: "Soft",
-    caption: "krem nawilżający",
-    sizeText: "200 ml",
-  }),
-  candidate({
-    sourceItemId: NIVEA.sourceItemId,
-    brand: NIVEA.brand,
-    name: NIVEA.name,
-    caption: NIVEA.caption,
-    sizeText: NIVEA.sizeText,
-  }),
-  candidate({
-    sourceItemId: "dev-sink-long",
-    brand: LOREAL.brand,
-    name: LOREAL.name,
-    caption: LOREAL.caption,
-    sizeText: LOREAL.sizeText,
-    imageUrl: "/favicon.png",
-  }),
+// A cream every shop finds, by the EAN Rossmann, Natura and Hebe share with it, and Super-Pharm by its name, which has
+// no word the product's lacks: one entry from four shops, whose "Dodaj" adds Rossmann's item.
+const SOFT_EAN = "5900000000017";
+const SOFT_IN_ROSSMANN = found("rossmann", {
+  sourceItemId: "dev:1",
+  brand: "NIVEA",
+  name: "Soft",
+  caption: "krem nawilżający",
+  sizeText: "200 ml",
+  eans: [SOFT_EAN],
+});
+const SOFT_IN_NATURA = found("natura", {
+  sourceItemId: "dev:2",
+  brand: "NIVEA",
+  name: "NIVEA SOFT krem nawilżający 200 ml",
+  sizeText: "200 ml",
+  eans: [SOFT_EAN],
+});
+const SOFT_IN_HEBE = found("hebe", {
+  sourceItemId: "dev:3",
+  brand: "Nivea",
+  name: "Nivea Soft krem nawilżający, 200 ml",
+  sizeText: "200 ml",
+  eans: [SOFT_EAN],
+});
+const SOFT_IN_SUPER_PHARM = found("super-pharm", {
+  sourceItemId: "dev:4",
+  brand: "Nivea",
+  name: "Nivea Soft Krem nawilżający",
+  sizeText: "200 ml",
+});
+// Nivea's own item on the list, which Rossmann's search finds again: "Na liście".
+const NIVEA_IN_ROSSMANN = found("rossmann", {
+  sourceItemId: NIVEA.sourceItemId,
+  brand: NIVEA.brand,
+  name: NIVEA.name,
+  caption: NIVEA.caption,
+  sizeText: NIVEA.sizeText,
+  eans: ["5900000000031"],
+});
+// A shower gel only Natura's search finds: an entry of one shop.
+const GEL_IN_NATURA = found("natura", {
+  sourceItemId: "dev:5",
+  brand: "Isana",
+  name: "Isana żel pod prysznic Mango 500 ml",
+  sizeText: "500 ml",
+  eans: ["5900000000024"],
+});
+// Hebe's item that Ziaja's body milk on the list is matched to: "Na liście" as a product's match.
+const ZIAJA_HEBE_ID = "990000000000000003";
+const MILK_IN_HEBE = found("hebe", {
+  sourceItemId: ZIAJA_HEBE_ID,
+  brand: "Ziaja",
+  name: "Ziaja mleczko do ciała kozie mleko 400 ml",
+  sizeText: "400 ml",
+  eans: ["5900000000048"],
+});
+// A set only Super-Pharm's search finds, with no size and a long name, and the app's own icon as its photo.
+const SET_IN_SUPER_PHARM = found("super-pharm", {
+  sourceItemId: "dev:6",
+  brand: LOREAL.brand,
+  name:
+    "L'Oréal Paris Elseve Dream Long odżywka wygładzająca do włosów długich i zniszczonych, bez spłukiwania, " +
+    "zestaw promocyjny",
+  imageUrl: "/favicon.png",
+});
+
+// The list the results are checked against, from its two reads: Nivea's own item, and Ziaja's match in Hebe.
+const SEARCH_LIST: WatchlistItem[] = [NIVEA, ZIAJA];
+const SEARCH_DECISIONS: ShopMatchState[] = [
+  {
+    watchlistItemId: ZIAJA.id,
+    shop: "hebe",
+    state: "matched",
+    shopItemId: ZIAJA_HEBE_ID,
+    brand: "Ziaja",
+    size: parseSize("400 ml"),
+    decidedBy: "user",
+  },
 ];
 
-/** The products the search results are checked against: Nivea's is on the list. */
-export const SEARCH_LISTED = [NIVEA];
+/** Every shop's search, as the list's search comes back with them: each shop's products, or its own outcome. */
+function searched(
+  shops: Partial<Record<PricedShop, ShopFound>>,
+  spellingHint: string | null = null,
+): SearchResultsView {
+  return searchResultsOf({ shops, spellingHint }, SEARCH_LIST, SEARCH_DECISIONS);
+}
+
+/** One state of the search's results, with the kitchen sink's label for it and the text it was searched with. */
+export interface SearchFixture {
+  code: string;
+  text: string;
+  query: string;
+  results: SearchResultsView;
+}
+
+export const SEARCH_FIXTURES: SearchFixture[] = [
+  {
+    code: "four shops",
+    text:
+      "każdy sklep odpowiedział: wpis z czterech sklepów, „Na liście” dla produktu z listy i dla dopasowania produktu " +
+      "z listy w Hebe, wpisy jednego sklepu, z długą nazwą i ze zdjęciem, i podpowiedź pisowni",
+    query: "nivea soft",
+    results: searched(
+      {
+        rossmann: { kind: "results", products: [SOFT_IN_ROSSMANN, NIVEA_IN_ROSSMANN] },
+        natura: { kind: "results", products: [SOFT_IN_NATURA, GEL_IN_NATURA] },
+        hebe: { kind: "results", products: [SOFT_IN_HEBE, MILK_IN_HEBE] },
+        "super-pharm": { kind: "results", products: [SOFT_IN_SUPER_PHARM, SET_IN_SUPER_PHARM] },
+      },
+      "nivea soft 300 ml",
+    ),
+  },
+  {
+    code: "hebe busy",
+    text: "Hebe nie odpowiada, bo jej wyszukiwarka jest zajęta: linia to mówi, a wpisy pozostałych sklepów są",
+    query: "nivea soft",
+    results: searched({
+      rossmann: { kind: "results", products: [SOFT_IN_ROSSMANN, NIVEA_IN_ROSSMANN] },
+      natura: { kind: "results", products: [SOFT_IN_NATURA, GEL_IN_NATURA] },
+      hebe: { kind: "unavailable", reason: "busy" },
+      "super-pharm": { kind: "results", products: [SOFT_IN_SUPER_PHARM, SET_IN_SUPER_PHARM] },
+    }),
+  },
+  {
+    code: "nothing found",
+    text: "każdy sklep odpowiedział, żaden nic nie znalazł",
+    query: "nivea sofft",
+    results: searched({
+      rossmann: { kind: "results", products: [] },
+      natura: { kind: "results", products: [] },
+      hebe: { kind: "results", products: [] },
+      "super-pharm": { kind: "results", products: [] },
+    }),
+  },
+  {
+    code: "no answer",
+    text: "żaden sklep nie odpowiedział: mówi to tylko linia, sklep po sklepie",
+    query: "nivea soft",
+    results: searched({
+      rossmann: { kind: "unavailable", reason: "stopped" },
+      natura: { kind: "unavailable", reason: "paused", until: "2026-09-29T10:30:00.000Z" },
+      hebe: { kind: "unavailable", reason: "busy" },
+      "super-pharm": { kind: "unavailable", reason: "failed" },
+    }),
+  },
+];
 
 /** The kitchen sink's signed-in user, made up. */
 export const EMAIL = "ania@example.com";

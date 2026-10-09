@@ -565,4 +565,45 @@ describe("productPricesOf", () => {
       ["super-pharm", null],
     ]);
   });
+
+  it("reads a product picked in Natura by its own Natura item, linked to its own page, and its Rossmann match", async () => {
+    // Nivea Soft picked in Natura, matched to Felix at Rossmann (a placeholder pairing: only the ids and links count
+    // here), with no Hebe item. A match in Natura, its own shop, as no step of its page gives, adds nothing.
+    const fromNatura = { source: "natura" as const, sourceItemId: "NV89063", productUrl: NATURA_PAGE };
+    const ROSSMANN_PAGE = "https://www.rossmann.pl/Produkt/Felix,131225";
+    const steps = [
+      { shop: "rossmann" as const, item: itemOf("131225", ROSSMANN_PAGE) },
+      { shop: "natura" as const, item: itemOf("NV81063", "https://drogerienatura.pl/produkt/nivea-men") },
+      { shop: "hebe" as const, item: null },
+    ];
+    const { client, queries } = stubClient({ data: [softSummaryRow, felixSummaryRow] });
+
+    expect(await productPricesOf(client, fromNatura, steps)).toEqual({
+      shops: [
+        {
+          shop: "natura",
+          shopItemId: "NV89063",
+          productUrl: NATURA_PAGE,
+          latest: softWithoutHistory,
+          readFailed: false,
+        },
+        {
+          shop: "rossmann",
+          shopItemId: "131225",
+          productUrl: ROSSMANN_PAGE,
+          latest: felixWithHistory,
+          readFailed: false,
+        },
+      ],
+      pricesFailed: false,
+    });
+    expect(queries).toEqual([
+      [
+        ["from", "price_summaries"],
+        ["select", SUMMARY_COLUMNS],
+        ["in", "shop_item_id", ["NV89063", "131225"]],
+        ["abortSignal", true],
+      ],
+    ]);
+  });
 });

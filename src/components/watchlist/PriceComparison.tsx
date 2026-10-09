@@ -30,12 +30,16 @@ interface Props {
   /** The product, as the title names it. */
   product: TitleProduct;
   /**
-   * The matched shops as the page read them, in MATCHED_SHOPS order, each for its card among the shops' cards: its
-   * view, with no candidates for a choice, which the shop's section below the island holds; a decision's notice and
-   * error; and whether the lookup's outcome went unsaved.
+   * The product's matched shops as the page read them, every priced shop but its own, in the pages' order
+   * (matchedShopsOf), each for its card among the shops' cards: its view, with no candidates for a choice, which the
+   * shop's section below the island holds; a decision's notice and error; and whether the lookup's outcome went
+   * unsaved.
    */
   matched: MatchedShopView[];
-  /** The product's matched shops, in the page's order, each with its item's page and its stored price. */
+  /**
+   * The product's priced shops, in the page's order, its own shop's item first, then each match's (productPricesOf),
+   * each with its item's page and its stored price: the item each refetch names.
+   */
   shops: PriceComparisonShop[];
   /** Whether opening the page may refetch shops on its own: only the user's own navigation may. */
   autoRefresh: boolean;

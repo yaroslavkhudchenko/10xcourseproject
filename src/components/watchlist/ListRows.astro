@@ -6,14 +6,23 @@
 // beside a product the list's landmark carries that name, so its rows need none.
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import WatchlistRow from "@/components/watchlist/WatchlistRow.astro";
-import { inFilter, matchesFailedText, type ListFilter, type ListRow } from "@/lib/services/watchlist-rows";
+import {
+  inFilter,
+  listMatchedShops,
+  matchesFailedText,
+  type ListFilter,
+  type ListRow,
+} from "@/lib/services/watchlist-rows";
 
 interface Props {
   /** Every product's row, in the list's order, or null when the list couldn't be read. */
   rows: ListRow[] | null;
   /** The filter the rows are shown with. */
   filter: ListFilter;
-  /** Whether the decisions couldn't be read at all: the alert names the matched shops, whose decisions one read holds. */
+  /**
+   * Whether the decisions couldn't be read at all: the alert names the shops the rows' products are matched in
+   * (listMatchedShops), whose decisions one read holds.
+   */
   matchesFailed: boolean;
   /** Whether the prices couldn't be read at all. */
   pricesFailed: boolean;
@@ -37,7 +46,7 @@ const shown = rows?.filter((row) => inFilter(row, filter)) ?? [];
   <div class="flex flex-col gap-2.5 lg:gap-3">
     {matchesFailed && (
       <Alert variant="destructive">
-        <AlertDescription>{matchesFailedText()}</AlertDescription>
+        <AlertDescription>{matchesFailedText(listMatchedShops(rows))}</AlertDescription>
       </Alert>
     )}
     {pricesFailed && (

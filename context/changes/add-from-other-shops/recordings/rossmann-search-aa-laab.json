@@ -1,0 +1,434 @@
+{
+  "data": {
+    "filters": {
+      "categories": [
+        {
+          "id": 12001,
+          "name": "Pielęgnacja i higiena",
+          "priority": 2,
+          "productsCount": 2,
+          "children": [
+            {
+              "id": 13047,
+              "name": "Twarz",
+              "priority": 1,
+              "productsCount": 2,
+              "children": [
+                {
+                  "id": 13059,
+                  "name": "Oczyszczanie i demakijaż twarzy",
+                  "priority": 2,
+                  "productsCount": 2,
+                  "children": [
+                    {
+                      "id": 13060,
+                      "name": "Żele i pianki do mycia twarzy",
+                      "priority": 3,
+                      "productsCount": 2,
+                      "children": [],
+                      "faqs": []
+                    }
+                  ],
+                  "faqs": []
+                }
+              ],
+              "faqs": []
+            }
+          ],
+          "faqs": []
+        },
+        {
+          "id": 19245,
+          "name": "Lifestyle",
+          "priority": 11,
+          "productsCount": 1,
+          "children": [
+            {
+              "id": 19246,
+              "name": "Podróż",
+              "priority": 1,
+              "productsCount": 1,
+              "children": [
+                {
+                  "id": 19247,
+                  "name": "Minikosmetyki",
+                  "priority": 1,
+                  "productsCount": 1,
+                  "children": [],
+                  "faqs": []
+                }
+              ],
+              "faqs": []
+            }
+          ],
+          "faqs": []
+        }
+      ],
+      "price": {
+        "min": 7,
+        "max": 17
+      },
+      "facets": [
+        {
+          "key": "brands",
+          "name": "Marka",
+          "values": [
+            {
+              "key": "2173",
+              "name": "AA",
+              "productCount": 2
+            }
+          ]
+        },
+        {
+          "key": "recommended",
+          "name": "Polecane",
+          "values": [
+            {
+              "key": "premiere",
+              "name": "Nowe!",
+              "productCount": 1
+            },
+            {
+              "key": "rossmann",
+              "name": "Tylko u nas",
+              "productCount": 1
+            }
+          ]
+        },
+        {
+          "key": "promotions",
+          "name": "Promocje",
+          "values": [
+            {
+              "key": "mega",
+              "name": "Mega",
+              "productCount": 1
+            },
+            {
+              "key": "promotion",
+              "name": "Promocja",
+              "productCount": 2
+            }
+          ]
+        },
+        {
+          "key": "składniki",
+          "name": "Składniki",
+          "type": 0,
+          "values": [
+            {
+              "key": "składniki^ceramidy",
+              "name": "Ceramidy",
+              "productCount": 1
+            },
+            {
+              "key": "składniki^wąkrotka azjatycka",
+              "name": "Wąkrotka azjatycka",
+              "productCount": 2
+            },
+            {
+              "key": "składniki^witamina b12",
+              "name": "Witamina b12",
+              "productCount": 2
+            },
+            {
+              "key": "składniki^witamina c",
+              "name": "Witamina c",
+              "productCount": 1
+            }
+          ]
+        },
+        {
+          "key": "właściwości",
+          "name": "Właściwości",
+          "type": 0,
+          "values": [
+            {
+              "key": "właściwości^łagodzące",
+              "name": "Łagodzące",
+              "productCount": 2
+            },
+            {
+              "key": "właściwości^nawilżające",
+              "name": "Nawilżające",
+              "productCount": 2
+            }
+          ]
+        },
+        {
+          "key": "dla kogo",
+          "name": "Dla kogo",
+          "type": 0,
+          "values": [
+            {
+              "key": "dla kogo^kobieta",
+              "name": "Kobieta",
+              "productCount": 2
+            }
+          ]
+        },
+        {
+          "key": "format",
+          "name": "Format",
+          "type": 0,
+          "values": [
+            {
+              "key": "format^mini",
+              "name": "Mini",
+              "productCount": 2
+            }
+          ]
+        },
+        {
+          "key": "przeznaczenie",
+          "name": "Przeznaczenie",
+          "type": 0,
+          "values": [
+            {
+              "key": "przeznaczenie^twarz",
+              "name": "Twarz",
+              "productCount": 2
+            }
+          ]
+        },
+        {
+          "key": "rodzaj skóry",
+          "name": "Rodzaj skóry",
+          "type": 0,
+          "values": [
+            {
+              "key": "rodzaj skóry^sucha",
+              "name": "Sucha",
+              "productCount": 2
+            }
+          ]
+        },
+        {
+          "key": "typ skóry",
+          "name": "Typ skóry",
+          "type": 0,
+          "values": [
+            {
+              "key": "typ skóry^odwodniona",
+              "name": "Odwodniona",
+              "productCount": 2
+            }
+          ]
+        }
+      ]
+    },
+    "items": [
+      {
+        "brand": "AA",
+        "brandId": 2173,
+        "caption": "żel do mycia twarzy, nawilżający, 100% Centella B12",
+        "fallbackName": "Żel do mycia twarzy",
+        "fallbackCaption": "nawilżający, 100% Centella B12",
+        "unit": "75 ml",
+        "averageRating": 4.8,
+        "totalReviews": 48,
+        "id": 2132081,
+        "rossnetId": 0,
+        "eanNumber": ["5900116119755"],
+        "navigateUrl": "/Produkt/Zele-i-pianki-do-mycia-twarzy/AA-LAAB-Skin-Barrier-Protection-zel-do-mycia-twarzy-nawilzajacy-100-Centella-B12-75-ml,2132081,13060",
+        "name": "LAAB Skin Barrier Protection",
+        "oldPrice": 11.99,
+        "price": 7.99,
+        "pricePerUnit": "100 ml = 10,65 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/2132081_55_71_1785523708.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/2132081_360_350_1785523710.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/2132081_338_190_1785523709.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/2132081_1280_720_1785523716.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/2132081_340_340_1785523717.png",
+            "type": 1,
+            "alt": "LAAB ŻEL DO MYCIA TWARZY NAWILŻAJĄCY, jasnoróżowa tubka z ceramidami i Centella B12, widok frontalny.",
+            "side": "Front"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/2132081_55_71_1773988783.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/2132081_360_350_1773988786.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/2132081_338_190_1773988785.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/2132081_1280_720_1773988794.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/2132081_340_340_1773988794.png",
+            "type": 0,
+            "alt": "Tył różowej tubki AA LAAB ŻEL DO MYCIA TWARZY 75 ml z opisem działania, składnikami Centella B12 i Ceramidy.",
+            "side": "Back"
+          }
+        ],
+        "promotion": {
+          "type": "mega",
+          "redirectUrl": "/produkty?Statuses=mega"
+        },
+        "promotionFrom": "2026-10-01T00:00:00",
+        "promotionTo": "2026-10-14T00:00:00",
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Pielęgnacja i higiena-Twarz-Oczyszczanie i demakijaż twarzy-Żele i pianki do mycia twarzy",
+        "attributes": [
+          {
+            "type": "mega",
+            "redirectUrl": "/produkty?Statuses=mega"
+          },
+          {
+            "type": "premiere",
+            "redirectUrl": "/produkty?Statuses=premiere"
+          },
+          {
+            "type": "rossmann",
+            "redirectUrl": "/produkty?Statuses=rossmann"
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "promoAll",
+            "redirectUrl": "/produkty?Statuses=promoAll"
+          },
+          {
+            "type": "promoNew",
+            "redirectUrl": "/produkty?Statuses=promoNew"
+          }
+        ],
+        "lastLowestPrice": 11.99,
+        "lastLowestPriceType": "basic",
+        "lastLowestPriceV2": 11.99,
+        "lastLowestPriceTypeV2": "basic",
+        "badges": [
+          {
+            "type": "mega",
+            "name": "MEGA!",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Discounts=mega",
+              "relative": "/produkty?Discounts=mega"
+            }
+          },
+          {
+            "type": "premiere",
+            "name": "NOWE",
+            "redirectUrls": {
+              "absolute": "https://www.rossmann.pl/produkty?Statuses=premiere",
+              "relative": "/produkty?Statuses=premiere"
+            }
+          }
+        ],
+        "isInOut": false
+      },
+      {
+        "brand": "AA",
+        "brandId": 2173,
+        "caption": "żel do mycia twarzy nawilżający, 100% Centella B12",
+        "fallbackName": "Żel do mycia twarzy",
+        "fallbackCaption": "nawilżający, 100% Centella B12",
+        "unit": "150 ml",
+        "averageRating": 4.89,
+        "totalReviews": 386,
+        "id": 419343,
+        "rossnetId": 553523,
+        "eanNumber": ["5900116091877"],
+        "navigateUrl": "/Produkt/Zele-i-pianki-do-mycia-twarzy/AA-LAAB-Skin-Barrier-Protection-zel-do-mycia-twarzy-nawilzajacy-100-Centella-B12-150-ml,419343,13060",
+        "name": "LAAB Skin Barrier Protection",
+        "oldPrice": 19.99,
+        "price": 16.49,
+        "pricePerUnit": "100 ml = 10,99 zł",
+        "vat": 23,
+        "dimensional": 0,
+        "pictures": [
+          {
+            "id": 1,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_mini/419343_55_71_1785339470.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_medium/419343_360_350_1785339472.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_small/419343_338_190_1785339471.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_large/419343_1280_720_1785339481.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_1_square/419343_340_340_1785339482.png",
+            "type": 1,
+            "alt": "Różowy żel nawilżający do mycia twarzy LAAB z Centella B12, tubka z białą etykietą, widok z przodu.",
+            "side": "Front"
+          },
+          {
+            "id": 11,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_mini/419343_55_71_1772192734.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_medium/419343_360_350_1772192742.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_small/419343_338_190_1772192734.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_large/419343_1280_720_1772192745.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_11_square/419343_340_340_1772192749.png",
+            "type": 0,
+            "alt": "Różowa tubka nawilżającego żelu AA LAAB Centella B12, widok z przodu. Obok wypisane główne korzyści produktu.",
+            "side": "Rc1"
+          },
+          {
+            "id": 12,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_mini/419343_55_71_1772192756.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_medium/419343_360_350_1772192762.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_small/419343_338_190_1772192756.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_large/419343_1280_720_1772192766.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_12_square/419343_340_340_1772192765.png",
+            "type": 0,
+            "alt": "AA LAAB Centella B12: grafika składników – zielona centella i różowa witamina B12. Ochrona bariery skóry.",
+            "side": "Rc2"
+          },
+          {
+            "id": 2,
+            "mini": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_mini/419343_55_71_1738246442.webp",
+            "medium": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_medium/419343_360_350_1738246443.webp",
+            "small": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_small/419343_338_190_1738246442.webp",
+            "large": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_large/419343_1280_720_1738246444.webp",
+            "square": "https://pro-fra-s3-productsassets.rossmann.pl/product_2_square/419343_340_340_1738246443.png",
+            "type": 0,
+            "alt": "Tył różowej tubki AA LAAB Centella B12 nawilżający żel do mycia twarzy, widoczny opis i skład produktu.",
+            "side": "Back"
+          }
+        ],
+        "promotion": {
+          "type": "seasonal",
+          "redirectUrl": "/produkty?Statuses=seasonal",
+          "attributes": []
+        },
+        "promotionFrom": "2026-10-01T00:00:00",
+        "promotionTo": "2026-10-14T00:00:00",
+        "hasRichContent": false,
+        "availability": "available",
+        "category": "Pielęgnacja i higiena-Twarz-Oczyszczanie i demakijaż twarzy-Żele i pianki do mycia twarzy",
+        "attributes": [
+          {
+            "type": "seasonal",
+            "redirectUrl": "/produkty?Statuses=seasonal",
+            "attributes": []
+          },
+          {
+            "type": "promoAll",
+            "redirectUrl": "/produkty?Statuses=promoAll"
+          },
+          {
+            "type": "promoNew",
+            "redirectUrl": "/produkty?Statuses=promoNew"
+          }
+        ],
+        "lastLowestPrice": 19.99,
+        "lastLowestPriceType": "basic",
+        "lastLowestPriceV2": 19.99,
+        "lastLowestPriceTypeV2": "basic",
+        "badges": [],
+        "isInOut": false
+      }
+    ],
+    "recommendedProducts": [],
+    "totalPages": 1,
+    "totalCount": 2,
+    "correlationId": "93fd0dd60c25bc7b98531d459dfa1aaf",
+    "spellCheckHint": ""
+  }
+}

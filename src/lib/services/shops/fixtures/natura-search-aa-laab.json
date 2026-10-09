@@ -1,0 +1,2034 @@
+{
+  "results": {
+    "query": "AA LAAB 100% Centella B12 Zel do mycia twarzy nawilzajacy",
+    "corrected_query": null,
+    "filters": [],
+    "filters_negative": [],
+    "accepted_filters": [],
+    "hits": [
+      {
+        "url": "OC91938",
+        "identity_hash": 3769926198536163998,
+        "attributes": {
+          "ordered_quantity": ["0.000000"],
+          "show_is_new": ["Wyłączony"],
+          "cepdtech_catalog_filter_bestseller": ["2"],
+          "price": "34.99 zł",
+          "id": [66788],
+          "lb_id": ["OC91938"],
+          "sku": ["OC91938"],
+          "is_returnable": [],
+          "quantity_default": [4],
+          "brand": ["AA"],
+          "all_categories": [
+            "Wszystkie produkty",
+            "Oferta",
+            "Twarz",
+            "Kosmetyki do twarzy",
+            "Kremy do twarzy",
+            "Kremy na noc",
+            "Promocje",
+            "Superoferty",
+            "Produkty",
+            "Wszystkie"
+          ],
+          "size_unit": ["ml"],
+          "images": [
+            "https://media.drogerienatura.pl/catalog/product/5/9/5900116091938_d591.jpg?store=default&image-type=image"
+          ],
+          "image_link": "https://media.drogerienatura.pl/catalog/product/5/9/5900116091938_d591.jpg?store=default&image-type=image",
+          "producent_gpsr1": ["OCEANIC SP. Z O.O, POLSKA  Łokietka 58, 81-736, Sopot,  [email removed]"],
+          "rating_summary": [0],
+          "price_amount": 34.99,
+          "bool_tags": [],
+          "show_out_of_stock": ["Włączony"],
+          "online_only": ["2.000000"],
+          "meta_description": [
+            "AA LAAB krem na noc naprawczy zapewnia intensywne nawilżenie regenerację i ochronę skóry wrażliwej. Dzięki kompleksowi Centella B12 przywraca skórze blask i wygładza."
+          ],
+          "size": ["40.0000"],
+          "discount_price_percentage_amount": 16.67,
+          "category_urls": [
+            "/kategoria/wszystkie-produkty-1066",
+            "/kategoria/oferta-1520",
+            "/kategoria/twarz-1749",
+            "/kategoria/kremy-do-twarzy-1752",
+            "/kategoria/kremy-na-noc-1865",
+            "/kategoria/kosmetyki-do-twarzy-2658",
+            "/kategoria/promocje-3834",
+            "/kategoria/twarz-3844",
+            "/kategoria/promocje-4949",
+            "/kategoria/superoferty-4984",
+            "/kategoria/kosmetyki-do-twarzy-5648",
+            "/kategoria/kosmetyki-do-twarzy-5654",
+            "/kategoria/produkty-7603",
+            "/kategoria/wszystkie-7737"
+          ],
+          "boost": 0,
+          "short_description": [
+            "AA LAAB to zaawansowany program pielęgnacyjny nowej generacji, który szybko poprawi kondycję skóry i jednocześnie w ekspercki sposób zadba o jej wrażliwość.  AA LAAB Krem na noc naprawczy zapewni Twojej skórze: • 48 godzin intensywnego nawilżenia • odbudowę bariery hydrolipidowej • wzmocnienie funkcji ochronnej • redukcję oznak starzenia • widoczne odżywienie • wygładzenie oraz aksamitną miękkość  Już nie musisz wybierać pomiędzy skutecznością a bezpieczeństwem. Nowatorska receptura bazuje na aktywności multifunkcyjnych składników, które poprzez synergiczne działanie zapewniają skórze skuteczną profilaktykę starzenia, bez ryzyka podrażnień.  Kompleks CENTELLA B12 to zgłoszone do patentu połączenie dwóch wyjątkowych składników aktywnych: 1. CENTELLA Z MADAGASKARU • zapobiega powstawaniu zmarszczek, wzmacniając włókna kolagenu • intensywnie nawilża, chroniąc kwas hialuronowy przed degradacją • detoksykuje, neutralizując wolne rodniki 2. WITAMINA B12 • działa przeciwzapalnie • skutecznie łagodzi podrażnienia i reakcje alergiczne skóry  Moc kompleksu CENTELLA B12 wzmacnia MELATONINA, która działa przeciwzmarszczkowo i antyoksydacyjnie, usprawniając proces nocnej regeneracji.   96% składników pochodzenia naturalnego, Vegan & Cruelty Free"
+          ],
+          "magento_status": ["Włączony"],
+          "boosted_via": [],
+          "position_number": ["598.000000"],
+          "lowest_price": ["30.490000"],
+          "description": "Nawilżenie, regeneracja i ochrona skóry wrażliwej z naprawczym kremem AA LAAB\n\nAA LAAB to zaawansowany program pielęgnacyjny nowej generacji, który szybko poprawi kondycję skóry i jednocześnie w ekspercki sposób zadba o jej wrażliwość. Już nie musisz wybierać pomiędzy skutecznością a bezpieczeństwem. Nowatorska receptura bazuje na aktywności multifunkcyjnych składników, które poprzez synergiczne działanie zapewniają skórze skuteczną profilaktykę starzenia, bez ryzyka podrażnień.\n\nAA LAAB naprawczy krem na noc zapewnia48 godzin intensywnego nawilżeniaodbudowę bariery hydrolipidowejwzmocnienie funkcji ochronnejredukcję oznak starzenia widoczne odżywieniewygładzenie oraz aksamitną miękkość\nKompleks CENTELLA B12 to zgłoszone do patentu połączenie dwóch wyjątkowych składników aktywnych:\n1. CENTELLA Z MADAGASKARUzapobiega powstawaniu zmarszczek, wzmacniając włókna kolagenuintensywnie nawilża, chroniąc kwas hialuronowy przed degradacjądetoksykuje, neutralizując wolne rodniki\n2. WITAMINA B12działa przeciwzapalnieskutecznie łagodzi podrażnienia i reakcje alergiczne skóry\nMoc kompleksu CENTELLA B12 wzmacniają CERAMIDY, które są składnikami budulcowymi naskórka, regenerują jego strukturę i chronią przed utratą nawilżenia. 96% składników pochodzenia naturalnego, Vegan &amp; Cruelty Free.",
+          "availability": 1,
+          "tier_prices": [],
+          "main_category_lvl_1": ["Wszystkie produkty"],
+          "title": "AA LAAB multiaktywny krem na noc naprawczy 100% Centella B12 40 ml",
+          "manufacturer": ["OCEANIC"],
+          "size_to_calculation": ["1"],
+          "price_old_amount": 41.99,
+          "ean": ["5900116091938"],
+          "date_marked_as_new": ["2023-10-11 22:00:00"],
+          "ingredients": [
+            "Aqua, Polyglyceryl-6 Stearate, Coco-Caprylate/Caprate, Tripelargonin, Betaine, Pentylene Glycol, Butyrospermum Parkii Butter, Cetearyl Alcohol, cetyl esters, Glycerin, Glyceryl Stearate, Borago Officinalis Seed Oil, Squalane, Tocopheryl Acetate, Hydroxyacetophenone, Dicaprylyl Carbonate, Melatonin, Centella Asiatica Extract, Cyanocobalamin, Phospholipids, Lactobacillus Ferment, Allantoin, Tocopherol, Polyglyceryl-6 Behenate, Cellulose, Cetyl Hydroxyethylcellulose, Acacia Senegal Gum, Xanthan Gum, Citric Acid, Sodium Benzotriazolyl Butylphenol Sulfonate, Buteth-3, Tributyl Citrate, Parfum"
+          ],
+          "categories_lvl_4": ["Kremy na noc"],
+          "discount_price_absolute_amount": 7.0,
+          "Media Gallery": [
+            "[{\"position\"=>13",
+            " \"url\"=>\"https://media.drogerienatura.pl/catalog/product/5/9/5900116091938_d591.jpg?store=default&image-type=image\"}]"
+          ],
+          "categories_lvl_2": ["Kosmetyki do twarzy", "Promocje", "Twarz", "Produkty", "Wszystkie"],
+          "categories_lvl_3": ["Kremy do twarzy", "Kosmetyki do twarzy"],
+          "discount_price_proportion_amount": 0.1667,
+          "categories_lvl_1": ["Wszystkie produkty", "Twarz", "Superoferty", "Promocje", "Oferta"],
+          "price_old": "41.99 zł",
+          "quantity": [4],
+          "category_upto_lvl_5": [
+            "Wszystkie produkty",
+            "Twarz|Kosmetyki do twarzy|Kremy do twarzy|Kremy na noc",
+            "Superoferty",
+            "Twarz|Promocje|Kosmetyki do twarzy",
+            "Promocje|Twarz|Kosmetyki do twarzy",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "ostrzezenia": [
+            "<p>Unikać kontaktu z oczami, błonami śluzowymi i uszkodzoną skórą. W przypadku dostania się do oczu, natychmiast przepłukać dużą ilością wody. </p><p><span style=\"font-weight: bold;\"> Przeciwwskazania: </span>Nie stosować w przypadku nadwrażliwości na którykolwiek ze składników. W razie wystąpienia reakcji alergicznej lub podrażnienia, przerwać stosowanie i skonsultować się z lekarzem.  Przechowywanie: Przechowywać w miejscu niedostępnym dla dzieci, z dala od źródeł ciepła i bezpośredniego światła słonecznego. Chronić przed mrozem.</p><p><span style=\"font-weight: bold;\">  Sposób użycia:</span> Używać zgodnie z instrukcjami na opakowaniu. Przekroczenie zalecanej dawki może prowadzić do podrażnień skóry lub innych niepożądanych reakcji. </p><p><span style=\"font-weight: bold;\"> Środki ostrożności: </span></p><ul><li> Nie połykać. </li><li>Unikać nadmiernej ekspozycji na słońce po zastosowaniu (dotyczy produktów zawierających składniki fotouczulające). </li><li>Nie stosować na skórę dzieci bez konsultacji z pediatrą (dotyczy produktów nieprzeznaczonych dla dzieci).<br><br></li></ul><p><span style=\"font-weight: bold;\"> Data ważności: </span>Stosować wyłącznie przed upływem daty ważności podanej na opakowaniu.</p><p><span style=\"font-weight: bold;\"> Nie używać, jeśli produkt zmienił zapach, konsystencję lub kolor.</span></p><p><span style=\"font-weight: bold;\">  Bezpieczeństwo środowiska</span>: Po użyciu wyrzucić opakowanie zgodnie z lokalnymi przepisami dotyczącymi utylizacji odpadów.  Uwagi dodatkowe:  W zależności od konkretnego kosmetyku, ostrzeżenie może być rozszerzone o dodatkowe informacje zgodnie z regulacjami prawnymi i specyfiką produktu.</p>"
+          ],
+          "warehouses": ["default"],
+          "dostawca_gpsr": ["OCEANIC SP. Z O.O, POLSKA  Łokietka 58, 81-736, Sopot,  [email removed]"],
+          "is_categoried": ["Wyłączony"],
+          "lowest_price_date": ["2026-10-06 00:00:00"],
+          "base_image": ["d/5/9/1/d5914690b82539d60920228b62007d1f27b5307e_5900116091938.jpg"],
+          "product_type": ["Prosty"],
+          "web_url": [
+            "https://drogerienatura.pl/produkt/aa-laab-multiaktywny-krem-na-noc-naprawczy-100-centella-b12-40-ml-5900116091938"
+          ],
+          "original_url": "https://drogerienatura.pl/produkt/aa-laab-multiaktywny-krem-na-noc-naprawczy-100-centella-b12-40-ml-5900116091938",
+          "category": [
+            "Wszystkie produkty",
+            "Oferta",
+            "Twarz",
+            "Kosmetyki do twarzy",
+            "Kremy do twarzy",
+            "Kremy na noc",
+            "Promocje",
+            "Superoferty",
+            "Produkty",
+            "Wszystkie"
+          ],
+          "category_upto_lvl_4": [
+            "Wszystkie produkty",
+            "Twarz|Kosmetyki do twarzy|Kremy do twarzy|Kremy na noc",
+            "Superoferty",
+            "Twarz|Promocje|Kosmetyki do twarzy",
+            "Promocje|Twarz|Kosmetyki do twarzy",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "introduced_at": ["2023-07-25 23:40:00"],
+          "category_upto_lvl_3": [
+            "Wszystkie produkty",
+            "Twarz|Kosmetyki do twarzy|Kremy do twarzy",
+            "Superoferty",
+            "Twarz|Promocje|Kosmetyki do twarzy",
+            "Promocje|Twarz|Kosmetyki do twarzy",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "category_upto_lvl_2": [
+            "Wszystkie produkty",
+            "Twarz|Kosmetyki do twarzy",
+            "Superoferty",
+            "Twarz|Promocje",
+            "Promocje|Twarz",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "availability_default": [1],
+          "category_upto_lvl_1": ["Wszystkie produkty", "Twarz", "Superoferty", "Promocje", "Oferta"],
+          "title_common": "AA LAAB multiaktywny krem na noc naprawczy 100% Centella B12 40 ml"
+        },
+        "nested": [
+          {
+            "url": "/kategoria/wszystkie-produkty-1066",
+            "identity_hash": 4771393622881232781,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": [],
+              "title": "Wszystkie produkty",
+              "original_url": "https://drogerienatura.pl/kategoria/wszystkie-produkty-1066",
+              "boost": 0,
+              "id": [1066],
+              "ancestors": [],
+              "include_in_menu": [false]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:23:53+00:00"
+          },
+          {
+            "url": "/kategoria/oferta-1520",
+            "identity_hash": 3937449848269802583,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": [],
+              "title": "Oferta",
+              "original_url": "https://drogerienatura.pl/kategoria/oferta-1520",
+              "boost": 0,
+              "id": [1520],
+              "ancestors": [],
+              "include_in_menu": [false]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:23:53+00:00"
+          },
+          {
+            "url": "/kategoria/twarz-1749",
+            "identity_hash": 15203485012324194783,
+            "attributes": {
+              "boosted_via": [],
+              "description": "",
+              "bool_tags": ["include_in_menu"],
+              "title": "Twarz",
+              "original_url": "https://drogerienatura.pl/kategoria/twarz-1749",
+              "boost": 0,
+              "id": [1749],
+              "ancestors": [],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:23:53+00:00"
+          },
+          {
+            "url": "/kategoria/kremy-do-twarzy-1752",
+            "identity_hash": 7032157692884280348,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kremy do twarzy",
+              "original_url": "https://drogerienatura.pl/kategoria/kremy-do-twarzy-1752",
+              "boost": 0,
+              "id": [1752],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                },
+                {
+                  "type": "category",
+                  "title": "Kosmetyki do twarzy",
+                  "url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-2658"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:23:53+00:00"
+          },
+          {
+            "url": "/kategoria/kremy-na-noc-1865",
+            "identity_hash": 12852111176660460157,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kremy na noc",
+              "original_url": "https://drogerienatura.pl/kategoria/kremy-na-noc-1865",
+              "boost": 0,
+              "id": [1865],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                },
+                {
+                  "type": "category",
+                  "title": "Kosmetyki do twarzy",
+                  "url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-2658"
+                },
+                {
+                  "type": "category",
+                  "title": "Kremy do twarzy",
+                  "url": "https://drogerienatura.pl/kategoria/kremy-do-twarzy-1752"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:23:53+00:00"
+          },
+          {
+            "url": "/kategoria/kosmetyki-do-twarzy-2658",
+            "identity_hash": 5304541026264804463,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kosmetyki do twarzy",
+              "original_url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-2658",
+              "boost": 0,
+              "id": [2658],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:23:53+00:00"
+          },
+          {
+            "url": "/kategoria/promocje-3834",
+            "identity_hash": 12992335984035711297,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Promocje",
+              "original_url": "https://drogerienatura.pl/kategoria/promocje-3834",
+              "boost": 0,
+              "id": [3834],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:23:53+00:00"
+          },
+          {
+            "url": "/kategoria/twarz-3844",
+            "identity_hash": 6993656213620899489,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Twarz",
+              "original_url": "https://drogerienatura.pl/kategoria/twarz-3844",
+              "boost": 0,
+              "id": [3844],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Promocje",
+                  "url": "https://drogerienatura.pl/kategoria/promocje-4949"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:23:53+00:00"
+          },
+          {
+            "url": "/kategoria/promocje-4949",
+            "identity_hash": 1471236160746854414,
+            "attributes": {
+              "boosted_via": [],
+              "description": "*Prezent - Skinimal peeling do twarzy za 1 zł pojawi się do samodzielnego dodania w koszyku do zakupów od 129 zł. Promocja trwa tylko do 11.10.2026 lub do wyczerpania zapasów.",
+              "bool_tags": ["include_in_menu"],
+              "title": "Promocje",
+              "original_url": "https://drogerienatura.pl/kategoria/promocje-4949",
+              "boost": 0,
+              "id": [4949],
+              "ancestors": [],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:23:53+00:00"
+          },
+          {
+            "url": "/kategoria/superoferty-4984",
+            "identity_hash": 4969217773954502209,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": [],
+              "title": "Superoferty",
+              "original_url": "https://drogerienatura.pl/kategoria/superoferty-4984",
+              "boost": 0,
+              "id": [4984],
+              "ancestors": [],
+              "include_in_menu": [false]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:23:53+00:00"
+          },
+          {
+            "url": "/kategoria/kosmetyki-do-twarzy-5648",
+            "identity_hash": 3131301736926189813,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kosmetyki do twarzy",
+              "original_url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-5648",
+              "boost": 0,
+              "id": [5648],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                },
+                {
+                  "type": "category",
+                  "title": "Promocje",
+                  "url": "https://drogerienatura.pl/kategoria/promocje-3834"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:23:53+00:00"
+          },
+          {
+            "url": "/kategoria/kosmetyki-do-twarzy-5654",
+            "identity_hash": 5575031107241934032,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kosmetyki do twarzy",
+              "original_url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-5654",
+              "boost": 0,
+              "id": [5654],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Promocje",
+                  "url": "https://drogerienatura.pl/kategoria/promocje-4949"
+                },
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-3844"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:23:53+00:00"
+          },
+          {
+            "url": "/kategoria/produkty-7603",
+            "identity_hash": 2046063183395128139,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Produkty",
+              "original_url": "https://drogerienatura.pl/kategoria/produkty-7603",
+              "boost": 0,
+              "id": [7603],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Oferta",
+                  "url": "https://drogerienatura.pl/kategoria/oferta-1520"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:23:53+00:00"
+          },
+          {
+            "url": "/kategoria/wszystkie-7737",
+            "identity_hash": 15946104044880898069,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Wszystkie",
+              "original_url": "https://drogerienatura.pl/kategoria/wszystkie-7737",
+              "boost": 0,
+              "id": [7737],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Oferta",
+                  "url": "https://drogerienatura.pl/kategoria/oferta-1520"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:23:53+00:00"
+          }
+        ],
+        "type": "product",
+        "highlight": {},
+        "exact": false,
+        "alternative": false,
+        "updated_at": "2026-10-06T08:23:53+00:00"
+      },
+      {
+        "url": "OC04980",
+        "identity_hash": 6793463357501445647,
+        "attributes": {
+          "show_is_new": ["Wyłączony"],
+          "cepdtech_catalog_filter_bestseller": ["0"],
+          "price": "41.99 zł",
+          "id": [4349086],
+          "lb_id": ["OC04980"],
+          "sku": ["OC04980"],
+          "is_returnable": [],
+          "quantity_default": [4],
+          "brand": ["AA"],
+          "all_categories": [
+            "Wszystkie produkty",
+            "Oferta",
+            "Twarz",
+            "Kosmetyki do twarzy",
+            "Kremy do twarzy",
+            "Strefa opalania",
+            "Promocje",
+            "Kremy nawilżające do twarzy",
+            "Superoferty",
+            "Kremy do twarzy z filtrem SPF",
+            "Kremy do twarzy z SPF",
+            "SPF 50",
+            "Produkty",
+            "Wszystkie"
+          ],
+          "size_unit": ["ml"],
+          "images": [
+            "https://media.drogerienatura.pl/catalog/product/5/9/5900116104980_11_942b.jpg?store=default&image-type=image"
+          ],
+          "image_link": "https://media.drogerienatura.pl/catalog/product/5/9/5900116104980_11_942b.jpg?store=default&image-type=image",
+          "producent_gpsr1": ["OCEANIC"],
+          "rating_summary": [0],
+          "price_amount": 41.99,
+          "bool_tags": [],
+          "show_out_of_stock": ["Włączony"],
+          "meta_description": [
+            "Skuteczna ochrona przed UV i intensywne nawilżenie w jednym. Satynowa cera, wzmocniona bariera hydrolipidowa i złagodzone podrażnienia."
+          ],
+          "size": ["40.0000"],
+          "discount_price_percentage_amount": 16.0,
+          "category_urls": [
+            "/kategoria/wszystkie-produkty-1066",
+            "/kategoria/oferta-1520",
+            "/kategoria/twarz-1749",
+            "/kategoria/kremy-do-twarzy-1752",
+            "/kategoria/strefa-opalania-2170",
+            "/kategoria/kosmetyki-do-twarzy-2658",
+            "/kategoria/twarz-3844",
+            "/kategoria/kremy-nawilzajace-do-twarzy-4790",
+            "/kategoria/promocje-4949",
+            "/kategoria/superoferty-4984",
+            "/kategoria/kremy-do-twarzy-z-filtrem-spf-5859",
+            "/kategoria/kremy-do-twarzy-z-spf-5864",
+            "/kategoria/spf-50-5891",
+            "/kategoria/spf-50-6758",
+            "/kategoria/produkty-7603",
+            "/kategoria/wszystkie-7737"
+          ],
+          "boost": 0,
+          "short_description": [""],
+          "magento_status": ["Włączony"],
+          "boosted_via": [],
+          "position_number": ["1036.000000"],
+          "lowest_price": ["35.990000"],
+          "description": "AA hydro-krem nawilżająco-ochronny do twarzy\nHydro-Krem SPF 50 Nawilżająco-Ochronny to zaawansowana formuła zapewniająca wysoką ochronę przeciwsłoneczną (SPF 50) przed spektrum promieniowania UV. Produkt charakteryzuje się satynowym wykończeniem, nadając cerze świeży i promienny wygląd, jednocześnie dostarczając intensywne i długotrwałe nawilżenie.\nPreparat wzmacnia i chroni barierę hydrolipidową skóry, przyczyniając się do efektywnego ograniczenia transepidermalnej utraty wody (TEWL) oraz łagodzenia podrażnień.\nSynergiczne działanie kompleksu Centella B12 jest potęgowane przez N.M.F. Instant Repair CPLX, oparty na trzech komplementarnych mechanizmach nawilżenia: dostarczaniu humektantów, polisacharydów oraz lipidów. Takie połączenie składników aktywnie przyczynia się do natychmiastowego podniesienia poziomu nawilżenia skóry oraz skutecznego zmniejszenia TEWL.\nPrzygotowanie i stosowanie\nCodziennie rano, omijając okolice oczu. Stosuj jako ostatni element pielęgnacji. Aby uzyskać maksymalny efekt pielęgnacji SKIN BARRIER PROTECTION, stosuj kompletny program AA LAAB CENTELLA B12.",
+          "availability": 1,
+          "tier_prices": [],
+          "main_category_lvl_1": ["Wszystkie produkty"],
+          "title": "AA LAAB 100% Centella B12 SPF 50 hydro-krem 40 ml",
+          "size_to_calculation": ["1.0000"],
+          "price_old_amount": 49.99,
+          "ean": ["5900116104980"],
+          "date_marked_as_new": ["2025-04-10 22:00:00"],
+          "ingredients": [
+            "Aqua, Triethylhexanoin, Dicaprylyl Ether, Polyglyceryl-6 Stearate, Ethylhexyl Triazone, Glyceryl Stearate, Diethylamino Hydroxybenzoyl Hexyl Benzoate, Glycerin, Disodium Phenyl Dibenzimidazole Tetrasulfonate, Phenylbenzimidazole Sulfonic Acid, 1.2-Hexanediol, Potassium Cetyl Phosphate, Bis-Ethylhexyloxyphenol Methoxyphenyl Triazine, Trehalose, Cetearyl Alcohol, Polyglyceryl-6 Behenate, Sodium Lactate, Sodium PCA, Fructose, Urea, Glucose, Sodium Hyaluronate, Pentylene Glycol, Centella, Asiatica Extract, Maltose, Sodium Hydroxide, Cyanocobalamin, Sodium Chloride, Trideceth-6, Dimethicone, Myristyl Myristate, Aluminum Starch, Octenylsuccinate, Carbomer, C20-22 Alkyl Phosphate, Sodium Polyacrylate, C20-22 Alcohols, Citric Acid, Disodium Phosphate, Dimethicone Crosspolymer, Mica, Allantoin, Ethylhexyl Stearate, Tocopherol, Benzotriazolyl Dodecyl p-Cresol, Hydroxyacetophenone, Ethylhexylglycerin, Phenoxyethanol, Parfum, CI 16185, CI 77891."
+          ],
+          "categories_lvl_4": ["Kremy nawilżające do twarzy"],
+          "discount_price_absolute_amount": 8.0,
+          "Media Gallery": [
+            "[{\"position\"=>13",
+            " \"url\"=>\"https://media.drogerienatura.pl/catalog/product/5/9/5900116104980_11_942b.jpg?store=default&image-type=image\"}]"
+          ],
+          "categories_lvl_2": [
+            "Twarz",
+            "Kosmetyki do twarzy",
+            "Kremy do twarzy z filtrem SPF",
+            "Kremy do twarzy z SPF",
+            "Produkty",
+            "Wszystkie"
+          ],
+          "categories_lvl_3": ["Kremy do twarzy", "SPF 50"],
+          "discount_price_proportion_amount": 0.16,
+          "categories_lvl_1": ["Wszystkie produkty", "Promocje", "Twarz", "Superoferty", "Strefa opalania", "Oferta"],
+          "price_old": "49.99 zł",
+          "quantity": [4],
+          "category_upto_lvl_5": [
+            "Wszystkie produkty",
+            "Promocje|Twarz",
+            "Twarz|Kosmetyki do twarzy|Kremy do twarzy|Kremy nawilżające do twarzy",
+            "Superoferty",
+            "Twarz|Kremy do twarzy z filtrem SPF|SPF 50",
+            "Strefa opalania|Kremy do twarzy z SPF|SPF 50",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "ostrzezenia": [
+            "<p>Unikać kontaktu z oczami, błonami śluzowymi i uszkodzoną skórą. W przypadku dostania się do oczu, natychmiast przepłukać dużą ilością wody. </p><p><span style=\"font-weight: bold;\"> Przeciwwskazania: </span>Nie stosować w przypadku nadwrażliwości na którykolwiek ze składników. W razie wystąpienia reakcji alergicznej lub podrażnienia, przerwać stosowanie i skonsultować się z lekarzem.  Przechowywanie: Przechowywać w miejscu niedostępnym dla dzieci, z dala od źródeł ciepła i bezpośredniego światła słonecznego. Chronić przed mrozem.</p><p><span style=\"font-weight: bold;\">  Sposób użycia:</span> Używać zgodnie z instrukcjami na opakowaniu. Przekroczenie zalecanej dawki może prowadzić do podrażnień skóry lub innych niepożądanych reakcji. </p><p><span style=\"font-weight: bold;\"> Środki ostrożności: </span></p><ul><li> Nie połykać. </li><li>Unikać nadmiernej ekspozycji na słońce po zastosowaniu (dotyczy produktów zawierających składniki fotouczulające). </li><li>Nie stosować na skórę dzieci bez konsultacji z pediatrą (dotyczy produktów nieprzeznaczonych dla dzieci).<br><br></li></ul><p><span style=\"font-weight: bold;\"> Data ważności: </span>Stosować wyłącznie przed upływem daty ważności podanej na opakowaniu.</p><p><span style=\"font-weight: bold;\"> Nie używać, jeśli produkt zmienił zapach, konsystencję lub kolor.</span></p><p><span style=\"font-weight: bold;\">  Bezpieczeństwo środowiska</span>: Po użyciu wyrzucić opakowanie zgodnie z lokalnymi przepisami dotyczącymi utylizacji odpadów.  Uwagi dodatkowe:  W zależności od konkretnego kosmetyku, ostrzeżenie może być rozszerzone o dodatkowe informacje zgodnie z regulacjami prawnymi i specyfiką produktu.</p>"
+          ],
+          "warehouses": ["default"],
+          "dostawca_gpsr": ["OCEANIC Sp. z o.o."],
+          "lowest_price_date": ["2026-10-06 00:00:00"],
+          "base_image": ["9/4/2/b/942b3412d1174736322d736e096f33de3e4f9fe6_5900116104980_11.jpg"],
+          "product_type": ["Prosty"],
+          "web_url": [
+            "https://drogerienatura.pl/produkt/aa-laab-100-centella-b12-spf-50-hydrokrem-40-ml-5900116104980"
+          ],
+          "original_url": "https://drogerienatura.pl/produkt/aa-laab-100-centella-b12-spf-50-hydrokrem-40-ml-5900116104980",
+          "category": [
+            "Wszystkie produkty",
+            "Oferta",
+            "Twarz",
+            "Kosmetyki do twarzy",
+            "Kremy do twarzy",
+            "Strefa opalania",
+            "Promocje",
+            "Kremy nawilżające do twarzy",
+            "Superoferty",
+            "Kremy do twarzy z filtrem SPF",
+            "Kremy do twarzy z SPF",
+            "SPF 50",
+            "Produkty",
+            "Wszystkie"
+          ],
+          "category_upto_lvl_4": [
+            "Wszystkie produkty",
+            "Promocje|Twarz",
+            "Twarz|Kosmetyki do twarzy|Kremy do twarzy|Kremy nawilżające do twarzy",
+            "Superoferty",
+            "Twarz|Kremy do twarzy z filtrem SPF|SPF 50",
+            "Strefa opalania|Kremy do twarzy z SPF|SPF 50",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "introduced_at": ["2025-03-26 14:56:49"],
+          "category_upto_lvl_3": [
+            "Wszystkie produkty",
+            "Promocje|Twarz",
+            "Twarz|Kosmetyki do twarzy|Kremy do twarzy",
+            "Superoferty",
+            "Twarz|Kremy do twarzy z filtrem SPF|SPF 50",
+            "Strefa opalania|Kremy do twarzy z SPF|SPF 50",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "category_upto_lvl_2": [
+            "Wszystkie produkty",
+            "Promocje|Twarz",
+            "Twarz|Kosmetyki do twarzy",
+            "Superoferty",
+            "Twarz|Kremy do twarzy z filtrem SPF",
+            "Strefa opalania|Kremy do twarzy z SPF",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "availability_default": [1],
+          "category_upto_lvl_1": [
+            "Wszystkie produkty",
+            "Promocje",
+            "Twarz",
+            "Superoferty",
+            "Strefa opalania",
+            "Oferta"
+          ],
+          "title_common": "AA LAAB 100% Centella B12 SPF 50 hydro-krem 40 ml"
+        },
+        "nested": [
+          {
+            "url": "/kategoria/wszystkie-produkty-1066",
+            "identity_hash": 4771393622881232781,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": [],
+              "title": "Wszystkie produkty",
+              "original_url": "https://drogerienatura.pl/kategoria/wszystkie-produkty-1066",
+              "boost": 0,
+              "id": [1066],
+              "ancestors": [],
+              "include_in_menu": [false]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:05:56+00:00"
+          },
+          {
+            "url": "/kategoria/oferta-1520",
+            "identity_hash": 3937449848269802583,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": [],
+              "title": "Oferta",
+              "original_url": "https://drogerienatura.pl/kategoria/oferta-1520",
+              "boost": 0,
+              "id": [1520],
+              "ancestors": [],
+              "include_in_menu": [false]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:05:56+00:00"
+          },
+          {
+            "url": "/kategoria/twarz-1749",
+            "identity_hash": 15203485012324194783,
+            "attributes": {
+              "boosted_via": [],
+              "description": "",
+              "bool_tags": ["include_in_menu"],
+              "title": "Twarz",
+              "original_url": "https://drogerienatura.pl/kategoria/twarz-1749",
+              "boost": 0,
+              "id": [1749],
+              "ancestors": [],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:05:56+00:00"
+          },
+          {
+            "url": "/kategoria/kremy-do-twarzy-1752",
+            "identity_hash": 7032157692884280348,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kremy do twarzy",
+              "original_url": "https://drogerienatura.pl/kategoria/kremy-do-twarzy-1752",
+              "boost": 0,
+              "id": [1752],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                },
+                {
+                  "type": "category",
+                  "title": "Kosmetyki do twarzy",
+                  "url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-2658"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:05:56+00:00"
+          },
+          {
+            "url": "/kategoria/strefa-opalania-2170",
+            "identity_hash": 4308386711219757289,
+            "attributes": {
+              "boosted_via": [],
+              "description": "",
+              "bool_tags": [],
+              "title": "Strefa opalania",
+              "original_url": "https://drogerienatura.pl/kategoria/strefa-opalania-2170",
+              "boost": 0,
+              "id": [2170],
+              "ancestors": [],
+              "include_in_menu": [false]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:05:56+00:00"
+          },
+          {
+            "url": "/kategoria/kosmetyki-do-twarzy-2658",
+            "identity_hash": 5304541026264804463,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kosmetyki do twarzy",
+              "original_url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-2658",
+              "boost": 0,
+              "id": [2658],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:05:56+00:00"
+          },
+          {
+            "url": "/kategoria/twarz-3844",
+            "identity_hash": 6993656213620899489,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Twarz",
+              "original_url": "https://drogerienatura.pl/kategoria/twarz-3844",
+              "boost": 0,
+              "id": [3844],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Promocje",
+                  "url": "https://drogerienatura.pl/kategoria/promocje-4949"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:05:56+00:00"
+          },
+          {
+            "url": "/kategoria/kremy-nawilzajace-do-twarzy-4790",
+            "identity_hash": 3089141884359501471,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kremy nawilżające do twarzy",
+              "original_url": "https://drogerienatura.pl/kategoria/kremy-nawilzajace-do-twarzy-4790",
+              "boost": 0,
+              "id": [4790],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                },
+                {
+                  "type": "category",
+                  "title": "Kosmetyki do twarzy",
+                  "url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-2658"
+                },
+                {
+                  "type": "category",
+                  "title": "Kremy do twarzy",
+                  "url": "https://drogerienatura.pl/kategoria/kremy-do-twarzy-1752"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:05:56+00:00"
+          },
+          {
+            "url": "/kategoria/promocje-4949",
+            "identity_hash": 1471236160746854414,
+            "attributes": {
+              "boosted_via": [],
+              "description": "*Prezent - Skinimal peeling do twarzy za 1 zł pojawi się do samodzielnego dodania w koszyku do zakupów od 129 zł. Promocja trwa tylko do 11.10.2026 lub do wyczerpania zapasów.",
+              "bool_tags": ["include_in_menu"],
+              "title": "Promocje",
+              "original_url": "https://drogerienatura.pl/kategoria/promocje-4949",
+              "boost": 0,
+              "id": [4949],
+              "ancestors": [],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:05:56+00:00"
+          },
+          {
+            "url": "/kategoria/superoferty-4984",
+            "identity_hash": 4969217773954502209,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": [],
+              "title": "Superoferty",
+              "original_url": "https://drogerienatura.pl/kategoria/superoferty-4984",
+              "boost": 0,
+              "id": [4984],
+              "ancestors": [],
+              "include_in_menu": [false]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:05:56+00:00"
+          },
+          {
+            "url": "/kategoria/kremy-do-twarzy-z-filtrem-spf-5859",
+            "identity_hash": 9366580344494944961,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kremy do twarzy z filtrem SPF",
+              "original_url": "https://drogerienatura.pl/kategoria/kremy-do-twarzy-z-filtrem-spf-5859",
+              "boost": 0,
+              "id": [5859],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:05:56+00:00"
+          },
+          {
+            "url": "/kategoria/kremy-do-twarzy-z-spf-5864",
+            "identity_hash": 7313690493463033201,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kremy do twarzy z SPF",
+              "original_url": "https://drogerienatura.pl/kategoria/kremy-do-twarzy-z-spf-5864",
+              "boost": 0,
+              "id": [5864],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Strefa opalania",
+                  "url": "https://drogerienatura.pl/kategoria/strefa-opalania-2170"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:05:56+00:00"
+          },
+          {
+            "url": "/kategoria/spf-50-5891",
+            "identity_hash": 16803859681988606124,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "SPF 50",
+              "original_url": "https://drogerienatura.pl/kategoria/spf-50-5891",
+              "boost": 0,
+              "id": [5891],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                },
+                {
+                  "type": "category",
+                  "title": "Kremy do twarzy z filtrem SPF",
+                  "url": "https://drogerienatura.pl/kategoria/kremy-do-twarzy-z-filtrem-spf-5859"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:05:56+00:00"
+          },
+          {
+            "url": "/kategoria/spf-50-6758",
+            "identity_hash": 9795900411680759286,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "SPF 50",
+              "original_url": "https://drogerienatura.pl/kategoria/spf-50-6758",
+              "boost": 0,
+              "id": [6758],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Strefa opalania",
+                  "url": "https://drogerienatura.pl/kategoria/strefa-opalania-2170"
+                },
+                {
+                  "type": "category",
+                  "title": "Kremy do twarzy z SPF",
+                  "url": "https://drogerienatura.pl/kategoria/kremy-do-twarzy-z-spf-5864"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:05:56+00:00"
+          },
+          {
+            "url": "/kategoria/produkty-7603",
+            "identity_hash": 2046063183395128139,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Produkty",
+              "original_url": "https://drogerienatura.pl/kategoria/produkty-7603",
+              "boost": 0,
+              "id": [7603],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Oferta",
+                  "url": "https://drogerienatura.pl/kategoria/oferta-1520"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:05:56+00:00"
+          },
+          {
+            "url": "/kategoria/wszystkie-7737",
+            "identity_hash": 15946104044880898069,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Wszystkie",
+              "original_url": "https://drogerienatura.pl/kategoria/wszystkie-7737",
+              "boost": 0,
+              "id": [7737],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Oferta",
+                  "url": "https://drogerienatura.pl/kategoria/oferta-1520"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:05:56+00:00"
+          }
+        ],
+        "type": "product",
+        "highlight": {},
+        "exact": false,
+        "alternative": false,
+        "updated_at": "2026-10-06T08:05:56+00:00"
+      },
+      {
+        "url": "OC91907",
+        "identity_hash": 11140348460063170258,
+        "attributes": {
+          "ordered_quantity": ["0.000000"],
+          "show_is_new": ["Wyłączony"],
+          "cepdtech_catalog_filter_bestseller": ["0"],
+          "price": "29.99 zł",
+          "id": [66787],
+          "lb_id": ["OC91907"],
+          "sku": ["OC91907"],
+          "is_returnable": [],
+          "quantity_default": [19],
+          "brand": ["AA"],
+          "all_categories": [
+            "Wszystkie produkty",
+            "Oferta",
+            "Twarz",
+            "Kosmetyki do twarzy",
+            "Kosmetyki do oczu",
+            "Kremy pod oczy",
+            "Promocje",
+            "Superoferty",
+            "Produkty",
+            "Wszystkie"
+          ],
+          "size_unit": ["ml"],
+          "images": [
+            "https://media.drogerienatura.pl/catalog/product/5/9/5900116091907_1_046a.jpg?store=default&image-type=image"
+          ],
+          "image_link": "https://media.drogerienatura.pl/catalog/product/5/9/5900116091907_1_046a.jpg?store=default&image-type=image",
+          "producent_gpsr1": ["OCEANIC SP. Z O.O, POLSKA  Łokietka 58, 81-736, Sopot,  [email removed]"],
+          "rating_summary": [0],
+          "price_amount": 29.99,
+          "bool_tags": [],
+          "show_out_of_stock": ["Włączony"],
+          "online_only": ["2.000000"],
+          "meta_description": [
+            "Krem AA LAAB pod oczy intensywnie nawilża, wygładza i redukuje cienie. Zawiera Centellę z Madagaskaru, wit. B12 i ceramidy. 95% składników naturalnych."
+          ],
+          "size": ["15.0000"],
+          "discount_price_percentage_amount": 16.67,
+          "category_urls": [
+            "/kategoria/wszystkie-produkty-1066",
+            "/kategoria/oferta-1520",
+            "/kategoria/twarz-1749",
+            "/kategoria/kremy-pod-oczy-1866",
+            "/kategoria/kosmetyki-do-twarzy-2658",
+            "/kategoria/kosmetyki-do-oczu-2659",
+            "/kategoria/promocje-3834",
+            "/kategoria/twarz-3844",
+            "/kategoria/promocje-4949",
+            "/kategoria/superoferty-4984",
+            "/kategoria/kosmetyki-do-twarzy-5648",
+            "/kategoria/kosmetyki-do-twarzy-5654",
+            "/kategoria/produkty-7603",
+            "/kategoria/wszystkie-7737"
+          ],
+          "boost": 0,
+          "short_description": [
+            "AA LAAB to zaawansowany program pielęgnacyjny nowej generacji, który szybko poprawi kondycję skóry i jednocześnie w ekspercki sposób zadba o jej wrażliwość.  AA LAAB Krem pod oczy nawilżająco-wygładzający zapewni Twojej skórze: • intensywne nawilżenie • uelastycznienie i ujędrnienie skóry • redukcję cieni i obrzęków pod oczami • spłycenie zmarszczek mimicznych • wygładzenie oraz aksamitną miękkość  Już nie musisz wybierać pomiędzy skutecznością a bezpieczeństwem. Nowatorska receptura bazuje na aktywności multifunkcyjnych składników, które poprzez synergiczne działanie zapewniają skórze skuteczną profilaktykę starzenia, bez ryzyka podrażnień.  Kompleks CENTELLA B12 to zgłoszone do patentu połączenie dwóch wyjątkowych składników aktywnych: 1. CENTELLA Z MADAGASKARU • zapobiega powstawaniu zmarszczek, wzmacniając włókna kolagenu • intensywnie nawilża, chroniąc kwas hialuronowy przed degradacją • detoksykuję, neutralizując wolne rodniki 2. WITAMINA B12 • działa przeciwzapalnie • skutecznie łagodzi podrażnienia i reakcje alergiczne skóry  Moc kompleksu Centella B12 wzmacnia KOFEINA, która stymuluje mikrokrążenie, redukuje cienie i obrzęki, przywracając wypoczęty wygląd cery.   95% składników pochodzenia naturalnego, Vegan & Cruelty Free"
+          ],
+          "magento_status": ["Włączony"],
+          "boosted_via": [],
+          "position_number": ["466.000000"],
+          "lowest_price": ["26.990000"],
+          "description": "Wygładzenie, nawilżenie i redukcja cieni pod oczami z kremem AA LAAB\n\nAA LAAB to zaawansowany program pielęgnacyjny nowej generacji, który szybko poprawi kondycję skóry i jednocześnie w ekspercki sposób zadba o jej wrażliwość. Już nie musisz wybierać pomiędzy skutecznością a bezpieczeństwem. Nowatorska receptura bazuje na aktywności multifunkcyjnych składników, które poprzez synergiczne działanie zapewniają skórze skuteczną profilaktykę starzenia, bez ryzyka podrażnień.\n\nAA LAAB krem pod oczy zapewnia\nIntensywne nawilżenieUelastycznienie i ujędrnienie skóryRedukcję cieni i obrzęków pod oczamiSpłycenie zmarszczek mimicznychWygładzenie oraz aksamitną miękkość\n\nKompleks CENTELLA B12 to zgłoszone do patentu połączenie dwóch wyjątkowych składników aktywnych:\n1. CENTELLA Z MADAGASKARUzapobiega powstawaniu zmarszczek, wzmacniając włókna kolagenuintensywnie nawilża, chroniąc kwas hialuronowy przed degradacjądetoksykuje, neutralizując wolne rodniki\n2. WITAMINA B12działa przeciwzapalnieskutecznie łagodzi podrażnienia i reakcje alergiczne skóry\nMoc kompleksu CENTELLA B12 wzmacniają CERAMIDY, które są składnikami budulcowymi naskórka, regenerują jego strukturę i chronią przed utratą nawilżenia. 95% składników pochodzenia naturalnego, Vegan &amp; Cruelty Free.",
+          "availability": 1,
+          "tier_prices": [],
+          "main_category_lvl_1": ["Wszystkie produkty"],
+          "title": "AA LAAB krem pod oczy nawilżająco-wygładzający 100% Centella B12 15 ml",
+          "manufacturer": ["OCEANIC"],
+          "size_to_calculation": ["1"],
+          "price_old_amount": 35.99,
+          "ean": ["5900116091907"],
+          "date_marked_as_new": ["2023-12-20 23:00:00"],
+          "ingredients": [
+            "Aqua, Tripelargonin, Pentylene Glycol, Caprylic/Capric Triglyceride, Glycerin, Arachidyl Alcohol, Betaine, Ethylhexyl Stearate, Cetearyl Alcohol, Glyceryl Stearate, Behenyl Alcohol, Hydrogenated Polydecene, Squalane, Hydroxyacetophenone, Arachidyl Glucoside, Albizia Julibrissin Bark Extract, Centella Asiatica Extract, Tocopheryl Acetate, Caffeine, Borago Officinalis Seed Oil, Xylitylglucoside, Anhydroxylitol, Xylitol, Cyanocobalamin, Sodium Benzotriazolyl Butylphenol Sulfonate, Buteth-3, Tributyl Citrate, Sodium Hydroxide, Xanthan Gum, Darutoside, Sodium Benzoate, Parfum"
+          ],
+          "categories_lvl_4": ["Kremy pod oczy"],
+          "discount_price_absolute_amount": 6.0,
+          "Media Gallery": [
+            "[{\"position\"=>13",
+            " \"url\"=>\"https://media.drogerienatura.pl/catalog/product/5/9/5900116091907_1_046a.jpg?store=default&image-type=image\"}]"
+          ],
+          "categories_lvl_2": ["Kosmetyki do twarzy", "Promocje", "Twarz", "Produkty", "Wszystkie"],
+          "categories_lvl_3": ["Kosmetyki do oczu", "Kosmetyki do twarzy"],
+          "discount_price_proportion_amount": 0.1667,
+          "categories_lvl_1": ["Wszystkie produkty", "Twarz", "Superoferty", "Promocje", "Oferta"],
+          "price_old": "35.99 zł",
+          "quantity": [19],
+          "category_upto_lvl_5": [
+            "Wszystkie produkty",
+            "Twarz|Kosmetyki do twarzy|Kosmetyki do oczu|Kremy pod oczy",
+            "Superoferty",
+            "Twarz|Promocje|Kosmetyki do twarzy",
+            "Promocje|Twarz|Kosmetyki do twarzy",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "ostrzezenia": [
+            "<p>Unikać kontaktu z oczami, błonami śluzowymi i uszkodzoną skórą. W przypadku dostania się do oczu, natychmiast przepłukać dużą ilością wody. </p><p><span style=\"font-weight: bold;\"> Przeciwwskazania: </span>Nie stosować w przypadku nadwrażliwości na którykolwiek ze składników. W razie wystąpienia reakcji alergicznej lub podrażnienia, przerwać stosowanie i skonsultować się z lekarzem.  Przechowywanie: Przechowywać w miejscu niedostępnym dla dzieci, z dala od źródeł ciepła i bezpośredniego światła słonecznego. Chronić przed mrozem.</p><p><span style=\"font-weight: bold;\">  Sposób użycia:</span> Używać zgodnie z instrukcjami na opakowaniu. Przekroczenie zalecanej dawki może prowadzić do podrażnień skóry lub innych niepożądanych reakcji. </p><p><span style=\"font-weight: bold;\"> Środki ostrożności: </span></p><ul><li> Nie połykać. </li><li>Unikać nadmiernej ekspozycji na słońce po zastosowaniu (dotyczy produktów zawierających składniki fotouczulające). </li><li>Nie stosować na skórę dzieci bez konsultacji z pediatrą (dotyczy produktów nieprzeznaczonych dla dzieci).<br><br></li></ul><p><span style=\"font-weight: bold;\"> Data ważności: </span>Stosować wyłącznie przed upływem daty ważności podanej na opakowaniu.</p><p><span style=\"font-weight: bold;\"> Nie używać, jeśli produkt zmienił zapach, konsystencję lub kolor.</span></p><p><span style=\"font-weight: bold;\">  Bezpieczeństwo środowiska</span>: Po użyciu wyrzucić opakowanie zgodnie z lokalnymi przepisami dotyczącymi utylizacji odpadów.  Uwagi dodatkowe:  W zależności od konkretnego kosmetyku, ostrzeżenie może być rozszerzone o dodatkowe informacje zgodnie z regulacjami prawnymi i specyfiką produktu.</p>"
+          ],
+          "warehouses": ["default"],
+          "dostawca_gpsr": ["OCEANIC SP. Z O.O, POLSKA  Łokietka 58, 81-736, Sopot,  [email removed]"],
+          "is_categoried": ["Wyłączony"],
+          "lowest_price_date": ["2026-10-06 00:00:00"],
+          "base_image": ["0/4/6/a/046a211ff72ed302fc64fba6faca2a120349787c_5900116091907_1.jpg"],
+          "product_type": ["Prosty"],
+          "web_url": [
+            "https://drogerienatura.pl/produkt/aa-laab-krem-pod-oczy-nawilzajacowygladzajacy-100-centella-b12-15-ml-5900116091907"
+          ],
+          "original_url": "https://drogerienatura.pl/produkt/aa-laab-krem-pod-oczy-nawilzajacowygladzajacy-100-centella-b12-15-ml-5900116091907",
+          "category": [
+            "Wszystkie produkty",
+            "Oferta",
+            "Twarz",
+            "Kosmetyki do twarzy",
+            "Kosmetyki do oczu",
+            "Kremy pod oczy",
+            "Promocje",
+            "Superoferty",
+            "Produkty",
+            "Wszystkie"
+          ],
+          "category_upto_lvl_4": [
+            "Wszystkie produkty",
+            "Twarz|Kosmetyki do twarzy|Kosmetyki do oczu|Kremy pod oczy",
+            "Superoferty",
+            "Twarz|Promocje|Kosmetyki do twarzy",
+            "Promocje|Twarz|Kosmetyki do twarzy",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "introduced_at": ["2023-07-25 23:39:53"],
+          "category_upto_lvl_3": [
+            "Wszystkie produkty",
+            "Twarz|Kosmetyki do twarzy|Kosmetyki do oczu",
+            "Superoferty",
+            "Twarz|Promocje|Kosmetyki do twarzy",
+            "Promocje|Twarz|Kosmetyki do twarzy",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "category_upto_lvl_2": [
+            "Wszystkie produkty",
+            "Twarz|Kosmetyki do twarzy",
+            "Superoferty",
+            "Twarz|Promocje",
+            "Promocje|Twarz",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "availability_default": [1],
+          "category_upto_lvl_1": ["Wszystkie produkty", "Twarz", "Superoferty", "Promocje", "Oferta"],
+          "title_common": "AA LAAB krem pod oczy nawilżająco-wygładzający 100% Centella B12 15 ml"
+        },
+        "nested": [
+          {
+            "url": "/kategoria/wszystkie-produkty-1066",
+            "identity_hash": 4771393622881232781,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": [],
+              "title": "Wszystkie produkty",
+              "original_url": "https://drogerienatura.pl/kategoria/wszystkie-produkty-1066",
+              "boost": 0,
+              "id": [1066],
+              "ancestors": [],
+              "include_in_menu": [false]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:08:35+00:00"
+          },
+          {
+            "url": "/kategoria/oferta-1520",
+            "identity_hash": 3937449848269802583,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": [],
+              "title": "Oferta",
+              "original_url": "https://drogerienatura.pl/kategoria/oferta-1520",
+              "boost": 0,
+              "id": [1520],
+              "ancestors": [],
+              "include_in_menu": [false]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:08:35+00:00"
+          },
+          {
+            "url": "/kategoria/twarz-1749",
+            "identity_hash": 15203485012324194783,
+            "attributes": {
+              "boosted_via": [],
+              "description": "",
+              "bool_tags": ["include_in_menu"],
+              "title": "Twarz",
+              "original_url": "https://drogerienatura.pl/kategoria/twarz-1749",
+              "boost": 0,
+              "id": [1749],
+              "ancestors": [],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:08:35+00:00"
+          },
+          {
+            "url": "/kategoria/kremy-pod-oczy-1866",
+            "identity_hash": 13052041029277701125,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kremy pod oczy",
+              "original_url": "https://drogerienatura.pl/kategoria/kremy-pod-oczy-1866",
+              "boost": 0,
+              "id": [1866],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                },
+                {
+                  "type": "category",
+                  "title": "Kosmetyki do twarzy",
+                  "url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-2658"
+                },
+                {
+                  "type": "category",
+                  "title": "Kosmetyki do oczu",
+                  "url": "https://drogerienatura.pl/kategoria/kosmetyki-do-oczu-2659"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:08:35+00:00"
+          },
+          {
+            "url": "/kategoria/kosmetyki-do-twarzy-2658",
+            "identity_hash": 5304541026264804463,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kosmetyki do twarzy",
+              "original_url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-2658",
+              "boost": 0,
+              "id": [2658],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:08:35+00:00"
+          },
+          {
+            "url": "/kategoria/kosmetyki-do-oczu-2659",
+            "identity_hash": 10403053042936329495,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kosmetyki do oczu",
+              "original_url": "https://drogerienatura.pl/kategoria/kosmetyki-do-oczu-2659",
+              "boost": 0,
+              "id": [2659],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                },
+                {
+                  "type": "category",
+                  "title": "Kosmetyki do twarzy",
+                  "url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-2658"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:08:35+00:00"
+          },
+          {
+            "url": "/kategoria/promocje-3834",
+            "identity_hash": 12992335984035711297,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Promocje",
+              "original_url": "https://drogerienatura.pl/kategoria/promocje-3834",
+              "boost": 0,
+              "id": [3834],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:08:35+00:00"
+          },
+          {
+            "url": "/kategoria/twarz-3844",
+            "identity_hash": 6993656213620899489,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Twarz",
+              "original_url": "https://drogerienatura.pl/kategoria/twarz-3844",
+              "boost": 0,
+              "id": [3844],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Promocje",
+                  "url": "https://drogerienatura.pl/kategoria/promocje-4949"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:08:35+00:00"
+          },
+          {
+            "url": "/kategoria/promocje-4949",
+            "identity_hash": 1471236160746854414,
+            "attributes": {
+              "boosted_via": [],
+              "description": "*Prezent - Skinimal peeling do twarzy za 1 zł pojawi się do samodzielnego dodania w koszyku do zakupów od 129 zł. Promocja trwa tylko do 11.10.2026 lub do wyczerpania zapasów.",
+              "bool_tags": ["include_in_menu"],
+              "title": "Promocje",
+              "original_url": "https://drogerienatura.pl/kategoria/promocje-4949",
+              "boost": 0,
+              "id": [4949],
+              "ancestors": [],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:08:35+00:00"
+          },
+          {
+            "url": "/kategoria/superoferty-4984",
+            "identity_hash": 4969217773954502209,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": [],
+              "title": "Superoferty",
+              "original_url": "https://drogerienatura.pl/kategoria/superoferty-4984",
+              "boost": 0,
+              "id": [4984],
+              "ancestors": [],
+              "include_in_menu": [false]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:08:35+00:00"
+          },
+          {
+            "url": "/kategoria/kosmetyki-do-twarzy-5648",
+            "identity_hash": 3131301736926189813,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kosmetyki do twarzy",
+              "original_url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-5648",
+              "boost": 0,
+              "id": [5648],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                },
+                {
+                  "type": "category",
+                  "title": "Promocje",
+                  "url": "https://drogerienatura.pl/kategoria/promocje-3834"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:08:35+00:00"
+          },
+          {
+            "url": "/kategoria/kosmetyki-do-twarzy-5654",
+            "identity_hash": 5575031107241934032,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kosmetyki do twarzy",
+              "original_url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-5654",
+              "boost": 0,
+              "id": [5654],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Promocje",
+                  "url": "https://drogerienatura.pl/kategoria/promocje-4949"
+                },
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-3844"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:08:35+00:00"
+          },
+          {
+            "url": "/kategoria/produkty-7603",
+            "identity_hash": 2046063183395128139,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Produkty",
+              "original_url": "https://drogerienatura.pl/kategoria/produkty-7603",
+              "boost": 0,
+              "id": [7603],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Oferta",
+                  "url": "https://drogerienatura.pl/kategoria/oferta-1520"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:08:35+00:00"
+          },
+          {
+            "url": "/kategoria/wszystkie-7737",
+            "identity_hash": 15946104044880898069,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Wszystkie",
+              "original_url": "https://drogerienatura.pl/kategoria/wszystkie-7737",
+              "boost": 0,
+              "id": [7737],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Oferta",
+                  "url": "https://drogerienatura.pl/kategoria/oferta-1520"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T08:08:35+00:00"
+          }
+        ],
+        "type": "product",
+        "highlight": {},
+        "exact": false,
+        "alternative": false,
+        "updated_at": "2026-10-06T08:08:35+00:00"
+      },
+      {
+        "url": "OC04966",
+        "identity_hash": 9652131078866149867,
+        "attributes": {
+          "show_is_new": ["Wyłączony"],
+          "cepdtech_catalog_filter_bestseller": ["0"],
+          "price": "39.99 zł",
+          "id": [4357527],
+          "lb_id": ["OC04966"],
+          "sku": ["OC04966"],
+          "is_returnable": [],
+          "quantity_default": [4],
+          "brand": ["AA"],
+          "all_categories": [
+            "Wszystkie produkty",
+            "Oferta",
+            "Twarz",
+            "Kosmetyki do twarzy",
+            "Kremy do twarzy",
+            "Kremy na dzień",
+            "Superoferty",
+            "Produkty",
+            "Wszystkie"
+          ],
+          "size_unit": ["ml"],
+          "images": [
+            "https://media.drogerienatura.pl/catalog/product/5/9/5900116104966_3736.jpg?store=default&image-type=image"
+          ],
+          "image_link": "https://media.drogerienatura.pl/catalog/product/5/9/5900116104966_3736.jpg?store=default&image-type=image",
+          "producent_gpsr1": ["OCEANIC Sp. z o.o."],
+          "rating_summary": [0],
+          "price_amount": 39.99,
+          "bool_tags": [],
+          "show_out_of_stock": ["Włączony"],
+          "meta_description": [
+            "Twoja skóra jest odwodniona i podrażniona? Wybierz AA LAAB hydro-krem na dzień z kompleksem Centella B12. Odbuduj barierę ochronną i odzyskaj komfort."
+          ],
+          "size": ["40.0000"],
+          "discount_price_percentage_amount": 14.9,
+          "category_urls": [
+            "/kategoria/wszystkie-produkty-1066",
+            "/kategoria/oferta-1520",
+            "/kategoria/twarz-1749",
+            "/kategoria/kremy-do-twarzy-1752",
+            "/kategoria/kremy-na-dzien-1753",
+            "/kategoria/kosmetyki-do-twarzy-2658",
+            "/kategoria/superoferty-4984",
+            "/kategoria/produkty-7603",
+            "/kategoria/wszystkie-7737"
+          ],
+          "boost": 0,
+          "short_description": [""],
+          "magento_status": ["Włączony"],
+          "boosted_via": [],
+          "position_number": ["824.000000"],
+          "lowest_price": ["36.990000"],
+          "description": "AA LAAB hydro-krem na dzień nawilżająco-kojący AA LAAB 100% CENTELLA B12 to zaawansowany program pielęgnacyjny nowej generacji dla skóry z uszkodzoną barierą hydrolipidową – odwodnionej, suchej oraz podatnej na podrażnienia (swędzenie, zaczerwienienia, pieczenie). Szybko poprawia kondycję skóry i w ekspercki sposób dba o jej wrażliwość. Hydro-krem na dzień nawilżająco-kojący zapewnia: natychmiastowy wzrost poziomu nawilżenia, wzmocnienie i ochronę bariery hydrolipidowej, skuteczne ograniczenie przeznaskórkowej utraty nawilżenia (TEWL), ukojenie podrażnień i przywrócenie komfortu skórze, zmniejszenie widoczności drobnych zmarszczek. Formuła opiera się na multifunkcyjnym kompleksie 100% Centella B12* – zgłoszonym do patentu połączeniu dwóch wyjątkowych składników: Centella z Madagaskaru – zapobiega powstawaniu zmarszczek poprzez wzmocnienie włókien kolagenu, intensywnie nawilża, chroniąc kwas hialuronowy przed degradacją, oraz detoksykuje, neutralizując wolne rodniki. Witamina B12 – działa przeciwzapalnie i skutecznie łagodzi podrażnienia oraz reakcje alergiczne skóry. Dodatkowo moc kompleksu Centella B12 wzmacnia N.M.F. Instant Repair CPLX, który oparty jest na trzech filarach nawilżenia skóry: humektantach, polisacharydach i lipidach, zapewniając szybki wzrost poziomu nawilżenia i ograniczenie TEWL. *zgłoszenie patentowe OCEANIC S.A. Przygotowanie i stosowanie Codziennie rano, omijając okolice oczu. Aby uzyskać maksymalny efekt pielęgnacji SKIN BARRIER PROTECTION, stosuj kompletny program AA LAAB CENTELLA B12.",
+          "availability": 1,
+          "tier_prices": [],
+          "main_category_lvl_1": ["Wszystkie produkty"],
+          "title": "AA LAAB 100% Centella B12 hydro-krem na dzień nawilżająco-kojący 40 ml",
+          "size_to_calculation": ["1.0000"],
+          "price_old_amount": 46.99,
+          "ean": ["5900116104966"],
+          "date_marked_as_new": ["2026-01-20 23:00:00"],
+          "ingredients": [
+            "Aqua, Caprylic/Capric Triglyceride, Polyglyceryl-6 Stearate, Coco-Caprylate/Caprate,Glycerin, Pentylene Glycol, Cetyl Palmitate, Glyceryl Stearate, Butyrospermum Parkii Butter, Cetearyl Alcohol, Pullulan, Xylitylglucoside, Sodium Lactate, Citric Acid, Fructose, Urea, Maltose, Sodium PCA, Trehalose, Sodium, Hyaluronate, Glucose, Anhydroxylitol, Xylitol, Centella Asiatica Extract, Allantoin, Cyanocobalamin, Polyglyceryl-6 Behenate, Tocopheryl Acetate, Saccharide Isomerate, Sodium Citrate, Carbomer, Sodium Hydroxide, Benzotriazolyl Dodecyl p-Cresol, Sodium Chloride, Hydroxyacetophenone, Parfum."
+          ],
+          "categories_lvl_4": ["Kremy na dzień"],
+          "discount_price_absolute_amount": 7.0,
+          "Media Gallery": [
+            "[{\"position\"=>13",
+            " \"url\"=>\"https://media.drogerienatura.pl/catalog/product/5/9/5900116104966_3736.jpg?store=default&image-type=image\"}]"
+          ],
+          "categories_lvl_2": ["Kosmetyki do twarzy", "Produkty", "Wszystkie"],
+          "categories_lvl_3": ["Kremy do twarzy"],
+          "discount_price_proportion_amount": 0.149,
+          "categories_lvl_1": ["Wszystkie produkty", "Twarz", "Superoferty", "Oferta"],
+          "price_old": "46.99 zł",
+          "quantity": [4],
+          "category_upto_lvl_5": [
+            "Wszystkie produkty",
+            "Twarz|Kosmetyki do twarzy|Kremy do twarzy|Kremy na dzień",
+            "Superoferty",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "ostrzezenia": [
+            "<p>Unikać kontaktu z oczami, błonami śluzowymi i uszkodzoną skórą. W przypadku dostania się do oczu, natychmiast przepłukać dużą ilością wody. </p><p><span style=\"font-weight: bold;\"> Przeciwwskazania: </span>Nie stosować w przypadku nadwrażliwości na którykolwiek ze składników. W razie wystąpienia reakcji alergicznej lub podrażnienia, przerwać stosowanie i skonsultować się z lekarzem.  Przechowywanie: Przechowywać w miejscu niedostępnym dla dzieci, z dala od źródeł ciepła i bezpośredniego światła słonecznego. Chronić przed mrozem.</p><p><span style=\"font-weight: bold;\">  Sposób użycia:</span> Używać zgodnie z instrukcjami na opakowaniu. Przekroczenie zalecanej dawki może prowadzić do podrażnień skóry lub innych niepożądanych reakcji. </p><p><span style=\"font-weight: bold;\"> Środki ostrożności: </span></p><ul><li> Nie połykać. </li><li>Unikać nadmiernej ekspozycji na słońce po zastosowaniu (dotyczy produktów zawierających składniki fotouczulające). </li><li>Nie stosować na skórę dzieci bez konsultacji z pediatrą (dotyczy produktów nieprzeznaczonych dla dzieci).<br><br></li></ul><p><span style=\"font-weight: bold;\"> Data ważności: </span>Stosować wyłącznie przed upływem daty ważności podanej na opakowaniu.</p><p><span style=\"font-weight: bold;\"> Nie używać, jeśli produkt zmienił zapach, konsystencję lub kolor.</span></p><p><span style=\"font-weight: bold;\">  Bezpieczeństwo środowiska</span>: Po użyciu wyrzucić opakowanie zgodnie z lokalnymi przepisami dotyczącymi utylizacji odpadów.  Uwagi dodatkowe:  W zależności od konkretnego kosmetyku, ostrzeżenie może być rozszerzone o dodatkowe informacje zgodnie z regulacjami prawnymi i specyfiką produktu.</p>"
+          ],
+          "warehouses": ["default"],
+          "dostawca_gpsr": ["OCEANIC"],
+          "lowest_price_date": ["2026-10-06 00:00:00"],
+          "base_image": ["3/7/3/6/3736d96c6a9c8128121275ab5f7d58383e93fce3_5900116104966.jpg"],
+          "product_type": ["Prosty"],
+          "web_url": [
+            "https://drogerienatura.pl/produkt/aa-laab-100-centella-b12-hydrokrem-na-dzien-nawilzajacokojacy-40-ml-5900116104966"
+          ],
+          "original_url": "https://drogerienatura.pl/produkt/aa-laab-100-centella-b12-hydrokrem-na-dzien-nawilzajacokojacy-40-ml-5900116104966",
+          "category": [
+            "Wszystkie produkty",
+            "Oferta",
+            "Twarz",
+            "Kosmetyki do twarzy",
+            "Kremy do twarzy",
+            "Kremy na dzień",
+            "Superoferty",
+            "Produkty",
+            "Wszystkie"
+          ],
+          "category_upto_lvl_4": [
+            "Wszystkie produkty",
+            "Twarz|Kosmetyki do twarzy|Kremy do twarzy|Kremy na dzień",
+            "Superoferty",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "introduced_at": ["2025-11-05 09:12:37"],
+          "category_upto_lvl_3": [
+            "Wszystkie produkty",
+            "Twarz|Kosmetyki do twarzy|Kremy do twarzy",
+            "Superoferty",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "category_upto_lvl_2": [
+            "Wszystkie produkty",
+            "Twarz|Kosmetyki do twarzy",
+            "Superoferty",
+            "Oferta|Produkty",
+            "Oferta|Wszystkie"
+          ],
+          "availability_default": [1],
+          "category_upto_lvl_1": ["Wszystkie produkty", "Twarz", "Superoferty", "Oferta"],
+          "title_common": "AA LAAB 100% Centella B12 hydro-krem na dzień nawilżająco-kojący 40 ml"
+        },
+        "nested": [
+          {
+            "url": "/kategoria/wszystkie-produkty-1066",
+            "identity_hash": 4771393622881232781,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": [],
+              "title": "Wszystkie produkty",
+              "original_url": "https://drogerienatura.pl/kategoria/wszystkie-produkty-1066",
+              "boost": 0,
+              "id": [1066],
+              "ancestors": [],
+              "include_in_menu": [false]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T06:15:36+00:00"
+          },
+          {
+            "url": "/kategoria/oferta-1520",
+            "identity_hash": 3937449848269802583,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": [],
+              "title": "Oferta",
+              "original_url": "https://drogerienatura.pl/kategoria/oferta-1520",
+              "boost": 0,
+              "id": [1520],
+              "ancestors": [],
+              "include_in_menu": [false]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T06:15:36+00:00"
+          },
+          {
+            "url": "/kategoria/twarz-1749",
+            "identity_hash": 15203485012324194783,
+            "attributes": {
+              "boosted_via": [],
+              "description": "",
+              "bool_tags": ["include_in_menu"],
+              "title": "Twarz",
+              "original_url": "https://drogerienatura.pl/kategoria/twarz-1749",
+              "boost": 0,
+              "id": [1749],
+              "ancestors": [],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T06:15:36+00:00"
+          },
+          {
+            "url": "/kategoria/kremy-do-twarzy-1752",
+            "identity_hash": 7032157692884280348,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kremy do twarzy",
+              "original_url": "https://drogerienatura.pl/kategoria/kremy-do-twarzy-1752",
+              "boost": 0,
+              "id": [1752],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                },
+                {
+                  "type": "category",
+                  "title": "Kosmetyki do twarzy",
+                  "url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-2658"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T06:15:36+00:00"
+          },
+          {
+            "url": "/kategoria/kremy-na-dzien-1753",
+            "identity_hash": 17139391302389631476,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kremy na dzień",
+              "original_url": "https://drogerienatura.pl/kategoria/kremy-na-dzien-1753",
+              "boost": 0,
+              "id": [1753],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                },
+                {
+                  "type": "category",
+                  "title": "Kosmetyki do twarzy",
+                  "url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-2658"
+                },
+                {
+                  "type": "category",
+                  "title": "Kremy do twarzy",
+                  "url": "https://drogerienatura.pl/kategoria/kremy-do-twarzy-1752"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T06:15:36+00:00"
+          },
+          {
+            "url": "/kategoria/kosmetyki-do-twarzy-2658",
+            "identity_hash": 5304541026264804463,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Kosmetyki do twarzy",
+              "original_url": "https://drogerienatura.pl/kategoria/kosmetyki-do-twarzy-2658",
+              "boost": 0,
+              "id": [2658],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Twarz",
+                  "url": "https://drogerienatura.pl/kategoria/twarz-1749"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T06:15:36+00:00"
+          },
+          {
+            "url": "/kategoria/superoferty-4984",
+            "identity_hash": 4969217773954502209,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": [],
+              "title": "Superoferty",
+              "original_url": "https://drogerienatura.pl/kategoria/superoferty-4984",
+              "boost": 0,
+              "id": [4984],
+              "ancestors": [],
+              "include_in_menu": [false]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T06:15:36+00:00"
+          },
+          {
+            "url": "/kategoria/produkty-7603",
+            "identity_hash": 2046063183395128139,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Produkty",
+              "original_url": "https://drogerienatura.pl/kategoria/produkty-7603",
+              "boost": 0,
+              "id": [7603],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Oferta",
+                  "url": "https://drogerienatura.pl/kategoria/oferta-1520"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T06:15:36+00:00"
+          },
+          {
+            "url": "/kategoria/wszystkie-7737",
+            "identity_hash": 15946104044880898069,
+            "attributes": {
+              "boosted_via": [],
+              "bool_tags": ["include_in_menu"],
+              "title": "Wszystkie",
+              "original_url": "https://drogerienatura.pl/kategoria/wszystkie-7737",
+              "boost": 0,
+              "id": [7737],
+              "ancestors": [
+                {
+                  "type": "category",
+                  "title": "Oferta",
+                  "url": "https://drogerienatura.pl/kategoria/oferta-1520"
+                }
+              ],
+              "include_in_menu": [true]
+            },
+            "nested": [],
+            "type": "category",
+            "highlight": {},
+            "exact": false,
+            "alternative": false,
+            "updated_at": "2026-10-06T06:15:36+00:00"
+          }
+        ],
+        "type": "product",
+        "highlight": {},
+        "exact": false,
+        "alternative": false,
+        "updated_at": "2026-10-06T06:15:36+00:00"
+      }
+    ],
+    "quicksearch_hits": [],
+    "facets": [],
+    "suggested_facet": "null",
+    "total_hits": 4
+  },
+  "next_page": null,
+  "guid": "c14112b6-585c-4502-bc56-762c0dfa2a70"
+}

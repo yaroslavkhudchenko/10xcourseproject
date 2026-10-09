@@ -6,7 +6,7 @@ import {
   parseMatchedShop,
   SHOP_LABELS,
   type MatchableShop,
-  type MatchedShop,
+  type PricedShop,
 } from "@/lib/services/price-comparison";
 import { filterHref, type ListFilter } from "@/lib/services/watchlist-rows";
 import { shopUnavailableText } from "@/lib/shop-messages";
@@ -400,12 +400,16 @@ export function decidedView(own: MatchProduct, filter: ListFilter): MatchView {
 
 /**
  * The notice of the decision the page was sent back with (`?shop=natura&matched=1`, `declined=1` or `decided=1`), with
- * the matched shop it was for, or null for none, and for a code without a matched shop. Should several codes come at
- * once, a match's notice wins, then a decline's.
+ * the matched shop it was for, one of `shops`: the priced shops unless the page names its product's matched shops
+ * (matchedShopsOf). Null for none, and for a code without one of those shops, the product's own shop included. Should
+ * several codes come at once, a match's notice wins, then a decline's.
  */
-export function decisionNotice(params: URLSearchParams): { shop: MatchedShop; text: string } | null {
+export function decisionNotice(
+  params: URLSearchParams,
+  shops?: readonly PricedShop[],
+): { shop: PricedShop; text: string } | null {
   const code = DECISION_CODES.find((each) => params.has(each));
-  const shop = parseMatchedShop(params.get(SHOP_PARAM));
+  const shop = parseMatchedShop(params.get(SHOP_PARAM), shops);
   if (code === undefined || shop === null) {
     return null;
   }
@@ -414,11 +418,15 @@ export function decisionNotice(params: URLSearchParams): { shop: MatchedShop; te
 
 /**
  * Why the decision the page was sent back with wasn't saved (`?shop=natura&error=failed`), with the matched shop it was
- * for, whose card says it; null for none, for a code the app didn't send, and for a code without a matched shop, which
- * only a crafted post comes back with.
+ * for, whose card says it, one of `shops`: the priced shops unless the page names its product's matched shops
+ * (matchedShopsOf). Null for none, for a code the app didn't send, and for a code without one of those shops, the
+ * product's own shop included, which only a crafted post comes back with.
  */
-export function decisionError(params: URLSearchParams): { shop: MatchedShop; text: string } | null {
+export function decisionError(
+  params: URLSearchParams,
+  shops?: readonly PricedShop[],
+): { shop: PricedShop; text: string } | null {
   const text = matchErrorMessage(params.get(ERROR_PARAM));
-  const shop = parseMatchedShop(params.get(SHOP_PARAM));
+  const shop = parseMatchedShop(params.get(SHOP_PARAM), shops);
   return text === null || shop === null ? null : { shop, text };
 }
