@@ -370,6 +370,24 @@ None. No migration runs, and rows stored earlier in a product's own shop stay as
   - a product picked in Natura, whose own shop comes from its `source`;
   - an unreadable shop next to a readable one.
 
+### Phase 2
+
+- **The refusal-to-code mapping stays in the route,** as a typed `Record<DecisionRefusal, DecisionOutcome>` of four entries. The compiler checks it covers every reason, and the route tests cover each entry.
+- **`loadWatchedProduct` lets the product's read decide first, as the product page does.**
+  - A product not on the list answers `gone`, even when its decisions couldn't be read.
+  - Decisions that couldn't be read beside a readable product answer `failed`.
+  - It takes no `shops` argument.
+- **`contextOf` and the `APP` origin are shared too,** in `src/lib/services/testing/route-context.ts`, beside the row builders in `stored-rows.ts` (lesson "Define shared constants and helpers once"). Both route test files import them.
+- **Two paths stay pinned below the route, since `stubSupabase` can't reach them:**
+  - the store's `decided`, `gone` and `failed`, unchanged from before, in `matches.test.ts` and `matches.db.test.ts`;
+  - the `replaces` that reaches `recordDecision`, which the guardian's tests pin as the form's own.
+- **The 27 route tests go beyond the contract in five ways:**
+  - the early answers run no query at all;
+  - `gone` logs nothing;
+  - the reads run before the write;
+  - each admitted post's insert columns are pinned;
+  - an own-shop re-pin over a decision stored there earlier is refused.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -378,23 +396,23 @@ None. No migration runs, and rows stored earlier in a product's own shop stay as
 
 #### Automated
 
-- [x] 1.1 The guardian's tests pass: `npx vitest run src/lib/services/watched-product.test.ts`
-- [x] 1.2 Dropping the illegal-move check from `admitDecision` turns a test red, and restoring it turns it green again
-- [x] 1.3 The unit suite passes: `npm run test`
-- [x] 1.4 Lint passes: `npm run lint`
-- [x] 1.5 Types check: `npx astro sync && npx astro check`
+- [x] 1.1 The guardian's tests pass: `npx vitest run src/lib/services/watched-product.test.ts` — 50cf1df
+- [x] 1.2 Dropping the illegal-move check from `admitDecision` turns a test red, and restoring it turns it green again — 50cf1df
+- [x] 1.3 The unit suite passes: `npm run test` — 50cf1df
+- [x] 1.4 Lint passes: `npm run lint` — 50cf1df
+- [x] 1.5 Types check: `npx astro sync && npx astro check` — 50cf1df
 
 ### Phase 2: The decision route asks the guardian
 
 #### Automated
 
-- [ ] 2.1 The route's tests pass: `npx vitest run src/lib/services/match-routes.test.ts`
-- [ ] 2.2 The price routes' tests still pass on the shared row builders: `npx vitest run src/lib/services/price-routes.test.ts`
-- [ ] 2.3 Making the route store without asking the guardian turns the own-shop and illegal-move tests red, and restoring it turns them green again
-- [ ] 2.4 The unit suite passes: `npm run test`
-- [ ] 2.5 Lint passes: `npm run lint`
-- [ ] 2.6 Types check: `npx astro sync && npx astro check`
-- [ ] 2.7 The build passes: `npm run build`
+- [x] 2.1 The route's tests pass: `npx vitest run src/lib/services/match-routes.test.ts`
+- [x] 2.2 The price routes' tests still pass on the shared row builders: `npx vitest run src/lib/services/price-routes.test.ts`
+- [x] 2.3 Making the route store without asking the guardian turns the own-shop and illegal-move tests red, and restoring it turns them green again
+- [x] 2.4 The unit suite passes: `npm run test`
+- [x] 2.5 Lint passes: `npm run lint`
+- [x] 2.6 Types check: `npx astro sync && npx astro check`
+- [x] 2.7 The build passes: `npm run build`
 - [ ] 2.8 CI's `smoke` job passes on the pull request: the decision write against the real database (`npm run test:db`), `check-matches-db`, the two-user check of `gone`, and smoke
 - [ ] 2.9 CI's `e2e` job passes on the pull request, including the two specs that post a re-pin's decline
 

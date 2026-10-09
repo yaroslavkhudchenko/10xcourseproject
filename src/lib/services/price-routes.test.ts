@@ -1,8 +1,8 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { APIContext } from "astro";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { stubSupabase, type StubRelation } from "@/lib/services/testing/stub-supabase";
+import { APP, contextOf } from "@/lib/services/testing/route-context";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
+import { matchRow, naturaProductRow, productRow } from "@/lib/services/testing/stored-rows";
 import { POST as postPrices } from "@/pages/api/watchlist/prices";
 import { POST as postRefresh } from "@/pages/api/watchlist/refresh";
 import hebeIds from "@/lib/services/shops/fixtures/hebe-ids.json";
@@ -22,7 +22,6 @@ import superPharmPinnedOne from "@/lib/services/shops/fixtures/super-pharm-pinne
 // stopped shop, or one busy under the cap, is asked nothing; a 403 stops the shop and a 429 pauses it until its
 // Retry-After, each reported once, and nothing more is asked of it), never read off the routes.
 
-const APP = "https://drogeria.example";
 const NOW = "2026-09-28T12:00:00.000Z";
 const MINUTE = 60 * 1000;
 const ago = (ms: number) => new Date(Date.parse(NOW) - ms).toISOString();
@@ -63,45 +62,6 @@ const RECORDINGS = {
   },
 } satisfies Record<string, ReplayEntry>;
 
-/** A watched product of Rossmann's `sourceItemId`, as watchlist_items holds it. */
-function productRow(id: string, sourceItemId: string, createdAt = "2026-09-27T12:00:00+00:00") {
-  return {
-    id,
-    source: "rossmann",
-    source_item_id: sourceItemId,
-    brand: "NIVEA",
-    name: `Produkt ${sourceItemId}`,
-    caption: null,
-    size_text: "300 ml",
-    size_value: 300,
-    size_unit: "ml",
-    eans: [],
-    product_url: null,
-    image_url: null,
-    created_at: createdAt,
-  };
-}
-
-/** A product's match in a matched shop, as watchlist_matches holds it. */
-function matchRow(itemId: string, shop: string, shopItemId: string) {
-  return {
-    watchlist_item_id: itemId,
-    shop_id: shop,
-    state: "matched",
-    decided_by: "user",
-    shop_item_id: shopItemId,
-    name: `Produkt ${shopItemId}`,
-    brand: "NIVEA",
-    size_text: "300 ml",
-    size_value: 300,
-    size_unit: "ml",
-    eans: [],
-    product_url: null,
-    image_url: null,
-    checked_at: "2026-09-27T12:05:00+00:00",
-  };
-}
-
 /** An item's latest check, a price `checkedAgo` before now. */
 function latestRow(shop: string, shopItemId: string, checkedAgo: number) {
   return {
@@ -128,11 +88,6 @@ const PRODUCT_RELATIONS: Record<string, StubRelation> = {
   ],
   price_observations: [],
 };
-
-/** A watched product picked in Natura, by Natura's `sku`, as watchlist_items holds it. */
-function naturaProductRow(id: string, sku: string, createdAt?: string) {
-  return { ...productRow(id, sku, createdAt), source: "natura" };
-}
 
 // The same items for a product picked in Natura, Nivea Soft by its SKU: its own Natura item, and its matches in
 // Rossmann, Hebe and Super-Pharm, the shops a product picked in Natura is matched in.
@@ -198,16 +153,6 @@ function reservations(queries: unknown[][][]): unknown[] {
 /** The refusals the gate reported, in order, each with its arguments. */
 function blockReports(queries: unknown[][][]): unknown[] {
   return queries.flatMap(([[kind, name, args]]) => (kind === "rpc" && name === "report_shop_block" ? [args] : []));
-}
-
-/** A route's context, as Astro hands it over: the request, its URL, the request's Supabase client and `redirect`. */
-function contextOf(request: Request, supabase: SupabaseClient | null): APIContext {
-  return {
-    request,
-    url: new URL(request.url),
-    locals: { supabase, user: null },
-    redirect: (path: string, status = 302) => new Response(null, { status, headers: { Location: path } }),
-  } as unknown as APIContext;
 }
 
 /** The island's price request, from the app's own page unless other headers are given. */

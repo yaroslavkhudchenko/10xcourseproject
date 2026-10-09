@@ -6,7 +6,8 @@ import { PRICED_SHOPS, type MatchableShop } from "@/lib/services/price-compariso
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import { SHOP_ADAPTERS } from "@/lib/services/shops/registry";
 import { parseSize } from "@/lib/services/size";
-import { watchlistItemIdSchema } from "@/lib/services/watchlist";
+import { watchedProductOf, type WatchedProduct } from "@/lib/services/watched-product";
+import { getWatchlistProduct, watchlistItemIdSchema } from "@/lib/services/watchlist";
 import { filterHref, type ListFilter } from "@/lib/services/watchlist-rows";
 import {
   SHOP_IDS,
@@ -393,9 +394,10 @@ const rowSchema = z.discriminatedUnion("state", [
 // row of its own shop, a decision or an odd row, is left out as one outside the list (rule 1). The reads can't know a
 // product's own shop, since its row is read at the same time, so they read every priced shop, and whoever reads a
 // product's decisions narrows them to its matched shops: the product page's steps run in those shops alone
-// (runMatchSteps), a refetch reads a decision only in one of them (shopItemFor), a product's refresh keeps theirs
-// (productTargets), and the list's rows and priced items theirs (matchStatesOf, listPricedItems). Narrowing a read to
-// fewer shops gives what reading those shops alone gives.
+// (runMatchSteps), a posted decision is judged by its standing in them alone (watchedProductOf), a refetch reads a
+// decision only in one of them (shopItemFor), a product's refresh keeps theirs (productTargets), and the list's rows and
+// priced items theirs (matchStatesOf, listPricedItems). Narrowing a read to fewer shops gives what reading those shops
+// alone gives.
 
 /** A shop the reads use: one of `shops`, or undefined for any other value. */
 function listedShop(shop: unknown, shops: readonly MatchableShop[]): MatchableShop | undefined {
@@ -465,6 +467,24 @@ export async function listMatches(
   const decided = new Set<ShopId>(matches.map((match) => match.shop));
   const hidden = new Set(read.odd.flatMap((raw) => oddRowOf(raw, shops)?.shops ?? []));
   return { matches, unreadable: shops.filter((shop) => hidden.has(shop) && !decided.has(shop)) };
+}
+
+/**
+ * A watched product as the guardian judges a decision for it (watchedProductOf), from its page's own two reads, run at
+ * once: the product, and its stored decisions in every priced shop. Null when the product isn't on the user's list,
+ * which is how RLS reads another user's product too, so the two answer alike. `failed` when the product couldn't be
+ * read, or its decisions couldn't be read at all, never null. The product's read decides first, as on its page:
+ * without the product, its decisions don't count. The id must already be a UUID.
+ */
+export async function loadWatchedProduct(
+  supabase: SupabaseClient,
+  itemId: string,
+): Promise<WatchedProduct | null | "failed"> {
+  const [product, read] = await Promise.all([getWatchlistProduct(supabase, itemId), listMatches(supabase, itemId)]);
+  if (product === null || product === "failed") {
+    return product;
+  }
+  return read === null ? "failed" : watchedProductOf(product, read);
 }
 
 // Only the columns the list needs: which product, which shop, where the product stands there, and a match's item, whose
