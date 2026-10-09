@@ -1,10 +1,10 @@
 ---
 change_id: add-from-other-shops
 title: Add products Rossmann doesn't sell, found through the other shops' search
-status: impl_reviewed
+status: archived
 created: 2026-10-06
 updated: 2026-10-09
-archived_at: null
+archived_at: 2026-10-09T14:13:55Z
 ---
 
 ## Notes
