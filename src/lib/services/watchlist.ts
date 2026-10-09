@@ -14,6 +14,7 @@ import {
   type RemovedCode,
 } from "@/lib/notices";
 import { linksOfShop, optionalText } from "@/lib/services/form-fields";
+import { startsWithWords } from "@/lib/services/matching";
 import { PRICED_SHOPS } from "@/lib/services/price-comparison";
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import { SHOP_ADAPTERS } from "@/lib/services/shops/registry";
@@ -104,10 +105,12 @@ export function watchlistErrorMessage(code: string | null): string | null {
 
 /**
  * A product's full name, as a page's title or a screen reader reads it: its brand, when it has one, then its name, such
- * as "NIVEA Soft". A shop's item for the product reads the same way.
+ * as "NIVEA Soft". A name that already starts with its brand, as names in Natura, Hebe and Super-Pharm do, reads alone,
+ * so the brand is read once: "SORAYA Beauty Sleep krem na noc 50 ml". The brand's words are compared folded
+ * (startsWithWords), so "Nivea" starts "NIVEA SOFT krem". A shop's item for the product reads the same way.
  */
 export function productFullName({ brand, name }: { brand: string | null; name: string }): string {
-  return brand === null ? name : `${brand} ${name}`;
+  return brand === null || startsWithWords(name, brand) ? name : `${brand} ${name}`;
 }
 
 /** What adding a product came to: the new row's id, or `exists` when it was already on the list. */

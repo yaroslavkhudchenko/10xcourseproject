@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vite
 import { repinShopOf, retryShopOf } from "@/lib/services/match-step";
 import type { MatchView } from "@/lib/services/match-view";
 import type { MatchesRead } from "@/lib/services/matches";
+import { pickMatch } from "@/lib/services/matching";
 import { matchedShopsOf, type MatchableShop, type PricedShop } from "@/lib/services/price-comparison";
 import { createShopGate, type ShopGate, type ShopGateDeps } from "@/lib/services/shop-gate";
 import {
@@ -13,6 +14,7 @@ import {
   type LookupProduct,
   type MatchStepsInput,
 } from "@/lib/services/shop-matching";
+import { searchRossmannItems } from "@/lib/services/shops/rossmann";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
 import { CHALLENGE, loggedLines, type ServedAnswer } from "@/lib/services/testing/shop-answers";
 import hebeEanOffline from "@/lib/services/shops/fixtures/hebe-ean-offline.json";
@@ -26,6 +28,7 @@ import naturaNiveaSoft from "@/lib/services/shops/fixtures/natura-search-nivea-s
 import rossmannLookupAaLaab from "@/lib/services/shops/fixtures/rossmann-lookup-aa-laab-150.json";
 import rossmannLookupCosmicBlack from "@/lib/services/shops/fixtures/rossmann-lookup-maybelline-sky-high-cosmic-black.json";
 import rossmannLookupSoft from "@/lib/services/shops/fixtures/rossmann-lookup-nivea-soft-300.json";
+import rossmannMascaras from "@/lib/services/shops/fixtures/rossmann-search-maybelline-lash-sensational.json";
 import rossmannNiveaSoft from "@/lib/services/shops/fixtures/rossmann-search-nivea-soft.json";
 import superPharmSkyHigh from "@/lib/services/shops/fixtures/super-pharm-lookup-maybelline-sky-high-7-2.json";
 import superPharmNameSearchOne from "@/lib/services/shops/fixtures/super-pharm-name-search-one.json";
@@ -1774,6 +1777,43 @@ describe("Rossmann looked up for a product picked in another shop, on its record
         searchedByName: true,
       },
     ]);
+  });
+});
+
+// Rossmann's Sky High shades for Super-Pharm's Sky High Cosmic Black (84422), as "Dodaj" stores it from
+// super-pharm-lookup-maybelline-sky-high-7-2.json, without a caption (SUPER_PHARM_COSMIC_BLACK above). Each Rossmann
+// candidate's name carries its caption, where Rossmann keeps the shade, so no wrong shade is accepted, and the right
+// one comes first, though it isn't accepted either. The lookup's own search finds nothing at Rossmann (above), so the
+// shades are judged as Rossmann's search for "maybelline lash sensational" holds them, read by its item search as a
+// lookup's answer is: rossmann-search-maybelline-lash-sensational.json (2026-10-06, 11:48:24 UTC, as
+// super-pharm.test.ts says), its 19 items, served for the request it was sent with, 24 items a page.
+const ROSSMANN_MASCARAS_SEARCH =
+  "https://www.rossmann.pl/products/v4/api/Products?search=maybelline%20lash%20sensational&page=1&pageSize=24";
+
+describe("Rossmann's Sky High shades for a mascara picked in Super-Pharm, on Rossmann's recorded answer", () => {
+  it("accepts no shade for Super-Pharm's Cosmic Black, and offers Rossmann's Cosmic Black first, with „wydłużający” besides", async () => {
+    const { gate, fetchMock, reserve } = setupCharged([
+      { url: ROSSMANN_MASCARAS_SEARCH, status: 200, body: JSON.stringify(rossmannMascaras) },
+    ]);
+
+    const search = await searchRossmannItems(gate, "maybelline lash sensational", 24);
+
+    expect(requestedUrls(fetchMock)).toEqual([ROSSMANN_MASCARAS_SEARCH]);
+    expect(reserve.mock.calls).toEqual([["rossmann"]]);
+    if (search.kind !== "results") {
+      throw new Error(`expected results, got ${search.kind}`);
+    }
+    const pick = pickMatch(SUPER_PHARM_COSMIC_BLACK, search.candidates);
+    if (pick.kind !== "choose") {
+      throw new Error(`expected choose, got ${pick.kind}`);
+    }
+    // The six shades of 7,2 ml share no EAN with the product, which has none, so their names are weighed, and each has
+    // a word the product's name lacks. Cosmic Black shares the most, every word of the product's name but the brand's
+    // and „Mascara”, which the check sets aside, and its caption adds „wydłużający”.
+    expect(pick.options[0]).toMatchObject({
+      candidate: { shopItemId: "390594", name: "Lash Sensational Sky High tusz do rzęs, wydłużający, Cosmic Black" },
+      verdict: { sharesEan: false, size: "equal", brand: "agrees" },
+    });
   });
 });
 

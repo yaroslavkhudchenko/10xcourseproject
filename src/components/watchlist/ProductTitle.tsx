@@ -1,5 +1,6 @@
 import ProductThumb from "@/components/watchlist/ProductThumb";
 import RefreshForm from "@/components/watchlist/RefreshForm";
+import { startsWithWords } from "@/lib/services/matching";
 import { formatDayOf } from "@/lib/services/price-comparison";
 import { rowProductOf, type ListFilter, type NamedProduct } from "@/lib/services/watchlist-rows";
 import type { WatchlistItem } from "@/types";
@@ -25,10 +26,14 @@ interface Props {
 // sizes from xl (1280 px), since at 1024 px the pane beside the list leaves a 40 px name too little room and would
 // break its words. On a phone: the smaller tile beside the name, with the refresh in the bottom bar and the brand and
 // size in the row back to the list. The name and the brand and size are the list row's (rowProductOf), so the list and
-// the product agree; the heading reads the brand before the name, so screen readers hear the product's full name. It
-// keeps no state, so it renders the same in the island and in the kitchen sink.
+// the product agree; the heading reads the brand before the name, so screen readers hear the product's full name, its
+// brand once: a name that already starts with it, as names in Natura, Hebe and Super-Pharm do, reads alone, as the
+// page's title reads it (startsWithWords, productFullName). It keeps no state, so it renders the same in the island and
+// in the kitchen sink.
 export default function ProductTitle({ product, itemId, listFilter, caption, refreshing, onRefresh }: Props) {
   const { eyebrow, name, brand, imageUrl } = rowProductOf(product);
+  // The brand screen readers hear before the name, unless the name starts with it.
+  const spokenBrand = brand !== null && !startsWithWords(name, brand) ? brand : null;
   const added = formatDayOf(product.addedAt);
   // Set in capitals by the view, as the list's rows set theirs: "NIVEA · 300 ML · DODANO 20.09".
   const meta = [eyebrow, added === null ? null : `dodano ${added}`].filter((part) => part !== null).join(" · ");
@@ -42,7 +47,7 @@ export default function ProductTitle({ product, itemId, listFilter, caption, ref
           </p>
         )}
         <h1 className="text-product-title tracking-heading xl:text-product-title-lg xl:tracking-title font-extrabold text-balance wrap-break-word">
-          {brand && <span className="sr-only">{brand} </span>}
+          {spokenBrand && <span className="sr-only">{spokenBrand} </span>}
           {name}
         </h1>
       </div>

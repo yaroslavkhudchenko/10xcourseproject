@@ -113,7 +113,7 @@ export async function searchRossmannItems(gate: ShopGate, query: string, size: n
   if (found.kind === "unavailable") {
     return found;
   }
-  const kept = found.items.map(({ item, product }) => ({ item, candidate: toShopCandidate(item, product) }));
+  const kept = found.items.map(({ item, product }) => ({ item, candidate: toShopCandidate(product, toOffer(item)) }));
   // An item's availability is read only beside its offer, as a detail's is (priceCheckOf), so only an item with an
   // offer is counted.
   const offered = kept.flatMap(({ item, candidate }) => (candidate.offer === null ? [] : [item]));
@@ -247,7 +247,7 @@ export async function fetchRossmannPrice(gate: ShopGate, sourceItemId: string): 
  * refresh, asking one product per request, counts only the requests Rossmann gave no response to
  * (fetchRossmannPrices). It never throws.
  */
-export async function requestRossmannPrice(
+async function requestRossmannPrice(
   gate: ShopGate,
   sourceItemId: string,
 ): Promise<{ check: PriceCheck; responded: boolean }> {
@@ -416,13 +416,15 @@ function readItem(raw: unknown): FoundItem | null {
 }
 
 /**
- * A search's item as a candidate for a watched product's match in Rossmann, within PRODUCT_LIMITS, so it can always be
- * confirmed: its product's fields and its offer (toOffer). A candidate has no caption, so its name carries the
- * product's, where Rossmann keeps the shade or the scent, joined as a row on the list joins them (rowProductOf).
+ * A product as a candidate the matching rule judges, within PRODUCT_LIMITS, so it can always be confirmed: the
+ * product's fields and the given offer. A candidate has no caption, so its name carries the product's, where Rossmann
+ * keeps the shade or the scent, joined as a row on the list joins them (rowProductOf). The one conversion both make:
+ * Rossmann's item search, each item's product with its offer (toOffer), and the list's search, each shop's product
+ * with none, which the rule doesn't read (searchEntriesOf in product-search.ts).
  */
-function toShopCandidate(item: SearchItem, product: ProductCandidate): ShopCandidate {
+export function toShopCandidate(product: ProductCandidate, offer: ShopOffer | null): ShopCandidate {
   return {
-    shop: "rossmann",
+    shop: product.source,
     shopItemId: product.sourceItemId,
     brand: product.brand,
     name: rowProductOf(product).name.slice(0, PRODUCT_LIMITS.name),
@@ -431,7 +433,7 @@ function toShopCandidate(item: SearchItem, product: ProductCandidate): ShopCandi
     eans: product.eans,
     productUrl: product.productUrl,
     imageUrl: product.imageUrl,
-    offer: toOffer(item),
+    offer,
   };
 }
 

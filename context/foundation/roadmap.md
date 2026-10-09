@@ -3,13 +3,13 @@ project: Drogeria Radar
 version: 1
 status: draft # draft | active | locked
 created: 2026-09-25
-updated: 2026-10-07
+updated: 2026-10-09
 prd_version: 1
 main_goal: speed
 top_blocker: time
 milestone_id: usable-price-radar
 milestone_seq: 1
-milestone_status: open # open | done
+milestone_status: done # open | done
 ---
 
 # Roadmap: Drogeria Radar
@@ -20,7 +20,7 @@ milestone_status: open # open | done
 
 ## Milestone
 
-**M-1: Usable price radar** — Status: open
+**M-1: Usable price radar** — Status: done
 
 - **Intent:** The owner puts their repeat-purchase products on a private watchlist and matches them in Rossmann, Hebe, Super-Pharm and Drogerie Natura. The owner, and the few people they add, can then see at the shelf which shop is cheapest today, with an honest age on every price and a judgement on whether the price is good.
 - **Source materials:** `context/foundation/prd.md` (v1).
@@ -183,7 +183,7 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 - **Risk:** With no EAN in its index and a search key that must be read from the shop's own page, Super-Pharm is the most fragile shop. It comes after the first comparison so a breakage can't hold that up. Answered 2026-10-05: the key needn't be read at runtime. It's the public key every superpharm.pl page carries, with no expiry of its own and unchanged after 18 days (research note §2.3), so the app keeps it in its code, and by the owner's call the gate has no exception for it. A key Super-Pharm stops accepting answers 403, which stops Super-Pharm for everyone until the owner updates the key and switches the shop back on (`context/deployment/deploy-plan.md`, "Super-Pharm stopped with HTTP 403"), and nothing alerts the owner yet. With no EAN, every Super-Pharm match is the user's pick, from a search that only a tap on its card's button runs. Changed 2026-10-06 by `match-by-name`: opening a product with no Super-Pharm decision looks Super-Pharm up by name, with no tap, and an item that passes a strict name check is matched automatically; the user picks the rest.
 - **Carry-over from `etykiety-redesign`:** when a shop's match row can't be read, only the verdict says unread; the cards' "Najtaniej" mark and the live region's ", najtaniej" aren't withheld yet. Withhold them once a third shop joins: with two shops it can't happen, since an unmatched Natura has no price row.
 - **Carry-over from `hebe-in-comparison`:** Super-Pharm joins the way Hebe did, as one more matched shop. Done in this slice (2026-10-05), with no candidate rule of its own and no gate exception: see "Built" below.
-  - It joins `MATCHABLE_SHOPS` with its label (`SHOP_LABELS`) and its adapter in the registry (`SHOP_ADAPTERS` in `src/lib/services/shops/registry.ts`), then `MATCHED_SHOPS`, the one switch, where the compiler asks for its colour (`SHOP_FILLS`). The matching steps, the price refresh, the island and the list already run per matched shop.
+  - It joins `MATCHABLE_SHOPS` with its label (`SHOP_LABELS`) and its adapter in the registry (`SHOP_ADAPTERS` in `src/lib/services/shops/registry.ts`), then `MATCHED_SHOPS`, the one switch, where the compiler asks for its colour (`SHOP_FILLS`). The matching steps, the price refresh, the island and the list already run per matched shop. (Since `add-from-other-shops`, 2026-10-09, the switch is `PRICED_SHOPS`, and each product's matched shops are every priced shop but its own, `matchedShopsOf`.)
   - Its index has no EAN, so it needs candidate rules of its own: today's rule accepts only a candidate that shares an EAN, so every Super-Pharm match would be the user's choice unless S-06 adds one. S-06 added none; `match-by-name` (2026-10-06) added a name check for items without an EAN.
   - The `etykiety-redesign` carry-over above is done: S-05 withholds "Najtaniej" and ", najtaniej" while any matched shop's decision can't be read.
   - Its adapter's tests follow test-plan §6.4: real recordings, broken copies and the shop binding.
@@ -281,7 +281,7 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 
 ## Milestone History
 
-(Empty: this is the first milestone.)
+- **M-1: Usable price radar** (`usable-price-radar`) — closed 2026-10-09. Every foundation and slice, F-01 and S-01 to S-08, is done: the owner and the few people they add keep a private list of their products, matched in Rossmann, Drogerie Natura, Hebe and Super-Pharm, and see at the shelf which shop is cheapest today, with every price's age and a judgement of whether it's good; beside the slices, `match-by-name` and `add-from-other-shops` (a product added from any of the four shops) shipped too.
 
 ## Done
 

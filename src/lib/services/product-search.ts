@@ -9,8 +9,7 @@ import {
 } from "@/lib/services/price-comparison";
 import type { ShopGate } from "@/lib/services/shop-gate";
 import { SHOP_ADAPTERS } from "@/lib/services/shops/registry";
-import { searchRossmann } from "@/lib/services/shops/rossmann";
-import { rowProductOf } from "@/lib/services/watchlist-rows";
+import { searchRossmann, toShopCandidate } from "@/lib/services/shops/rossmann";
 import type { ProductCandidate, ShopCandidate, ShopMatchState, ShopUnavailable, WatchlistItem } from "@/types";
 
 // The list's product search (FR-003) across the priced shops: what it asks, how the items the shops found join into one
@@ -148,7 +147,9 @@ export function searchEntriesOf(outcomes: SearchOutcomes): SearchEntry[] {
     if (found?.kind !== "results") {
       continue;
     }
-    const candidates = found.products.map(candidateOf);
+    // Each product as a candidate the rule judges: its name with its caption, where Rossmann keeps the shade or the
+    // scent, as a row shows them and a lookup's candidate in Rossmann carries them, and no offer (toShopCandidate).
+    const candidates = found.products.map((product) => toShopCandidate(product, null));
     // The entries that would take each of this shop's items, among those so far, all of the shops before it.
     const takers = new Map<ShopCandidate, SearchEntry[]>();
     for (const entry of entries) {
@@ -176,28 +177,6 @@ export function searchEntriesOf(outcomes: SearchOutcomes): SearchEntry[] {
  */
 function joins(shop: PricedShop, product: ProductCandidate, candidate: ShopCandidate): boolean {
   return JOINS_BY_NAME.includes(shop) || sharesAnEan(product, candidate);
-}
-
-/**
- * A shop's product as a candidate the matching rule judges for an entry's product: its fields, its name with its
- * caption, where Rossmann keeps the shade or the scent, as a row shows them and a lookup's candidate in Rossmann carries
- * them (searchRossmannItems), and no offer, which the rule doesn't read.
- */
-function candidateOf(product: ProductCandidate): ShopCandidate {
-  const { source, sourceItemId, brand, sizeText, size, eans, productUrl, imageUrl } = product;
-  const name = rowProductOf(product).name;
-  return {
-    shop: source,
-    shopItemId: sourceItemId,
-    brand,
-    name,
-    sizeText,
-    size,
-    eans,
-    productUrl,
-    imageUrl,
-    offer: null,
-  };
 }
 
 /** What one shop's search came to, as the line above the results says it, such as „Natura: 9 wyników”. */
