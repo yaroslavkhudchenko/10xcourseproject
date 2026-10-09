@@ -751,4 +751,4 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Manual
 
-- [ ] 5.4 The owner checks in production after the merge, on the phone
+- [x] 5.4 The owner checks in production after the merge, on the phone — f087611
