@@ -745,8 +745,8 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 5.1 Prettier leaves the edited documents as they are
-- [x] 5.2 Lint and the whole unit suite pass
+- [x] 5.1 Prettier leaves the edited documents as they are — d5656f2
+- [x] 5.2 Lint and the whole unit suite pass — d5656f2
 - [ ] 5.3 CI's `ci`, `smoke` and `e2e` pass on the PR
 
 #### Manual
