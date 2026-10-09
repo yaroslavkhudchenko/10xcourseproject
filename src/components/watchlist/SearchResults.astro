@@ -1,58 +1,50 @@
 ---
-// A product search's results, each candidate in the list's row look with "Dodaj", which adds it to the list and opens
-// its page, or a "Na liście" pill for one the list already holds; the shop's spelling hint, as a link to the search it
-// names; and the search the results come from. Each "Dodaj" is described by its result's brand, size and name, so
-// screen readers tell the buttons apart. The search asks Rossmann alone, so the heading names it, and an empty result
-// says so and where a Rossmann product's matched shops' prices are compared: a name copied from another shop finds
-// nothing here.
+// The list's search results (product-search.ts): above them, a line saying what each shop's search came to, its count,
+// „brak wyników” or „nie odpowiada”, and Rossmann's spelling hint, as a link to the search it names; then one row per
+// product the shops found, in the list's row look, with the shops whose searches found it named under its name, and
+// "Dodaj", which adds the product of its first shop and opens its page, or a "Na liście" pill for a row the list already
+// holds an item of, as a product or as a product's match. Each "Dodaj" is described by its product's brand and size and
+// its name, so screen readers tell the buttons apart. Without a row, the results say nothing was found, with a hint to
+// search shorter, unless no shop answered, which the line alone says, shop by shop. Under them, the shops' searches the
+// results come from.
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import WatchlistRow from "@/components/watchlist/WatchlistRow.astro";
-import { matchedShopsOf, namesOf, SHOP_LABELS } from "@/lib/services/price-comparison";
+import { entryShopsText, searchSourcesText, type SearchResultsView } from "@/lib/services/product-search";
 import { rowProductOf } from "@/lib/services/watchlist-rows";
 import { cn } from "@/lib/utils";
-import type { ProductCandidate, WatchlistItem } from "@/types";
 
 interface Props {
-  /** The search text, as it went to the shop. */
+  /** The search text, as it went to the shops. */
   query: string;
-  candidates: ProductCandidate[];
-  spellingHint: string | null;
-  /** The products on the list, whose results show "Na liście" instead of "Dodaj". */
-  listed: readonly Pick<WatchlistItem, "source" | "sourceItemId">[];
+  /** What the results show, from the search's outcomes and the list's own reads (searchResultsOf). */
+  results: SearchResultsView;
   /** The page the spelling hint searches on. */
   path: string;
   /** Keeps the heading's and the results' ids apart where the kitchen sink draws the results more than once. */
   idPrefix?: string;
 }
 
-const { query, candidates, spellingHint, listed, path, idPrefix = "" } = Astro.props;
-
-/** One text per shop's product, to tell the results the list already holds. */
-const keyOf = ({ source, sourceItemId }: Pick<WatchlistItem, "source" | "sourceItemId">) => `${source}:${sourceItemId}`;
-const onList = new Set(listed.map(keyOf));
+const { query, results, path, idPrefix = "" } = Astro.props;
+const { entries, lines, answered, spellingHint } = results;
 const headingId = `${idPrefix}results-heading`;
-const shop = SHOP_LABELS.rossmann;
-// Where a product added from Rossmann's results has its prices compared: in its matched shops.
-const comparedIn = namesOf(matchedShopsOf("rossmann"), "in");
-const noResultsHint =
-  `Wyszukiwarka pokazuje tylko produkty ${shop.of}, a ceny ${comparedIn} porównasz na stronie ` +
-  `dodanego produktu. ${shop.name} może nazywać produkt inaczej: spróbuj krócej, np. „nivea soft 300 ml”.`;
+const noResultsHint = "Sklepy mogą nazywać produkt inaczej: spróbuj krócej, np. „nivea soft 300 ml”.";
 
-// Each result as its row draws it, with the ids of its brand and size and of its name, which its "Dodaj" is described
-// by: the brand and size first, when the result has them, as the row shows them above the name.
-const results = candidates.map((candidate, index) => {
-  const product = rowProductOf(candidate);
+// Each entry as its row draws it, with the ids of its brand and size and of its name, which its "Dodaj" is described
+// by: the brand and size first, when the product has them, as the row shows them above the name.
+const rows = entries.map((entry, index) => {
+  const product = rowProductOf(entry.product);
   const textIds = { eyebrow: `${idPrefix}result-${index}-eyebrow`, name: `${idPrefix}result-${index}-name` };
   const describedBy = product.eyebrow === null ? textIds.name : `${textIds.eyebrow} ${textIds.name}`;
-  return { candidate, product, textIds, describedBy };
+  return { entry, product, shops: entryShopsText(entry), textIds, describedBy };
 });
 ---
 
 <section aria-labelledby={headingId} class="flex flex-col gap-3">
   <h2 id={headingId} class="text-lg font-semibold">
-    Wyniki z {shop.of}
+    Wyniki
   </h2>
+  <p class="text-sm text-muted-foreground">{lines.map((line) => line.text).join(" · ")}</p>
   {spellingHint && (
     <p class="text-sm">
       Czy chodziło Ci o:{" "}
@@ -65,31 +57,24 @@ const results = candidates.map((candidate, index) => {
       ?
     </p>
   )}
-  {candidates.length === 0 ? (
-    <div class="flex flex-col gap-1.5 text-sm text-muted-foreground">
-      <p>
-        Brak wyników dla „{query}” {shop.in}.
-      </p>
-      <p>{noResultsHint}</p>
-    </div>
-  ) : (
+  {rows.length > 0 ? (
     <ul class="flex flex-col gap-2.5 lg:gap-3">
-      {results.map(({ candidate, product, textIds, describedBy }) => (
+      {rows.map(({ entry, product, shops, textIds, describedBy }) => (
         <li>
-          <WatchlistRow product={product} textIds={textIds}>
-            {onList.has(keyOf(candidate)) ? (
+          <WatchlistRow product={product} textIds={textIds} shops={shops}>
+            {entry.onList ? (
               <Badge variant="promo">Na liście</Badge>
             ) : (
               <form method="POST" action="/api/watchlist">
-                <input type="hidden" name="source" value={candidate.source} />
-                <input type="hidden" name="sourceItemId" value={candidate.sourceItemId} />
-                <input type="hidden" name="name" value={candidate.name} />
-                <input type="hidden" name="brand" value={candidate.brand ?? ""} />
-                <input type="hidden" name="caption" value={candidate.caption ?? ""} />
-                <input type="hidden" name="sizeText" value={candidate.sizeText ?? ""} />
-                <input type="hidden" name="productUrl" value={candidate.productUrl ?? ""} />
-                <input type="hidden" name="imageUrl" value={candidate.imageUrl ?? ""} />
-                {candidate.eans.map((ean) => (
+                <input type="hidden" name="source" value={entry.product.source} />
+                <input type="hidden" name="sourceItemId" value={entry.product.sourceItemId} />
+                <input type="hidden" name="name" value={entry.product.name} />
+                <input type="hidden" name="brand" value={entry.product.brand ?? ""} />
+                <input type="hidden" name="caption" value={entry.product.caption ?? ""} />
+                <input type="hidden" name="sizeText" value={entry.product.sizeText ?? ""} />
+                <input type="hidden" name="productUrl" value={entry.product.productUrl ?? ""} />
+                <input type="hidden" name="imageUrl" value={entry.product.imageUrl ?? ""} />
+                {entry.product.eans.map((ean) => (
                   <input type="hidden" name="eans" value={ean} />
                 ))}
                 <button type="submit" aria-describedby={describedBy} class:list={cn(buttonVariants({ size: "touch" }))}>
@@ -101,6 +86,13 @@ const results = candidates.map((candidate, index) => {
         </li>
       ))}
     </ul>
+  ) : (
+    answered && (
+      <div class="flex flex-col gap-1.5 text-sm text-muted-foreground">
+        <p>Brak wyników dla „{query}”.</p>
+        <p>{noResultsHint}</p>
+      </div>
+    )
   )}
-  <p class="font-mono text-meta tracking-meta text-muted-foreground uppercase">Wyniki z wyszukiwarki {shop.site}</p>
+  <p class="font-mono text-meta tracking-meta text-muted-foreground uppercase">{searchSourcesText()}</p>
 </section>

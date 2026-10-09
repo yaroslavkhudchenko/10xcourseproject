@@ -667,6 +667,31 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **Two of the Rossmann lookup tests run Rossmann alone** (`runMatchSteps` with `shops: ["rossmann"]`), since the products' other matched shops have no recording for their queries. Hebe 450251's re-pin choice on its recording is pinned too: 419343 first, then 2132081 with its size flagged.
 - **Left for Phase 5:** CLAUDE.md's "Shops and matching" (the captionless rule, the narrower set rule in `size.ts`, Hebe's set's legal name, and `nameQuery`'s single brand and size with the cut that keeps the size), the research note's §6 step 6, and the known limit in CLAUDE.md and the test plan's §7.
 
+### Phase 4
+
+- **`natura-search-nivea-soft.json` is now the whole recording,** 10 hits (9 products and the „nivea soft” query suggestion), in place of `match-by-name`'s copy cut to its first 5 hits, since the search's entries and lines are pinned on whole answers. Every test that reads it passes unchanged, and `natura.test.ts`' header says it's whole. The four new fixtures, and the three kept before, are byte-identical to their recordings.
+- **`searchShops(gate, query, shops = PRICED_SHOPS)`** takes an optional list of shops, as other rules do. The page passes none.
+- **The outcomes hold each shop's products as `ProductCandidate`s** (`ShopFound`). The other shops' candidates become products without a caption (`productOf`), and `searchEntriesOf` judges each as a candidate whose name carries its caption, as `searchRossmannItems` gives it (`candidateOf`), with no offer.
+- **The shops whose items join by name are a constant,** `JOINS_BY_NAME = ["super-pharm"]`, since the registry's `searchesByEan` is false for Rossmann too.
+- **The conflict rule applies to every shop,** as the phase's contract says, and counts only acceptances that would join: an EAN shop's item accepted by name for an entry is no claim on it.
+- **`onListOf(entries, products, decisions)`** marks entries from the list's own reads. A match counts only for a product the list read, and only in one of its matched shops. Without the products' read nothing is marked, and without the decisions' read only the products' own items.
+- **`searchResultsOf`** gives the entries, the lines, whether any shop answered and the spelling hint in one view model, so the page and the kitchen sink build the results by one rule. `entryShopsText` gives a row's shops, and `searchSourcesText` the footer.
+- **A shop whose search throws** is logged (`product-search`, "search failed", the error's name, never the text) and reads „nie odpowiada” beside the others.
+- **With no entry, the results say nothing was found while some shop answered,** even when others didn't, which their lines name. When no shop answered, only the line shows, shop by shop.
+- **The line counts in Polish plurals** („1 wynik”, „3 wyniki”, „5 wyników”, „12 wyników”, „22 wyniki”), its parts joined by „ · ” under the heading, with the spelling hint after it. `WatchlistRow`'s search-result variant takes a `shops` prop, drawn under the name in the eyebrow's classes.
+- **The search field's placeholder is „Szukaj w 4 sklepach”,** counted from `PRICED_SHOPS`, since four names don't fit the header's field at 1024–1279 px. Its label names the four shops.
+- **The tests that pinned `pageSize=24`:**
+  - `rossmann.test.ts`' list size is 10, its "maps the results" case serves `rossmann-search-nivea-soft.json`, and the S-01 recordings, each holding every item its search matched, are served at the 10-item URL;
+  - `super-pharm.test.ts` serves each Rossmann recording at the size it was recorded with: the two 10-item ones at 10, `match-by-name`'s three at 24, since the mascara answer holds 19 items;
+  - `watchlist.test.ts`' case is now two: every result of the two 10-item recordings round-trips through "Dodaj", and the S-01 items are served at the 10-item URL.
+- **The page lost the search's unavailable alert** and the imports only it used; `shopUnavailableText` stays for the product page. `searchStepOf`'s comment, and one in `search-query.test.ts`, no longer say the list asks Rossmann alone. No e2e spec or helper searches the list, so none changed.
+- **„nivea soft” gives a third join the plan doesn't list:** Natura NV80758 with Super-Pharm 20461, the Creme Soft shower gel 500 ml, the same product, every word of Natura's name in Super-Pharm's.
+- **The conflict rule never fires on the recordings under Phase 3's rule,** so it's pinned through the real gate on edited copies of Natura's „nivea soft” answer: a second NV80758 leaves Super-Pharm 20461 as its own entry, and a second NV890500 leaves Hebe 218807.
+- **Without Rossmann's answer, Nivea Soft 300 ml shows twice:** Natura's NV89063, with „intensywnie” in its name, doesn't take Super-Pharm's 10132 under the every-word rule. A test pins it.
+- **The gate's fix:** the deliberate-break check found the EAN shops' guard unprotected, since no recorded answer has an EAN shop's item accepted by name. A case on edited copies of Rossmann's and Natura's „nivea soft” answers (26900 without its EANs, NV89063 without „intensywnie”) now pins that Natura's item stays apart.
+- **The texts for the owner's check:** the heading „Wyniki”; the line, such as „Rossmann: 5 wyników · Natura: 9 wyników · Hebe: 3 wyniki · Super-Pharm: 10 wyników”, with „brak wyników” and „nie odpowiada”; each entry's shops under its name; the empty result „Brak wyników dla „…”.” and „Sklepy mogą nazywać produkt inaczej: spróbuj krócej, np. „nivea soft 300 ml”.”; the footer „Wyniki z wyszukiwarek rossmann.pl, drogerienatura.pl, hebe.pl i superpharm.pl”; the placeholder „Szukaj w 4 sklepach” and the label „Szukaj produktu w Rossmannie, w Naturze, w Hebe i w Super-Pharmie”.
+- **Left for Phase 5:** the search in CLAUDE.md ("Shops and matching" and "UI"), the PRD's FR-003, the research note's §6 and §2.1, and the test plan's §6.4, §6.6 and §7.
+
 ## References
 
 - Research: `context/changes/add-from-other-shops/research.md`, re-checked on 2026-10-08. The owner's calls are in `change.md`.
@@ -698,15 +723,15 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 3.1 The rule's, the lookups' and the adapters' tests pass
-- [x] 3.2 Lint, type check and the whole unit suite pass
+- [x] 3.1 The rule's, the lookups' and the adapters' tests pass — e7f83cd
+- [x] 3.2 Lint, type check and the whole unit suite pass — e7f83cd
 
 ### Phase 4: The four-shop search
 
 #### Automated
 
-- [ ] 4.1 The search's and the adapters' tests pass
-- [ ] 4.2 Lint, type check and the whole unit suite pass
+- [x] 4.1 The search's and the adapters' tests pass
+- [x] 4.2 Lint, type check and the whole unit suite pass
 
 ### Phase 5: Docs and rollout
 

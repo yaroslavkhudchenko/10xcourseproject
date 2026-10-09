@@ -29,8 +29,9 @@ describe("isOwnNavigation", () => {
   });
 });
 
-// Whether the list page asks Rossmann: the one search a submitted form costs, and none for a link on another site, a
-// prefetch, text that can't go into a shop URL, or no text (CLAUDE.md, "only the user's own navigation reaches a shop").
+// Whether the list page asks the shops: the one search in each that a submitted form costs, and none for a link on
+// another site, a prefetch, text that can't go into a shop URL, or no text (CLAUDE.md, "only the user's own navigation
+// reaches a shop").
 describe("searchStepOf", () => {
   const own = new Headers({ "Sec-Fetch-Site": "same-origin" });
 

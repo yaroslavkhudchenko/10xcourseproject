@@ -5,7 +5,8 @@
 // lifts on hover unless the user asked for reduced motion, and screen readers hear its whole comparison in one line,
 // the row service's summary, instead of the drawn tag and its line. Beside a product's page, that product's row is
 // selected, and its tag and line follow the product's refresh (RowTag). A search result isn't on the list yet, so it
-// links nowhere and stays put, and its action comes in the default slot.
+// links nowhere and stays put, names under its name the shops whose searches found it, and its action comes in the
+// default slot.
 import ProductThumb from "@/components/watchlist/ProductThumb";
 import RowTag from "@/components/watchlist/RowTag";
 import { filterHref, type ListFilter, type ListRow, type RowProduct } from "@/lib/services/watchlist-rows";
@@ -32,12 +33,15 @@ type Props =
        * (aria-describedby), apart for each result on the page.
        */
       textIds?: { eyebrow: string; name: string };
+      /** The shops whose searches found the result, as a line under its name: „Rossmann · Natura · Super-Pharm”. */
+      shops?: string;
     };
 
 const props = Astro.props;
 const listed = "row" in props ? props : null;
 const product: RowProduct = "row" in props ? props.row : props.product;
 const textIds = "row" in props ? undefined : props.textIds;
+const shops = "row" in props ? undefined : props.shops;
 const selected = listed?.selected ?? false;
 const Element = listed === null ? "div" : "a";
 const href =
@@ -71,6 +75,9 @@ const TAG_LINE = "col-span-2 col-start-2 row-start-2 justify-self-end text-right
     <span id={textIds?.name} class="text-body leading-tight font-semibold wrap-break-word">
       {product.name}
     </span>
+    {shops && (
+      <span class="font-mono text-meta tracking-eyebrow wrap-break-word text-muted-foreground uppercase">{shops}</span>
+    )}
   </span>
   {listed === null ? (
     <span class="shrink-0">

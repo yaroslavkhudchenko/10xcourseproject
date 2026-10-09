@@ -37,8 +37,10 @@ import unknownTracker from "@/lib/services/shops/fixtures/natura-unknown-tracker
 //   owner's approval): price requests from the developer machine, with the gate's User-Agent, at least 2 s apart, each
 //   with the adapter's exact parameters.
 // natura-search-nivea-soft.json is the search for "nivea soft", size 10, recorded on 2026-10-06 at 10:37:39 UTC from
-// the developer machine, with the gate's User-Agent and `Accept: application/json`, following no redirect, and cut to
-// its first 5 hits, all products: Nivea Soft in 300, 200 and 100 ml, Creme Soft's shower gel and a 50 ml Soft cream.
+// the developer machine, with the gate's User-Agent and `Accept: application/json`, following no redirect, and kept
+// whole: 10 hits, 9 products and the query suggestion „nivea soft”. The products are Nivea Soft in 300, 200 and 100 ml,
+// Creme Soft's shower gel, a 50 ml Soft cream, the shower gel's refill, Creme Soft's creamy shower gel in 750 ml, Soft &
+// Cream's wipes and a 500 ml Soft cream.
 // The broken answers below each change one thing in a copy of these, or stand in a page or an empty body where the
 // JSON was.
 const searchUrl = (query: string, size: number) =>

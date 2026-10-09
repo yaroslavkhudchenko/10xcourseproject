@@ -94,8 +94,8 @@ import searchEmpty from "@/lib/services/shops/fixtures/super-pharm-search-empty.
 // - rossmann-search-head-shoulders-classic-clean.json (11:48:21 UTC): "head & shoulders classic clean", its 4 items.
 // - rossmann-search-maybelline-lash-sensational.json (11:48:24 UTC): "maybelline lash sensational", its 19 items,
 //   which keep each mascara's shade in its caption.
-// The first two asked for 10 items a page, where the list's search asks for 24, and each holds every item its search
-// matched, so each is served for the list's own request.
+// The first two asked for 10 items a page, the list's search's own request, and the other three for 24, the list's
+// request when they were recorded, so the 19 mascaras fit. Each is served for the request it was sent with.
 const QUERY_URL = "https://ep43qpdx9q-dsn.algolia.net/1/indexes/spprod_drugstore_pl_simple_products/query";
 // Super-Pharm's Algolia application and the public search-only key its pages carry: every request carries both.
 const APP_ID = "EP43QPDX9Q";
@@ -154,33 +154,40 @@ const LOOKUPS = [
   FULL_FAN_LOOKUP,
 ];
 /**
- * A Rossmann search a recording answers: its text, and its URL as the list's search asks it, with 24 items a page, the
- * text spelled out as sent.
+ * A Rossmann search a recording answers: its text, as many items a page as it asked for, its URL with the text spelled
+ * out as sent, and its answer.
  */
-const rossmannSearch = (query: string, encodedQuery: string, answer: object) => ({
+const rossmannSearch = (query: string, encodedQuery: string, size: number, answer: object) => ({
   query,
-  url: `https://www.rossmann.pl/products/v4/api/Products?search=${encodedQuery}&page=1&pageSize=24`,
+  size,
+  url: `https://www.rossmann.pl/products/v4/api/Products?search=${encodedQuery}&page=1&pageSize=${size}`,
   answer,
 });
-const ROSSMANN_NIVEA_SOFT = rossmannSearch("nivea soft", "nivea%20soft", rossmannNiveaSoft);
+// The list's search asks for 10 items a page, as these two recordings did.
+const ROSSMANN_NIVEA_SOFT = rossmannSearch("nivea soft", "nivea%20soft", 10, rossmannNiveaSoft);
 const ROSSMANN_AA_LAAB = rossmannSearch(
   "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający",
   "AA%20LAAB%20100%25%20Centella%20B12%20%C5%BBel%20do%20mycia%20twarzy%20nawil%C5%BCaj%C4%85cy",
+  10,
   rossmannAaLaab,
 );
+// Recorded with the 24 items a page the list's search asked for then.
 const ROSSMANN_SHOWER_GELS = rossmannSearch(
   "nivea creme soft żel pod prysznic",
   "nivea%20creme%20soft%20%C5%BCel%20pod%20prysznic",
+  24,
   rossmannShowerGels,
 );
 const ROSSMANN_SHAMPOOS = rossmannSearch(
   "head & shoulders classic clean",
   "head%20%26%20shoulders%20classic%20clean",
+  24,
   rossmannShampoos,
 );
 const ROSSMANN_MASCARAS = rossmannSearch(
   "maybelline lash sensational",
   "maybelline%20lash%20sensational",
+  24,
   rossmannMascaras,
 );
 // Nivea Soft 300 ml, which every recording holds, and an id Super-Pharm doesn't have.
@@ -432,14 +439,14 @@ async function recordedCandidate(
 
 /**
  * A watched product, by its id, as Rossmann's adapter maps it from the recorded search it was picked in, the list's
- * search for 24 items, through a real gate that answers only that search's URL.
+ * search for as many items as that search asked for, through a real gate that answers only that search's URL.
  */
 async function rossmannProduct(
-  search: { query: string; url: string; answer: object },
+  search: { query: string; size: number; url: string; answer: object },
   id: string,
 ): Promise<NamedProduct> {
   const { gate, fetchMock } = setup([{ url: search.url, status: 200, body: JSON.stringify(search.answer) }]);
-  const result = await searchRossmann(gate, search.query, 24);
+  const result = await searchRossmann(gate, search.query, search.size);
   expect(fetchMock.mock.calls.map(([input]) => (input instanceof Request ? input.url : new URL(input).href))).toEqual([
     search.url,
   ]);

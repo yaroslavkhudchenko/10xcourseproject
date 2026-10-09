@@ -39,7 +39,7 @@ export type SearchStep =
  * What the list page does with its search text (`rawQuery`, the `q` parameter): nothing without any; tells the user
  * text that can't be searched (`invalid`); only fills the form in (`filled`) when the request isn't the user's own
  * navigation (isOwnNavigation), so a link on another site or a prefetch never spends the cap everyone shares; or
- * searches Rossmann, once (`search`).
+ * searches the shops, each once (`search`, searchShops in product-search.ts).
  */
 export function searchStepOf(rawQuery: string | null, headers: Headers): SearchStep {
   if (rawQuery === null) {

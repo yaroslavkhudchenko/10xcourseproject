@@ -48,12 +48,14 @@ import results from "@/lib/services/shops/fixtures/rossmann-search-results.json"
 //   nawilżający" at 10:37:49 UTC, which found 2. Each item carries its offer in the fields of a product's detail.
 // The broken answers below each change one thing in a copy of these recordings, or stand in a page or an empty body
 // where the JSON was.
-// The list's search asks Rossmann for 24 items a page, the size the list page gives it.
-const LIST_SIZE = 24;
+// The list's search asks Rossmann for 10 items a page, as it asks every shop (SEARCH_SIZE in product-search.ts): the
+// request the two recordings of 2026-10-06 answer. Each S-01 recording holds every item its search matched, its
+// totalCount, so the list's request gets the same answer, and each is served for it.
+const LIST_SIZE = 10;
 const searchUrl = (query: string) =>
-  `https://www.rossmann.pl/products/v4/api/Products?search=${encodeURIComponent(query)}&page=1&pageSize=24`;
+  `https://www.rossmann.pl/products/v4/api/Products?search=${encodeURIComponent(query)}&page=1&pageSize=10`;
 // The requests the 10-item recordings answer, as they were sent: their text, and their URL spelled out, with the text
-// encoded and 10 items a page.
+// encoded and 10 items a page, the list's own request.
 const NIVEA_SOFT_SEARCH = {
   query: "nivea soft",
   url: "https://www.rossmann.pl/products/v4/api/Products?search=nivea%20soft&page=1&pageSize=10",
@@ -235,13 +237,14 @@ afterEach(() => {
 });
 
 describe("Rossmann search: recorded answers", () => {
-  it("maps the results to candidates", async () => {
+  it("maps the results to candidates, asking for the list's 10 items, as the recording was asked", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const { gate, fetchMock } = setup([{ url: searchUrl("nivea soft"), status: 200, body: JSON.stringify(results) }]);
+    const { gate, fetchMock } = setup([{ url: searchUrl("nivea soft"), status: 200, body: JSON.stringify(niveaSoft) }]);
 
     const search = await searchRossmann(gate, "nivea soft", LIST_SIZE);
 
-    expect(requestedUrls(fetchMock)).toEqual([searchUrl("nivea soft")]);
+    // The list's request is the one rossmann-search-nivea-soft.json answers.
+    expect(requestedUrls(fetchMock)).toEqual([NIVEA_SOFT_SEARCH.url]);
     if (search.kind !== "results") {
       throw new Error(`expected results, got ${search.kind}`);
     }
@@ -252,13 +255,13 @@ describe("Rossmann search: recorded answers", () => {
       sourceItemId: "26900",
       brand: "NIVEA",
       name: "Soft",
-      caption: "krem uniwersalny, nawilżający",
+      caption: "krem do twarzy, ciała i dłoni, nawilżający",
       sizeText: "300 ml",
       size: { value: 300, unit: "ml" },
       eans: ["4005900009319", "4005808890637", "5900017001234"],
       productUrl:
-        "https://www.rossmann.pl/Produkt/Kremy-do-twarzy/NIVEA-Soft-krem-uniwersalny-nawilzajacy-300-ml,26900,13049",
-      imageUrl: `${IMAGE_HOST}/product_1_medium/26900_360_350_1785530324.webp`,
+        "https://www.rossmann.pl/Produkt/Kremy-do-twarzy/NIVEA-Soft-krem-do-twarzy-ciala-i-dloni-nawilzajacy-300-ml,26900,13049",
+      imageUrl: `${IMAGE_HOST}/product_1_medium/26900_360_350_1790938776.webp`,
     });
     // Every recorded item is read, so nothing is dropped or logged.
     expect(warn).not.toHaveBeenCalled();
@@ -668,10 +671,10 @@ describe("Rossmann's item search: recorded answers", () => {
     ]);
   });
 
-  it("reads the same items for the list's search, as products with their captions apart, asking for the size it's given", async () => {
+  it("reads the same items for the list's search, as products with their captions apart, asking for the list's 10", async () => {
     const { gate, fetchMock } = setup([{ url: AA_LAAB_SEARCH.url, status: 200, body: JSON.stringify(aaLaab) }]);
 
-    const search = await searchRossmann(gate, AA_LAAB_SEARCH.query, 10);
+    const search = await searchRossmann(gate, AA_LAAB_SEARCH.query, LIST_SIZE);
 
     expect(requestedUrls(fetchMock)).toEqual([AA_LAAB_SEARCH.url]);
     expect(search).toMatchObject({
@@ -717,7 +720,7 @@ describe("Rossmann's item search: broken copies cost only the offer, or only the
       const { gate, fetchMock } = setup([{ url: NIVEA_SOFT_SEARCH.url, status: 200, body: niveaSoftWith({ price }) }]);
 
       const candidates = candidatesOf(await searchRossmannItems(gate, NIVEA_SOFT_SEARCH.query, 10));
-      const products = await searchRossmann(gate, NIVEA_SOFT_SEARCH.query, 10);
+      const products = await searchRossmann(gate, NIVEA_SOFT_SEARCH.query, LIST_SIZE);
 
       expect(requestedUrls(fetchMock)).toEqual([NIVEA_SOFT_SEARCH.url, NIVEA_SOFT_SEARCH.url]);
       expect(candidates.map(rowOf)).toEqual(niveaSoftRowsWith({ offer: null }));

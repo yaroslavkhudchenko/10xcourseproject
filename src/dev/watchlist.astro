@@ -32,8 +32,7 @@ import {
   QUIET_COUNTS,
   ROW_FIXTURES,
   ROWS_FIXTURES,
-  SEARCH_CANDIDATES,
-  SEARCH_LISTED,
+  SEARCH_FIXTURES,
 } from "@/dev/watchlist-fixtures";
 import Layout from "@/layouts/Layout.astro";
 import { PASSWORD_SET_NOTICE, signOutErrorMessage } from "@/lib/notices";
@@ -405,25 +404,21 @@ const HEADS: {
                 Wyszukiwanie
               </h2>
               <p class="text-sm text-muted-foreground">
-                <code>SearchResults</code>: „Dodaj” i „Na liście”, z podpowiedzią pisowni, i wyszukiwanie bez wyników.
+                <code>SearchResults</code> wyszukiwania w czterech sklepach, z wpisami zbudowanymi regułami wyszukiwania
+                (<code>searchResultsOf</code>): linia z wynikiem każdego sklepu, wpis z czterech sklepów, wpisy jednego
+                sklepu, „Dodaj” i „Na liście”, dla produktu z listy i dla dopasowania produktu z listy, podpowiedź
+                pisowni, sklep, który nie odpowiada, wyszukiwanie bez wyników i takie, w którym nie odpowiedział żaden
+                sklep.
               </p>
               <div class="flex flex-col gap-6">
-                <SearchResults
-                  query="nivea soft"
-                  candidates={SEARCH_CANDIDATES}
-                  spellingHint="nivea soft 300 ml"
-                  listed={SEARCH_LISTED}
-                  path={HERE}
-                  idPrefix={`${theme}-results-`}
-                />
-                <SearchResults
-                  query="nivea sofft"
-                  candidates={[]}
-                  spellingHint={null}
-                  listed={SEARCH_LISTED}
-                  path={HERE}
-                  idPrefix={`${theme}-no-results-`}
-                />
+                {SEARCH_FIXTURES.map(({ code, text, query, results }, index) => (
+                  <div class="flex flex-col gap-1">
+                    <p class="text-xs text-muted-foreground">
+                      <code>{code}</code> · {text}
+                    </p>
+                    <SearchResults query={query} results={results} path={HERE} idPrefix={`${theme}-search-${index}-`} />
+                  </div>
+                ))}
               </div>
             </section>
 

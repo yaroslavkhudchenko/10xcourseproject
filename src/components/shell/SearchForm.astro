@@ -2,14 +2,14 @@
 // The product search: a GET form to the list, which works without JavaScript. The header draws it on a desktop and the
 // list under its title on a phone, so a page may hold two, one hidden at each width, each with its own field id. Both
 // send `q` with the checks the search applies (searchQuerySchema: 2 to 80 characters), and both keep their own
-// "Szukaj", which the list's notice "Naciśnij „Szukaj”…" names. The field's label and placeholder name Rossmann, the
-// only shop the search asks, so a name copied from another shop can't look like that shop's search found nothing.
+// "Szukaj", which the list's notice "Naciśnij „Szukaj”…" names. The search asks every priced shop (product-search.ts):
+// the field's label names each of them, and its placeholder says how many there are.
 // The field's focus outline is drawn around the whole field, and its text input fills the field's height, so a tap
 // anywhere beside the icon and the buttons lands in it. "/" focuses whichever search field is on screen, unless the
 // user is typing in a field; the header's field shows it as a hint.
 import { Search } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { SHOP_LABELS } from "@/lib/services/price-comparison";
+import { namesOf, PRICED_SHOPS } from "@/lib/services/price-comparison";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -19,9 +19,10 @@ interface Props {
   value: string | null;
   /**
    * The header's search on a desktop, with its "/" hint, or the list's on a phone. Both take one short placeholder,
-   * "Szukaj w Rossmannie": between 1024 and 1279 px the header's field has room for about 186 px of text, where the
-   * handoff's longer "Szukaj produktu, np. nivea soft 300 ml" needs 267, so the shop's name took the place of the
-   * example "np. nivea soft 300 ml", which the search's empty result gives instead (SearchResults).
+   * "Szukaj w 4 sklepach": between 1024 and 1279 px the header's field has room for about 186 px of text, where the
+   * handoff's longer "Szukaj produktu, np. nivea soft 300 ml" needs 267 and the four shops' names more, so the count of
+   * the shops took the place of the example "np. nivea soft 300 ml", which the search's empty result gives instead
+   * (SearchResults), and the label, which screen readers hear, names each shop.
    */
   variant: "header" | "list";
   class?: string;
@@ -29,8 +30,8 @@ interface Props {
 
 const { id, value, variant, class: className } = Astro.props;
 const header = variant === "header";
-const label = `Szukaj produktu ${SHOP_LABELS.rossmann.in}`;
-const placeholder = `Szukaj ${SHOP_LABELS.rossmann.in}`;
+const label = `Szukaj produktu ${namesOf(PRICED_SHOPS, "in")}`;
+const placeholder = `Szukaj w ${PRICED_SHOPS.length} sklepach`;
 ---
 
 <form method="GET" action="/watchlist" role="search" class:list={className}>
