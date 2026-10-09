@@ -2,7 +2,7 @@
 
 - repo_root: . (the repository root, read from a git worktree at the head below; all paths are repository-relative)
 - code_scope: . (one application; one root `package.json`)
-- head: 82973bb (clean)
+- head: 82973bb (clean), since rebased onto f798c04; its code is main's at f087611
 - path_alias: none
 
 ## Stack
