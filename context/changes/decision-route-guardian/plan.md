@@ -406,13 +406,13 @@ None. No migration runs, and rows stored earlier in a product's own shop stay as
 
 #### Automated
 
-- [x] 2.1 The route's tests pass: `npx vitest run src/lib/services/match-routes.test.ts`
-- [x] 2.2 The price routes' tests still pass on the shared row builders: `npx vitest run src/lib/services/price-routes.test.ts`
-- [x] 2.3 Making the route store without asking the guardian turns the own-shop and illegal-move tests red, and restoring it turns them green again
-- [x] 2.4 The unit suite passes: `npm run test`
-- [x] 2.5 Lint passes: `npm run lint`
-- [x] 2.6 Types check: `npx astro sync && npx astro check`
-- [x] 2.7 The build passes: `npm run build`
+- [x] 2.1 The route's tests pass: `npx vitest run src/lib/services/match-routes.test.ts` — b4df130
+- [x] 2.2 The price routes' tests still pass on the shared row builders: `npx vitest run src/lib/services/price-routes.test.ts` — b4df130
+- [x] 2.3 Making the route store without asking the guardian turns the own-shop and illegal-move tests red, and restoring it turns them green again — b4df130
+- [x] 2.4 The unit suite passes: `npm run test` — b4df130
+- [x] 2.5 Lint passes: `npm run lint` — b4df130
+- [x] 2.6 Types check: `npx astro sync && npx astro check` — b4df130
+- [x] 2.7 The build passes: `npm run build` — b4df130
 - [ ] 2.8 CI's `smoke` job passes on the pull request: the decision write against the real database (`npm run test:db`), `check-matches-db`, the two-user check of `gone`, and smoke
 - [ ] 2.9 CI's `e2e` job passes on the pull request, including the two specs that post a re-pin's decline
 
@@ -424,5 +424,5 @@ None. No migration runs, and rows stored earlier in a product's own shop stay as
 
 #### Automated
 
-- [ ] 3.1 The changed Markdown passes Prettier: `npx prettier --check CLAUDE.md context/domain/glossary.md context/foundation/roadmap.md context/foundation/test-plan.md`
-- [ ] 3.2 The unit suite still passes: `npm run test`
+- [x] 3.1 The changed Markdown passes Prettier: `npx prettier --check CLAUDE.md context/domain/glossary.md context/foundation/roadmap.md context/foundation/test-plan.md`
+- [x] 3.2 The unit suite still passes: `npm run test`
