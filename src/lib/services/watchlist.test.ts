@@ -332,6 +332,23 @@ describe("productFullName", () => {
     expect(productFullName({ brand: "NIVEA", name: "Soft" })).toBe("NIVEA Soft");
     expect(productFullName({ brand: null, name: "Krem nawilżający" })).toBe("Krem nawilżający");
   });
+
+  // Names in Natura, Hebe and Super-Pharm start with the brand, and "Dodaj" stores them so, with the brand beside them.
+  it.each([
+    // The night cream picked in Natura on the kitchen sink's list (src/dev/watchlist-fixtures.ts), whose page's title
+    // read „SORAYA SORAYA Beauty Sleep krem na noc 50 ml”.
+    { why: "in the same case", brand: "SORAYA", name: "SORAYA Beauty Sleep krem na noc 50 ml" },
+    { why: "in another case", brand: "Nivea", name: "NIVEA SOFT krem intensywnie nawilżający 300 ml" },
+  ])("reads a name that starts with its brand $why alone, so the brand is read once", ({ brand, name }) => {
+    expect(productFullName({ brand, name })).toBe(name);
+  });
+
+  it("reads the brand before a name that starts with only some of its words", () => {
+    // Super-Pharm's AA LAAB face wash (105870): its brand's second word isn't the name's.
+    expect(
+      productFullName({ brand: "AA Cosmetics", name: "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający" }),
+    ).toBe("AA Cosmetics AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający");
+  });
 });
 
 describe("addToWatchlist", () => {

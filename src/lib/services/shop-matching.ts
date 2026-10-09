@@ -17,6 +17,7 @@ import {
   judge,
   orderChoice,
   pickMatch,
+  startsWithWords,
   type MatchPick,
   type NamedProduct,
 } from "@/lib/services/matching";
@@ -190,13 +191,6 @@ export function nameQuery({
   const text = ending !== null && sizeText !== null && sameWords(ending.sizeText, sizeText) ? ending.before : name;
   const before = brand !== null && startsWithWords(name, brand) ? null : brand;
   return toShopQuery(text, { before, after: sizeText });
-}
-
-/** True when a text's first words, folded as the name check folds them, are all of `start`'s words: one at least. */
-function startsWithWords(text: string, start: string): boolean {
-  const words = foldedWordsOf(text);
-  const first = foldedWordsOf(start);
-  return first.length > 0 && first.every((word, index) => words[index] === word);
 }
 
 /** True when two texts have the same words, folded as the name check folds them: one at least. */

@@ -260,12 +260,26 @@ function wordsOf(text: string | null): string[] {
 /**
  * A text's words, folded as the name check folds them and split at anything but letters and digits, with nothing set
  * aside: "L'Oréal Paris" gives "l", "oreal" and "paris", and "7,2 ml" gives "7", "2" and "ml". A lookup's search by name
- * tells by them whether a product's name already starts with its brand or ends with its size (nameQuery).
+ * tells by them whether a product's name already starts with its brand (startsWithWords) or ends with its size
+ * (nameQuery).
  */
 export function foldedWordsOf(text: string): string[] {
   return folded(text)
     .split(WORD_BREAK)
     .filter((word) => word !== "");
+}
+
+/**
+ * True when a text's first words, folded as the name check folds them (foldedWordsOf), are all of `start`'s words: one
+ * at least. So "NIVEA SOFT krem" starts with "Nivea", while "AA LAAB" doesn't start with "AA Cosmetics", nor "Ziajka
+ * krem" with "Ziaja". A name in Natura, Hebe or Super-Pharm often starts with its brand, so a lookup's search by name
+ * (nameQuery) and a product's full name, as a page's title and the product's heading read it (productFullName,
+ * ProductTitle), put the brand before the name only when the name doesn't start with it.
+ */
+export function startsWithWords(text: string, start: string): boolean {
+  const words = foldedWordsOf(text);
+  const first = foldedWordsOf(start);
+  return first.length > 0 && first.every((word, index) => words[index] === word);
 }
 
 /**

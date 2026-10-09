@@ -84,7 +84,7 @@ The research (`research.md`, 2026-10-06) was re-checked on 2026-10-08 against `m
   - **no wrong join;**
   - **„nivea soft”:** Nivea Soft 300 ml joins Rossmann 26900, Natura NV89063 and Super-Pharm 10132;
   - **AA LAAB:** the face wash 150 ml joins Rossmann 419343, Hebe 450251 and Super-Pharm 105870, and four Natura items join their Hebe twins.
-- **Rossmann's candidates without a caption** make the name rule unsafe. Every 7,2 ml Sky High shade shares one Rossmann name. With the caption joined to the name, the Maybelline cases accept the right shade and no wrong one.
+- **Rossmann's candidates without a caption** make the name rule unsafe. Every 7,2 ml Sky High shade shares one Rossmann name. With the caption joined to the name, the Maybelline cases accept no wrong shade. (Corrected by the implementation review, 2026-10-09: this said they accept the right one too. On Rossmann's recorded answer, Super-Pharm's Cosmic Black, which has no caption, accepts nothing and has Rossmann's Cosmic Black offered first, since that item's name adds „wydłużający”; a test pins it.)
 - **`listMatchStates` reads the whole list in one query** (`src/lib/services/matches.ts:523-560`). It must read every priced shop, with each row narrowed to its product's matched shops.
 
 ## What We're NOT Doing
@@ -747,7 +747,7 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 - [x] 5.1 Prettier leaves the edited documents as they are — d5656f2
 - [x] 5.2 Lint and the whole unit suite pass — d5656f2
-- [ ] 5.3 CI's `ci`, `smoke` and `e2e` pass on the PR
+- [x] 5.3 CI's `ci`, `smoke` and `e2e` pass on the PR — 124b93c
 
 #### Manual
 

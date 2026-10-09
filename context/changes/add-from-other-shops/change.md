@@ -1,7 +1,7 @@
 ---
 change_id: add-from-other-shops
 title: Add products Rossmann doesn't sell, found through the other shops' search
-status: implemented
+status: impl_reviewed
 created: 2026-10-06
 updated: 2026-10-09
 archived_at: null
@@ -28,7 +28,7 @@ Let the user add a product that Rossmann doesn't sell, found through the other s
 - **The product's shop** (3): one „Dodaj” per entry, and the product is the entry's item from the first shop in a fixed order: Rossmann, Natura, Hebe, Super-Pharm.
 - **What „Dodaj” saves** (4): only the product. The product page matches the other shops as today; the search's other items aren't saved as matches.
 - **Duplicates** (7): „Na liście” shows on an entry when any of its items is already on the list, as a product or as one of a product's matches. Anything else can be added.
-- **Rossmann for a product from another shop** (6): looked up by name the first time the product opens (1 request), accepted automatically only with a shared EAN, the same size and a brand that doesn't differ; otherwise the user picks, as in Natura and Hebe.
+- **Rossmann for a product from another shop** (6): looked up by name the first time the product opens (1 request), accepted automatically only with a shared EAN, the same size and a brand that doesn't differ; otherwise the user picks, as in Natura and Hebe. Superseded by the plan's interview of 2026-10-08: Rossmann follows the same rule as the other shops, so the name check can accept a Rossmann item where EANs can't decide, as for a product picked in Super-Pharm (`plan.md`, Overview).
 - **Results per shop** (9): 10 in each shop, so Rossmann's search goes from 24 to 10.
 - **Live evidence** (11): approved: „nivea soft” and the owner's „AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający” in each of the four shops, 8 requests, one at a time and at least 2 s apart, from the developer machine with the gate's User-Agent and the adapters' own requests, kept as fixtures.
 - Each call is the research's recommended option. Questions 10 (the cost statement and any caching) and 12 (the documents) are left to the plan.

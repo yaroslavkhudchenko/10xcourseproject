@@ -6,6 +6,7 @@ import {
   orderChoice,
   pickMatch,
   sizesEqual,
+  startsWithWords,
   type NamedProduct,
 } from "@/lib/services/matching";
 import { parseSize } from "@/lib/services/size";
@@ -131,6 +132,38 @@ describe("brandsAgree", () => {
     { why: "one has no letter or digit", a: " – ", b: "NIVEA" },
   ])("can't say when $why", ({ a, b }) => {
     expect(brandsAgree(a, b)).toBeNull();
+  });
+});
+
+describe("startsWithWords", () => {
+  it.each([
+    { why: "the same words", text: "SORAYA Beauty Sleep krem na noc 50 ml", start: "SORAYA" },
+    { why: "the same word in another case", text: "NIVEA SOFT krem intensywnie nawilżający 300 ml", start: "Nivea" },
+    {
+      why: "the same words in capitals, without the accent",
+      text: "L'OREAL PARIS Elseve Szampon",
+      start: "L'Oréal Paris",
+    },
+  ])("says $text starts with $start: $why", ({ text, start }) => {
+    expect(startsWithWords(text, start)).toBe(true);
+  });
+
+  it.each([
+    // Super-Pharm's 105870: its brand's second word isn't the name's.
+    {
+      why: "only its first word",
+      text: "AA LAAB 100% Centella B12 Żel do mycia twarzy nawilżający",
+      start: "AA Cosmetics",
+    },
+    { why: "its letters, not its word", text: "Ziajka krem dla dzieci", start: "Ziaja" },
+    { why: "its word further on", text: "Krem NIVEA Soft", start: "NIVEA" },
+    { why: "fewer words", text: "Maybelline", start: "Maybelline New York" },
+  ])("says $text doesn't start with $start: it has $why", ({ text, start }) => {
+    expect(startsWithWords(text, start)).toBe(false);
+  });
+
+  it.each(["", "   ", " – "])("says no text starts with %j, which has no word", (start) => {
+    expect(startsWithWords("NIVEA Soft", start)).toBe(false);
   });
 });
 
