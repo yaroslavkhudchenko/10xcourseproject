@@ -647,7 +647,7 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **The list kitchen sink** has two rows of products picked in Natura, and a rows state whose alert names Rossmann too.
 - **The watchlist check also proves** that a user can't add a product from Natura to another user's list (42501).
 - **The prices check's Rossmann match** uses the script's own 14-digit `rossmannId`, as its other Rossmann ids do: the database takes it, though the app's rule is 1 to 12 digits. Its reads are checked on the table and on both views.
-- **Left for Phase 5:** the test plan's §6.3 and CLAUDE.md describe `addMatchedProduct` and `matchShop` without `addProduct` or a Rossmann match, and CLAUDE.md's entries for the two database checks don't mention a product from Natura.
+- **Left for Phase 5:** the test plan's §6.3 describes `addMatchedProduct` and `matchShop` without `addProduct` or a Rossmann match (CLAUDE.md names neither and points to §6.3), and CLAUDE.md's entries for the two database checks don't mention a product from Natura.
 
 ### Phase 3
 
@@ -661,7 +661,7 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **`nameQuery` stays in `shop-matching.ts`,** exported for its tests. The cut that keeps the brand and the size whole is `toShopQuery`'s optional second parameter (`KeptText`), so its one-argument calls are unchanged.
 - **One word rule:** `foldedWordsOf`, exported from `matching.ts`, is the name check's folding and word split, which `wordsOf` and `nameQuery` share.
 - **The size a name ends with is read by `splitTrailingSize`** in `size.ts`, which `trailingSizeText` now uses. So Natura's „…500ml” ends with „500 ml”, and the query puts the product's size text in its place: „…prysznic 500 ml”.
-- **A blank caption** is one without a letter or a digit, as the module reads a blank brand, so "", "   " and " – " take the every-word rule. `size.test.ts`, not in the plan's list, pins `splitTrailingSize` and `isSetName`.
+- **A blank caption** is one without a letter or a digit, as the module reads a blank brand, so `""`, `"   "` and `" – "` take the every-word rule. `size.test.ts`, not in the plan's list, pins `splitTrailingSize` and `isSetName`.
 - **The 4 wrong acceptances and the 2 accepted-cost cases are `pickMatch` cases** on the recorded „nivea soft” answers as each adapter reads them, since no recording answers those products' new queries. Their choices put first the plainer sibling the old rule accepted: the refills' right item is second, as the shops word a refill differently, and Natura's answer holds no SPF15 cream at all. The 2 accepted-cost cases offer the right item first.
 - **Lookups for a product from another shop, on the recordings that exist:** Hebe for Natura NV890500 is the only real product whose new query has a recording (218807, accepted by its shared EAN in 1 request). The other cases use products named as the recorded searches asked, with the brand or the size repeated in the name, which the old query would have missed. The adapters' tests add real-fixture cases: Super-Pharm 105870 and 105882 for Hebe 450251 and 450257, the choice of 10132 for Natura NV89063, and Hebe 450251 for Super-Pharm 105870.
 - **Two of the Rossmann lookup tests run Rossmann alone** (`runMatchSteps` with `shops: ["rossmann"]`), since the products' other matched shops have no recording for their queries. Hebe 450251's re-pin choice on its recording is pinned too: 419343 first, then 2132081 with its size flagged.
@@ -691,6 +691,14 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **The gate's fix:** the deliberate-break check found the EAN shops' guard unprotected, since no recorded answer has an EAN shop's item accepted by name. A case on edited copies of Rossmann's and Natura's „nivea soft” answers (26900 without its EANs, NV89063 without „intensywnie”) now pins that Natura's item stays apart.
 - **The texts for the owner's check:** the heading „Wyniki”; the line, such as „Rossmann: 5 wyników · Natura: 9 wyników · Hebe: 3 wyniki · Super-Pharm: 10 wyników”, with „brak wyników” and „nie odpowiada”; each entry's shops under its name; the empty result „Brak wyników dla „…”.” and „Sklepy mogą nazywać produkt inaczej: spróbuj krócej, np. „nivea soft 300 ml”.”; the footer „Wyniki z wyszukiwarek rossmann.pl, drogerienatura.pl, hebe.pl i superpharm.pl”; the placeholder „Szukaj w 4 sklepach” and the label „Szukaj produktu w Rossmannie, w Naturze, w Hebe i w Super-Pharmie”.
 - **Left for Phase 5:** the search in CLAUDE.md ("Shops and matching" and "UI"), the PRD's FR-003, the research note's §6 and §2.1, and the test plan's §6.4, §6.6 and §7.
+
+### Phase 5
+
+- **The PRD gains a note under FR-007 too,** beyond the contract's list: Rossmann gets a matched shop's card for a product from another shop, and a product's own item isn't re-pinned, whichever shop it's in.
+- **CLAUDE.md names no e2e seed helper,** so the seeds are described in the test plan's §6.3 alone, which CLAUDE.md's Playwright entry points to. Phase 2's note said otherwise and now says so.
+- **The research note doesn't say Rossmann's search needs every word of a query.** Nivea Soft 300 ml was found though „intensywnie” appears only in its picture's alt text, so the note says only that a query in another shop's words can find nothing, and that which word kept Cosmic Black out is unknown.
+- **The test plan's new §7 edges each say when to re-evaluate them,** in the documents' own wording, since no source states it. §6.4 also lists `product-search.test.ts` among the reference tests, and names the `[email removed]` redaction in "Recording a fixture".
+- **The PRD's FR-003 note gives the search's texts as shipped,** for the owner's check (5.4). The documents' new notes are dated 2026-10-09, when the change was finished; the owner's calls keep their own dates.
 
 ## References
 
@@ -730,15 +738,15 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 4.1 The search's and the adapters' tests pass
-- [x] 4.2 Lint, type check and the whole unit suite pass
+- [x] 4.1 The search's and the adapters' tests pass — 6593512
+- [x] 4.2 Lint, type check and the whole unit suite pass — 6593512
 
 ### Phase 5: Docs and rollout
 
 #### Automated
 
-- [ ] 5.1 Prettier leaves the edited documents as they are
-- [ ] 5.2 Lint and the whole unit suite pass
+- [x] 5.1 Prettier leaves the edited documents as they are
+- [x] 5.2 Lint and the whole unit suite pass
 - [ ] 5.3 CI's `ci`, `smoke` and `e2e` pass on the PR
 
 #### Manual
