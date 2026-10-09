@@ -3,13 +3,13 @@ project: Drogeria Radar
 version: 1
 status: draft # draft | active | locked
 created: 2026-09-25
-updated: 2026-10-07
+updated: 2026-10-09
 prd_version: 1
 main_goal: speed
 top_blocker: time
 milestone_id: usable-price-radar
 milestone_seq: 1
-milestone_status: open # open | done
+milestone_status: done # open | done
 ---
 
 # Roadmap: Drogeria Radar
@@ -20,7 +20,7 @@ milestone_status: open # open | done
 
 ## Milestone
 
-**M-1: Usable price radar** — Status: open
+**M-1: Usable price radar** — Status: done
 
 - **Intent:** The owner puts their repeat-purchase products on a private watchlist and matches them in Rossmann, Hebe, Super-Pharm and Drogerie Natura. The owner, and the few people they add, can then see at the shelf which shop is cheapest today, with an honest age on every price and a judgement on whether the price is good.
 - **Source materials:** `context/foundation/prd.md` (v1).
@@ -281,7 +281,7 @@ What is already in place in the codebase as of `2026-09-25` (auto-researched and
 
 ## Milestone History
 
-(Empty: this is the first milestone.)
+- **M-1: Usable price radar** (`usable-price-radar`) — closed 2026-10-09. Every foundation and slice, F-01 and S-01 to S-08, is done: the owner and the few people they add keep a private list of their products, matched in Rossmann, Drogerie Natura, Hebe and Super-Pharm, and see at the shelf which shop is cheapest today, with every price's age and a judgement of whether it's good; beside the slices, `match-by-name` and `add-from-other-shops` (a product added from any of the four shops) shipped too.
 
 ## Done
 
