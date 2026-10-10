@@ -56,7 +56,7 @@ In PRD refs, FR-NNN and US-NN are the PRD's, I-NN the refactor plan's invariants
 | ---- | ----------------------------- | -------------------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------- | -------- |
 | S-01 | decision-route-guardian       | post decisions as before, and a post the guardian refuses stores nothing; a matched shop's card says why | —             | FR-004, FR-006, FR-007, US-02, I-2, I-5, I-7, I-8, I-10, R-02, R-05, R-07, R-08, R-10                         | done     |
 | S-02 | decision-store-backstop       | rely on the database to refuse a decision in a product's own shop, and on each decision saving at once   | S-01          | FR-005, FR-007, US-02, I-1, I-3, I-5, I-8, R-01, R-03, R-05, R-08, R-16                                       | proposed |
-| S-03 | page-lookups-through-guardian | open a product whose lookups and decisions go through the same guardian, with the same results           | S-01          | FR-006, FR-007, FR-008, US-02, I-4, I-6, I-8, I-9, I-12, I-13, R-04, R-06, R-08, R-09, R-12, R-14, R-15, D-01 | proposed |
+| S-03 | page-lookups-through-guardian | open a product whose lookups and decisions go through the same guardian, with the same results           | S-01          | FR-006, FR-007, FR-008, US-02, I-4, I-6, I-8, I-9, I-12, I-13, R-04, R-06, R-08, R-09, R-12, R-14, R-15, D-01 | planning |
 
 ## Baseline
 
@@ -119,7 +119,7 @@ None. Every layer M-2 touches is present (`## Baseline`), and the guardian arriv
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** It touches the product page, the module that composes the most others, and every reader of decisions. The unit suites and the e2e specs must stay green with their assertions unchanged: that is the proof that nothing the user sees moved.
-- **Status:** proposed
+- **Status:** planning
 
 ## Backlog Handoff
 
