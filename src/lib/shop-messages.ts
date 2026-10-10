@@ -1,7 +1,7 @@
 import type { SearchUnavailableReason } from "@/types";
 
-// The pages' texts about shops that couldn't be asked. The product page's island shows them too, so this module
-// imports nothing server-only.
+// The pages' texts about shops that couldn't be asked, and about a price the app couldn't store. The product page's
+// island shows them too, so this module imports nothing server-only.
 
 // The clock a pause's end is shown on: the shopper's own time in Poland.
 const clock = new Intl.DateTimeFormat("pl-PL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" });
@@ -67,3 +67,9 @@ export function priceMissingText(lastKnown = true): string {
     ? "Sklep nie zwraca już tego produktu. Cena może być nieaktualna."
     : "Sklep nie zwraca tego produktu.";
 }
+
+/**
+ * What a product's page says while it shows a price the shop gave that the app couldn't store: the list shows only
+ * stored prices (the owner's words, 2026-10-10).
+ */
+export const PRICE_UNSAVED_TEXT = "Nie udało się zapisać tej ceny, więc lista jej nie pokaże.";

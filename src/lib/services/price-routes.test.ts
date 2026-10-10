@@ -252,6 +252,28 @@ describe("/api/watchlist/prices asks a shop only for the user's own item, once",
     expect(served()).toEqual([naturaPriceUrl(["NV89063"])]);
   });
 
+  it("answers the price it couldn't store as not saved, after asking the shop exactly once", async () => {
+    // The database refuses the price's insert with RLS's code, so the check isn't stored.
+    const refusing = {
+      ...PRODUCT_RELATIONS,
+      price_observations: { error: { code: "42501", message: "new row violates row-level security policy" } },
+    };
+    const { client, queries } = world(refusing, Object.values(RECORDINGS));
+
+    const response = await postPrices(contextOf(priceRequest(SOFT_REQUEST), client));
+
+    expect(response.status).toBe(200);
+    // The offer natura-sku.json recorded for NV89063, checked now, which the island shows with the owner's sentence.
+    expect(await response.json()).toMatchObject({
+      kind: "price",
+      offer: { price: 16.99, regularPrice: 22.99, lowestPrice30d: 17.99 },
+      checkedAt: NOW,
+      saved: false,
+    });
+    expect(reservations(queries)).toEqual([{ p_shop_id: "natura" }]);
+    expect(served()).toEqual([naturaPriceUrl(["NV89063"])]);
+  });
+
   it("asks nothing of a stopped shop, and says so", async () => {
     const { client, queries } = world(PRODUCT_RELATIONS, Object.values(RECORDINGS), "stopped");
 

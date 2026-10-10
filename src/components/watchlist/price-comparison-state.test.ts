@@ -113,11 +113,12 @@ const superPharm = (
   latest,
 });
 
-const priceAnswer = (price: number): PriceRefreshAnswer => ({
+/** The route's answer with `price`, checked at CHECKED_AT, which it stored unless `saved` is false. */
+const priceAnswer = (price: number, saved = true): PriceRefreshAnswer => ({
   kind: "price",
   offer: offer(price),
   checkedAt: CHECKED_AT,
-  saved: true,
+  saved,
 });
 
 function run(state: PriceComparisonState, ...actions: PriceComparisonAction[]): PriceComparisonState {
@@ -129,6 +130,9 @@ const rowOf = (state: PriceComparisonState, shop: PricedShop) => state.rows.find
 /** Each shop and its mark, in the comparison's order. */
 const marks = (state: PriceComparisonState) => comparisonOf(state).rows.map(({ shop, cheapest }) => [shop, cheapest]);
 
+/** A message as the plan spells it, with the no-break space Intl writes before "zł". */
+const said = (text: string) => text.replaceAll(" zł", `${NO_BREAK_SPACE}zł`);
+
 describe("price comparison state", () => {
   it("starts from the stored prices on the server's clock, with nothing running", () => {
     const state = initialState({ shops: [rossmann(), natura()], now: RENDERED });
@@ -137,9 +141,10 @@ describe("price comparison state", () => {
     expect(state.sessionEnded).toBe(false);
     expect(state.matchChanged).toEqual([]);
     expect(state.unreadable).toEqual([]);
-    expect(state.rows.map(({ shop, pending, notice }) => [shop, pending, notice])).toEqual([
-      ["rossmann", false, null],
-      ["natura", false, null],
+    // Every price the page hands over is a stored one.
+    expect(state.rows.map(({ shop, pending, notice, unsaved }) => [shop, pending, notice, unsaved])).toEqual([
+      ["rossmann", false, null, false],
+      ["natura", false, null, false],
     ]);
     expect(marks(state)).toEqual([
       ["rossmann", true],
@@ -486,9 +491,6 @@ describe("gapText", () => {
 });
 
 describe("what screen readers hear", () => {
-  /** A message as the plan spells it, with the no-break space Intl writes before "zł". */
-  const said = (text: string) => text.replaceAll(" zł", `${NO_BREAK_SPACE}zł`);
-
   it("says nothing before any answer", () => {
     expect(initialState({ shops: [rossmann(), natura()], now: RENDERED }).announcements).toEqual([]);
   });
@@ -603,6 +605,114 @@ describe("what screen readers hear", () => {
     expect(state.announcements).toEqual([]);
     state = run(state, done("natura", priceAnswer(15.99), ANSWERED_AT + 3));
     expect(state.announcements).toEqual([said("Natura: 15,99 zł, najtaniej")]);
+  });
+});
+
+// The owner's calls of 2026-10-10 (context/changes/unstored-price-check/plan.md): the island keeps a price the route
+// couldn't store, with its marks, and says the list won't show it while that price is on the card. Each message is
+// written out whole, never put together as the rule puts it.
+describe("a price the route couldn't store", () => {
+  // Rossmann's stored 26,99 zł and Natura's 29,99 zł.
+  const before = () => initialState({ shops: [rossmann(), natura()], now: RENDERED });
+  /** Natura refetched, and answered 16,99 zł, which the route couldn't store. */
+  const unstored = () => run(before(), start("natura"), done("natura", priceAnswer(16.99, false), ANSWERED_AT));
+
+  it("keeps the price on Natura's row with its marks, and says the list won't show it", () => {
+    const state = unstored();
+
+    expect(rowOf(state, "natura")).toMatchObject({
+      pending: false,
+      notice: null,
+      readFailed: false,
+      unsaved: true,
+      latest: { lastCheckedAt: CHECKED_AT, lastStatus: "price", offer: { price: 16.99, pricedAt: CHECKED_AT } },
+    });
+    expect(marks(state)).toEqual([
+      ["natura", true],
+      ["rossmann", false],
+    ]);
+    expect(state.announcements).toEqual([
+      said("Natura: 16,99 zł, najtaniej. Nie udało się zapisać tej ceny, więc lista jej nie pokaże."),
+    ]);
+  });
+
+  it("says nothing more of a price the route stored", () => {
+    const state = run(before(), start("natura"), done("natura", priceAnswer(16.99, true), ANSWERED_AT));
+
+    expect(rowOf(state, "natura")?.unsaved).toBe(false);
+    expect(state.announcements).toEqual([said("Natura: 16,99 zł, najtaniej")]);
+  });
+
+  it("keeps saying so while Natura is asked again, and once that refetch gets no answer", () => {
+    const asked = run(unstored(), start("natura"));
+    expect(rowOf(asked, "natura")).toMatchObject({ pending: true, unsaved: true });
+
+    const state = run(asked, done("natura", { kind: "unavailable", reason: "failed" }, ANSWERED_AT + 1));
+
+    expect(rowOf(state, "natura")).toMatchObject({
+      pending: false,
+      notice: { reason: "failed" },
+      unsaved: true,
+      latest: { lastCheckedAt: CHECKED_AT, lastStatus: "price", offer: { price: 16.99, pricedAt: CHECKED_AT } },
+    });
+    expect(state.announcements).toEqual([
+      "Nie udało się pobrać ceny ze sklepu Natura. Nie udało się zapisać tej ceny, więc lista jej nie pokaże.",
+    ]);
+  });
+
+  it("keeps saying so once Natura no longer returns the item, since the row keeps that price", () => {
+    const state = run(
+      unstored(),
+      start("natura"),
+      done("natura", { kind: "missing", checkedAt: CHECKED_AT, saved: true }, ANSWERED_AT + 1),
+    );
+
+    expect(rowOf(state, "natura")).toMatchObject({
+      unsaved: true,
+      latest: { lastStatus: "missing", offer: { price: 16.99, pricedAt: CHECKED_AT } },
+    });
+    expect(state.announcements).toEqual([
+      "Natura: Sklep nie zwraca już tego produktu. Cena może być nieaktualna. Nie udało się zapisać tej ceny, więc lista jej nie pokaże.",
+    ]);
+  });
+
+  it("stops saying so once Natura's next price is stored", () => {
+    const state = run(unstored(), start("natura"), done("natura", priceAnswer(17.49, true), ANSWERED_AT + 1));
+
+    expect(rowOf(state, "natura")).toMatchObject({ unsaved: false, latest: { offer: { price: 17.49 } } });
+    expect(state.announcements).toEqual([said("Natura: 17,49 zł, najtaniej")]);
+  });
+
+  it("says nothing of a missing item it couldn't store after a stored price, which the list does show", () => {
+    const state = run(
+      initialState({ shops: [rossmann(), natura(stored("natura", "NV89063", 16.99))], now: RENDERED }),
+      start("natura"),
+      done("natura", { kind: "missing", checkedAt: CHECKED_AT, saved: false }, ANSWERED_AT),
+    );
+
+    expect(rowOf(state, "natura")).toMatchObject({ unsaved: false, latest: { lastStatus: "missing" } });
+    expect(state.announcements).toEqual(["Natura: Sklep nie zwraca już tego produktu. Cena może być nieaktualna."]);
+  });
+
+  it("says so of a price that answers after the page couldn't read the stored one, whose history stays unread", () => {
+    const state = run(
+      initialState({ shops: [rossmann(), { ...natura(null), readFailed: true }], now: RENDERED }),
+      start("natura"),
+      done("natura", priceAnswer(16.99, false), ANSWERED_AT),
+    );
+
+    expect(rowOf(state, "natura")).toMatchObject({ readFailed: false, unsaved: true, latest: { history: null } });
+  });
+
+  it("lets the selected list row's tag follow the price, an edge the test plan accepts", () => {
+    // From lg, the tag beside the product follows the island's live prices (context/foundation/test-plan.md, the edges
+    // the owner accepted), while the list as it loads shows only stored prices.
+    expect(rowTagOf(rowShopsOfIsland(unstored().rows), ANSWERED_AT)).toEqual({
+      tone: "sun",
+      price: 16.99,
+      label: "Natura",
+      meta: "Natura · przed chwilą",
+    });
   });
 });
 

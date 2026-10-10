@@ -23,16 +23,16 @@ import {
   type ShopPrice,
 } from "@/lib/services/price-comparison";
 import { rowTagOf, type PriceTag, type RowShop } from "@/lib/services/watchlist-rows";
-import { priceMissingText, priceUnavailableText } from "@/lib/shop-messages";
+import { PRICE_UNSAVED_TEXT, priceMissingText, priceUnavailableText } from "@/lib/shop-messages";
 import type { PriceHistory, PriceRefreshAnswer, SearchUnavailableReason, ShopOffer } from "@/types";
 
 // The product page's price island, without React: each priced shop's latest price, whether its refetch runs, why the
-// last one gave no answer, whether the page couldn't read its stored price, which matched shops' decisions it couldn't
-// read, and what screen readers hear of the answers. Every change goes through the reducer, and the order and marks
-// always come from compareShops, withheld while a stored price or a matched shop's decision is unread (compareRows), so
-// Vitest can check them in Node. What the product area says of it, its hero with its sticker, its price track with the
-// sentence judging today's price, and its caption, is decided here too. It runs in the browser, so it imports nothing
-// server-only.
+// last one gave no answer, whether the page couldn't read its stored price, whether the route couldn't store the price
+// it shows, which matched shops' decisions it couldn't read, and what screen readers hear of the answers. Every change
+// goes through the reducer, and the order and marks always come from compareShops, withheld while a stored price or a
+// matched shop's decision is unread (compareRows), so Vitest can check them in Node. What the product area says of it,
+// its hero with its sticker, its price track with the sentence judging today's price, and its caption, is decided here
+// too. It runs in the browser, so it imports nothing server-only.
 
 /** The route that refetches one shop of one product (src/pages/api/watchlist/prices.ts). */
 export const PRICES_ROUTE = "/api/watchlist/prices";
@@ -57,7 +57,7 @@ export interface RefreshNotice {
 
 /**
  * One shop's row: the item the page shows, its item's page, its latest check, whether a refetch runs, why the last one
- * gave no answer, and whether the page couldn't read its stored price.
+ * gave no answer, whether the page couldn't read its stored price, and whether the price it shows couldn't be stored.
  */
 export interface ShopRow {
   shop: PricedShop;
@@ -73,6 +73,12 @@ export interface ShopRow {
    * never was. While any row is marked, no shop is named cheapest: the price that couldn't be read may be the lowest.
    */
   readFailed: boolean;
+  /**
+   * The price the row shows came from an answer the route couldn't store, so the list and the page's next view don't
+   * have it: they read only stored checks. It belongs to that price, not to the last attempt, so it stays through a new
+   * refetch and every answer that brings no new price, until the shop's next price answer sets it anew.
+   */
+  unsaved: boolean;
 }
 
 export interface PriceComparisonState {
@@ -149,6 +155,7 @@ export function initialState({
       pending: false,
       notice: null,
       readFailed: pricesFailed || readFailed === true,
+      unsaved: false,
     })),
     now: Date.parse(now),
     sessionEnded: false,
@@ -166,7 +173,7 @@ export function priceComparisonReducer(
     case "start": {
       // A refetch that starts while none runs begins a new round, whose answers are announced afresh.
       const newRound = state.rows.every((row) => !row.pending);
-      // A new attempt clears what the last one said.
+      // A new attempt clears what the last one said; the row keeps its price, and whether that was stored.
       return {
         ...state,
         sessionEnded: false,
@@ -197,8 +204,10 @@ export function priceComparisonReducer(
 /**
  * What the live region says about one shop's answer, judged on the rows that answer made, at `now`, beside the matched
  * shops whose decision couldn't be read (`unreadable`): the new price, and whether it's now the cheapest, as the rows
- * mark it, or the text the row shows next to the last known price. Null for an ended session and for a changed match,
- * which the page's own alerts announce, with their links to sign in and to reload the page.
+ * mark it, or the text the row shows next to the last known price; then, while the price the row shows is one the
+ * route couldn't store (`unsaved`), that the list won't show it (withUnsavedText). Null for an ended session and for a
+ * changed match, whatever the row shows: the page's own alerts announce them, with their links to sign in and to
+ * reload the page.
  */
 function announcement(
   rows: ShopRow[],
@@ -208,17 +217,19 @@ function announcement(
   unreadable: readonly MatchableShop[],
 ): string | null {
   const { name } = SHOP_LABELS[shop];
+  const answered = rows.find((row) => row.shop === shop);
   // The texts promise the last known price only when the row still shows one.
-  const hasPrice = (rows.find((row) => row.shop === shop)?.latest?.offer ?? null) !== null;
+  const hasPrice = (answered?.latest?.offer ?? null) !== null;
+  const unsaved = answered?.unsaved === true;
   switch (result.kind) {
     case "price": {
       const cheapest = compareRows(rows, now, unreadable).rows.some((row) => row.shop === shop && row.cheapest);
-      return `${name}: ${formatPrice(result.offer.price)}${cheapest ? ", najtaniej" : ""}`;
+      return withUnsavedText(`${name}: ${formatPrice(result.offer.price)}${cheapest ? ", najtaniej" : ""}`, unsaved);
     }
     case "missing":
-      return `${name}: ${priceMissingText(hasPrice)}`;
+      return withUnsavedText(`${name}: ${priceMissingText(hasPrice)}`, unsaved);
     case "unavailable":
-      return priceUnavailableText(name, result.reason, result.until, hasPrice);
+      return withUnsavedText(priceUnavailableText(name, result.reason, result.until, hasPrice), unsaved);
     case "session-ended":
     case "match-changed":
       return null;
@@ -226,10 +237,24 @@ function announcement(
 }
 
 /**
+ * An answer's text, then, while the price its row shows is one the route couldn't store (`unsaved`), the sentence that
+ * says the list won't show it (PRICE_UNSAVED_TEXT), after a period: a price's text has none of its own, and the texts
+ * of a missing item and of a shop that gave no answer end with one.
+ */
+function withUnsavedText(text: string, unsaved: boolean): string {
+  if (!unsaved) {
+    return text;
+  }
+  return `${text.endsWith(".") ? text : `${text}.`} ${PRICE_UNSAVED_TEXT}`;
+}
+
+/**
  * A row once its refetch came back. Only the shop's own answer, a price or a missing item, replaces a stored price the
  * page couldn't read; an answer that came to nothing leaves the row saying the read failed. Either answer keeps the
  * row's price history as the page read it (historyRead): it covers the days before today, so today's check adds nothing
- * to it.
+ * to it. A price answer says whether the route stored its price (`unsaved`). Every other answer keeps what the row
+ * says of it, as a new refetch does (start), since the row still shows that price: a missing item keeps the price from
+ * before, a shop that gave no answer the whole check, and an ended session or a changed match the whole row.
  */
 function settled(row: ShopRow, result: RefreshResult): ShopRow {
   const idle = { ...row, pending: false };
@@ -241,6 +266,7 @@ function settled(row: ShopRow, result: RefreshResult): ShopRow {
         ...idle,
         notice: null,
         readFailed: false,
+        unsaved: !result.saved,
         latest: { lastCheckedAt: checkedAt, lastStatus: "price", offer: { ...offer, pricedAt: checkedAt }, history },
       };
     }
