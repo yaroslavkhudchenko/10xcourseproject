@@ -394,11 +394,13 @@ const rowSchema = z.discriminatedUnion("state", [
 // product: its list is its own matched shops, every priced shop but the one it was picked in (matchedShopsOf), so a
 // row of its own shop, a decision or an odd row, is left out as one outside the list (rule 1). The reads can't know a
 // product's own shop, since its row is read at the same time, so they read every priced shop, and whoever reads a
-// product's decisions narrows them to its matched shops: the product page's steps run in those shops alone
-// (runMatchSteps), a posted decision is judged by its standing in them alone (watchedProductOf), a refetch reads a
-// decision only in one of them (shopItemFor), a product's refresh keeps theirs (productTargets), and the list's rows and
-// priced items theirs (matchStatesOf, listPricedItems). Narrowing a read to fewer shops gives what reading those shops
-// alone gives.
+// product's decisions narrows them to its matched shops. The product page, the decision route and a product's refresh
+// read them through loadWatchedProduct and keep its matched shops' standings (watchedProductOf): the page's steps run
+// in those shops alone (runMatchSteps), a posted decision and a lookup's outcome are judged there (admitDecision,
+// admitLookup), and a product's refresh fetches their matched items (productTargets). The island's refetch reads one
+// matched shop's standing (priceTargetFor), and the list's rows and priced items keep their own matched shops'
+// decisions (matchStatesOf, listPricedItems). Narrowing a read to fewer shops gives what reading those shops alone
+// gives.
 
 /** A shop the reads use: one of `shops`, or undefined for any other value. */
 function listedShop(shop: unknown, shops: readonly MatchableShop[]): MatchableShop | undefined {

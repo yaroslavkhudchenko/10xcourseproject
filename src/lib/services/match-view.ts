@@ -400,9 +400,10 @@ export function decidedView(own: MatchProduct, filter: ListFilter): MatchView {
 
 /**
  * The notice of the decision the page was sent back with (`?shop=natura&matched=1`, `declined=1` or `decided=1`), with
- * the matched shop it was for, one of `shops`: the priced shops unless the page names its product's matched shops
- * (matchedShopsOf). Null for none, and for a code without one of those shops, the product's own shop included. Should
- * several codes come at once, a match's notice wins, then a decline's.
+ * the matched shop it was for, one of `shops`: the priced shops unless the page names its loaded product's matched
+ * shops, as openProductPage gives them (matchedShopsIn), or none without a product. Null for none, and for a code
+ * without one of those shops, the product's own shop included. Should several codes come at once, a match's notice
+ * wins, then a decline's.
  */
 export function decisionNotice(
   params: URLSearchParams,
@@ -418,9 +419,10 @@ export function decisionNotice(
 
 /**
  * Why the decision the page was sent back with wasn't saved (`?shop=natura&error=failed`), with the matched shop it was
- * for, whose card says it, one of `shops`: the priced shops unless the page names its product's matched shops
- * (matchedShopsOf). Null for none, for a code the app didn't send, and for a code without one of those shops, the
- * product's own shop included, which only a crafted post comes back with.
+ * for, whose card says it, one of `shops`: the priced shops unless the page names its loaded product's matched shops,
+ * as openProductPage gives them (matchedShopsIn), or none without a product. Null for none, for a code the app didn't
+ * send, and for a code without one of those shops, the product's own shop included, which only a crafted post comes
+ * back with.
  */
 export function decisionError(
   params: URLSearchParams,

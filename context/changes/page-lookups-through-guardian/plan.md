@@ -642,6 +642,15 @@ None. No migration runs and no stored row changes. S-02 rebases onto this slice 
 - **Comments left for Phase 4:** `productPricesOf`'s doc in `prices.ts`, the read-rules comment in `matches.ts`, the "(matchedShopsOf)" mentions in the docs of `repinShopOf`, `retryShopOf`, `decisionNotice` and `decisionError`, and the test plan's §6.2 pattern 2.
 - **3.14 and 3.15, by reading:** every line removed from the three test files is an import, a helper, a comment, an input type the plan names or the seam table's hand copy of the composition; `lookupOutcome` stores only the change `admitLookup` admitted, and `[id].astro`'s frontmatter awaits only the reads and `openProductPage`.
 
+### Phase 4
+
+- **The island's refetch is `priceTargetFor`.** The read rules' contract names `shopItemFor`, which only `price-targets.test.ts` calls; the price route calls `priceTargetFor`, and both read through `itemInRows`. So the comment in `matches.ts` and CLAUDE.md's reading rule name `priceTargetFor`.
+- **The comments Phase 3 left are rewritten:** `productPricesOf`'s doc (`prices.ts`) names `openProductPage` as the page's own call, which the seam table runs, and the docs of `repinShopOf`, `retryShopOf`, `decisionNotice` and `decisionError` name the loaded product's matched shops as `openProductPage` gives them (`matchedShopsIn`), with none for the notices without a product.
+- **The test plan's pattern 2 gains a bullet** for the shared harness, `gate-world.ts` (`world`, `served`, `bodiesSentTo`, `reservations`), on which `product-page.test.ts` runs the page's own call: the contract named pattern 1 only, and Phase 3's notes left pattern 2.
+- **CLAUDE.md says a little more than the contract's sentences.** The UI paragraph's new sentence, before the steps' sentence, says the island's prices are read after the steps and not after a retry that stored its outcome. The reading rule's new sentences give each reader's answer under the gone-first precedence. The route's sentence adds a product that couldn't be read beside decisions unread as a whole, both `failed` before the guardian. `admitLookup` is named in the Data sentence only, as the contract has it.
+- **The glossary's row widens its table:** Prettier re-pads the other rows of the Matching table, whitespace only.
+- **Left as they are:** the glossary's "decision" row ("guarded by `admitDecision`"), outside the contract; the comments that name `matchedShopsOf` as the matched shops' derivation (`parseMatchedShop`, `registry.ts`, `match-card.ts`, `PriceComparison.tsx`), which stay true; and the test plan's dated §6.6 notes, which are history.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -677,39 +686,39 @@ None. No migration runs and no stored row changes. S-02 rebases onto this slice 
 
 #### Automated
 
-- [x] 3.1 The step, lookup, page and price tests pass: `npx vitest run src/lib/services/match-step.test.ts src/lib/services/shop-matching.test.ts src/lib/services/product-page.test.ts src/lib/services/price-pages.test.ts src/lib/services/prices.test.ts`
-- [x] 3.2 Each deliberate break turns its tests red, and restoring it turns them green again: `runMatchSteps` running every priced shop instead of the loaded product's matched shops (the product picked in Natura, `shop-matching.test.ts:1467`); `lookupOutcome` treating the store's `decided` as `saved`; `openProductPage` reading prices before it returns a retry
-- [x] 3.3 5 production calls of `matchedShopsOf` remain, in `watched-product.ts`, `price-comparison.ts`, `watchlist-rows.ts` (twice) and `product-search.ts`: `grep -rn --include=*.ts --include=*.tsx --include=*.astro "matchedShopsOf(" src | grep -v "\.test\.ts:" | grep -v "function matchedShopsOf"` prints exactly those 5 lines
-- [x] 3.4 The guardian and the page's service stay server-only: `grep -cE "watched-product|product-page" eslint.config.js` prints 0
-- [x] 3.5 The e2e specs are untouched: `git diff --stat "$BASE" -- tests/e2e` prints nothing
-- [x] 3.6 The unit suite passes: `npm run test`
-- [x] 3.7 Lint passes: `npm run lint`
-- [x] 3.8 Types check: `npx astro sync && npx astro check`
-- [x] 3.9 The build passes: `npm run build` (it downloads the fonts, so it needs network)
-- [x] 3.10 No existing assertion or test title moved: `assertion-diff` and `title-diff` print nothing
+- [x] 3.1 The step, lookup, page and price tests pass: `npx vitest run src/lib/services/match-step.test.ts src/lib/services/shop-matching.test.ts src/lib/services/product-page.test.ts src/lib/services/price-pages.test.ts src/lib/services/prices.test.ts` — 5db17e1
+- [x] 3.2 Each deliberate break turns its tests red, and restoring it turns them green again: `runMatchSteps` running every priced shop instead of the loaded product's matched shops (the product picked in Natura, `shop-matching.test.ts:1467`); `lookupOutcome` treating the store's `decided` as `saved`; `openProductPage` reading prices before it returns a retry — 5db17e1
+- [x] 3.3 5 production calls of `matchedShopsOf` remain, in `watched-product.ts`, `price-comparison.ts`, `watchlist-rows.ts` (twice) and `product-search.ts`: `grep -rn --include=*.ts --include=*.tsx --include=*.astro "matchedShopsOf(" src | grep -v "\.test\.ts:" | grep -v "function matchedShopsOf"` prints exactly those 5 lines — 5db17e1
+- [x] 3.4 The guardian and the page's service stay server-only: `grep -cE "watched-product|product-page" eslint.config.js` prints 0 — 5db17e1
+- [x] 3.5 The e2e specs are untouched: `git diff --stat "$BASE" -- tests/e2e` prints nothing — 5db17e1
+- [x] 3.6 The unit suite passes: `npm run test` — 5db17e1
+- [x] 3.7 Lint passes: `npm run lint` — 5db17e1
+- [x] 3.8 Types check: `npx astro sync && npx astro check` — 5db17e1
+- [x] 3.9 The build passes: `npm run build` (it downloads the fonts, so it needs network) — 5db17e1
+- [x] 3.10 No existing assertion or test title moved: `assertion-diff` and `title-diff` print nothing — 5db17e1
 - [ ] 3.11 CI only: CI's `ci` job passes on the pull request
 - [ ] 3.12 CI only: CI's `smoke` job passes on the pull request: `npm run test:db` (a lookup's write against the real database, the late lookup included), the database checks, the two-user check (another user's product answers like a missing one through the page with `?repin=` and `?retry=`, the price route, the decision route and the product's refresh) and smoke
 - [ ] 3.13 CI only: CI's `e2e` job passes on the pull request: the 10 specs, unchanged, with no shop request reserved
 
 #### Manual
 
-- [x] 3.14 The reviewer reads the diff of `match-step.test.ts`, `shop-matching.test.ts` and `price-pages.test.ts` and confirms every changed line is arrangement: no title, expected value or line inside a multi-line expect statement changed
-- [x] 3.15 The reviewer confirms that `lookupOutcome` stores only a change `admitLookup` admitted, and that `[id].astro`'s frontmatter only calls services and maps their results
+- [x] 3.14 The reviewer reads the diff of `match-step.test.ts`, `shop-matching.test.ts` and `price-pages.test.ts` and confirms every changed line is arrangement: no title, expected value or line inside a multi-line expect statement changed — 5db17e1
+- [x] 3.15 The reviewer confirms that `lookupOutcome` stores only a change `admitLookup` admitted, and that `[id].astro`'s frontmatter only calls services and maps their results — 5db17e1
 - [ ] 3.16 After the deploy, on a phone, the owner opens a product from „Do sprawdzenia” and a product matched in every shop: the cards, the prices with their ages, the cheapest shop and the list beside show as before. This costs what any view costs (Implementation Approach).
 
 ### Phase 4: Documents
 
 #### Automated
 
-- [ ] 4.1 The changed Markdown passes Prettier: `npx prettier --check context/foundation/prd.md context/domain/glossary.md context/foundation/test-plan.md`
-- [ ] 4.2 The note lands once and the PRD loses no line: `grep -c "page-lookups-through-guardian" context/foundation/prd.md` prints 1, and `git diff "$BASE" -- context/foundation/prd.md | grep -E '^-[^-]'` prints nothing
-- [ ] 4.3 CLAUDE.md names the new pieces: `grep -oE "admitLookup|openProductPage|matchedShopsIn" CLAUDE.md | sort -u` prints all three
-- [ ] 4.4 The glossary's guardian row names the lookup's admission and the loader: `grep "^| guardian" context/domain/glossary.md | grep -oE "admitLookup|loadWatchedProduct" | sort -u` prints both
-- [ ] 4.5 The unit suite passes: `npm run test`
-- [ ] 4.6 Lint passes: `npm run lint`
-- [ ] 4.7 No existing assertion or test title moved: `assertion-diff` and `title-diff` print nothing
+- [x] 4.1 The changed Markdown passes Prettier: `npx prettier --check context/foundation/prd.md context/domain/glossary.md context/foundation/test-plan.md`
+- [x] 4.2 The note lands once and the PRD loses no line: `grep -c "page-lookups-through-guardian" context/foundation/prd.md` prints 1, and `git diff "$BASE" -- context/foundation/prd.md | grep -E '^-[^-]'` prints nothing
+- [x] 4.3 CLAUDE.md names the new pieces: `grep -oE "admitLookup|openProductPage|matchedShopsIn" CLAUDE.md | sort -u` prints all three
+- [x] 4.4 The glossary's guardian row names the lookup's admission and the loader: `grep "^| guardian" context/domain/glossary.md | grep -oE "admitLookup|loadWatchedProduct" | sort -u` prints both
+- [x] 4.5 The unit suite passes: `npm run test`
+- [x] 4.6 Lint passes: `npm run lint`
+- [x] 4.7 No existing assertion or test title moved: `assertion-diff` and `title-diff` print nothing
 
 #### Manual
 
 - [ ] 4.8 The owner reads the FR-007 note against the code's cases (`src/lib/services/watchlist-rows.ts:213-216`, `:241-243`) and confirms both edge cases read right: an unread price counts, and a fresh price that can't be ordered online doesn't
-- [ ] 4.9 The reviewer confirms the read rules' comment and CLAUDE.md's three paragraphs name the per-product readers as the code has them
+- [x] 4.9 The reviewer confirms the read rules' comment and CLAUDE.md's three paragraphs name the per-product readers as the code has them

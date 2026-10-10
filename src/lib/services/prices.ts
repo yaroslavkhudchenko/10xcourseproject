@@ -306,8 +306,9 @@ export function priceShopsOf(
  * product's own item, in its own shop, the one it was picked in, and each of its matched shops' items as the page's
  * match steps settled them (`matched`: a stored match, or one the page's lookup has just stored), so a match in the
  * product's own shop adds nothing (productPriceKeys). "Zobacz w sklepie" goes to the product's own page for its own
- * item, whichever shop that is, and to the matched item's page in each matched shop. The seam table runs this same
- * composition (price-pages.test.ts), so the page and its test can't drift apart.
+ * item, whichever shop that is, and to the matched item's page in each matched shop. The page's own call reads them
+ * once its steps are done (openProductPage), and the seam table runs that same call (price-pages.test.ts), so the page
+ * and its test can't drift apart.
  */
 export async function productPricesOf(
   supabase: SupabaseClient,

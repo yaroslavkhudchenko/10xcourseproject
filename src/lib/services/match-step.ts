@@ -17,8 +17,9 @@ export type MatchStep =
 
 /**
  * The matched shop whose stored decision the page was opened to change (`?repin=natura`, from "Zmień" or "Dopasuj
- * ponownie"): one of `shops`, the priced shops unless the page names its product's matched shops (matchedShopsOf). Null
- * for any other value, the product's own shop and the old `?repin=1` included, which then opens the plain page.
+ * ponownie"): one of `shops`, the priced shops unless the page names its loaded product's matched shops, as
+ * openProductPage does (matchedShopsIn). Null for any other value, the product's own shop and the old `?repin=1`
+ * included, which then opens the plain page.
  */
 export function repinShopOf(params: URLSearchParams, shops?: readonly PricedShop[]): PricedShop | null {
   return parseMatchedShop(params.get(REPIN_PARAM), shops);
@@ -26,8 +27,9 @@ export function repinShopOf(params: URLSearchParams, shops?: readonly PricedShop
 
 /**
  * The matched shop whose stored "not found" the page was opened to look up again (`?retry=natura`, from "Szukaj
- * ponownie"): one of `shops`, the priced shops unless the page names its product's matched shops (matchedShopsOf). Null
- * for any other value, the product's own shop and the old `?retry=1` included, which then opens the plain page.
+ * ponownie"): one of `shops`, the priced shops unless the page names its loaded product's matched shops, as
+ * openProductPage does (matchedShopsIn). Null for any other value, the product's own shop and the old `?retry=1`
+ * included, which then opens the plain page.
  */
 export function retryShopOf(params: URLSearchParams, shops?: readonly PricedShop[]): PricedShop | null {
   return parseMatchedShop(params.get(RETRY_PARAM), shops);
