@@ -1,10 +1,10 @@
 ---
 change_id: page-lookups-through-guardian
 title: A product's page looks shops up and shows decisions through the guardian
-status: implementing
+status: archived
 created: 2026-10-10
 updated: 2026-10-10
-archived_at: null
+archived_at: 2026-10-10T18:34:43Z
 ---
 
 ## Notes

@@ -651,6 +651,15 @@ None. No migration runs and no stored row changes. S-02 rebases onto this slice 
 - **The glossary's row widens its table:** Prettier re-pads the other rows of the Matching table, whitespace only.
 - **Left as they are:** the glossary's "decision" row ("guarded by `admitDecision`"), outside the contract; the comments that name `matchedShopsOf` as the matched shops' derivation (`parseMatchedShop`, `registry.ts`, `match-card.ts`, `PriceComparison.tsx`), which stay true; and the test plan's dated §6.6 notes, which are history.
 
+### Review fixes (2026-10-10)
+
+The implementation review (`reviews/impl-review.md`, verdict APPROVED) found 4 observations, and the owner took every recommendation.
+
+- **F1, a refused lookup:** `lookupOutcome` logs one `shop-lookup` line naming the shop and the refusal (`logRefusedLookup`), as it logs a step that threw. No refusal can happen, since the steps look a shop up only where the guardian admits what it finds. A deliberate break of the guardian printed the line and turned 14 lookup tests red.
+- **F2, the admissions' first checks:** `readableStanding` in `watched-product.ts` holds the matched-shop check and the unreadable check, in that order, and both admissions start with it. The guardian's tests are unchanged.
+- **F3, the timeout fixture** (lesson "Define shared constants and helpers once"): `TIMEOUT` is exported once from `src/lib/services/testing/stub-supabase.ts`, in place of three copies in `match-routes.test.ts`, `matches.test.ts` and `product-page.test.ts`, and the test plan's pattern 1 names it.
+- **F4, the documents:** `productTargets`' doc names `priceTargetFor`, as `matches.ts` and CLAUDE.md do, and the glossary's decision row names `admitLookup` beside `admitDecision`.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -704,7 +713,7 @@ None. No migration runs and no stored row changes. S-02 rebases onto this slice 
 
 - [x] 3.14 The reviewer reads the diff of `match-step.test.ts`, `shop-matching.test.ts` and `price-pages.test.ts` and confirms every changed line is arrangement: no title, expected value or line inside a multi-line expect statement changed — 5db17e1
 - [x] 3.15 The reviewer confirms that `lookupOutcome` stores only a change `admitLookup` admitted, and that `[id].astro`'s frontmatter only calls services and maps their results — 5db17e1
-- [ ] 3.16 After the deploy, on a phone, the owner opens a product from „Do sprawdzenia” and a product matched in every shop: the cards, the prices with their ages, the cheapest shop and the list beside show as before. This costs what any view costs (Implementation Approach).
+- [x] 3.16 After the deploy, on a phone, the owner opens a product from „Do sprawdzenia” and a product matched in every shop: the cards, the prices with their ages, the cheapest shop and the list beside show as before. This costs what any view costs (Implementation Approach). — the owner's check on a phone, 2026-10-10
 
 ### Phase 4: Documents
 
@@ -720,5 +729,5 @@ None. No migration runs and no stored row changes. S-02 rebases onto this slice 
 
 #### Manual
 
-- [ ] 4.8 The owner reads the FR-007 note against the code's cases (`src/lib/services/watchlist-rows.ts:213-216`, `:241-243`) and confirms both edge cases read right: an unread price counts, and a fresh price that can't be ordered online doesn't
+- [x] 4.8 The owner reads the FR-007 note against the code's cases (`src/lib/services/watchlist-rows.ts:213-216`, `:241-243`) and confirms both edge cases read right: an unread price counts, and a fresh price that can't be ordered online doesn't — the owner's reading, 2026-10-10
 - [x] 4.9 The reviewer confirms the read rules' comment and CLAUDE.md's three paragraphs name the per-product readers as the code has them — ed640b2

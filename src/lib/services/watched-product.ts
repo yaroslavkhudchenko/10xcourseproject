@@ -138,14 +138,11 @@ export function matchedShopsIn(watched: WatchedProduct): PricedShop[] {
  * recordDecision's compare-and-swap checks again at write time, so a decision changed since it was read still stands.
  */
 export function admitDecision(watched: WatchedProduct, form: MatchForm): DecisionAdmission {
-  const shop = PRICED_SHOPS.find((priced) => priced === form.shop);
-  const standing = shop === undefined ? undefined : watched.standings[shop];
-  if (shop === undefined || standing === undefined) {
-    return { kind: "refused", reason: "not-a-matched-shop" };
+  const found = readableStanding(watched, form.shop);
+  if (typeof found === "string") {
+    return { kind: "refused", reason: found };
   }
-  if (standing.kind === "unreadable") {
-    return { kind: "refused", reason: "unreadable" };
-  }
+  const { shop, standing } = found;
   const stored = standing.kind === "decided" ? standing.decision : null;
   if (!namesDecision(form.replaces, stored)) {
     return { kind: "refused", reason: "outdated-form" };
@@ -158,6 +155,26 @@ export function admitDecision(watched: WatchedProduct, form: MatchForm): Decisio
     kind: "admitted",
     change: { itemId: watched.itemId, shop, decision: form.decision, replaces: form.replaces },
   };
+}
+
+/**
+ * The checks both admissions start with, in this order: the shop must be one of the product's matched shops, so never
+ * its own (`not-a-matched-shop`), and the product's decision there must have been read (`unreadable`). Gives the
+ * priced shop and the product's readable standing there, or the refusal.
+ */
+function readableStanding(
+  watched: WatchedProduct,
+  shop: MatchableShop,
+): { shop: PricedShop; standing: Exclude<Standing, { kind: "unreadable" }> } | "not-a-matched-shop" | "unreadable" {
+  const priced = PRICED_SHOPS.find((each) => each === shop);
+  const standing = priced === undefined ? undefined : watched.standings[priced];
+  if (priced === undefined || standing === undefined) {
+    return "not-a-matched-shop";
+  }
+  if (standing.kind === "unreadable") {
+    return "unreadable";
+  }
+  return { shop: priced, standing };
 }
 
 /**
@@ -230,16 +247,13 @@ export function admitLookup(
   shop: MatchableShop,
   outcome: LookupChange["outcome"],
 ): LookupAdmission {
-  const priced = PRICED_SHOPS.find((each) => each === shop);
-  const standing = priced === undefined ? undefined : watched.standings[priced];
-  if (priced === undefined || standing === undefined) {
-    return { kind: "refused", reason: "not-a-matched-shop" };
+  const found = readableStanding(watched, shop);
+  if (typeof found === "string") {
+    return { kind: "refused", reason: found };
   }
-  if (standing.kind === "unreadable") {
-    return { kind: "refused", reason: "unreadable" };
-  }
+  const { standing } = found;
   if (standing.kind === "decided" && standing.decision.state !== "not_found") {
     return { kind: "refused", reason: "settled" };
   }
-  return { kind: "admitted", change: { itemId: watched.itemId, shop: priced, outcome } };
+  return { kind: "admitted", change: { itemId: watched.itemId, shop: found.shop, outcome } };
 }

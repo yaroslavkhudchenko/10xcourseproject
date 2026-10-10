@@ -6,7 +6,7 @@ import { shopGateFor } from "@/lib/services/shop-gate";
 import { reservations, served, world } from "@/lib/services/testing/gate-world";
 import type { ReplayEntry } from "@/lib/services/testing/replay-fetch";
 import { declinedRow, matchRow, naturaProductRow, notFoundRow, productRow } from "@/lib/services/testing/stored-rows";
-import type { StubCall, StubRelation } from "@/lib/services/testing/stub-supabase";
+import { TIMEOUT, type StubCall, type StubRelation } from "@/lib/services/testing/stub-supabase";
 import eanHit from "@/lib/services/shops/fixtures/natura-ean-hit.json";
 
 // risk: #3 (context/foundation/test-plan.md): a product page view spends the per-shop cap everyone shares, asks a shop
@@ -47,7 +47,6 @@ const pickedInRossmann = {
 };
 // The same product picked in Natura (NV89063): matched in Rossmann, Hebe and Super-Pharm.
 const pickedInNatura = naturaProductRow(PRODUCT_ID, "NV89063");
-const TIMEOUT: StubRelation = { error: { code: "57014", message: "canceling statement due to statement timeout" } };
 
 /** An item's latest check as price_summaries gives it: a price, `checkedAgo` before now, orderable online. */
 function summaryRow(shop: string, shopItemId: string, price: number, checkedAgo = 10 * MINUTE) {

@@ -29,7 +29,7 @@ import { searchRossmannItems } from "@/lib/services/shops/rossmann";
 import { searchSuperPharm } from "@/lib/services/shops/super-pharm";
 import { createReplayFetch } from "@/lib/services/testing/replay-fetch";
 import { declinedRow, matchRow, NO_ITEM_COLUMNS, productRow } from "@/lib/services/testing/stored-rows";
-import { stubSupabase, type StubRelation } from "@/lib/services/testing/stub-supabase";
+import { stubSupabase, TIMEOUT, type StubRelation } from "@/lib/services/testing/stub-supabase";
 import type { ListFilter } from "@/lib/services/watchlist-rows";
 import type { MatchedItem, RepinnableMatch, ShopCandidate, ShopSearch } from "@/types";
 
@@ -1067,7 +1067,6 @@ describe("loadWatchedProduct", () => {
   // writes its row, and its decisions: the user's match in Natura (NV89063) and the user's decline in Hebe.
   const productRows = [productRow(ITEM_ID, "26900")];
   const decisionRows = [matchRow(ITEM_ID, "natura", "NV89063"), declinedRow(ITEM_ID, "hebe")];
-  const TIMEOUT: StubRelation = { error: { code: "57014", message: "canceling statement due to statement timeout" } };
 
   /** The stand-in database: the product rows and decision rows RLS lets the user see, or the error a read gets. */
   const world = (products: StubRelation, decisions: StubRelation) =>

@@ -122,7 +122,7 @@ How to add new tests in this project. Each sub-section is filled in once the rel
   - what another user gets through the app → the two-user check (4);
   - a new table, view or function → the catalogue check (5).
 - **1. Stubbed reads** (`src/lib/services/price-pages.test.ts`):
-  - `stubSupabase({ relations, rpc })` (`src/lib/services/testing/stub-supabase.ts`) answers each relation and RPC by name, applies a query's filters to its canned rows and records every query. A name it wasn't given answers an error, so a forgotten read never reads as empty.
+  - `stubSupabase({ relations, rpc })` (`src/lib/services/testing/stub-supabase.ts`) answers each relation and RPC by name, applies a query's filters to its canned rows and records every query. A name it wasn't given answers an error, so a forgotten read never reads as empty. `TIMEOUT`, from the same module, is a relation whose every query times out, for a read that fails.
   - Use it for a row the database would refuse, such as an odd price row, which only a stub can serve.
   - Move a page's decision into a service first ("Keep decision logic in tested services"), since no test renders a page.
   - The seam table serves one stored state to both pages' own reads and wiring, the product page's through `openProductPage`, the page's own call, on a product loaded as the page loads it (`loadWatchedProduct`), one fault at a time. Its expected values come from the PRD's guardrail, US-01 and the owner's calls, never from the rule under test. Its negative control: no RPC is called, so no shop was asked.
