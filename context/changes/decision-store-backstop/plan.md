@@ -699,6 +699,24 @@ These run in CI only.
 - **The test plan's note is titled "M-2's S-02",** since M-1 had an S-02 too, and its "Last updated" moved to 2026-10-10. The roadmap's answer also says all decisions are counted before and after the push, as Phase 4 and the brief's Key Decisions do.
 - **The plan's line numbers for `CLAUDE.md` and the test plan were pre-S-03,** so each passage was found by its words; every one still read as the plan assumed.
 
+### Phase 4
+
+- **The owner's counts, the same before and after the push (2026-10-10):** 16 decisions in all, and no decision in a product's own shop, in any state. So the migration's delete removed nothing, as the research expected.
+- **One query for the counts.** Run together in production's SQL editor, the plan's two statements showed only the last one's result, the total. So both counts were taken with one query that returns all decisions and the own-shop decisions by state in one row, before and after the push:
+
+  ```sql
+  select
+    (select count(*) from public.watchlist_matches) as all_decisions,
+    count(*) filter (where m.state = 'matched') as own_shop_matched,
+    count(*) filter (where m.state = 'unmatched') as own_shop_declined,
+    count(*) filter (where m.state = 'not_found') as own_shop_not_found
+  from public.watchlist_matches as m
+  join public.watchlist_items as i on i.id = m.watchlist_item_id
+  where m.shop_id = i.source;
+  ```
+
+- **The push:** `npx.cmd supabase db push` from S-02's worktree (`10xcourseproject-wt`), linked there once with `npx.cmd supabase link`, at the branch's head f18182d, whose CI was green. `node scripts/check-migrations-applied.mjs` then printed `All 9 migrations are applied`.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -736,23 +754,23 @@ These run in CI only.
 
 #### Automated
 
-- [x] 3.1 The changed Markdown passes Prettier: `npx prettier --check context/foundation/test-plan.md context/domain/glossary.md context/foundation/roadmap.md context/changes/decision-store-backstop/plan.md`
-- [x] 3.2 The closed edge is gone: `git grep -n "with no migration or invariant to refuse it" -- CLAUDE.md context/foundation` prints nothing
-- [x] 3.3 The documents name the save: `git grep -c "record_decision" -- CLAUDE.md context/domain/glossary.md context/foundation/test-plan.md` counts at least one in each file
-- [x] 3.4 The unit suite still passes: `npm run test`
+- [x] 3.1 The changed Markdown passes Prettier: `npx prettier --check context/foundation/test-plan.md context/domain/glossary.md context/foundation/roadmap.md context/changes/decision-store-backstop/plan.md` — f18182d
+- [x] 3.2 The closed edge is gone: `git grep -n "with no migration or invariant to refuse it" -- CLAUDE.md context/foundation` prints nothing — f18182d
+- [x] 3.3 The documents name the save: `git grep -c "record_decision" -- CLAUDE.md context/domain/glossary.md context/foundation/test-plan.md` counts at least one in each file — f18182d
+- [x] 3.4 The unit suite still passes: `npm run test` — f18182d
 
 ### Phase 4: Ship
 
 #### Automated
 
-- [ ] 4.1 `gh pr checks <PR>` shows `ci`, `smoke` and `e2e` passing on the head the owner pushes from
+- [x] 4.1 `gh pr checks <PR>` shows `ci`, `smoke` and `e2e` passing on the head the owner pushes from — f18182d
 - [ ] 4.2 After the merge, `gh run list --workflow "Deploy check" --limit 1` shows the merge's run succeeded
 
 #### Manual
 
-- [ ] 4.3 Before the push, the owner's two read-only counts, the own-shop decisions by state and all decisions, ran in the dashboard's SQL editor, and their results are recorded in this plan's notes
-- [ ] 4.4 `npx supabase db push` from a checkout of this branch listed only the new migration and applied it
-- [ ] 4.5 `npx supabase migration list --linked` shows the new version on the remote, and `node scripts/check-migrations-applied.mjs` prints `All <n> migrations are applied`
-- [ ] 4.6 After the push, the own-shop count returns no rows, and all decisions are fewer by exactly the own-shop decisions counted before
+- [x] 4.3 Before the push, the owner's two read-only counts, the own-shop decisions by state and all decisions, ran in the dashboard's SQL editor, and their results are recorded in this plan's notes — the owner, 2026-10-10
+- [x] 4.4 `npx supabase db push` from a checkout of this branch listed only the new migration and applied it — the owner, 2026-10-10
+- [x] 4.5 `npx supabase migration list --linked` shows the new version on the remote, and `node scripts/check-migrations-applied.mjs` prints `All <n> migrations are applied` — the owner, 2026-10-10
+- [x] 4.6 After the push, the own-shop count returns no rows, and all decisions are fewer by exactly the own-shop decisions counted before — the owner, 2026-10-10
 - [ ] 4.7 The owner merged the pull request after the push was confirmed
 - [ ] 4.8 On a phone after the deploy, a re-pin's „Żaden z nich” saves („Zapisano: brak w …”), a first choice's „To ten produkt” saves („Zapisano dopasowanie.”), and the product page opens
