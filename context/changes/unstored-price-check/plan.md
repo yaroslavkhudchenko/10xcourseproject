@@ -286,12 +286,23 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **The line takes the card's notice style.** `text-warning-foreground text-sm`, as the missing price's line has it (`ShopCard.tsx:118`); the contrast check already covers warning-foreground on card.
 - **The kitchen sink's legend stays.** `src/dev/product-page.astro`'s „Macierz 7 stanów” doesn't name the two new states; the plan named only `fixtures.ts`.
 
+### Review fixes (2026-10-10)
+
+The implementation review (`reviews/impl-review.md`) found 6 observations, and the owner took every recommendation.
+
+- **F1, what screen readers hear (Fix A):** while a row's price is unsaved, only an answer whose text names that price, a price answer or a missing answer, adds the owner's sentence aloud. After an answer without a price, screen readers hear the notice alone, since „tej ceny” would have no price to mean there, and the card keeps the line. State case 3 now expects „Nie udało się pobrać ceny ze sklepu Natura.” alone.
+- **F2, the flag's name:** the row's flag is `priceUnsaved`, so it no longer shares `unsaved` with a lookup's outcome or match the page couldn't store, and the kitchen sink's two states are `price-unsaved` and `price-unsaved-then-failed`.
+- **F3:** a state case gives an unstored price's row an ended session and a changed match: each keeps `priceUnsaved` and says nothing aloud.
+- **F4, shared code** (lesson "Define shared constants and helpers once"): `withUnsavedText` ends the answer's text with `sentence()`, which `watchlist-rows.ts` now exports; the island's Nivea Soft rows and clock moved from the state test to `src/lib/services/testing/island-shops.ts`, which the card test imports too, in place of its own `SHOPS` and `stored()`; and the kitchen sink's `match-changed` and `good-after-failed-read` states use `ROSSMANN_ANSWER`.
+- **F5, accepted:** a price called unsaved that a timed-out insert stored after all (audit W6) is an accepted edge in `context/foundation/test-plan.md` §7.
+- **F6, the documents:** the kitchen sink's legend names both new states among the cards' messages; the test plan's §6.1 describes a test of a component's markup, with `ShopCard.test.ts` as its reference; the card test cites the refresh flow analysis's TD-19 with its path, on `main` since PR #48; and the two test comments cite this plan at its archive path, `context/archive/2026-10-10-unstored-price-check/plan.md`, which resolves once the change is archived. The References below now point at the analysis on `main` and at the accepted edge's current lines.
+
 ## References
 
 - Research: `context/changes/unstored-price-check/research.md`
-- The flow analysis: `context/changes/price-refresh-flow-analysis/research.md:438-445` (TD-02), on branch `docs/m4-course-lessons`
+- The flow analysis: `context/changes/price-refresh-flow-analysis/research.md:438-444` (TD-02) and `:571-577` (TD-19), on `main` since PR #48
 - The audit: `context/audits/observability/2026-10-05_1626-prices-sign-in-watchlist-writes.md:97` (P6) and `:165` (fix order item 8)
-- The accepted edge: `context/foundation/test-plan.md:410-412`
+- The accepted edge: `context/foundation/test-plan.md:412-414`
 - The answer's origin: `context/archive/2026-09-28-cheapest-shop-today/plan.md:494-497`
 
 ## Progress

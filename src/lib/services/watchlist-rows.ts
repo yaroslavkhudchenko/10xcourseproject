@@ -261,8 +261,11 @@ function joined(parts: (string | null)[], separator: string): string | null {
   return present.length === 0 ? null : present.join(separator);
 }
 
-/** A text as a sentence of the row's line: with its full stop, once. */
-function sentence(text: string): string {
+/**
+ * A text as a sentence: with its full stop, once. The row's line joins its sentences with it, and the product page's
+ * island ends a shop's answer with it before saying that the list won't show the price.
+ */
+export function sentence(text: string): string {
   return text.endsWith(".") ? text : `${text}.`;
 }
 
