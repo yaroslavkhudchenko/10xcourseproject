@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   autoRefreshOf,
-  decideMatchStep,
+  decideMatchStep as decideFromStanding,
   repinShopOf,
   retryShopOf,
   type MatchStep,
@@ -9,7 +9,8 @@ import {
 } from "@/lib/services/match-step";
 import type { MatchesRead } from "@/lib/services/matches";
 import { matchedShopsOf, type MatchableShop } from "@/lib/services/price-comparison";
-import type { RepinnableMatch, ShopMatch } from "@/types";
+import { watchedProductOf } from "@/lib/services/watched-product";
+import type { RepinnableMatch, ShopMatch, WatchlistProduct } from "@/types";
 
 const decision = { watchlistItemId: "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb", checkedAt: "2026-09-27T19:45:12+00:00" };
 // Natura's three kinds of stored decision for the product.
@@ -37,6 +38,43 @@ const hebeNotFound: ShopMatch = { ...notFound, shop: "hebe" };
 
 /** The product's stored decisions, as listMatches reads them when every row can be read. */
 const read = (...matches: ShopMatch[]): MatchesRead => ({ matches, unreadable: [] });
+
+/** A step's input with the product's stored decisions as listMatches reads them, null when they couldn't be at all. */
+type ReadStepInput = Omit<MatchStepInput, "standing"> & { matches: MatchesRead | null };
+
+// The watched product the steps are decided for, Nivea Soft 300 ml picked in Rossmann, its own shop, so its matched
+// shops are Natura, Hebe and Super-Pharm; and the same product picked in Natura, whose matched shops are Rossmann, Hebe
+// and Super-Pharm.
+const pickedInRossmann: WatchlistProduct = {
+  id: decision.watchlistItemId,
+  source: "rossmann",
+  sourceItemId: "26900",
+  brand: "NIVEA",
+  name: "Soft",
+  caption: "krem uniwersalny, nawilżający",
+  sizeText: "300 ml",
+  size: { value: 300, unit: "ml" },
+  imageUrl: null,
+  addedAt: "2026-09-20T08:00:00+00:00",
+  eans: ["4005900009319"],
+  productUrl: null,
+};
+const pickedInNatura: WatchlistProduct = { ...pickedInRossmann, source: "natura", sourceItemId: "NV89063" };
+
+/**
+ * The page's step in `shop` for the product's stored decisions, as the page decides it: from where the product stands
+ * in the shop as the guardian reads those decisions (watchedProductOf), for the product picked in Rossmann, or in Natura
+ * when the step is Rossmann's, since a product's own shop has no standing. A shop without a standing fails the test,
+ * since it never reads as undecided.
+ */
+function decideMatchStep({ matches, shop, ...opened }: ReadStepInput): MatchStep {
+  const product = shop === "rossmann" ? pickedInNatura : pickedInRossmann;
+  const standing = watchedProductOf(product, matches).standings[shop];
+  if (standing === undefined) {
+    throw new Error(`${shop} has no standing for a product picked in ${product.source}`);
+  }
+  return decideFromStanding({ standing, shop, ...opened });
+}
 
 /** How the page was opened: looking Natura up again (`?retry=natura`) or not, and by the user's own navigation or not. */
 interface Opened {
@@ -229,7 +267,7 @@ describe("decideMatchStep: the choice that changes a stored decision (?repin=nat
   });
 
   it("treats ?repin=natura without a decision as the first lookup, which a link from another site only prompts", () => {
-    const opened: Omit<MatchStepInput, "ownNavigation"> = {
+    const opened: Omit<ReadStepInput, "ownNavigation"> = {
       matches: read(),
       shop: "natura",
       retryShop: null,
@@ -328,7 +366,7 @@ describe("decideMatchStep: Super-Pharm, looked up on view like any shop", () => 
   const spNotFound: ShopMatch = { ...notFound, shop: "super-pharm" };
 
   /** Super-Pharm's step for the product's decisions, on a page opened as given. */
-  const spStep = (matches: MatchesRead | null, opened: Omit<MatchStepInput, "matches" | "shop">) =>
+  const spStep = (matches: MatchesRead | null, opened: Omit<ReadStepInput, "matches" | "shop">) =>
     decideMatchStep({ matches, shop: "super-pharm", ...opened });
 
   /** Each shop's step, Super-Pharm's last, on the user's own navigation of a page opened as given. */

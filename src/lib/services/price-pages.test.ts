@@ -1,21 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { unreadableShopsOf, type MatchedShopView } from "@/components/watchlist/match-card";
 import { initialState, selectedRowTagOf, verdictOfState } from "@/components/watchlist/price-comparison-state";
-import { listMatches, listMatchStates } from "@/lib/services/matches";
-import { matchedShopsOf, type PricedShop, type PriceVerdict } from "@/lib/services/price-comparison";
-import { listLatestPrices, productPricesOf } from "@/lib/services/prices";
+import { listMatchStates, loadWatchedProduct } from "@/lib/services/matches";
+import type { PricedShop, PriceVerdict } from "@/lib/services/price-comparison";
+import { listLatestPrices } from "@/lib/services/prices";
+import { openProductPage } from "@/lib/services/product-page";
 import { shopGateFor } from "@/lib/services/shop-gate";
-import { runMatchSteps } from "@/lib/services/shop-matching";
 import { stubSupabase, type StubRelation } from "@/lib/services/testing/stub-supabase";
-import { getWatchlistProduct, listWatchlist } from "@/lib/services/watchlist";
+import { listWatchlist } from "@/lib/services/watchlist";
 import { listRowsOf, parseListFilter, type PriceTag } from "@/lib/services/watchlist-rows";
 
 // risk: #1 (context/foundation/test-plan.md): a stale, ended-promotion or unread price shows as current, or the wrong
 // shop is marked cheapest, on the list or on the product's page.
 // facet: one stored state per case, served by one stand-in database to both pages' own reads and wiring: the list's
-// three reads and its rows (listRowsOf), and the product page's reads, its match steps on a view that isn't the user's
-// own navigation, so no shop is asked, its prices for the island (productPricesOf, the page's own call) and its first
-// verdict, and the selected row's tag beside it (selectedRowTagOf).
+// three reads and its rows (listRowsOf), and the product page's load (loadWatchedProduct) and its own call
+// (openProductPage), its match steps on a view that isn't the user's own navigation, so no shop is asked, and its
+// prices for the island, then its first verdict, and the selected row's tag beside it (selectedRowTagOf).
 // expected values: written by hand from the PRD's guardrail (a stale or failed price is visible, never silent), US-01
 // (the cheapest shop is marked, and a shop without a current price shows its gap), S-03's decision (only fresh prices
 // orderable online can win; stale after 24 hours or when the promotion ended) and the owner's call of 2026-10-07 (a
@@ -182,31 +182,29 @@ async function listTag(state: StoredState): Promise<PriceTag | undefined> {
 }
 
 /**
- * The product's page, as the page puts it together: its two reads, its match steps in its matched shops on a view that
- * isn't the user's own navigation (no shop is asked), its prices for the island through the page's own call
- * (productPricesOf), the island's first verdict, and the selected row's tag on the list beside it.
+ * The product's page, as the page puts it together: its product loaded with its decisions (loadWatchedProduct), and
+ * the page's own call (openProductPage) with an empty address on a view that isn't the user's own navigation (no shop
+ * is asked): its match steps in its matched shops and its prices for the island. Then the island's first verdict, and
+ * the selected row's tag on the list beside it.
  */
 async function productPage(state: StoredState): Promise<{ verdict: PriceVerdict; selectedTag: PriceTag }> {
   const { client, queries } = stubSupabase({ relations: relationsOf(state) });
-  const [shown, matches] = await Promise.all([
-    getWatchlistProduct(client, PRODUCT_ID),
-    listMatches(client, PRODUCT_ID),
-  ]);
-  if (shown === null || shown === "failed") {
+  const loaded = await loadWatchedProduct(client, PRODUCT_ID);
+  if (loaded === null || loaded === "failed") {
     throw new Error("the product couldn't be read");
   }
-  const steps = await runMatchSteps({
+  const opened = await openProductPage({
     supabase: client,
     gate: shopGateFor(client),
-    product: shown,
-    matches,
-    retryShop: null,
-    repinShop: null,
+    loaded,
+    params: new URLSearchParams(),
     ownNavigation: false,
     filter: parseListFilter(null),
-    shops: matchedShopsOf(shown.source),
   });
-  const { shops, pricesFailed } = await productPricesOf(client, shown, steps);
+  if (opened.kind !== "shown") {
+    throw new Error(`expected the page shown, got ${opened.kind}`);
+  }
+  const { steps, shops, pricesFailed } = opened;
   const matched: MatchedShopView[] = steps.map(({ shop, view, unsaved }) => ({
     shop,
     view,

@@ -11,7 +11,7 @@ import {
   type MatchRepin,
   type MatchView,
 } from "@/lib/services/match-view";
-import { recordLookup, type MatchesRead } from "@/lib/services/matches";
+import { recordLookup } from "@/lib/services/matches";
 import {
   foldedWordsOf,
   judge,
@@ -21,12 +21,13 @@ import {
   type MatchPick,
   type NamedProduct,
 } from "@/lib/services/matching";
-import { matchedShopsOf, SHOP_LABELS, type MatchableShop, type PricedShop } from "@/lib/services/price-comparison";
+import { SHOP_LABELS, type MatchableShop, type PricedShop } from "@/lib/services/price-comparison";
 import { recordPriceChecks } from "@/lib/services/prices";
 import { toShopQuery } from "@/lib/services/search-query";
 import type { ShopGate } from "@/lib/services/shop-gate";
 import { SHOP_ADAPTERS } from "@/lib/services/shops/registry";
 import { splitTrailingSize } from "@/lib/services/size";
+import { admitLookup, matchedShopsIn, type LoadedProduct, type Standing } from "@/lib/services/watched-product";
 import type { ListFilter } from "@/lib/services/watchlist-rows";
 import { shopUnavailableText } from "@/lib/shop-messages";
 import type {
@@ -37,7 +38,6 @@ import type {
   ShopChoices,
   ShopLookup,
   ShopUnavailable,
-  WatchlistProduct,
 } from "@/types";
 
 // Looking a watched product up in a matched shop, through that shop's own adapter (SHOP_ADAPTERS), so every search is
@@ -251,10 +251,11 @@ export interface MatchStepsInput {
   supabase: SupabaseClient;
   /** The gate every search goes through, charged to the shop it asks. */
   gate: ShopGate;
-  /** The watched product the page shows. */
-  product: WatchlistProduct;
-  /** The product's stored decisions, as listMatches read them: null when they couldn't be read at all. */
-  matches: MatchesRead | null;
+  /**
+   * The watched product the page shows, as loadWatchedProduct loads it: its row, and where it stands in each of its
+   * matched shops, the shops the steps run in (matchedShopsIn), its decisions read or not.
+   */
+  loaded: LoadedProduct;
   /** The shop the page was opened to look up again (`?retry=<shop>`, from "Szukaj ponownie"), if any. */
   retryShop: MatchableShop | null;
   /** The shop whose decision the page was opened to change (`?repin=<shop>`, "Zmień" or "Dopasuj ponownie"), if any. */
@@ -263,11 +264,6 @@ export interface MatchStepsInput {
   ownNavigation: boolean;
   /** The filter the list is shown with, which every view's links keep. */
   filter: ListFilter;
-  /**
-   * The shops to run, in the pages' order: the product's matched shops, every priced shop but its own (matchedShopsOf),
-   * unless a test names others.
-   */
-  shops?: readonly PricedShop[];
 }
 
 /**
@@ -290,34 +286,35 @@ export interface MatchStepResult {
 /** A step's result without its shop and its step: what each kind of step comes to. */
 type StepOutcome = Omit<MatchStepResult, "shop" | "step">;
 
-/** What every shop's step reads: the input without the list of shops. */
-type StepInput = Omit<MatchStepsInput, "shops">;
-
 /** A step that only shows its view: no choice open, nothing unsaved, no item and no retry. */
 const SHOWN_ONLY = { repin: null, unsaved: false, item: null, retried: false } as const;
 
 /** The shop gave no answer: the reading of a search, a write or a first price that threw. */
 const FAILED: ShopUnavailable = { kind: "unavailable", reason: "failed" };
 
+/** Where a shop with no standing would stand: unreadable, never undecided, so nothing is looked up there. */
+const UNREADABLE: Standing = { kind: "unreadable" };
+
 /**
- * Runs the product page's step for each of `shops`, the product's matched shops (matchedShopsOf) unless a test names
- * others, in their order, so its own shop, whose own item it's priced by, is never looked up: decides it from the
- * shop's stored decision and how the page was opened (decideMatchStep), then shows the stored decision, offers only the
- * button, opens the choice that changes the decision with the shop's two searches, or looks the product up and stores
- * what the matching rule settled on its own, with the price an automatic match came with as its first stored price.
- * The shops run at once, and each shop's searches and writes one after the other, so no two of a shop's requests
- * overlap. Each shop settles on its own: one whose lookup, recording or first price throws is logged and shown as
- * unavailable, and the other shops come back as usual. It never throws.
+ * Runs the product page's step for each of the loaded product's matched shops (matchedShopsIn), in the priced shops'
+ * order, so its own shop, whose own item it's priced by, is never looked up: decides it from where the product stands
+ * there and how the page was opened (decideMatchStep), then shows the stored decision, offers only the button, opens
+ * the choice that changes the decision with the shop's two searches, or looks the product up and stores what the
+ * matching rule settled on its own once the guardian admits it (admitLookup), with the price an automatic match came
+ * with as its first stored price. The shops run at once, and each shop's searches and writes one after the other, so
+ * no two of a shop's requests overlap. Each shop settles on its own: one whose lookup, recording or first price throws
+ * is logged and shown as unavailable, and the other shops come back as usual. It never throws.
  */
-export function runMatchSteps({ shops, ...input }: MatchStepsInput): Promise<MatchStepResult[]> {
-  const run = shops ?? matchedShopsOf(input.product.source);
-  return Promise.all(run.map((shop) => runStep(shop, input)));
+export function runMatchSteps(input: MatchStepsInput): Promise<MatchStepResult[]> {
+  return Promise.all(matchedShopsIn(input.loaded.watched).map((shop) => runStep(shop, input)));
 }
 
 /** One shop's step (runMatchSteps), settled on its own: a step that throws shows the shop as unavailable. */
-async function runStep(shop: PricedShop, input: StepInput): Promise<MatchStepResult> {
-  const { matches, retryShop, repinShop, ownNavigation } = input;
-  const step = decideMatchStep({ matches, shop, retryShop, repinShop, ownNavigation });
+async function runStep(shop: PricedShop, input: MatchStepsInput): Promise<MatchStepResult> {
+  const { loaded, retryShop, repinShop, ownNavigation } = input;
+  // Every matched shop has a standing (matchedShopsIn).
+  const standing = loaded.watched.standings[shop] ?? UNREADABLE;
+  const step = decideMatchStep({ standing, shop, retryShop, repinShop, ownNavigation });
   try {
     return { shop, step, ...(await outcomeOf(shop, step, input)) };
   } catch (error) {
@@ -328,8 +325,9 @@ async function runStep(shop: PricedShop, input: StepInput): Promise<MatchStepRes
 }
 
 /** What a shop's step comes to, by its kind. */
-async function outcomeOf(shop: MatchableShop, step: MatchStep, input: StepInput): Promise<StepOutcome> {
-  const { product, filter } = input;
+async function outcomeOf(shop: MatchableShop, step: MatchStep, input: MatchStepsInput): Promise<StepOutcome> {
+  const { filter } = input;
+  const { product } = input.loaded;
   switch (step.kind) {
     case "read-failed":
       // Without the stored decision, a lookup could ask again about what the user has already settled.
@@ -356,8 +354,9 @@ async function outcomeOf(shop: MatchableShop, step: MatchStep, input: StepInput)
 async function repinOutcome(
   shop: MatchableShop,
   current: RepinnableMatch,
-  { gate, product, filter }: StepInput,
+  { gate, loaded, filter }: MatchStepsInput,
 ): Promise<StepOutcome> {
+  const { product } = loaded;
   const view = storedView(shop, current, product, { filter, repinning: true });
   const choices = await lookupChoicesInShop(shop, gate, product).catch((error: unknown): ShopChoices => {
     logStepFailure(shop, error);
@@ -369,20 +368,33 @@ async function repinOutcome(
 
 /**
  * The lookup the user's own navigation runs for a shop without a decision, or over a stored "not found" it retries.
- * What the rule settles on its own, a match or nothing found, is stored during the render, and an automatic match's
- * price as its first stored price, so the island needn't ask the shop again; the user's picks go through the form.
+ * What the rule settles on its own, a match or nothing found, is stored during the render only once the guardian
+ * admits it (admitLookup), and an automatic match's price as its first stored price, so the island needn't ask the
+ * shop again; the user's picks go through the form. The steps look a shop up only where the guardian admits a
+ * lookup's outcome, and the store's compare-and-swap catches a decision stored meanwhile (`decided`).
  */
 async function lookupOutcome(
   shop: MatchableShop,
   retry: boolean,
-  { supabase, gate, product, filter }: StepInput,
+  { supabase, gate, loaded, filter }: MatchStepsInput,
 ): Promise<StepOutcome> {
+  const { product } = loaded;
   const lookup = await lookupInShop(shop, gate, product);
   const fetchedAt = new Date();
   switch (lookup.kind) {
     case "accepted":
     case "not-found": {
-      const result = await recordLookup(supabase, product.id, shop, lookup);
+      const admission = admitLookup(loaded.watched, shop, lookup);
+      if (admission.kind === "refused") {
+        // Nothing is stored. A settled decision stands, as when the store finds one meanwhile; a decision that couldn't
+        // be read, or a shop that isn't one of the product's matched shops, shows as a decision that couldn't be read.
+        return {
+          ...SHOWN_ONLY,
+          view: admission.reason === "settled" ? decidedView(product, filter) : { kind: "read-failed" },
+        };
+      }
+      const { change } = admission;
+      const result = await recordLookup(supabase, change.itemId, change.shop, change.outcome);
       let item: MatchedItem | null = null;
       if (lookup.kind === "accepted" && result === "saved") {
         item = lookup.candidate;

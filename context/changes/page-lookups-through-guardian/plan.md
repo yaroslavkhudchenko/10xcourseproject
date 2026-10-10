@@ -631,6 +631,17 @@ None. No migration runs and no stored row changes. S-02 rebases onto this slice 
 - **The guardian's header names `loadWatchedProduct` and `LoadedProduct`.** The read-rules comment in `matches.ts` stays for Phase 4, as planned, and is still accurate.
 - **2.8, by reading:** `[id].astro`'s not-found branch renders `ProductUnavailable` with the decision's error and the removal's notice only, and the prices alert stands only in the shown product's branch, so `?prices=none` in place of `?prices=failed` shows nothing different.
 
+### Phase 3
+
+- **The shared harness is `src/lib/services/testing/gate-world.ts`.** The plan named only the folder. `world`, `served`, `bodiesSentTo` and `reservations` moved unchanged, and the module keeps the stubbed fetch, so `served()` and `bodiesSentTo()` still take no argument (review F2); `blockReports` stays in `price-routes.test.ts`, its only user.
+- **A shop without a standing reads as unreadable.** `runStep` reads `standings[shop] ?? UNREADABLE`, which TypeScript needs; the steps run only `matchedShopsIn`, so it is never reached, and it is never read as undecided.
+- **`[id].astro` maps one load.** The `ProductReads` tuple became `ProductLoad = LoadedProduct | null | "failed"`, and the template's `product` is `loaded.product`, so the template, the island's props and the script are unchanged. Without a product, `autoRefresh` is `false`; the island doesn't render then.
+- **`product-page.test.ts`'s `?repin=natura` case leaves Super-Pharm undecided.** With every shop decided, a service that skipped narrowing the address to the matched shops passed; now it fails, as a break of its own showed.
+- **The stand-in database fills no view from an insert.** The "match just stored" case seeds the `price_summaries` row its first price would give, and the retry case's write succeeds as a plain insert; the 23505-then-update path stays with `matches.db.test.ts` in CI.
+- **TD-02 (#51) merged meanwhile.** It added tests to `price-routes.test.ts` and touched none of the moved definitions.
+- **Comments left for Phase 4:** `productPricesOf`'s doc in `prices.ts`, the read-rules comment in `matches.ts`, the "(matchedShopsOf)" mentions in the docs of `repinShopOf`, `retryShopOf`, `decisionNotice` and `decisionError`, and the test plan's §6.2 pattern 2.
+- **3.14 and 3.15, by reading:** every line removed from the three test files is an import, a helper, a comment, an input type the plan names or the seam table's hand copy of the composition; `lookupOutcome` stores only the change `admitLookup` admitted, and `[id].astro`'s frontmatter awaits only the reads and `openProductPage`.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -639,51 +650,51 @@ None. No migration runs and no stored row changes. S-02 rebases onto this slice 
 
 #### Automated
 
-- [x] 1.1 The guardian's tests pass: `npx vitest run src/lib/services/watched-product.test.ts` — 09d7eed
-- [x] 1.2 Dropping the `settled` refusal, then the matched-shop check, from `admitLookup` each turns its tests red, and restoring them turns them green again — 09d7eed
-- [x] 1.3 The unit suite passes: `npm run test` — 09d7eed
-- [x] 1.4 Lint passes: `npm run lint` — 09d7eed
-- [x] 1.5 Types check: `npx astro sync && npx astro check` — 09d7eed
-- [x] 1.6 No existing assertion or test title moved: `assertion-diff` and `title-diff` (Implementation Approach) print nothing — 09d7eed
+- [x] 1.1 The guardian's tests pass: `npx vitest run src/lib/services/watched-product.test.ts` — 9efaa44
+- [x] 1.2 Dropping the `settled` refusal, then the matched-shop check, from `admitLookup` each turns its tests red, and restoring them turns them green again — 9efaa44
+- [x] 1.3 The unit suite passes: `npm run test` — 9efaa44
+- [x] 1.4 Lint passes: `npm run lint` — 9efaa44
+- [x] 1.5 Types check: `npx astro sync && npx astro check` — 9efaa44
+- [x] 1.6 No existing assertion or test title moved: `assertion-diff` and `title-diff` (Implementation Approach) print nothing — 9efaa44
 
 ### Phase 2: One loader for a watched product, gone first (F5)
 
 #### Automated
 
-- [x] 2.1 The guardian's, the loader's, the routes' and the price targets' tests pass: `npx vitest run src/lib/services/watched-product.test.ts src/lib/services/matches.test.ts src/lib/services/match-routes.test.ts src/lib/services/price-targets.test.ts src/lib/services/price-routes.test.ts`
-- [x] 2.2 Making `productTargets` answer `failed` before a product not on the list, and making the route ask the guardian before it answers decisions unread as a whole, each turns its new tests red, and restoring each turns them green again
-- [x] 2.3 `productTargets` derives no matched shops of its own: `grep -c "matchedShopsOf" src/lib/services/price-targets.ts` prints 0
-- [x] 2.4 The unit suite passes: `npm run test`
-- [x] 2.5 Lint passes: `npm run lint`
-- [x] 2.6 Types check: `npx astro sync && npx astro check`
-- [x] 2.7 No existing assertion or test title moved: `assertion-diff` and `title-diff` print nothing
+- [x] 2.1 The guardian's, the loader's, the routes' and the price targets' tests pass: `npx vitest run src/lib/services/watched-product.test.ts src/lib/services/matches.test.ts src/lib/services/match-routes.test.ts src/lib/services/price-targets.test.ts src/lib/services/price-routes.test.ts` — 8703902
+- [x] 2.2 Making `productTargets` answer `failed` before a product not on the list, and making the route ask the guardian before it answers decisions unread as a whole, each turns its new tests red, and restoring each turns them green again — 8703902
+- [x] 2.3 `productTargets` derives no matched shops of its own: `grep -c "matchedShopsOf" src/lib/services/price-targets.ts` prints 0 — 8703902
+- [x] 2.4 The unit suite passes: `npm run test` — 8703902
+- [x] 2.5 Lint passes: `npm run lint` — 8703902
+- [x] 2.6 Types check: `npx astro sync && npx astro check` — 8703902
+- [x] 2.7 No existing assertion or test title moved: `assertion-diff` and `title-diff` print nothing — 8703902
 
 #### Manual
 
-- [x] 2.8 Reading the product page's not-found view (`src/pages/watchlist/[id].astro:223-226`), the reviewer confirms it shows no prices notice, so `?prices=none` in place of `?prices=failed` shows nothing different
+- [x] 2.8 Reading the product page's not-found view (`src/pages/watchlist/[id].astro:223-226`), the reviewer confirms it shows no prices notice, so `?prices=none` in place of `?prices=failed` shows nothing different — 8703902
 
 ### Phase 3: The product page runs on one loaded product
 
 #### Automated
 
-- [ ] 3.1 The step, lookup, page and price tests pass: `npx vitest run src/lib/services/match-step.test.ts src/lib/services/shop-matching.test.ts src/lib/services/product-page.test.ts src/lib/services/price-pages.test.ts src/lib/services/prices.test.ts`
-- [ ] 3.2 Each deliberate break turns its tests red, and restoring it turns them green again: `runMatchSteps` running every priced shop instead of the loaded product's matched shops (the product picked in Natura, `shop-matching.test.ts:1467`); `lookupOutcome` treating the store's `decided` as `saved`; `openProductPage` reading prices before it returns a retry
-- [ ] 3.3 5 production calls of `matchedShopsOf` remain, in `watched-product.ts`, `price-comparison.ts`, `watchlist-rows.ts` (twice) and `product-search.ts`: `grep -rn --include=*.ts --include=*.tsx --include=*.astro "matchedShopsOf(" src | grep -v "\.test\.ts:" | grep -v "function matchedShopsOf"` prints exactly those 5 lines
-- [ ] 3.4 The guardian and the page's service stay server-only: `grep -cE "watched-product|product-page" eslint.config.js` prints 0
-- [ ] 3.5 The e2e specs are untouched: `git diff --stat "$BASE" -- tests/e2e` prints nothing
-- [ ] 3.6 The unit suite passes: `npm run test`
-- [ ] 3.7 Lint passes: `npm run lint`
-- [ ] 3.8 Types check: `npx astro sync && npx astro check`
-- [ ] 3.9 The build passes: `npm run build` (it downloads the fonts, so it needs network)
-- [ ] 3.10 No existing assertion or test title moved: `assertion-diff` and `title-diff` print nothing
+- [x] 3.1 The step, lookup, page and price tests pass: `npx vitest run src/lib/services/match-step.test.ts src/lib/services/shop-matching.test.ts src/lib/services/product-page.test.ts src/lib/services/price-pages.test.ts src/lib/services/prices.test.ts`
+- [x] 3.2 Each deliberate break turns its tests red, and restoring it turns them green again: `runMatchSteps` running every priced shop instead of the loaded product's matched shops (the product picked in Natura, `shop-matching.test.ts:1467`); `lookupOutcome` treating the store's `decided` as `saved`; `openProductPage` reading prices before it returns a retry
+- [x] 3.3 5 production calls of `matchedShopsOf` remain, in `watched-product.ts`, `price-comparison.ts`, `watchlist-rows.ts` (twice) and `product-search.ts`: `grep -rn --include=*.ts --include=*.tsx --include=*.astro "matchedShopsOf(" src | grep -v "\.test\.ts:" | grep -v "function matchedShopsOf"` prints exactly those 5 lines
+- [x] 3.4 The guardian and the page's service stay server-only: `grep -cE "watched-product|product-page" eslint.config.js` prints 0
+- [x] 3.5 The e2e specs are untouched: `git diff --stat "$BASE" -- tests/e2e` prints nothing
+- [x] 3.6 The unit suite passes: `npm run test`
+- [x] 3.7 Lint passes: `npm run lint`
+- [x] 3.8 Types check: `npx astro sync && npx astro check`
+- [x] 3.9 The build passes: `npm run build` (it downloads the fonts, so it needs network)
+- [x] 3.10 No existing assertion or test title moved: `assertion-diff` and `title-diff` print nothing
 - [ ] 3.11 CI only: CI's `ci` job passes on the pull request
 - [ ] 3.12 CI only: CI's `smoke` job passes on the pull request: `npm run test:db` (a lookup's write against the real database, the late lookup included), the database checks, the two-user check (another user's product answers like a missing one through the page with `?repin=` and `?retry=`, the price route, the decision route and the product's refresh) and smoke
 - [ ] 3.13 CI only: CI's `e2e` job passes on the pull request: the 10 specs, unchanged, with no shop request reserved
 
 #### Manual
 
-- [ ] 3.14 The reviewer reads the diff of `match-step.test.ts`, `shop-matching.test.ts` and `price-pages.test.ts` and confirms every changed line is arrangement: no title, expected value or line inside a multi-line expect statement changed
-- [ ] 3.15 The reviewer confirms that `lookupOutcome` stores only a change `admitLookup` admitted, and that `[id].astro`'s frontmatter only calls services and maps their results
+- [x] 3.14 The reviewer reads the diff of `match-step.test.ts`, `shop-matching.test.ts` and `price-pages.test.ts` and confirms every changed line is arrangement: no title, expected value or line inside a multi-line expect statement changed
+- [x] 3.15 The reviewer confirms that `lookupOutcome` stores only a change `admitLookup` admitted, and that `[id].astro`'s frontmatter only calls services and maps their results
 - [ ] 3.16 After the deploy, on a phone, the owner opens a product from „Do sprawdzenia” and a product matched in every shop: the cards, the prices with their ages, the cheapest shop and the list beside show as before. This costs what any view costs (Implementation Approach).
 
 ### Phase 4: Documents
