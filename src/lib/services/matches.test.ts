@@ -27,9 +27,25 @@ import { searchHebe } from "@/lib/services/shops/hebe";
 import { searchNatura } from "@/lib/services/shops/natura";
 import { searchRossmannItems } from "@/lib/services/shops/rossmann";
 import { searchSuperPharm } from "@/lib/services/shops/super-pharm";
+import {
+  EXPECTS_DECLINE,
+  EXPECTS_NONE,
+  expectsMatch,
+  OVER_DECLINE,
+  overMatch,
+  recordDecisionArgs,
+  type ExpectedArgs,
+  type SavedColumns,
+} from "@/lib/services/testing/record-decision";
 import { createReplayFetch } from "@/lib/services/testing/replay-fetch";
 import { declinedRow, matchRow, NO_ITEM_COLUMNS, productRow } from "@/lib/services/testing/stored-rows";
-import { stubSupabase, TIMEOUT, type StubRelation } from "@/lib/services/testing/stub-supabase";
+import {
+  stubSupabase,
+  TIMEOUT,
+  type StubCall,
+  type StubError,
+  type StubRelation,
+} from "@/lib/services/testing/stub-supabase";
 import type { ListFilter } from "@/lib/services/watchlist-rows";
 import type { MatchedItem, RepinnableMatch, ShopCandidate, ShopSearch } from "@/types";
 
@@ -117,16 +133,14 @@ interface Answer {
 }
 
 interface QueryStub {
-  insert: (row: unknown) => QueryStub;
-  update: (fields: unknown) => QueryStub;
   select: (columns: string) => QueryStub;
   eq: (column: string, value: unknown) => QueryStub;
   abortSignal: (signal: AbortSignal) => Promise<{ data: unknown; error: Answer["error"] | null }>;
 }
 
 /**
- * A client whose queries get `answers` in turn. Every builder call is recorded, so a test sees each query's table,
- * row, filters and time limit: a query ends with `["abortSignal", true]` when it was given an AbortSignal.
+ * A client whose reads get `answers` in turn. Every builder call is recorded, so a test sees each query's table,
+ * columns, filters and time limit: a query ends with `["abortSignal", true]` when it was given an AbortSignal.
  */
 function stubClient(...answers: Answer[]) {
   const queries: Call[][] = [];
@@ -135,14 +149,6 @@ function stubClient(...answers: Answer[]) {
     const calls: Call[] = [["from", table]];
     queries.push(calls);
     const query: QueryStub = {
-      insert: (row) => {
-        calls.push(["insert", row]);
-        return query;
-      },
-      update: (fields) => {
-        calls.push(["update", fields]);
-        return query;
-      },
       select: (columns) => {
         calls.push(["select", columns]);
         return query;
@@ -161,37 +167,25 @@ function stubClient(...answers: Answer[]) {
   return { client: { from } as unknown as SupabaseClient, queries };
 }
 
-const insertInto = (row: Record<string, unknown>): Call[] => [
-  ["from", "watchlist_matches"],
-  ["insert", row],
+// The product's Natura decision as the store saves it: the user's match of Nivea Soft, the user's decline, and a
+// lookup's automatic match of it or "not found".
+const USER_MATCH: SavedColumns = { state: "matched", decided_by: "user", ...SOFT_COLUMNS };
+const USER_DECLINE: SavedColumns = { state: "unmatched", decided_by: "user", ...NO_ITEM_COLUMNS };
+const AUTO_MATCH: SavedColumns = { state: "matched", decided_by: "auto", ...SOFT_COLUMNS };
+const NOT_FOUND: SavedColumns = { state: "not_found", decided_by: "auto", ...NO_ITEM_COLUMNS };
+
+/** The stand-in database, whose record_decision answers every call with `answer`: saved unless a test says otherwise. */
+function saving(answer: { data?: unknown; error?: StubError } = { data: "saved" }) {
+  return stubSupabase({ rpc: { record_decision: () => answer } });
+}
+
+/** A write's one call for the product's Natura decision: record_decision with its 16 arguments, within a time limit. */
+const callOf = (columns: SavedColumns, expects?: ExpectedArgs): StubCall[] => [
+  ["rpc", "record_decision", recordDecisionArgs(ITEM_ID, "natura", columns, expects)],
   ["abortSignal", true],
 ];
-
-// The update of the product's decision for Natura, narrowed by `expected` to the decision the write expects to
-// replace, asking for the changed rows back.
-const updateOver = (fields: Record<string, unknown>, expected: Call[]): Call[] => [
-  ["from", "watchlist_matches"],
-  ["update", { ...fields, checked_at: NOW }],
-  ["eq", "watchlist_item_id", ITEM_ID],
-  ["eq", "shop_id", "natura"],
-  ...expected,
-  ["select", "id"],
-  ["abortSignal", true],
-];
-
-// The update that changes only a lookup that found nothing, as a lookup's and a first choice's do.
-const updateNotFound = (fields: Record<string, unknown>): Call[] => updateOver(fields, [["eq", "state", "not_found"]]);
-
-const duplicate = { error: { code: "23505", message: "duplicate key value violates unique constraint" } };
-
-beforeEach(() => {
-  // Only the clock the update's checked_at is read from; the queries' time limits keep their real timers.
-  vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(new Date(NOW));
-});
 
 afterEach(() => {
-  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -592,208 +586,178 @@ describe("matchErrorMessage", () => {
 
 describe("recordDecision", () => {
   it("stores a confirmed candidate as the user's match, within a time limit", async () => {
-    const { client, queries } = stubClient({});
+    const { client, queries } = saving();
 
     const result = await recordDecision(client, ITEM_ID, "natura", { action: "confirm", item: itemOf(soft) });
 
     expect(result).toBe("saved");
-    expect(queries).toEqual([
-      insertInto({
-        watchlist_item_id: ITEM_ID,
-        shop_id: "natura",
-        state: "matched",
-        decided_by: "user",
-        ...SOFT_COLUMNS,
-      }),
-    ]);
+    // One call, with every one of its 16 arguments: the user's match of the item, expecting no decision.
+    expect(queries).toStrictEqual([callOf(USER_MATCH)]);
   });
 
   it("stores a decline without any item", async () => {
-    const { client, queries } = stubClient({});
+    const { client, queries } = saving();
 
     expect(await recordDecision(client, ITEM_ID, "natura", { action: "decline" })).toBe("saved");
-    expect(queries).toEqual([
-      insertInto({
-        watchlist_item_id: ITEM_ID,
-        shop_id: "natura",
-        state: "unmatched",
-        decided_by: "user",
-        ...NO_ITEM_COLUMNS,
-      }),
-    ]);
+    expect(queries).toStrictEqual([callOf(USER_DECLINE)]);
   });
 
   it("turns a lookup that found nothing into the user's decision", async () => {
-    const { client, queries } = stubClient(duplicate, { data: [{ id: "c0ffee00-0000-4000-8000-000000000001" }] });
+    // A first choice expects no decision, which the call also takes for a lookup that found nothing, so the database
+    // replaces a stored "not found" (matches.db.test.ts).
+    const { client, queries } = saving();
 
     expect(await recordDecision(client, ITEM_ID, "natura", { action: "decline" })).toBe("saved");
-    const declined = { state: "unmatched", decided_by: "user", ...NO_ITEM_COLUMNS };
-    expect(queries).toEqual([
-      insertInto({ watchlist_item_id: ITEM_ID, shop_id: "natura", ...declined }),
-      updateNotFound(declined),
-    ]);
+    expect(queries).toStrictEqual([callOf(USER_DECLINE, EXPECTS_NONE)]);
   });
 
   it("reports a product that was already decided, as after a double submit, and changes nothing", async () => {
-    // A first choice's update changes only a lookup that found nothing, so a decided row isn't changed: none comes back.
-    const { client, queries } = stubClient(duplicate, { data: [] });
+    // A first choice's call expects no decision, so over a decided one it writes nothing and says so.
+    const { client, queries } = saving({ data: "decided" });
 
     const result = await recordDecision(client, ITEM_ID, "natura", { action: "confirm", item: itemOf(soft) });
 
     expect(result).toBe("decided");
-    const confirmed = { state: "matched", decided_by: "user", ...SOFT_COLUMNS };
-    expect(queries).toEqual([
-      insertInto({ watchlist_item_id: ITEM_ID, shop_id: "natura", ...confirmed }),
-      updateNotFound(confirmed),
-    ]);
+    expect(queries).toStrictEqual([callOf(USER_MATCH)]);
   });
 
-  it("reports a product that isn't on the user's list, without an update", async () => {
-    const { client, queries } = stubClient({
-      error: { code: "23503", message: 'violates foreign key constraint "watchlist_matches_own_product"' },
-    });
+  it("reports a product that isn't on the user's list as gone, as the call answers it", async () => {
+    const { client, queries } = saving({ data: "gone" });
 
     expect(await recordDecision(client, ITEM_ID, "natura", { action: "decline" })).toBe("gone");
-    expect(queries).toEqual([
-      insertInto({
-        watchlist_item_id: ITEM_ID,
-        shop_id: "natura",
-        state: "unmatched",
-        decided_by: "user",
-        ...NO_ITEM_COLUMNS,
-      }),
-    ]);
+    expect(queries).toStrictEqual([callOf(USER_DECLINE)]);
   });
 
-  it.each<{ answer: string; answers: Answer[] }>([
+  it.each<{ answer: string; error: StubError }>([
     {
-      answer: "a failed insert",
-      answers: [{ error: { code: "42501", message: "permission denied for table watchlist_matches" } }],
+      answer: "a call the database refuses (42501)",
+      error: { code: "42501", message: "permission denied for function record_decision" },
     },
-    { answer: "a failed update", answers: [duplicate, { error: { code: "57014", message: "canceling statement" } }] },
-    { answer: "an update answer that isn't a list", answers: [duplicate, { data: { id: ITEM_ID } }] },
-  ])("reports $answer, and logs it", async ({ answers }) => {
+    {
+      answer: "a call that timed out (57014)",
+      error: { code: "57014", message: "canceling statement due to statement timeout" },
+    },
+    {
+      answer: "a call PostgREST finds no function for (PGRST202)",
+      error: { code: "PGRST202", message: "Could not find the function public.record_decision in the schema cache" },
+    },
+    {
+      answer: "the database's refusal of a decision in the product's own shop (23001)",
+      error: { code: "23001", message: "watchlist_matches_not_own_shop: a product holds no decision in its own shop" },
+    },
+    // An aborted call, as supabase-js reports one: without a code.
+    {
+      answer: "an aborted call",
+      error: { code: "", message: "TimeoutError: The operation was aborted due to timeout" },
+    },
+  ])("reports $answer, and logs it", async ({ error }) => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const { client } = stubClient(...answers);
+    const { client } = saving({ error });
 
     expect(await recordDecision(client, ITEM_ID, "natura", { action: "decline" })).toBe("failed");
+    // Once, with the error's message, whatever its code: no error is read as gone or decided.
     expect(warn).toHaveBeenCalledTimes(1);
+    const line: unknown = JSON.parse(String(warn.mock.calls[0][0]));
+    expect(line).toEqual({ event: "watchlist-matches", reason: "save failed", detail: error.message });
+  });
+
+  it.each<{ answer: string; data: unknown; type: string }>([
+    { answer: "no answer", data: null, type: "null" },
+    { answer: "an answer the store doesn't know", data: "repinned", type: "string" },
+    { answer: "an answer that isn't text", data: { result: "saved" }, type: "object" },
+  ])("reports $answer, and logs it", async ({ data, type }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = saving({ data });
+
+    expect(await recordDecision(client, ITEM_ID, "natura", { action: "decline" })).toBe("failed");
+    // Once, with the answer's type alone.
+    expect(warn).toHaveBeenCalledTimes(1);
+    const line: unknown = JSON.parse(String(warn.mock.calls[0][0]));
+    expect(line).toEqual({ event: "watchlist-matches", reason: "unexpected save result", detail: type });
   });
 });
 
 describe("recordDecision: a re-pin replaces only the decision its form was shown with", () => {
-  const changed = { data: [{ id: "c0ffee00-0000-4000-8000-000000000001" }] };
-  const confirmed = { state: "matched", decided_by: "user", ...SOFT_COLUMNS };
-  const declined = { state: "unmatched", decided_by: "user", ...NO_ITEM_COLUMNS };
-  // The narrowing of the update to the match the form was shown with: its state and its item.
-  const overMatch: Call[] = [
-    ["eq", "state", "matched"],
-    ["eq", "shop_item_id", "NV81063"],
-  ];
-
   it("re-pins a match to another item only while the match is still the one shown", async () => {
-    const { client, queries } = stubClient(duplicate, changed);
+    // The user's own match of NV81063, as the guardian read it: the call expects its item and who decided it.
+    const { client, queries } = saving();
 
     const result = await recordDecision(
       client,
       ITEM_ID,
       "natura",
       { action: "confirm", item: itemOf(soft) },
-      { state: "matched", shopItemId: "NV81063" },
+      overMatch("NV81063", "user"),
     );
 
     expect(result).toBe("saved");
-    expect(queries).toEqual([
-      insertInto({ watchlist_item_id: ITEM_ID, shop_id: "natura", ...confirmed }),
-      updateOver(confirmed, overMatch),
-    ]);
+    expect(queries).toStrictEqual([callOf(USER_MATCH, expectsMatch("NV81063", "user"))]);
   });
 
   it("declines a match only while the match is still the one shown", async () => {
-    const { client, queries } = stubClient(duplicate, changed);
+    // An automatic match of NV81063, as the guardian read it.
+    const { client, queries } = saving();
 
-    const result = await recordDecision(
-      client,
-      ITEM_ID,
-      "natura",
-      { action: "decline" },
-      { state: "matched", shopItemId: "NV81063" },
-    );
+    const result = await recordDecision(client, ITEM_ID, "natura", { action: "decline" }, overMatch("NV81063", "auto"));
 
     expect(result).toBe("saved");
-    expect(queries).toEqual([
-      insertInto({ watchlist_item_id: ITEM_ID, shop_id: "natura", ...declined }),
-      updateOver(declined, overMatch),
-    ]);
+    expect(queries).toStrictEqual([callOf(USER_DECLINE, expectsMatch("NV81063", "auto"))]);
   });
 
   it("makes an automatic match the user's own when they confirm its item, only while it's still the one shown", async () => {
     // The re-pin's choice offers the item the rule matched on its own: confirming it stores the same item as matched,
-    // decided by the user, over that very match.
-    const { client, queries } = stubClient(duplicate, changed);
+    // decided by the user, over that very match, which the call expects decided by the rule. So a match the user
+    // confirmed meanwhile, in another tab, stands.
+    const { client, queries } = saving();
 
     const result = await recordDecision(
       client,
       ITEM_ID,
       "natura",
       { action: "confirm", item: itemOf(soft) },
-      { state: "matched", shopItemId: "NV89063" },
+      overMatch("NV89063", "auto"),
     );
 
     expect(result).toBe("saved");
-    expect(queries).toEqual([
-      insertInto({ watchlist_item_id: ITEM_ID, shop_id: "natura", ...confirmed }),
-      updateOver(confirmed, [
-        ["eq", "state", "matched"],
-        ["eq", "shop_item_id", "NV89063"],
-      ]),
-    ]);
+    expect(queries).toStrictEqual([callOf(USER_MATCH, expectsMatch("NV89063", "auto"))]);
   });
 
   it("turns the user's decline into a match only while the decline still stands", async () => {
-    const { client, queries } = stubClient(duplicate, changed);
+    const { client, queries } = saving();
 
     const result = await recordDecision(
       client,
       ITEM_ID,
       "natura",
       { action: "confirm", item: itemOf(soft) },
-      { state: "unmatched" },
+      OVER_DECLINE,
     );
 
     expect(result).toBe("saved");
-    expect(queries).toEqual([
-      insertInto({ watchlist_item_id: ITEM_ID, shop_id: "natura", ...confirmed }),
-      updateOver(confirmed, [["eq", "state", "unmatched"]]),
-    ]);
+    expect(queries).toStrictEqual([callOf(USER_MATCH, EXPECTS_DECLINE)]);
   });
 
   it("reports a decision changed meanwhile, as from a stale tab, as decided, and changes nothing", async () => {
-    // Another tab re-pinned the match: the update narrowed to the one this form was shown with changes no row.
-    const { client, queries } = stubClient(duplicate, { data: [] });
+    // Another tab re-pinned the match: the call, which expects the one this form was shown with, writes nothing.
+    const { client, queries } = saving({ data: "decided" });
 
     const result = await recordDecision(
       client,
       ITEM_ID,
       "natura",
       { action: "confirm", item: itemOf(soft) },
-      { state: "matched", shopItemId: "NV81063" },
+      overMatch("NV81063", "user"),
     );
 
     expect(result).toBe("decided");
-    expect(queries).toEqual([
-      insertInto({ watchlist_item_id: ITEM_ID, shop_id: "natura", ...confirmed }),
-      updateOver(confirmed, overMatch),
-    ]);
+    expect(queries).toStrictEqual([callOf(USER_MATCH, expectsMatch("NV81063", "user"))]);
   });
 
-  it("reports a product removed meanwhile as gone, without an update", async () => {
-    const { client, queries } = stubClient({
-      error: { code: "23503", message: 'violates foreign key constraint "watchlist_matches_own_product"' },
-    });
+  it("reports a product removed meanwhile as gone, as the call answers it", async () => {
+    const { client, queries } = saving({ data: "gone" });
 
-    expect(await recordDecision(client, ITEM_ID, "natura", { action: "decline" }, { state: "unmatched" })).toBe("gone");
-    expect(queries).toEqual([insertInto({ watchlist_item_id: ITEM_ID, shop_id: "natura", ...declined })]);
+    expect(await recordDecision(client, ITEM_ID, "natura", { action: "decline" }, OVER_DECLINE)).toBe("gone");
+    expect(queries).toStrictEqual([callOf(USER_DECLINE, EXPECTS_DECLINE)]);
   });
 });
 
@@ -831,44 +795,33 @@ describe("decisionBackTo", () => {
 
 describe("recordLookup", () => {
   it("stores an accepted candidate as an automatic match, without its price", async () => {
-    const { client, queries } = stubClient({});
+    const { client, queries } = saving();
 
     expect(await recordLookup(client, ITEM_ID, "natura", { kind: "accepted", candidate: soft })).toBe("saved");
-    expect(queries).toEqual([
-      insertInto({
-        watchlist_item_id: ITEM_ID,
-        shop_id: "natura",
-        state: "matched",
-        decided_by: "auto",
-        ...SOFT_COLUMNS,
-      }),
-    ]);
+    // The rule's match of the item, expecting no decision, with every one of the call's 16 arguments.
+    expect(queries).toStrictEqual([callOf(AUTO_MATCH)]);
   });
 
   it("stores a lookup that found nothing", async () => {
-    const { client, queries } = stubClient({});
+    const { client, queries } = saving();
 
     expect(await recordLookup(client, ITEM_ID, "natura", { kind: "not-found" })).toBe("saved");
-    expect(queries).toEqual([
-      insertInto({
-        watchlist_item_id: ITEM_ID,
-        shop_id: "natura",
-        state: "not_found",
-        decided_by: "auto",
-        ...NO_ITEM_COLUMNS,
-      }),
-    ]);
+    expect(queries).toStrictEqual([callOf(NOT_FOUND)]);
   });
 
-  it("stores a retry's match over the lookup that found nothing, with a new check time", async () => {
-    const { client, queries } = stubClient(duplicate, { data: [{ id: "c0ffee00-0000-4000-8000-000000000001" }] });
+  it("stores a retry's match over the lookup that found nothing, expecting no decision", async () => {
+    // A lookup's call expects no decision, which it also takes for a lookup that found nothing: so a retry replaces a
+    // stored "not found", which the database stamps with a new check time, and never a settled decision.
+    const { client, queries } = saving();
 
     expect(await recordLookup(client, ITEM_ID, "natura", { kind: "accepted", candidate: soft })).toBe("saved");
-    const matched = { state: "matched", decided_by: "auto", ...SOFT_COLUMNS };
-    expect(queries).toEqual([
-      insertInto({ watchlist_item_id: ITEM_ID, shop_id: "natura", ...matched }),
-      updateNotFound(matched),
-    ]);
+    expect(queries).toStrictEqual([callOf(AUTO_MATCH, EXPECTS_NONE)]);
+  });
+
+  it.each(["decided", "gone"] as const)("passes on %s as the call answers it", async (answer) => {
+    const { client } = saving({ data: answer });
+
+    expect(await recordLookup(client, ITEM_ID, "natura", { kind: "not-found" })).toBe(answer);
   });
 });
 

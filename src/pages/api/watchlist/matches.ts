@@ -65,8 +65,9 @@ export const POST: APIRoute = async (context) => {
   if (admission.kind === "refused") {
     return context.redirect(backTo(REFUSALS[admission.reason]));
   }
-  // The form's own `replaces`, which the guardian checked against the decision just read, so a decision changed since
-  // then still stands: the write's compare-and-swap checks it again.
+  // The form's own `replaces`, which the guardian checked against the decision just read, with who decided a match as
+  // the guardian read it, so a decision changed since then still stands, a match that changed hands included: the
+  // store's one call to record_decision checks it again as it writes.
   const { change } = admission;
   const result = await recordDecision(supabase, change.itemId, change.shop, change.decision, change.replaces);
   switch (result) {

@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadWatchedProduct } from "@/lib/services/matches";
 import { openProductPage, type OpenedProductPage } from "@/lib/services/product-page";
 import { shopGateFor } from "@/lib/services/shop-gate";
-import { reservations, served, world } from "@/lib/services/testing/gate-world";
+import { reservations, savedDecisions, served, world } from "@/lib/services/testing/gate-world";
+import { lookupCallArgs } from "@/lib/services/testing/record-decision";
 import type { ReplayEntry } from "@/lib/services/testing/replay-fetch";
 import { declinedRow, matchRow, naturaProductRow, notFoundRow, productRow } from "@/lib/services/testing/stored-rows";
 import { TIMEOUT, type StubCall, type StubRelation } from "@/lib/services/testing/stub-supabase";
@@ -14,7 +15,8 @@ import eanHit from "@/lib/services/shops/fixtures/natura-ean-hit.json";
 // shop; and #1: a match a view has just stored shows no price, or decisions that couldn't be read read as none.
 // facet: the product page's own call (openProductPage), on a product loaded as the page loads it (loadWatchedProduct),
 // with the real gate over the stand-in database's counter and the shops' answers replayed from their recordings, so
-// each test counts the reservations and the requests the shops were sent, and which rows were read and written.
+// each test counts the reservations and the requests the shops were sent, which rows were read and written, and which
+// decisions were saved through the store's one call (record_decision), which the stand-in saves.
 // expected values: what a view costs the shops, as S-03's plan states it (a lookup in each matched shop with no decision
 // on the user's own navigation alone; `?repin=<shop>` that shop's choice alone; `?retry=<shop>` that shop's lookup
 // alone), the matched shops CLAUDE.md names (a product picked in Natura is matched in Rossmann, Hebe and Super-Pharm),
@@ -111,9 +113,17 @@ function shownPage(opened: OpenedProductPage): Extract<OpenedProductPage, { kind
   return opened;
 }
 
-/** Each database query as its relation and its first call, such as `["price_summaries", "select"]`; no RPC. */
+/**
+ * Each database query as its relation and its first call, such as `["price_summaries", "select"]`, and the store's one
+ * call that saves a decision as `["rpc", "record_decision"]`; not the gate's calls, which `reservations` reads.
+ */
 function tablesOf(queries: StubCall[][]): unknown[][] {
-  return queries.flatMap(([[kind, name], [first]]) => (kind === "from" ? [[name, first]] : []));
+  return queries.flatMap(([[kind, name], [first]]) => {
+    if (kind === "rpc") {
+      return name === "record_decision" ? [[kind, name]] : [];
+    }
+    return [[name, first]];
+  });
 }
 
 beforeEach(() => {
@@ -240,14 +250,16 @@ describe("openProductPage: the shop its address names", () => {
     // Natura's EAN search alone: a page opened to retry Natura asks no other shop.
     expect(reservations(queries)).toEqual([{ p_shop_id: "natura" }]);
     expect(served()).toEqual([NATURA_EAN_SEARCH]);
-    // The product and its decisions, then the match and the price it came with, and no price read: the plain address
-    // the page goes back to reads them.
+    // The product and its decisions, then the match, saved in one call, and the price it came with, and no price read:
+    // the plain address the page goes back to reads them.
     expect(tablesOf(queries)).toEqual([
       ["watchlist_items", "select"],
       ["watchlist_matches", "select"],
-      ["watchlist_matches", "insert"],
+      ["rpc", "record_decision"],
       ["price_observations", "insert"],
     ]);
+    // The rule's match of NV89063, expecting no decision, which also stands for the "not found" the retry replaces.
+    expect(savedDecisions(queries)).toEqual([lookupCallArgs(PRODUCT_ID, "natura", "NV89063")]);
   });
 });
 
@@ -278,16 +290,18 @@ describe("openProductPage: the island's prices", () => {
     ]);
     expect(page.pricesFailed).toBe(false);
     expect(page.autoRefresh).toBe(true);
-    // Natura's EAN search, the one request, and one price read after the steps, for both items.
+    // Natura's EAN search, the one request, the match saved in one call, as the rule's, expecting no decision, and one
+    // price read after the steps, for both items.
     expect(reservations(queries)).toEqual([{ p_shop_id: "natura" }]);
     expect(served()).toEqual([NATURA_EAN_SEARCH]);
     expect(tablesOf(queries)).toEqual([
       ["watchlist_items", "select"],
       ["watchlist_matches", "select"],
-      ["watchlist_matches", "insert"],
+      ["rpc", "record_decision"],
       ["price_observations", "insert"],
       ["price_summaries", "select"],
     ]);
+    expect(savedDecisions(queries)).toEqual([lookupCallArgs(PRODUCT_ID, "natura", "NV89063")]);
     expect(queries.find(([[, name]]) => name === "price_summaries")).toContainEqual([
       "in",
       "shop_item_id",

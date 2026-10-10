@@ -15,6 +15,7 @@ import {
   type MatchStepsInput,
 } from "@/lib/services/shop-matching";
 import { searchRossmannItems } from "@/lib/services/shops/rossmann";
+import { lookupCallArgs } from "@/lib/services/testing/record-decision";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
 import { CHALLENGE, loggedLines, type ServedAnswer } from "@/lib/services/testing/shop-answers";
 import { loadedProductOf } from "@/lib/services/watched-product";
@@ -1049,7 +1050,7 @@ const naturaMatched: ShopMatch = {
   },
 };
 
-/** One builder call a query made, such as `["insert", row]`. */
+/** One builder call a query made, such as `["insert", row]`, or a call of a function, `["rpc", name, args]`. */
 type Call = [method: string, ...args: unknown[]];
 
 interface Answer {
@@ -1057,20 +1058,37 @@ interface Answer {
   error?: { code: string; message: string };
 }
 
+/** What a query or a call is answered with, once it's given its time limit. */
+type Answered = Promise<{ data: unknown; error: Answer["error"] | null }>;
+
 interface QueryStub {
   insert: (row: unknown) => QueryStub;
   update: (fields: unknown) => QueryStub;
   select: (columns: string) => QueryStub;
   eq: (column: string, value: unknown) => QueryStub;
-  abortSignal: (signal: AbortSignal) => Promise<{ data: unknown; error: Answer["error"] | null }>;
+  abortSignal: (signal: AbortSignal) => Answered;
 }
 
+/** The store's one call that saves a decision: it saves, unless a test says otherwise. */
+const SAVED: Answer = { data: "saved" };
+
 /**
- * A client whose queries succeed, unless `answer` gives another answer by the query's table and its first call (an
- * insert or an update), or makes it throw. Every builder call is recorded, so a test sees what each step stored.
+ * A client whose queries succeed and whose record_decision saves, unless `answer` gives another answer by the query's
+ * table and its first call (an insert or an update), or by the function's name for a call, or makes it throw. Every
+ * builder call is recorded, so a test sees what each step stored.
  */
-function stubClient(answer: (table: string, first: string | undefined) => Answer | "throw" = () => ({})) {
+function stubClient(
+  answer: (name: string, first: string | undefined) => Answer | "throw" = (name) =>
+    name === "record_decision" ? SAVED : {},
+) {
   const queries: Call[][] = [];
+  const reply = (name: string, first: string | undefined): Answered => {
+    const answered = answer(name, first);
+    if (answered === "throw") {
+      return Promise.reject(new TypeError("fetch failed"));
+    }
+    return Promise.resolve({ data: answered.data ?? null, error: answered.error ?? null });
+  };
   const from = (table: string): QueryStub => {
     const calls: Call[] = [["from", table]];
     queries.push(calls);
@@ -1091,21 +1109,30 @@ function stubClient(answer: (table: string, first: string | undefined) => Answer
         calls.push(["eq", column, value]);
         return query;
       },
-      abortSignal: () => {
-        const reply = answer(table, calls.at(1)?.[0]);
-        if (reply === "throw") {
-          return Promise.reject(new TypeError("fetch failed"));
-        }
-        return Promise.resolve({ data: reply.data ?? null, error: reply.error ?? null });
-      },
+      abortSignal: () => reply(table, calls.at(1)?.[0]),
     };
     return query;
   };
-  return { client: { from } as unknown as SupabaseClient, queries };
+  const rpc = (name: string, args: unknown) => {
+    queries.push([["rpc", name, args]]);
+    return { abortSignal: () => reply(name, undefined) };
+  };
+  return { client: { from, rpc } as unknown as SupabaseClient, queries };
 }
 
-/** What the steps stored: each query's table, its first call and that call's row. */
-const writesOf = (queries: Call[][]) => queries.map((calls) => [calls[0][1], ...(calls.at(1) ?? [])]);
+/** What the steps stored: each query's table, its first call and that call's row, or a call's name and arguments. */
+const writesOf = (queries: Call[][]) =>
+  queries.map(([[kind, name, args], ...calls]) => (kind === "rpc" ? [name, args] : [name, ...(calls.at(0) ?? [])]));
+
+/**
+ * A lookup's one call that stores what the rule settled in `shop` on its own, as writesOf reads it: an automatic match
+ * of `shopItemId`, or "not found" without one, by the rule and expecting no decision (lookupCallArgs in
+ * testing/record-decision.ts), with `more` of its arguments where a test pins them.
+ */
+const lookupSave = (shop: PricedShop, shopItemId: string | null, more?: Record<string, unknown>) => [
+  "record_decision",
+  lookupCallArgs(PRODUCT_ID, shop, shopItemId, more),
+];
 
 /**
  * The shop a URL asks: Rossmann by its host, Super-Pharm by its one query URL, Natura or Hebe by its Luigi's Box
@@ -1256,19 +1283,9 @@ describe("runMatchSteps: each matched shop's step on the product's page", () => 
     expect(reserve.mock.calls.map(([shop]) => shop).sort()).toEqual(["hebe", "hebe", "natura", "super-pharm"]);
     // Rossmann, the product's own shop, is asked nothing.
     expect(most).toEqual({ all: 3, rossmann: 0, natura: 1, hebe: 1, "super-pharm": 1 });
-    // Only Natura's automatic match and its first price were stored; a choice stores nothing.
+    // Only Natura's automatic match, in its one call, and its first price were stored; a choice stores nothing.
     expect(writesOf(queries)).toEqual([
-      [
-        "watchlist_matches",
-        "insert",
-        expect.objectContaining({
-          watchlist_item_id: PRODUCT_ID,
-          shop_id: "natura",
-          state: "matched",
-          decided_by: "auto",
-          shop_item_id: "NV89063",
-        }),
-      ],
+      lookupSave("natura", "NV89063"),
       [
         "price_observations",
         "insert",
@@ -1300,7 +1317,10 @@ describe("runMatchSteps: each matched shop's step on the product's page", () => 
     expect(sentRequests(fetchMock).filter(({ url }) => url === SUPER_PHARM_URL)).toEqual([
       spSearch(SP_SOFT_IN_BOTH_SEARCH),
     ]);
-    expect(writesOf(queries).map(([table]) => table)).toEqual(["watchlist_matches", "price_observations"]);
+    expect(writesOf(queries)).toEqual([
+      lookupSave("natura", "NV89063"),
+      ["price_observations", "insert", [expect.objectContaining({ shop_id: "natura", shop_item_id: "NV89063" })]],
+    ]);
     // The log names the shop and the error's kind, never the search.
     expect(loggedLines(warn)).toEqual([
       { event: "shop-lookup", shop: "hebe", reason: "step failed", error: "TypeError" },
@@ -1311,8 +1331,8 @@ describe("runMatchSteps: each matched shop's step on the product's page", () => 
   it("shows a shop whose recording throws as unavailable, and keeps the other shops' outcomes", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { gate } = slowGate([answers.eanHit, hebeAnswers.offlineEan, hebeAnswers.name, superPharmFailed]);
-    // Natura's automatic match can't be written at all.
-    const { client, queries } = stubClient((table) => (table === "watchlist_matches" ? "throw" : {}));
+    // Natura's automatic match can't be written at all: its one call throws.
+    const { client, queries } = stubClient((name) => (name === "record_decision" ? "throw" : {}));
 
     const steps = await runMatchSteps(opened({ supabase: client, gate }));
 
@@ -1325,7 +1345,7 @@ describe("runMatchSteps: each matched shop's step on the product's page", () => 
     expect(steps[1]).toMatchObject({ shop: "hebe", view: { kind: "choose" } });
     expect(steps[2]).toMatchObject({ shop: "super-pharm", view: { kind: "unavailable", message: SUPER_PHARM_FAILED } });
     // No first price follows a match that wasn't stored.
-    expect(writesOf(queries).map(([table]) => table)).toEqual(["watchlist_matches"]);
+    expect(writesOf(queries)).toEqual([lookupSave("natura", "NV89063")]);
     expect(loggedLines(warn)).toEqual([
       { event: "shop-lookup", shop: "natura", reason: "step failed", error: "TypeError" },
     ]);
@@ -1333,13 +1353,8 @@ describe("runMatchSteps: each matched shop's step on the product's page", () => 
 
   it("says a retry that stored its outcome, and gives the other shops, still undecided, only their buttons", async () => {
     const { gate, fetchMock } = slowGate([answers.eanHit, hebeAnswers.offlineEan, hebeAnswers.name]);
-    // The stored "not found" is updated, since the product has a decision in Natura already.
-    const { client, queries } = stubClient((table, first) => {
-      if (table === "watchlist_matches" && first === "insert") {
-        return { error: { code: "23505", message: "duplicate key value violates unique constraint" } };
-      }
-      return first === "update" ? { data: [{ id: "decision" }] } : {};
-    });
+    // The call replaces the stored "not found", which a lookup's call expects as it expects none.
+    const { client, queries } = stubClient();
 
     const steps = await runMatchSteps(
       opened({ supabase: client, gate, matches: stored(naturaNotFound), retryShop: "natura" }),
@@ -1366,12 +1381,11 @@ describe("runMatchSteps: each matched shop's step on the product's page", () => 
       step: { kind: "prompt" },
       view: { kind: "prompt", href: PLAIN_PAGE },
     });
-    // The retry asks Natura alone.
+    // The retry asks Natura alone, and stores its match in one call, then the price it came with.
     expect(requestedUrls(fetchMock)).toEqual([EAN_SEARCH]);
-    expect(writesOf(queries).map(([table, first]) => [table, first])).toEqual([
-      ["watchlist_matches", "insert"],
-      ["watchlist_matches", "update"],
-      ["price_observations", "insert"],
+    expect(writesOf(queries)).toEqual([
+      lookupSave("natura", "NV89063"),
+      ["price_observations", "insert", [expect.objectContaining({ shop_id: "natura", shop_item_id: "NV89063" })]],
     ]);
   });
 
@@ -1458,25 +1472,17 @@ describe("runMatchSteps: each matched shop's step on the product's page", () => 
   });
 });
 
-// A lookup's write the store doesn't save (record in matches.ts): a decision another tab stored meanwhile (`decided`:
-// the insert meets the product's decision there, 23505, and the update, narrowed to a lookup that found nothing,
-// changes no row), a product no longer on the list (`gone`, 23503), or any other error (`failed`). Natura is looked up
-// on the user's own navigation, while Hebe and Super-Pharm, which the user declined, are only shown.
+// A lookup's write the store doesn't save (record in matches.ts), as its one call answers it: a decision another tab
+// stored meanwhile (`decided`: the call, which expects none or a lookup that found nothing, meets another decision and
+// writes nothing), a product no longer on the list (`gone`), or an error (`failed`). Natura is looked up on the user's
+// own navigation, while Hebe and Super-Pharm, which the user declined, are only shown.
 describe("runMatchSteps: a lookup's write the store doesn't save", () => {
   const declinedElsewhere = [hebeDeclined, superPharmDeclined];
-  /** The insert meets the product's decision in Natura, and the narrowed update changes no row. */
-  const decidedMeanwhile = (table: string, first: string | undefined): Answer => {
-    if (table === "watchlist_matches" && first === "insert") {
-      return { error: { code: "23505", message: "duplicate key value violates unique constraint" } };
-    }
-    return first === "update" ? { data: [] } : {};
-  };
-  const unsavedWrites = [
-    {
-      answer: "gone, the product no longer on the list",
-      error: { code: "23503", message: "insert or update violates foreign key constraint" },
-    },
-    { answer: "failed", error: { code: "57014", message: "canceling statement due to statement timeout" } },
+  /** The call meets another decision of the product in Natura, and writes nothing. */
+  const decidedMeanwhile = (name: string): Answer => (name === "record_decision" ? { data: "decided" } : {});
+  const unsavedWrites: { answer: string; save: Answer }[] = [
+    { answer: "gone, the product no longer on the list", save: { data: "gone" } },
+    { answer: "failed", save: { error: { code: "57014", message: "canceling statement due to statement timeout" } } },
   ];
 
   it("shows the decision stored meanwhile, with no first price, when the write of Natura's match answers decided", async () => {
@@ -1504,12 +1510,8 @@ describe("runMatchSteps: a lookup's write the store doesn't save", () => {
       retried: false,
     });
     expect(requestedUrls(fetchMock)).toEqual([EAN_SEARCH]);
-    // The insert, then the update narrowed to a lookup that found nothing, and no first price.
-    expect(writesOf(queries).map(([table, first]) => [table, first])).toEqual([
-      ["watchlist_matches", "insert"],
-      ["watchlist_matches", "update"],
-    ]);
-    expect(queries[1]).toContainEqual(["eq", "state", "not_found"]);
+    // The one call, expecting no decision or a lookup that found nothing, and no first price.
+    expect(writesOf(queries)).toEqual([lookupSave("natura", "NV89063")]);
   });
 
   it("doesn't count a retry whose write answers decided as stored, and shows the decision stored meanwhile", async () => {
@@ -1536,15 +1538,15 @@ describe("runMatchSteps: a lookup's write the store doesn't save", () => {
       retried: false,
     });
     expect(requestedUrls(fetchMock)).toEqual([EAN_SEARCH]);
-    expect(writesOf(queries).map(([table]) => table)).toEqual(["watchlist_matches", "watchlist_matches"]);
+    expect(writesOf(queries)).toEqual([lookupSave("natura", "NV89063")]);
   });
 
   it.each(unsavedWrites)(
     "leaves Natura's automatic match unsaved when its write answers $answer: no first price, and its card shows the item",
-    async ({ error }) => {
+    async ({ save }) => {
       vi.spyOn(console, "warn").mockImplementation(() => undefined);
       const { gate, fetchMock } = setup([answers.eanHit, answers.name]);
-      const { client, queries } = stubClient((table) => (table === "watchlist_matches" ? { error } : {}));
+      const { client, queries } = stubClient((name) => (name === "record_decision" ? save : {}));
 
       const steps = await runMatchSteps(
         opened({ supabase: client, gate, product: watched(soft), matches: stored(...declinedElsewhere) }),
@@ -1568,17 +1570,17 @@ describe("runMatchSteps: a lookup's write the store doesn't save", () => {
         retried: false,
       });
       expect(requestedUrls(fetchMock)).toEqual([EAN_SEARCH]);
-      // The insert alone: only a 23505 leads to an update, and no first price follows a match that wasn't stored.
-      expect(writesOf(queries).map(([table, first]) => [table, first])).toEqual([["watchlist_matches", "insert"]]);
+      // The one call, and no first price follows a match that wasn't stored.
+      expect(writesOf(queries)).toEqual([lookupSave("natura", "NV89063")]);
     },
   );
 
   it.each(unsavedWrites)(
     "leaves Natura's „not found” unsaved when its write answers $answer, and shows it",
-    async ({ error }) => {
+    async ({ save }) => {
       vi.spyOn(console, "warn").mockImplementation(() => undefined);
       const { gate, fetchMock } = setup([answers.eanMiss]);
-      const { client, queries } = stubClient((table) => (table === "watchlist_matches" ? { error } : {}));
+      const { client, queries } = stubClient((name) => (name === "record_decision" ? save : {}));
       // An EAN Natura doesn't list, and a name that can't be searched: the lookup finds nothing.
       const product = watched({
         brand: null,
@@ -1603,7 +1605,7 @@ describe("runMatchSteps: a lookup's write the store doesn't save", () => {
         retried: false,
       });
       expect(requestedUrls(fetchMock)).toEqual([MISSING_EAN_SEARCH]);
-      expect(writesOf(queries).map(([table, first]) => [table, first])).toEqual([["watchlist_matches", "insert"]]);
+      expect(writesOf(queries)).toEqual([lookupSave("natura", null)]);
     },
   );
 });
@@ -1699,17 +1701,7 @@ describe("runMatchSteps: a product picked in another shop, matched in every pric
     expect(most).toEqual({ all: 3, rossmann: 1, natura: 0, hebe: 1, "super-pharm": 1 });
     // Rossmann's automatic match and its first price, 15,99 zł on promotion, as the recorded search item carried it.
     expect(writesOf(queries)).toEqual([
-      [
-        "watchlist_matches",
-        "insert",
-        expect.objectContaining({
-          watchlist_item_id: PRODUCT_ID,
-          shop_id: "rossmann",
-          state: "matched",
-          decided_by: "auto",
-          shop_item_id: "26900",
-        }),
-      ],
+      lookupSave("rossmann", "26900"),
       [
         "price_observations",
         "insert",
@@ -1830,19 +1822,10 @@ describe("Rossmann looked up for a product picked in another shop, on its record
     ]);
     // The match, and the price its search item came with: on promotion until 14 October, below its 30-day low.
     expect(writesOf(queries)).toEqual([
-      [
-        "watchlist_matches",
-        "insert",
-        expect.objectContaining({
-          watchlist_item_id: PRODUCT_ID,
-          shop_id: "rossmann",
-          state: "matched",
-          decided_by: "auto",
-          shop_item_id: "26900",
-          size_text: "300 ml",
-          eans: [SOFT_EAN, "4005808890637", "5900017001234"],
-        }),
-      ],
+      lookupSave("rossmann", "26900", {
+        p_size_text: "300 ml",
+        p_eans: [SOFT_EAN, "4005808890637", "5900017001234"],
+      }),
       [
         "price_observations",
         "insert",
@@ -1923,19 +1906,7 @@ describe("Rossmann looked up for a product picked in another shop, on its record
       throw new Error(`expected not-found, got ${view.kind}`);
     }
     expect(view.text).toMatch(/^Nie znaleziono w Rossmannie \(sprawdzono /);
-    expect(writesOf(queries)).toEqual([
-      [
-        "watchlist_matches",
-        "insert",
-        expect.objectContaining({
-          watchlist_item_id: PRODUCT_ID,
-          shop_id: "rossmann",
-          state: "not_found",
-          decided_by: "auto",
-          shop_item_id: null,
-        }),
-      ],
-    ]);
+    expect(writesOf(queries)).toEqual([lookupSave("rossmann", null)]);
     // Which searches ran, never what they asked for.
     expect(loggedLines(warn)).toEqual([
       {
@@ -2047,18 +2018,7 @@ describe("runMatchSteps: Super-Pharm on the product's page, looked up on view", 
     });
     // The automatic match, with no EAN, and the price it came with: on sale, without a regular price.
     expect(writesOf(queries)).toEqual([
-      [
-        "watchlist_matches",
-        "insert",
-        expect.objectContaining({
-          watchlist_item_id: PRODUCT_ID,
-          shop_id: "super-pharm",
-          state: "matched",
-          decided_by: "auto",
-          shop_item_id: "10132",
-          eans: [],
-        }),
-      ],
+      lookupSave("super-pharm", "10132", { p_eans: [] }),
       [
         "price_observations",
         "insert",

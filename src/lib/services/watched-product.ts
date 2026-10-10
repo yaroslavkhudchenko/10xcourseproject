@@ -1,4 +1,4 @@
-import type { ExpectedDecision, MatchDecision, MatchesRead, MatchForm } from "@/lib/services/matches";
+import type { ExpectedDecision, MatchDecision, MatchesRead, MatchForm, ReplacedDecision } from "@/lib/services/matches";
 import { matchedShopsOf, PRICED_SHOPS, type MatchableShop, type PricedShop } from "@/lib/services/price-comparison";
 import type { ShopId, ShopLookup, ShopMatch, WatchlistProduct } from "@/types";
 
@@ -9,9 +9,10 @@ import type { ShopId, ShopLookup, ShopMatch, WatchlistProduct } from "@/types";
 // confirm or a decline only from the decision the form was shown with, and only along the moves the page offers
 // (admitDecision), and a lookup's automatic match or nothing found only where no decision is settled: where the
 // product is undecided, or over a lookup that found nothing (admitLookup). It does no I/O: the decision route reads the
-// product and its decisions, asks it, and stores only what it admits, with recordDecision, whose compare-and-swap
-// checks the form's `replaces` again at write time. A lookup's admitted change carries what recordLookup stores, and
-// recordLookup's own compare-and-swap changes only a lookup that found nothing.
+// product and its decisions, asks it, and stores only what it admits, with recordDecision, whose one call to
+// record_decision checks the form's `replaces` again at write time, with who decided a match as the guardian read it.
+// A lookup's admitted change carries what recordLookup stores, and recordLookup's own compare-and-swap changes only a
+// lookup that found nothing.
 
 /**
  * Where a watched product stands in one of its matched shops: no decision stored there (`undecided`), its stored
@@ -43,13 +44,14 @@ export interface LoadedProduct {
 
 /**
  * A decision the guardian admitted, as recordDecision stores it: the watched product, the matched shop, what the user
- * chose, and the decision the form was shown with (`replaces`), which the write replaces only while it still stands.
+ * chose, and the decision the form was shown with (`replaces`), the form's own state and item with, over a match, who
+ * decided the match the guardian read, which the write replaces only while it still stands.
  */
 export interface DecisionChange {
   itemId: string;
   shop: PricedShop;
   decision: MatchDecision;
-  replaces: ExpectedDecision | null;
+  replaces: ReplacedDecision | null;
 }
 
 /**
@@ -134,8 +136,10 @@ export function matchedShopsIn(watched: WatchedProduct): PricedShop[] {
  *    user's own match again comes only from a form shown before the user confirmed it, posted a second time or from
  *    another tab, so it is refused as an outdated form (`outdated-form`), and the page says the decision is stored.
  *
- * The change is the watched product's, whose standing it was judged by, and carries the form's own `replaces`, which
- * recordDecision's compare-and-swap checks again at write time, so a decision changed since it was read still stands.
+ * The change is the watched product's, whose standing it was judged by, and carries the form's own `replaces`, over a
+ * match with who decided the match it read, which recordDecision's one call checks again at write time, so a decision
+ * changed since it was read still stands, a match that changed hands included, such as an automatic one the user
+ * confirmed in another tab meanwhile.
  */
 export function admitDecision(watched: WatchedProduct, form: MatchForm): DecisionAdmission {
   const found = readableStanding(watched, form.shop);
@@ -144,17 +148,15 @@ export function admitDecision(watched: WatchedProduct, form: MatchForm): Decisio
   }
   const { shop, standing } = found;
   const stored = standing.kind === "decided" ? standing.decision : null;
-  if (!namesDecision(form.replaces, stored)) {
-    return { kind: "refused", reason: "outdated-form" };
+  const replaces = replacedDecision(form.replaces, stored);
+  if (replaces === "outdated-form") {
+    return { kind: "refused", reason: replaces };
   }
   const refusal = moveRefusal(form.decision, stored);
   if (refusal !== null) {
     return { kind: "refused", reason: refusal };
   }
-  return {
-    kind: "admitted",
-    change: { itemId: watched.itemId, shop, decision: form.decision, replaces: form.replaces },
-  };
+  return { kind: "admitted", change: { itemId: watched.itemId, shop, decision: form.decision, replaces } };
 }
 
 /**
@@ -178,18 +180,24 @@ function readableStanding(
 }
 
 /**
- * Whether a form's `replaces` names the stored decision, null for none, as the page's forms post it (replacesFieldOf):
- * none without a decision or over a lookup that found nothing, the matched item over a match, and the decline over the
- * user's decline.
+ * The decision the write expects to replace, when a form's `replaces` names the stored decision, null for none, as the
+ * page's forms post it (replacesFieldOf): none without a decision or over a lookup that found nothing, the matched item
+ * over a match, and the decline over the user's decline. It's the form's own `replaces`, and over a match it also names
+ * who decided the stored match, which can only narrow the write. `outdated-form` when the form names another decision.
  */
-function namesDecision(replaces: ExpectedDecision | null, stored: ShopMatch | null): boolean {
+function replacedDecision(
+  replaces: ExpectedDecision | null,
+  stored: ShopMatch | null,
+): ReplacedDecision | null | "outdated-form" {
   if (stored === null || stored.state === "not_found") {
-    return replaces === null;
+    return replaces === null ? null : "outdated-form";
   }
   if (stored.state === "matched") {
-    return replaces?.state === "matched" && replaces.shopItemId === stored.item.shopItemId;
+    return replaces?.state === "matched" && replaces.shopItemId === stored.item.shopItemId
+      ? { state: "matched", shopItemId: replaces.shopItemId, decidedBy: stored.decidedBy }
+      : "outdated-form";
   }
-  return replaces?.state === "unmatched";
+  return replaces?.state === "unmatched" ? replaces : "outdated-form";
 }
 
 /**

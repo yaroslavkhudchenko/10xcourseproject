@@ -672,6 +672,23 @@ These run in CI only.
 - **The table's comment is two string literals** joined by SQL's newline continuation, to stay within 120 columns.
 - **Checked locally on PGlite only, not a gate.** In the scratchpad, every migration applied on Postgres 17.5 and 18.3, with stubs for `auth` and the API roles. The delete, the trigger, `record_decision`'s six steps and refusals, and today's insert-then-update store behaved as the contract says. Copies of the three checks passed against a small PostgREST-like stand-in, and each failed when its rule was removed. Real PostgREST, the CLI's apply and concurrency are CI's.
 
+### Phase 2
+
+- **`holdRemoval`'s wait reads `pg_locks`** (`not l.granted and pg_backend_pid() = any (pg_blocking_pids(l.pid))`), not `pg_stat_activity` with a refreshed snapshot. `pg_locks` is read afresh by every query, and every role may read it, while `pg_stat_activity` hides another role's wait from a role without `pg_read_all_stats`. The `held` poll still reads `pg_stat_activity` by `application_name`, since the poll and the hold run as the same role.
+- **`holdRemoval` is a plain function returning `{ held, done }`, not `async`.** It throws at once on an id that isn't a UUID or off the local stack, like `sql()`. Its deadline, `HOLD_SECONDS`, is 10 s for the wait and for the `held` poll, and its delete runs in a `DO` block that raises when no product was deleted.
+- **`namesDecision` became `replacedDecision`.** It returns the decision the write expects, the form's state and item plus the stored match's `decidedBy`, or `outdated-form`, so building the decider has no unreachable branch. No refusal or check changed.
+- **The tests' shared helpers live once in `src/lib/services/testing/record-decision.ts`** (lesson "Define shared constants and helpers once"): `recordDecisionArgs`, `SavedColumns`, `EXPECTS_NONE`, `EXPECTS_DECLINE`, `expectsMatch`, `lookupCallArgs`, `overMatch` and `OVER_DECLINE`. The database test's `overDecline` is `OVER_DECLINE` now.
+- **The shared gate world answers `record_decision` with `saved`**, and gains `savedDecisions(queries)` beside `reservations`. The page test's `tablesOf` lists the save as `["rpc", "record_decision"]`, so its two cases that store keep the order: read, read, save, price.
+- **The lookups' and the page service's tests pin the call with `expect.objectContaining`** on the product, the shop, the state, `auto`, the item's id and the three nulls, not all 16 keys with `toStrictEqual`. Their candidates come from the adapters' recordings, and the store's tests pin every argument strictly. Two lookups keep pinning `p_size_text` and `p_eans`.
+- **Store test titles that described the insert and the update were reworded:** "…without an update" now ends "…as gone, as the call answers it", and a retry's match "…with a new check time" became "…, expecting no decision", since the database stamps the time. The store's read stub lost its unused `insert` and `update`. New store tests cover the answers it can't read and `recordLookup` passing `decided` and `gone` through. Two tests now make the same call as a neighbour, kept for their titles.
+- **The store logs a `null` answer's type as `null`,** where `typeof` would say `object`.
+- **The route's per-outcome table** (`decided`, `gone`, an error) runs on one post, a re-pin's decline over the user's match of X, and pins the call's arguments too.
+- **The database test's own-shop case also asserts the log line names `watchlist_matches_not_own_shop`,** so a failure for another reason, such as PGRST202, can't pass it.
+- **Checked offline only, not gates.**
+  - The real store ran against the real function on PGlite, through a PostgREST-like stand-in: every kind of write bound by its arguments' names, F4's race answered `decided`, the own shop `failed` and a removed product `gone`.
+  - `holdRemoval`'s statements, replayed on a real Postgres 17.10 (embedded-postgres): the held re-pin and the held retry each answered `gone` in about 30 ms and the hold committed; a hold with no save rolled back at its deadline.
+  - The `docker exec` path and the real PostgREST are CI's.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -680,28 +697,28 @@ These run in CI only.
 
 #### Automated
 
-- [x] 1.1 The branch sits on `main` with S-01 and S-03 merged: after `git fetch origin`, `git merge-base --is-ancestor origin/main HEAD` exits 0 and `git log --merges --oneline origin/main | grep -c "/refactor/page-lookups-through-guardian$"` prints 1
-- [x] 1.2 S-03 left what Phase 2 builds on: `git grep -n "admitLookup" -- src/lib/services/watched-product.ts src/lib/services/shop-matching.ts` finds its definition and its call in the lookup's step, and `git grep -nE "(recordLookup|recordDecision)\(" -- src ':!*.test.ts'` finds the two definitions in `matches.ts` and one caller each, in `shop-matching.ts` and the decision route
-- [x] 1.3 Lint passes: `npm run lint`
-- [x] 1.4 The unit suite passes, the deploy gate's test reading the new migration's version among them: `npm run test`
-- [x] 1.5 Types check: `npx astro sync && npx astro check`
-- [x] 1.6 Phase 1 leaves the app's code and tests alone: `git diff --name-only origin/main...HEAD -- src tests` prints nothing
-- [ ] 1.7 CI only: CI's `smoke` job passes on Phase 1's commit: the migration applies, the database checks pass with the new refusals, and `npm run test:db`, smoke and the two-user check pass with the store unchanged
-- [ ] 1.8 CI only: CI's `e2e` job passes on Phase 1's commit, the seed's direct decision inserts and the two specs that tap „Żaden z nich” included
+- [x] 1.1 The branch sits on `main` with S-01 and S-03 merged: after `git fetch origin`, `git merge-base --is-ancestor origin/main HEAD` exits 0 and `git log --merges --oneline origin/main | grep -c "/refactor/page-lookups-through-guardian$"` prints 1 — 41d9229
+- [x] 1.2 S-03 left what Phase 2 builds on: `git grep -n "admitLookup" -- src/lib/services/watched-product.ts src/lib/services/shop-matching.ts` finds its definition and its call in the lookup's step, and `git grep -nE "(recordLookup|recordDecision)\(" -- src ':!*.test.ts'` finds the two definitions in `matches.ts` and one caller each, in `shop-matching.ts` and the decision route — 41d9229
+- [x] 1.3 Lint passes: `npm run lint` — 41d9229
+- [x] 1.4 The unit suite passes, the deploy gate's test reading the new migration's version among them: `npm run test` — 41d9229
+- [x] 1.5 Types check: `npx astro sync && npx astro check` — 41d9229
+- [x] 1.6 Phase 1 leaves the app's code and tests alone: `git diff --name-only origin/main...HEAD -- src tests` prints nothing — 41d9229
+- [x] 1.7 CI only: CI's `smoke` job passes on Phase 1's commit: the migration applies, the database checks pass with the new refusals, and `npm run test:db`, smoke and the two-user check pass with the store unchanged — 41d9229
+- [x] 1.8 CI only: CI's `e2e` job passes on Phase 1's commit, the seed's direct decision inserts and the two specs that tap „Żaden z nich” included — 41d9229
 
 ### Phase 2: The store saves through one call
 
 #### Automated
 
-- [ ] 2.1 The store's, the route's, the guardian's, the lookups' and the page service's tests pass: `npx vitest run src/lib/services/matches.test.ts src/lib/services/match-routes.test.ts src/lib/services/watched-product.test.ts src/lib/services/shop-matching.test.ts src/lib/services/product-page.test.ts`
-- [ ] 2.2 Dropping the decider from the guardian's admitted change turns the guardian's and the route's decider tests red, and restoring it turns them green again
-- [ ] 2.11 Making the store send `null` for `p_replaces_decided_by` turns the store's and the route's decider tests red, and restoring it turns them green again
-- [ ] 2.3 Making the route hand the store `null` for `replaces` turns the route's re-pin argument tests red, and restoring it turns them green again
-- [ ] 2.4 The store writes `watchlist_matches` only through `record_decision`: `git grep -nE "\.(insert|update)\(" -- src/lib/services/matches.ts` prints nothing
-- [ ] 2.5 The unit suite passes: `npm run test`
-- [ ] 2.6 Lint passes: `npm run lint`
-- [ ] 2.7 Types check: `npx astro sync && npx astro check`
-- [ ] 2.8 The build passes: `npm run build`
+- [x] 2.1 The store's, the route's, the guardian's, the lookups' and the page service's tests pass: `npx vitest run src/lib/services/matches.test.ts src/lib/services/match-routes.test.ts src/lib/services/watched-product.test.ts src/lib/services/shop-matching.test.ts src/lib/services/product-page.test.ts`
+- [x] 2.2 Dropping the decider from the guardian's admitted change turns the guardian's and the route's decider tests red, and restoring it turns them green again
+- [x] 2.11 Making the store send `null` for `p_replaces_decided_by` turns the store's and the route's decider tests red, and restoring it turns them green again
+- [x] 2.3 Making the route hand the store `null` for `replaces` turns the route's re-pin argument tests red, and restoring it turns them green again
+- [x] 2.4 The store writes `watchlist_matches` only through `record_decision`: `git grep -nE "\.(insert|update)\(" -- src/lib/services/matches.ts` prints nothing
+- [x] 2.5 The unit suite passes: `npm run test`
+- [x] 2.6 Lint passes: `npm run lint`
+- [x] 2.7 Types check: `npx astro sync && npx astro check`
+- [x] 2.8 The build passes: `npm run build`
 - [ ] 2.9 CI only: CI's `smoke` job passes on the pull request: `npm run test:db` with the 9 cases through the one call, the decider's race, the own shop and the two held-open removals answering `gone`, the database checks, smoke and the two-user check
 - [ ] 2.10 CI only: CI's `e2e` job passes on the pull request, the two specs that tap „Żaden z nich” unchanged
 
