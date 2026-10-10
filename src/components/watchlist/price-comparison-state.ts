@@ -22,7 +22,7 @@ import {
   type PriceVerdict,
   type ShopPrice,
 } from "@/lib/services/price-comparison";
-import { rowTagOf, type PriceTag, type RowShop } from "@/lib/services/watchlist-rows";
+import { rowTagOf, sentence, type PriceTag, type RowShop } from "@/lib/services/watchlist-rows";
 import { PRICE_UNSAVED_TEXT, priceMissingText, priceUnavailableText } from "@/lib/shop-messages";
 import type { PriceHistory, PriceRefreshAnswer, SearchUnavailableReason, ShopOffer } from "@/types";
 
@@ -78,7 +78,7 @@ export interface ShopRow {
    * have it: they read only stored checks. It belongs to that price, not to the last attempt, so it stays through a new
    * refetch and every answer that brings no new price, until the shop's next price answer sets it anew.
    */
-  unsaved: boolean;
+  priceUnsaved: boolean;
 }
 
 export interface PriceComparisonState {
@@ -155,7 +155,7 @@ export function initialState({
       pending: false,
       notice: null,
       readFailed: pricesFailed || readFailed === true,
-      unsaved: false,
+      priceUnsaved: false,
     })),
     now: Date.parse(now),
     sessionEnded: false,
@@ -204,10 +204,11 @@ export function priceComparisonReducer(
 /**
  * What the live region says about one shop's answer, judged on the rows that answer made, at `now`, beside the matched
  * shops whose decision couldn't be read (`unreadable`): the new price, and whether it's now the cheapest, as the rows
- * mark it, or the text the row shows next to the last known price; then, while the price the row shows is one the
- * route couldn't store (`unsaved`), that the list won't show it (withUnsavedText). Null for an ended session and for a
- * changed match, whatever the row shows: the page's own alerts announce them, with their links to sign in and to
- * reload the page.
+ * mark it, or the text the row shows next to the last known price. While the price the row shows is one the route
+ * couldn't store (`priceUnsaved`), an answer whose text names that price, a price or a missing item, adds that the list
+ * won't show it (withUnsavedText). A shop that gave no answer doesn't: its notice names no price for the sentence to
+ * mean, and the card still shows the line. Null for an ended session and for a changed match, whatever the row shows:
+ * the page's own alerts announce them, with their links to sign in and to reload the page.
  */
 function announcement(
   rows: ShopRow[],
@@ -220,16 +221,19 @@ function announcement(
   const answered = rows.find((row) => row.shop === shop);
   // The texts promise the last known price only when the row still shows one.
   const hasPrice = (answered?.latest?.offer ?? null) !== null;
-  const unsaved = answered?.unsaved === true;
+  const priceUnsaved = answered?.priceUnsaved === true;
   switch (result.kind) {
     case "price": {
       const cheapest = compareRows(rows, now, unreadable).rows.some((row) => row.shop === shop && row.cheapest);
-      return withUnsavedText(`${name}: ${formatPrice(result.offer.price)}${cheapest ? ", najtaniej" : ""}`, unsaved);
+      return withUnsavedText(
+        `${name}: ${formatPrice(result.offer.price)}${cheapest ? ", najtaniej" : ""}`,
+        priceUnsaved,
+      );
     }
     case "missing":
-      return withUnsavedText(`${name}: ${priceMissingText(hasPrice)}`, unsaved);
+      return withUnsavedText(`${name}: ${priceMissingText(hasPrice)}`, priceUnsaved);
     case "unavailable":
-      return withUnsavedText(priceUnavailableText(name, result.reason, result.until, hasPrice), unsaved);
+      return priceUnavailableText(name, result.reason, result.until, hasPrice);
     case "session-ended":
     case "match-changed":
       return null;
@@ -237,22 +241,19 @@ function announcement(
 }
 
 /**
- * An answer's text, then, while the price its row shows is one the route couldn't store (`unsaved`), the sentence that
- * says the list won't show it (PRICE_UNSAVED_TEXT), after a period: a price's text has none of its own, and the texts
- * of a missing item and of a shop that gave no answer end with one.
+ * An answer's text, then, while the price its row shows is one the route couldn't store (`priceUnsaved`), the sentence
+ * that says the list won't show it (PRICE_UNSAVED_TEXT), after the text's full stop (sentence): a price's text has none
+ * of its own, and a missing item's ends with one.
  */
-function withUnsavedText(text: string, unsaved: boolean): string {
-  if (!unsaved) {
-    return text;
-  }
-  return `${text.endsWith(".") ? text : `${text}.`} ${PRICE_UNSAVED_TEXT}`;
+function withUnsavedText(text: string, priceUnsaved: boolean): string {
+  return priceUnsaved ? `${sentence(text)} ${PRICE_UNSAVED_TEXT}` : text;
 }
 
 /**
  * A row once its refetch came back. Only the shop's own answer, a price or a missing item, replaces a stored price the
  * page couldn't read; an answer that came to nothing leaves the row saying the read failed. Either answer keeps the
  * row's price history as the page read it (historyRead): it covers the days before today, so today's check adds nothing
- * to it. A price answer says whether the route stored its price (`unsaved`). Every other answer keeps what the row
+ * to it. A price answer says whether the route stored its price (`priceUnsaved`). Every other answer keeps what the row
  * says of it, as a new refetch does (start), since the row still shows that price: a missing item keeps the price from
  * before, a shop that gave no answer the whole check, and an ended session or a changed match the whole row.
  */
@@ -266,7 +267,7 @@ function settled(row: ShopRow, result: RefreshResult): ShopRow {
         ...idle,
         notice: null,
         readFailed: false,
-        unsaved: !result.saved,
+        priceUnsaved: !result.saved,
         latest: { lastCheckedAt: checkedAt, lastStatus: "price", offer: { ...offer, pricedAt: checkedAt }, history },
       };
     }

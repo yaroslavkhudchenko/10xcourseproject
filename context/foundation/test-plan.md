@@ -109,6 +109,7 @@ How to add new tests in this project. Each sub-section is filled in once the rel
 
 - **Location**: beside the module, as `<module>.test.ts` under `src/`; Vitest includes `src/**/*.test.ts` only.
 - **Shop answers**: only through `createReplayFetch` (`src/lib/services/testing/replay-fetch.ts`) with recordings in `src/lib/services/shops/fixtures/`. Assert which URLs the replay served, because a miss looks like `failed/network`.
+- **A component's markup**: a component that keeps no state renders in Node with `renderToStaticMarkup` (`react-dom/server`), with `createElement` in place of JSX, which a `.test.ts` can't hold, and needs no DOM or new dependency. Build its props as the view does, such as an island's rows through its reducer from the rows in `src/lib/services/testing/island-shops.ts`. Reference: `src/components/watchlist/ShopCard.test.ts`, which pins a line e2e can't reach.
 - **Reference test**: `src/lib/services/shop-matching.test.ts`.
 - **Run locally**: `npm run test`; one test with `npx vitest run <file> -t "<name>"`.
 
@@ -447,6 +448,10 @@ Edges `add-from-other-shops` found and the owner accepted rather than fixed (202
 - **Nivea Soft 300 ml twice without Rossmann's answer** (the Implementation Notes) — the every-word rule keeps Super-Pharm's 10132 apart from Natura's NV89063, whose name adds "intensywnie", so while Rossmann doesn't answer the product shows as two entries; `product-search.test.ts` pins it. Re-evaluate with the right item that lacks a word of a captionless product's name, above.
 - **The empty result while some shops didn't answer** (the Implementation Notes) — "Brak wyników dla „…”." shows when no entry came and some shop answered, even while others gave no answer, whose parts of the line say „nie odpowiada”. Re-evaluate if the owner reads it as no shop having the product.
 - **Rare lookup queries** (the implementation review's F6, 2026-10-09) — `nameQuery` keeps a product's brand and size whole when it cuts the name at 80 characters, so a name whose first word can't fit beside them leaves a query of only the brand and the size, which spends one request on items the name check won't accept. A name that ends with another size than its size text sends both sizes, and a cut can end on a small word such as „do”. None stores anything wrong. Re-evaluate if a lookup's query of only a brand and a size shows up.
+
+Edges `unstored-price-check` found and the owner accepted rather than fixed (2026-10-10). Each is a known behaviour, so a test may pin it but mustn't expect it gone. (Source: `context/archive/2026-10-10-unstored-price-check/reviews/impl-review.md`, F5, and `plan-brief.md` beside it, "Open Risks & Assumptions".)
+
+- **A price called unsaved that was stored after all** (the implementation review's F5, the owner's call, 2026-10-10) — the insert of a refetched price gives up after 2 seconds (`prices.ts`), and an aborted write may still commit (the observability audit's W6). The route then answers `saved: false`, so the card says „Nie udało się zapisać tej ceny, więc lista jej nie pokaże.” while the list shows that price. It's rare, and nothing wrong is stored. Re-evaluate if the line is reported under a price the list shows.
 
 ## 8. Freshness Ledger
 

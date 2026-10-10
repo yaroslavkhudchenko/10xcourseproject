@@ -187,9 +187,10 @@ const REFETCH = [start("rossmann"), start("natura")];
 const MISSING: RefreshResult = { kind: "missing", checkedAt: CHECKED_AT, saved: true };
 const SESSION_ENDED: RefreshResult = { kind: "session-ended" };
 const MATCH_CHANGED: RefreshResult = { kind: "match-changed" };
-// The answers to "Odśwież ceny" at CHECKED's prices: Rossmann's, the price it had, stored; and Natura's, a lower price
-// deeper in its promotion, which the route couldn't store, so the list won't show it.
+// Rossmann's answer to a refetch, stored: 26,99 zł, the price CHECKED has.
 const ROSSMANN_ANSWER: RefreshResult = { kind: "price", offer: offer(26.99), checkedAt: CHECKED_AT, saved: true };
+// Natura's answer to "Odśwież ceny" at CHECKED's prices: a lower price deeper in its promotion, which the route
+// couldn't store, so the list won't show it.
 const NATURA_UNSAVED: RefreshResult = {
   kind: "price",
   offer: { ...NATURA_PROMO, price: 19.99 },
@@ -523,7 +524,7 @@ const PRICE_STATES: AreaState[] = [
     natura: MATCHED,
   },
   {
-    code: "unsaved",
+    code: "price-unsaved",
     text:
       "po „Odśwież ceny” Natura podała niższą cenę, której nie udało się zapisać: karta ma „Najtaniej” i zdanie, " +
       "że lista tej ceny nie pokaże",
@@ -536,10 +537,10 @@ const PRICE_STATES: AreaState[] = [
     natura: MATCHED,
   },
   {
-    code: "unsaved-then-failed",
+    code: "price-unsaved-then-failed",
     text:
-      "jak unsaved, a przy kolejnym „Odśwież ceny” pobranie z Natury się nie udało: pod niezapisaną ceną komunikat " +
-      "o błędzie, a pod nim to samo zdanie",
+      "jak price-unsaved, a przy kolejnym „Odśwież ceny” pobranie z Natury się nie udało: pod niezapisaną ceną " +
+      "komunikat o błędzie, a pod nim to samo zdanie",
     // "Odśwież ceny" twice: the second time, Rossmann answers as before, and Natura gives no answer.
     state: island(
       CHECKED,
@@ -570,7 +571,7 @@ const PRICE_STATES: AreaState[] = [
     state: island(
       CHECKED,
       ...REFETCH,
-      done("rossmann", { kind: "price", offer: offer(26.99), checkedAt: CHECKED_AT, saved: true }, ANSWERED_AT),
+      done("rossmann", ROSSMANN_ANSWER, ANSWERED_AT),
       done("natura", MATCH_CHANGED, ANSWERED_AT),
     ),
     natura: MATCHED,
@@ -761,7 +762,7 @@ const JUDGEMENT_STATES: AreaState[] = [
       "historii cen, której strona nie odczytała",
     state: unread(
       ...REFETCH,
-      done("rossmann", { kind: "price", offer: offer(26.99), checkedAt: CHECKED_AT, saved: true }, ANSWERED_AT),
+      done("rossmann", ROSSMANN_ANSWER, ANSWERED_AT),
       done("natura", { kind: "price", offer: NATURA_PROMO, checkedAt: CHECKED_AT, saved: true }, ANSWERED_AT),
     ),
     natura: MATCHED,
