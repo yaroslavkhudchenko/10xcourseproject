@@ -27,6 +27,7 @@ import { searchNatura } from "@/lib/services/shops/natura";
 import { searchRossmannItems } from "@/lib/services/shops/rossmann";
 import { searchSuperPharm } from "@/lib/services/shops/super-pharm";
 import { createReplayFetch } from "@/lib/services/testing/replay-fetch";
+import { NO_ITEM_COLUMNS } from "@/lib/services/testing/stored-rows";
 import type { ListFilter } from "@/lib/services/watchlist-rows";
 import type { MatchedItem, RepinnableMatch, ShopCandidate, ShopSearch } from "@/types";
 
@@ -53,7 +54,7 @@ const soft: ShopCandidate = {
   offer: { price: 16.99, regularPrice: 22.99, lowestPrice30d: 17.99, promoEndsOn: null, available: true },
 };
 
-// The columns of Natura's Nivea Soft in a match row, and of a row that carries no item.
+// The columns of Natura's Nivea Soft in a match row; a row that carries no item has NO_ITEM_COLUMNS (stored-rows.ts).
 const SOFT_COLUMNS = {
   shop_item_id: "NV89063",
   name: soft.name,
@@ -64,17 +65,6 @@ const SOFT_COLUMNS = {
   eans: [SOFT_EAN],
   product_url: soft.productUrl,
   image_url: soft.imageUrl,
-};
-const NO_ITEM_COLUMNS = {
-  shop_item_id: null,
-  name: null,
-  brand: null,
-  size_text: null,
-  size_value: null,
-  size_unit: null,
-  eans: [],
-  product_url: null,
-  image_url: null,
 };
 
 /** What a confirmed candidate is stored as: the item the shop showed, without its offer. */
