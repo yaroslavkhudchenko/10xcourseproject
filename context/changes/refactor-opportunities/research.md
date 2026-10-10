@@ -198,7 +198,7 @@ What else the analysis records, and what carries it:
     - A typed `.from()` accepts only the schema's table and view names (`SupabaseClient.ts:433-439`), so `LatestView.name`, a `string` (`prices.ts:153-157`), would need the two view names (I).
     - The database test already casts an untyped `createClient` to the services' `SupabaseClient` (`matches.db.test.ts:68-71`).
     - CI's smoke job starts the stack without `postgres-meta` (`ci.yml:42`); whether `supabase gen types` needs it wasn't checked.
-  - Collisions: none for step 1. Step 2 touches the signatures ACL Phase 3 rewrites, and the `record` that S-02 replaces with an RPC whose call no type checks today (S-02's research, `context/changes/decision-store-backstop/research.md:214` on its branch).
+  - Collisions: none for step 1. Step 2 touches the signatures ACL Phase 3 rewrites, and the `record` that S-02 replaces with an RPC whose call no type checks today (S-02's research, `context/archive/2026-10-10-decision-store-backstop/research.md:214`).
 
 #### TD-04: one insert per shop, so one refused row loses the shop's checks; the watcher rule is written twice
 
@@ -570,7 +570,7 @@ Refinements to the analysis, from the sub-reports, each re-checked:
 ## Related Research
 
 - `context/changes/price-refresh-flow-analysis/research.md` - the analysis this change ranks
-- `context/changes/decision-store-backstop/research.md`, on the branch `refactor/decision-store-backstop`, and `context/archive/2026-10-10-page-lookups-through-guardian/research.md` - M-2's S-02 and S-03
+- `context/archive/2026-10-10-decision-store-backstop/research.md` and `context/archive/2026-10-10-page-lookups-through-guardian/research.md` - M-2's S-02 and S-03
 - `context/domain/03-anti-corruption-layer.md`, `context/domain/02-invariant-aggregate-refactor.md`, `context/domain/domain-distillation.md`, `context/map/repo-map.md`
 
 ## Open Questions

@@ -1063,7 +1063,6 @@ type Answered = Promise<{ data: unknown; error: Answer["error"] | null }>;
 
 interface QueryStub {
   insert: (row: unknown) => QueryStub;
-  update: (fields: unknown) => QueryStub;
   select: (columns: string) => QueryStub;
   eq: (column: string, value: unknown) => QueryStub;
   abortSignal: (signal: AbortSignal) => Answered;
@@ -1074,7 +1073,7 @@ const SAVED: Answer = { data: "saved" };
 
 /**
  * A client whose queries succeed and whose record_decision saves, unless `answer` gives another answer by the query's
- * table and its first call (an insert or an update), or by the function's name for a call, or makes it throw. Every
+ * table and its first call, such as an insert, or by the function's name for a call, or makes it throw. Every
  * builder call is recorded, so a test sees what each step stored.
  */
 function stubClient(
@@ -1095,10 +1094,6 @@ function stubClient(
     const query: QueryStub = {
       insert: (row) => {
         calls.push(["insert", row]);
-        return query;
-      },
-      update: (fields) => {
-        calls.push(["update", fields]);
         return query;
       },
       select: (columns) => {
@@ -1656,7 +1651,7 @@ describe("runMatchSteps: a product picked in another shop, matched in every pric
         supabase: client,
         gate,
         product: fromNatura,
-        // A match stored in Natura, its own shop, as a direct write could store it: no step reads it.
+        // A match stored in Natura, its own shop, as one stored before S-02's migration: no step reads it.
         matches: stored(naturaMatched),
         repinShop: repinShopOf(params, shops),
         retryShop: retryShopOf(params, shops),

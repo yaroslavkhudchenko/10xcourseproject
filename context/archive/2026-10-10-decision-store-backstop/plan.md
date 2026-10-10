@@ -640,6 +640,7 @@ These run in CI only.
 
 ## Migration Notes
 
+- **The delete runs before the trigger exists (S-02's review, F5).** An own-shop insert committed between the two statements during the push, which only a crafted call could send, would have survived. The owner's count after the push, no decision in an own shop, rules that out. A later migration that adds a guard creates the guard first, then cleans up what it refuses.
 - **What it deletes.** The migration deletes own-shop decisions, which can't be undone, since migrations don't roll back (`context/deployment/deploy-plan.md:303`). The owner counts them first, and all decisions before and after the push, so a delete that removed more would show. The research expects none: no page ever offered one, and since PR #44 only a crafted post, until S-01's guardian, or a direct call could store one (research §4).
 - **The code still deployed** saves against the new schema: Phase 1's CI shows it, so the window between the push and the deploy, and any rollback of the Worker to code before S-02, keep working. This holds while the trigger and the delete stay as Phase 1 proved them (Critical Implementation Details, "Timing & lifecycle").
 - **Changing `record_decision`'s parameters later** needs a new migration that drops it first and grants it again. A changed signature beside the old one would add an overload, which PostgREST tells apart by argument names only.
@@ -682,6 +683,7 @@ These run in CI only.
 - **The lookups' and the page service's tests pin the call with `expect.objectContaining`** on the product, the shop, the state, `auto`, the item's id and the three nulls, not all 16 keys with `toStrictEqual`. Their candidates come from the adapters' recordings, and the store's tests pin every argument strictly. Two lookups keep pinning `p_size_text` and `p_eans`.
 - **Store test titles that described the insert and the update were reworded:** "…without an update" now ends "…as gone, as the call answers it", and a retry's match "…with a new check time" became "…, expecting no decision", since the database stamps the time. The store's read stub lost its unused `insert` and `update`. New store tests cover the answers it can't read and `recordLookup` passing `decided` and `gone` through. Two tests now make the same call as a neighbour, kept for their titles.
 - **The store logs a `null` answer's type as `null`,** where `typeof` would say `object`.
+- **The store's columns are typed** (`ItemColumns`, `WrittenDecision`), and `saveArguments` builds the call's 16 arguments from them, so "all 16 keys, never `undefined`" is a rule the compiler checks too (S-02's review, F9).
 - **The route's per-outcome table** (`decided`, `gone`, an error) runs on one post, a re-pin's decline over the user's match of X, and pins the call's arguments too.
 - **The database test's own-shop case also asserts the log line names `watchlist_matches_not_own_shop`,** so a failure for another reason, such as PGRST202, can't pass it.
 - **Checked offline only, not gates.**
@@ -698,6 +700,41 @@ These run in CI only.
 - **The glossary's "own shop" row** says in its meaning that the database refuses a decision there, and names the trigger in its name in code, as the table keeps a term's meaning apart from its names.
 - **The test plan's note is titled "M-2's S-02",** since M-1 had an S-02 too, and its "Last updated" moved to 2026-10-10. The roadmap's answer also says all decisions are counted before and after the push, as Phase 4 and the brief's Key Decisions do.
 - **The plan's line numbers for `CLAUDE.md` and the test plan were pre-S-03,** so each passage was found by its words; every one still read as the plan assumed.
+
+### Phase 4
+
+- **The owner's counts, the same before and after the push (2026-10-10):** 16 decisions in all, and no decision in a product's own shop, in any state. So the migration's delete removed nothing, as the research expected.
+- **One query for the counts.** Run together in production's SQL editor, the plan's two statements showed only the last one's result, the total. So both counts were taken with one query that returns all decisions and the own-shop decisions by state in one row, before and after the push:
+
+  ```sql
+  select
+    (select count(*) from public.watchlist_matches) as all_decisions,
+    count(*) filter (where m.state = 'matched') as own_shop_matched,
+    count(*) filter (where m.state = 'unmatched') as own_shop_declined,
+    count(*) filter (where m.state = 'not_found') as own_shop_not_found
+  from public.watchlist_matches as m
+  join public.watchlist_items as i on i.id = m.watchlist_item_id
+  where m.shop_id = i.source;
+  ```
+
+- **The push:** `npx.cmd supabase db push` from S-02's worktree (`10xcourseproject-wt`), linked there once with `npx.cmd supabase link`, at the branch's head f18182d, whose CI was green. `node scripts/check-migrations-applied.mjs` then printed `All 9 migrations are applied`. That check, which reads production's applied migrations, is the push's evidence: what `db push` listed and what `migration list --linked` printed weren't reported (S-02's review, F9).
+- **The merge came before the push (S-02's review, F1).** #55 was marked ready once its CI was green, and merged at 20:38 UTC on 2026-10-10, at f18182d, before the owner's `db push`. The checked deploy refused, as designed: Workers Builds failed 38 seconds after the merge and the `Deploy check` workflow failed, so nothing deployed and production stayed on the previous version, which Phase 1's CI showed works against the new schema. After the push, the owner retried the build: Workers Builds went green on 783b214 at 21:56 UTC, and the `Deploy check` workflow, run by hand since a retried build has no push to start it, passed. Row 4.7 stays unticked, since the merge didn't follow the push, and the plan-only commit recording the counts (52f493f) missed the merge and lands in the close-out as 601123a. A migration's pull request now stays in draft until the push is confirmed (`context/deployment/deploy-plan.md`, "Later migrations").
+
+- **The phone check passed on 2026-10-11:** a re-pin's „Żaden z nich” and a first choice's „To ten produkt” saved, and the product page opened.
+
+### Review fixes (2026-10-10)
+
+The implementation review (`reviews/impl-review.md`, verdict APPROVED) found 1 warning and 8 observations, and the owner took every recommendation.
+
+- **F1, the merge before the push:** Phase 4's notes record the order, the refused build and its retry, row 4.7 stays unticked, and the runbook keeps a migration's pull request in draft until the push is confirmed.
+- **F2, what the F4 tests prove:** the two database cases and the check's comment say the match changes hands between the guardian's read and the save, not that a stale tab is refused: a form never carries the decider, so a post the guardian reads after the other tab's save lands (test plan §7).
+- **F3, the overlap with no decision stored:** a third held case in `matches.db.test.ts`, a lookup's first outcome on a product with no decision, answers `gone` while its removal is held.
+- **F4, `holdRemoval`'s own limits:** its session sets `lock_timeout` to 5 s, and `execFile` stops the docker client after `HOLD_SECONDS` plus 5 s.
+- **F5, the delete before the guard:** recorded in the Migration Notes, with the rule for later migrations.
+- **F6, six test comments:** a decision in a product's own shop is "one stored before S-02's migration", which the readers still leave out, no longer one a direct write could store.
+- **F7, the lookups' stub:** its dead `update` is gone.
+- **F8, four lines:** CLAUDE.md says neither `anon` nor `authenticated` may execute the trigger's function, the test plan that only the first EAN shape moved, and the roadmap's S-02 Risk that two direct inserts changed and the e2e seed didn't. Critical Implementation Details' "starts its insert again" holds only with a decision stored: with none, the product's key itself waits on the removal and then refuses the insert. The migration's own comment says the same and stays as pushed.
+- **F9, two facts:** the typed columns and `saveArguments` (Phase 2), and the push's evidence (Phase 4).
 
 ## Progress
 
@@ -736,23 +773,23 @@ These run in CI only.
 
 #### Automated
 
-- [x] 3.1 The changed Markdown passes Prettier: `npx prettier --check context/foundation/test-plan.md context/domain/glossary.md context/foundation/roadmap.md context/changes/decision-store-backstop/plan.md`
-- [x] 3.2 The closed edge is gone: `git grep -n "with no migration or invariant to refuse it" -- CLAUDE.md context/foundation` prints nothing
-- [x] 3.3 The documents name the save: `git grep -c "record_decision" -- CLAUDE.md context/domain/glossary.md context/foundation/test-plan.md` counts at least one in each file
-- [x] 3.4 The unit suite still passes: `npm run test`
+- [x] 3.1 The changed Markdown passes Prettier: `npx prettier --check context/foundation/test-plan.md context/domain/glossary.md context/foundation/roadmap.md context/changes/decision-store-backstop/plan.md` — f18182d
+- [x] 3.2 The closed edge is gone: `git grep -n "with no migration or invariant to refuse it" -- CLAUDE.md context/foundation` prints nothing — f18182d
+- [x] 3.3 The documents name the save: `git grep -c "record_decision" -- CLAUDE.md context/domain/glossary.md context/foundation/test-plan.md` counts at least one in each file — f18182d
+- [x] 3.4 The unit suite still passes: `npm run test` — f18182d
 
 ### Phase 4: Ship
 
 #### Automated
 
-- [ ] 4.1 `gh pr checks <PR>` shows `ci`, `smoke` and `e2e` passing on the head the owner pushes from
-- [ ] 4.2 After the merge, `gh run list --workflow "Deploy check" --limit 1` shows the merge's run succeeded
+- [x] 4.1 `gh pr checks <PR>` shows `ci`, `smoke` and `e2e` passing on the head the owner pushes from — f18182d
+- [x] 4.2 After the merge, `gh run list --workflow "Deploy check" --limit 1` shows the merge's run succeeded — 783b214
 
 #### Manual
 
-- [ ] 4.3 Before the push, the owner's two read-only counts, the own-shop decisions by state and all decisions, ran in the dashboard's SQL editor, and their results are recorded in this plan's notes
-- [ ] 4.4 `npx supabase db push` from a checkout of this branch listed only the new migration and applied it
-- [ ] 4.5 `npx supabase migration list --linked` shows the new version on the remote, and `node scripts/check-migrations-applied.mjs` prints `All <n> migrations are applied`
-- [ ] 4.6 After the push, the own-shop count returns no rows, and all decisions are fewer by exactly the own-shop decisions counted before
+- [x] 4.3 Before the push, the owner's two read-only counts, the own-shop decisions by state and all decisions, ran in the dashboard's SQL editor, and their results are recorded in this plan's notes — the owner, 2026-10-10
+- [x] 4.4 `npx supabase db push` from a checkout of this branch listed only the new migration and applied it — the owner, 2026-10-10
+- [x] 4.5 `npx supabase migration list --linked` shows the new version on the remote, and `node scripts/check-migrations-applied.mjs` prints `All <n> migrations are applied` — the owner, 2026-10-10
+- [x] 4.6 After the push, the own-shop count returns no rows, and all decisions are fewer by exactly the own-shop decisions counted before — the owner, 2026-10-10
 - [ ] 4.7 The owner merged the pull request after the push was confirmed
-- [ ] 4.8 On a phone after the deploy, a re-pin's „Żaden z nich” saves („Zapisano: brak w …”), a first choice's „To ten produkt” saves („Zapisano dopasowanie.”), and the product page opens
+- [x] 4.8 On a phone after the deploy, a re-pin's „Żaden z nich” saves („Zapisano: brak w …”), a first choice's „To ten produkt” saves („Zapisano dopasowanie.”), and the product page opens — the owner's check on a phone, 2026-10-11

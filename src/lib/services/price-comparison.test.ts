@@ -988,8 +988,8 @@ describe("productPriceKeys", () => {
   it("ignores a decision stored in the product's own shop, whose own item stands there", () => {
     const fromNatura = { source: "natura", sourceItemId: "NV89063" } as const;
 
-    // A match to another Natura item, which no page offers, as a direct write could store it: it adds no key, nor
-    // replaces the product's own item, even when a test's list of shops names Natura.
+    // A match to another Natura item, which no page offers, as a direct write could store it before S-02's migration:
+    // it adds no key, nor replaces the product's own item, even when a test's list of shops names Natura.
     expect(productPriceKeys(fromNatura, [matchIn("natura", "NV81063"), matchIn("rossmann", "26900")])).toEqual([
       { shop: "natura", shopItemId: "NV89063" },
       { shop: "rossmann", shopItemId: "26900" },

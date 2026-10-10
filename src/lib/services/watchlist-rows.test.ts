@@ -1491,8 +1491,8 @@ describe("the list with a product picked in Natura", () => {
   });
 
   it("ignores a match stored in Natura, its own shop, and Natura's odd rows, which a product picked in Rossmann reads", () => {
-    // A direct write could store a match to Natura's cheaper NV81063 for the product picked in Natura, and odd Natura
-    // rows: one of the product's own, and one that couldn't say whose it is.
+    // A match to Natura's cheaper NV81063 for the product picked in Natura, as a direct write could store it before
+    // S-02's migration, and odd Natura rows: one of the product's own, and one that couldn't say whose it is.
     const inNatura: ShopMatchState = {
       watchlistItemId: OTHER_ID,
       shop: "natura",

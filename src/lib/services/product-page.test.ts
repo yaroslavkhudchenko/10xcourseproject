@@ -184,8 +184,8 @@ describe("openProductPage: the loaded product's matched shops", () => {
 
 describe("openProductPage: the shop its address names", () => {
   // The product picked in Natura, matched in Rossmann and Hebe and undecided in Super-Pharm, with a match stored in
-  // Natura too, its own shop, as a direct write could store it. Every shop is stopped: a search is refused before it's
-  // sent, and its reservation still shows.
+  // Natura too, its own shop, as one stored before S-02's migration. Every shop is stopped: a search is refused before
+  // it's sent, and its reservation still shows.
   const decisions = [
     matchRow(PRODUCT_ID, "natura", "NV81063"),
     matchRow(PRODUCT_ID, "rossmann", "26900"),

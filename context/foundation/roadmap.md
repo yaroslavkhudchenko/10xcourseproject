@@ -3,13 +3,13 @@ project: Drogeria Radar
 version: 1
 status: draft # draft | active | locked
 created: 2026-09-25
-updated: 2026-10-10
+updated: 2026-10-11
 prd_version: 1
 main_goal: quality
 top_blocker: time
 milestone_id: decision-guardian
 milestone_seq: 2
-milestone_status: open # open | done
+milestone_status: done # open | done
 ---
 
 # Roadmap: Drogeria Radar
@@ -20,7 +20,7 @@ milestone_status: open # open | done
 
 ## Milestone
 
-**M-2: One guardian for a product's shop decisions** — Status: open
+**M-2: One guardian for a product's shop decisions** — Status: done
 
 - **Intent:** Every change to a watched product's shop decisions passes one guardian, a single object in the app that is the only place allowed to change them. It refuses by name a decision for a shop outside the product's matched shops, an illegal move and an outdated form, and the database keeps a backstop for the own-shop rule. Nothing changes in what the user sees: a rule that today lives in five layers and eight copies comes to live in one place.
 - **Source materials:**
@@ -52,11 +52,11 @@ A shopper who buys the same drugstore products again and again checks two or thr
 
 In PRD refs, FR-NNN and US-NN are the PRD's, I-NN the refactor plan's invariants, and R-NN and D-NN the domain map's rules and drift.
 
-| ID   | Change ID                     | Outcome (user can …)                                                                                     | Prerequisites | PRD refs                                                                                                      | Status      |
-| ---- | ----------------------------- | -------------------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------- | ----------- |
-| S-01 | decision-route-guardian       | post decisions as before, and a post the guardian refuses stores nothing; a matched shop's card says why | —             | FR-004, FR-006, FR-007, US-02, I-2, I-5, I-7, I-8, I-10, R-02, R-05, R-07, R-08, R-10                         | done        |
-| S-02 | decision-store-backstop       | rely on the database to refuse a decision in a product's own shop, and on each decision saving at once   | S-01          | FR-005, FR-007, US-02, I-1, I-3, I-5, I-8, R-01, R-03, R-05, R-08, R-16                                       | in-progress |
-| S-03 | page-lookups-through-guardian | open a product whose lookups and decisions go through the same guardian, with the same results           | S-01          | FR-006, FR-007, FR-008, US-02, I-4, I-6, I-8, I-9, I-12, I-13, R-04, R-06, R-08, R-09, R-12, R-14, R-15, D-01 | done        |
+| ID   | Change ID                     | Outcome (user can …)                                                                                     | Prerequisites | PRD refs                                                                                                      | Status |
+| ---- | ----------------------------- | -------------------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------- | ------ |
+| S-01 | decision-route-guardian       | post decisions as before, and a post the guardian refuses stores nothing; a matched shop's card says why | —             | FR-004, FR-006, FR-007, US-02, I-2, I-5, I-7, I-8, I-10, R-02, R-05, R-07, R-08, R-10                         | done   |
+| S-02 | decision-store-backstop       | rely on the database to refuse a decision in a product's own shop, and on each decision saving at once   | S-01          | FR-005, FR-007, US-02, I-1, I-3, I-5, I-8, R-01, R-03, R-05, R-08, R-16                                       | done   |
+| S-03 | page-lookups-through-guardian | open a product whose lookups and decisions go through the same guardian, with the same results           | S-01          | FR-006, FR-007, FR-008, US-02, I-4, I-6, I-8, I-9, I-12, I-13, R-04, R-06, R-08, R-09, R-12, R-14, R-15, D-01 | done   |
 
 ## Baseline
 
@@ -103,8 +103,8 @@ None. Every layer M-2 touches is present (`## Baseline`), and the guardian arriv
 - **Blockers:** The owner pushes this slice's migration to production from its pull request's branch before it merges. The checked deploy refuses code whose migration production lacks.
 - **Unknowns:**
   - What happens to old decisions stored in a product's own shop: delete them in the migration, or count them first and enforce the rule on new rows only? — Owner: user. Block: no. Answered 2026-10-10: the owner counts them, by state, before the push, and the migration deletes them, so the rule holds for every row; all decisions are counted before and after the push too, so a delete that removed more would show (the owner's call).
-- **Risk:** This adds the project's first write function on a user's own table, and about 17 direct inserts in the database checks and the e2e seed must change with it. The database checks must prove that RLS still binds the new write path and that nothing new can be updated, as the recorded lesson "Check what a direct database call allows" (`context/foundation/lessons.md`) requires.
-- **Status:** in-progress
+- **Risk:** This adds the project's first write function on a user's own table. The plan expected about 17 direct inserts in the database checks and the e2e seed to change with it; with the trigger, two did, and the e2e seed didn't (S-02's review). The database checks must prove that RLS still binds the new write path and that nothing new can be updated, as the recorded lesson "Check what a direct database call allows" (`context/foundation/lessons.md`) requires.
+- **Status:** done
 
 ### S-03: A product's page looks shops up and shows decisions through the guardian
 
@@ -167,6 +167,7 @@ None of these blocks M-2. The PRD's Open Questions 3, 5 and 6 were answered on 2
 ## Milestone History
 
 - **M-1: Usable price radar** (`usable-price-radar`) — closed 2026-10-09. Every foundation and slice, F-01 and S-01 to S-08, is done: the owner and the few people they add keep a private list of their products, matched in Rossmann, Drogerie Natura, Hebe and Super-Pharm, and see at the shelf which shop is cheapest today, with every price's age and a judgement of whether it's good; beside the slices, `match-by-name` and `add-from-other-shops` (a product added from any of the four shops) shipped too.
+- **M-2: One guardian for a product's shop decisions** (`decision-guardian`) — closed 2026-10-11. Every slice, S-01 to S-03, is done: every change to a watched product's shop decisions, a posted decision or a lookup's outcome, passes one guardian (`admitDecision`, `admitLookup`); the product page and the other readers of one product load it once; and the database itself refuses a decision in a product's own shop and saves every decision in one statement (`record_decision`), so neither a crafted post nor a direct database call can store one there, and a removal during a save reads as gone. Nothing the user sees changed.
 
 ## Done
 
@@ -174,3 +175,4 @@ None of these blocks M-2. The PRD's Open Questions 3, 5 and 6 were answered on 2
 
 - **S-01: user can post decisions from a product's page as before: „To ten produkt”, „Żaden z nich” and a re-pin's pick. A post the guardian refuses stores nothing and comes back with a code, which a matched shop's card shows; one for the product's own shop, which only a crafted post sends, shows nothing (the owner's call, 2026-10-09).** — Archived 2026-10-10 → `context/archive/2026-10-09-decision-route-guardian/`. Lesson: —.
 - **S-03: user can open a product whose page looks shops up and shows their decisions through the same guardian, with the same results.** — Archived 2026-10-10 → `context/archive/2026-10-10-page-lookups-through-guardian/`. Lesson: —.
+- **S-02: user can rely on the database itself to refuse a decision in a product's own shop, even from a direct call. Every decision is saved in one atomic step, so a product removed during a save reads as gone, not as decided.** — Archived 2026-10-10 → `context/archive/2026-10-10-decision-store-backstop/`. Lesson: —.
