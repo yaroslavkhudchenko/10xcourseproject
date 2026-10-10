@@ -68,8 +68,9 @@ const replacesSchema = z.union([
 /**
  * What every decision names, for one of `shops`: the user's product and the shop, and a re-pin's the decision it
  * replaces. The route takes every priced shop (PRICED_SHOPS), any of which can be a product's matched shop, so a
- * decision for a shop that isn't switched on fails. The form doesn't say which shop is the product's own, and a
- * decision stored there is left out of every read of that product's decisions (the rules below).
+ * decision for a shop that isn't switched on fails. The form doesn't say which shop is the product's own: the guardian
+ * refuses a decision there (admitDecision), and one stored there before is left out of every read of that product's
+ * decisions (the rules below).
  */
 function decisionFieldsFor(shops: readonly MatchableShop[]) {
   return {

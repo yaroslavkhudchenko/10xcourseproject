@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { stubSupabase, type StubRelation } from "@/lib/services/testing/stub-supabase";
-import { APP, contextOf } from "@/lib/services/testing/route-context";
+import { APP, contextOf, formPost, type FormFields } from "@/lib/services/testing/route-context";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
 import { matchRow, naturaProductRow, productRow } from "@/lib/services/testing/stored-rows";
 import { POST as postPrices } from "@/pages/api/watchlist/prices";
@@ -165,13 +165,7 @@ function priceRequest(body: unknown, headers: Record<string, string> = {}): Requ
 }
 
 /** "Odśwież ceny" posted as a form, from the app's own page. */
-function refreshRequest(fields: Record<string, string>): Request {
-  return new Request(`${APP}/api/watchlist/refresh`, {
-    method: "POST",
-    headers: { Origin: APP, "Sec-Fetch-Site": "same-origin" },
-    body: new URLSearchParams(fields),
-  });
-}
+const refreshRequest = (fields: FormFields): Request => formPost("/api/watchlist/refresh", fields);
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });

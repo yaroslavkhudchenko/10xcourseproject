@@ -42,9 +42,9 @@ export interface DecisionChange {
  *
  * - `not-a-matched-shop`: the shop isn't one of the product's matched shops, its own shop included
  * - `unreadable`: the product's decision in the shop couldn't be read
- * - `outdated-form`: the form's `replaces` doesn't name the stored decision, as when it was shown before that changed
- * - `illegal-move`: a move no page offers from the stored decision, a decline over the user's decline or the item of
- *   the user's own match confirmed again
+ * - `outdated-form`: the form was shown before the stored decision changed: its `replaces` doesn't name the stored
+ *   decision, or it confirms again the item of the user's own match, which a page offers only while it's automatic
+ * - `illegal-move`: a move no page offers from the stored decision, a decline over the user's decline
  */
 export type DecisionRefusal = "not-a-matched-shop" | "unreadable" | "outdated-form" | "illegal-move";
 
@@ -90,9 +90,10 @@ function standingFrom(read: MatchesRead, shop: PricedShop): Standing {
  * 3. The form's `replaces` must name that decision, as the page's forms post it (`outdated-form`): none without a
  *    decision or over a lookup that found nothing, `matched:X` over a match of X, and `unmatched` over the user's
  *    decline.
- * 4. The move must be one the page offers from that decision (`illegal-move`): never a decline over the user's decline,
- *    nor a confirmation of the item of the user's own match. Confirming an automatic match's own item is one, which
- *    makes the match the user's.
+ * 4. The move must be one the page offers from that decision (`illegal-move`): never a decline over the user's decline.
+ *    Confirming an automatic match's own item is one, which makes the match the user's. Confirming the item of the
+ *    user's own match again comes only from a form shown before the user confirmed it, posted a second time or from
+ *    another tab, so it is refused as an outdated form (`outdated-form`), and the page says the decision is stored.
  *
  * The change is the watched product's, whose standing it was judged by, and carries the form's own `replaces`, which
  * recordDecision's compare-and-swap checks again at write time, so a decision changed since it was read still stands.
@@ -110,8 +111,9 @@ export function admitDecision(watched: WatchedProduct, form: MatchForm): Decisio
   if (!namesDecision(form.replaces, stored)) {
     return { kind: "refused", reason: "outdated-form" };
   }
-  if (!isLegalMove(form.decision, stored)) {
-    return { kind: "refused", reason: "illegal-move" };
+  const refusal = moveRefusal(form.decision, stored);
+  if (refusal !== null) {
+    return { kind: "refused", reason: refusal };
   }
   return {
     kind: "admitted",
@@ -135,14 +137,15 @@ function namesDecision(replaces: ExpectedDecision | null, stored: ShopMatch | nu
 }
 
 /**
- * Whether the move from the stored decision, null for none, is a legal one, which the page's choices offer (repinView):
- * every move but a decline over the user's decline and a confirmation of the item of the user's own match.
+ * Why the move from the stored decision, null for none, is refused, or null for a move the page's choices offer
+ * (repinView). A decline over the user's decline is a move no page offers. A confirmation of the item of the user's
+ * own match comes only from a form shown before the user confirmed it, so its form is outdated.
  */
-function isLegalMove(decision: MatchDecision, stored: ShopMatch | null): boolean {
+function moveRefusal(decision: MatchDecision, stored: ShopMatch | null): DecisionRefusal | null {
   if (decision.action === "decline") {
-    return stored?.state !== "unmatched";
+    return stored?.state === "unmatched" ? "illegal-move" : null;
   }
-  // An automatic match's item may be confirmed in place; the item the user confirmed already may not.
+  // An automatic match's item may be confirmed in place; the user's own item comes back only from an older form.
   const confirmedId = stored?.state === "matched" && stored.decidedBy === "user" ? stored.item.shopItemId : null;
-  return decision.item.shopItemId !== confirmedId;
+  return decision.item.shopItemId === confirmedId ? "outdated-form" : null;
 }

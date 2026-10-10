@@ -258,13 +258,17 @@ describe("admitDecision: a form shown with another decision than the stored one"
   });
 });
 
-describe("admitDecision: the moves no page offers", () => {
+describe("admitDecision: the move no page offers", () => {
   it("refuses a decline with unmatched over the user's decline", () => {
     expect(admit([declined], decline(overDecline))).toEqual(refusedAs("illegal-move"));
   });
+});
 
-  it("refuses a confirm of X with matched:X over the user's own match of X", () => {
-    expect(admit([userMatchOfX], confirm(itemX, overMatchOf(itemX)))).toEqual(refusedAs("illegal-move"));
+describe("admitDecision: a confirmation posted again", () => {
+  // The re-pin's choice over an automatic match of X offers „To ten produkt” on X (repinView). A second tab, or a
+  // second tap without JavaScript, posts that form again after the first post made the match the user's.
+  it("refuses a confirm of X with matched:X over the user's own match of X as an outdated form", () => {
+    expect(admit([userMatchOfX], confirm(itemX, overMatchOf(itemX)))).toEqual(refusedAs("outdated-form"));
   });
 });
 

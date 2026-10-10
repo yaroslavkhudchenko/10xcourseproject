@@ -46,7 +46,7 @@
   Nothing wrong is stored. Both review agents found this independently.
 
 - **Fix**: Answer a confirmation of X over the user's own match of X as `outdated-form`, which gives `decided=1` and "Ten produkt ma już zapisaną decyzję.", since a page posts it only from a form shown while X was automatic. Keep `illegal-move` for a decline over a decline, which no page posts, outdated or not. Then add the two-tab case to `watched-product.test.ts` and `match-routes.test.ts`.
-- **Decision**: PENDING
+- **Decision**: FIXED — Fix now (the owner's call, 2026-10-10). A confirm of X over the user's own match of X is refused as `outdated-form` (`decided=1`), and `illegal-move` keeps only a decline over a decline (`moveRefusal`). Both test files pin the second post.
 
 ### F2 — Shared test helpers still repeated in the route tests
 
@@ -58,7 +58,7 @@
   - `NO_ITEM` repeats `NO_ITEM_COLUMNS` in `src/lib/services/matches.test.ts:68-78`;
   - `decisionRequest` repeats `refreshRequest` in `src/lib/services/price-routes.test.ts:168-174` (the same origin headers and form body), and `formOf` in `matches.test.ts:104-112`.
 - **Fix**: Put a declined and not-found row builder in `src/lib/services/testing/stored-rows.ts`, and a `formPost(path, fields)` in `route-context.ts`, used by both route test files.
-- **Decision**: PENDING
+- **Decision**: FIXED — Fix now. `formPost` and `FormFields` in `route-context.ts`; `declinedRow`, `notFoundRow` and `NO_ITEM_COLUMNS` in `stored-rows.ts`, which `matches.test.ts` imports too. `formOf` stays: it builds the `FormData` that `parseMatchForm` reads.
 
 ### F3 — The route doesn't pin what it hands the store
 
@@ -77,7 +77,7 @@
   - Tradeoff: Changes a shared test helper the price tests use, for a write path S-02 replaces.
   - Confidence: MEDIUM — the stub's chain is shared by two test files.
   - Blind spot: The stub's other callers.
-- **Decision**: PENDING
+- **Decision**: ACCEPTED via Fix A ⭐ (the owner's call, 2026-10-10): deferred to S-02, queued in `follow-ups/review-fixes.md`.
 
 ### F4 — A race and direct calls still pass the guardian's rules
 
@@ -89,7 +89,7 @@
   - **A race.** The compare-and-swap checks the state and `shop_item_id`, not `decided_by`. So if an automatic match becomes the user's between the guardian's read and the write, a confirmation of the same item rewrites the user's own row with the same decision.
   - **Direct database calls.** These bypass every guardian rule. S-02 takes the own shop's backstop; the rest is the accepted risk that a direct call "changes only their own list" (`CLAUDE.md:60`).
 - **Fix**: None in S-01. S-02's research lists what a direct call allows (the lesson "Check what a direct database call allows") and decides whether its write also checks `decided_by`.
-- **Decision**: PENDING
+- **Decision**: ACCEPTED (the owner's call, 2026-10-10): carried to S-02, queued in `follow-ups/review-fixes.md`.
 
 ### F5 — One reading rule, three copies and two precedences
 
@@ -102,7 +102,7 @@
   - The product and its decisions are read in three places with two precedences. In `loadWatchedProduct` and on the product page, a missing product wins (`gone`); in `productTargets`, any failed read wins (`failed`).
   - Privacy is unaffected: under RLS, another user's product and a missing id read alike in all three.
 - **Fix**: None in S-01. S-03 routes the read side through `watchedProductOf` and `loadWatchedProduct`, with one precedence.
-- **Decision**: PENDING
+- **Decision**: ACCEPTED (the owner's call, 2026-10-10): carried to S-03, queued in `follow-ups/review-fixes.md`.
 
 ### F6 — A test title promises more than it checks
 
@@ -112,7 +112,7 @@
 - **Location**: src/lib/services/match-routes.test.ts:228-238
 - **Detail**: The test says the two reads run "at once", but it checks only the order of the three queries, which sequential reads would give too.
 - **Fix**: Retitle it to the order it checks (both reads before the write).
-- **Decision**: PENDING
+- **Decision**: FIXED — retitled to the order it checks.
 
 ### F7 — Three documentation loose ends
 
@@ -125,4 +125,4 @@
   - Phase 3's extras aren't in the Implementation Notes: the glossary's "outdated form" row, and in the roadmap, S-01's fourth refusal (an unreadable decision) and its status.
   - `decisionFieldsFor`'s comment (`matches.ts:68-73`) still says only that an own-shop decision is left out of every read, without naming the guardian that now refuses it.
 - **Fix**: Reword both to "outdated form", add one Phase 3 Implementation Note, and point the comment to `admitDecision`.
-- **Decision**: PENDING
+- **Decision**: FIXED — "outdated form" in the roadmap and the change's notes, Phase 3's extras and the review fixes in the plan's Implementation Notes, and `decisionFieldsFor`'s comment names `admitDecision`.

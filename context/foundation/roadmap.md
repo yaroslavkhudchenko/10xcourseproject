@@ -3,7 +3,7 @@ project: Drogeria Radar
 version: 1
 status: draft # draft | active | locked
 created: 2026-09-25
-updated: 2026-10-09
+updated: 2026-10-10
 prd_version: 1
 main_goal: quality
 top_blocker: time
@@ -22,7 +22,7 @@ milestone_status: open # open | done
 
 **M-2: One guardian for a product's shop decisions** — Status: open
 
-- **Intent:** Every change to a watched product's shop decisions passes one guardian, a single object in the app that is the only place allowed to change them. It refuses by name a decision for a shop outside the product's matched shops, an illegal move and a stale form, and the database keeps a backstop for the own-shop rule. Nothing changes in what the user sees: a rule that today lives in five layers and eight copies comes to live in one place.
+- **Intent:** Every change to a watched product's shop decisions passes one guardian, a single object in the app that is the only place allowed to change them. It refuses by name a decision for a shop outside the product's matched shops, an illegal move and an outdated form, and the database keeps a backstop for the own-shop rule. Nothing changes in what the user sees: a rule that today lives in five layers and eight copies comes to live in one place.
 - **Source materials:**
   - the refactor plan, `context/domain/02-invariant-aggregate-refactor.md`;
   - the domain map, `context/domain/domain-distillation.md`, whose #1 candidate the owner picked for this milestone on 2026-10-09;
@@ -44,7 +44,7 @@ A shopper who buys the same drugstore products again and again checks two or thr
 
 ## North star
 
-**S-01: Decisions posted from a product's page pass one guardian.** Today the decision route answers "saved" for a decision in the product's own shop, a write that does nothing and tells no one. This slice makes the guardian refuse such a post, and the other illegal or stale ones, on the path every user decision takes. The quality goal puts the closing of that silent failure first.
+**S-01: Decisions posted from a product's page pass one guardian.** Today the decision route answers "saved" for a decision in the product's own shop, a write that does nothing and tells no one. This slice makes the guardian refuse such a post, and the other illegal or outdated ones, on the path every user decision takes. The quality goal puts the closing of that silent failure first.
 
 > "North star" here means the smallest end-to-end flow that, once it works, proves the milestone is worth doing. It sits as early as its prerequisites allow, because everything else in the milestone only matters if this works.
 
@@ -80,8 +80,8 @@ None. Every layer M-2 touches is present (`## Baseline`), and the guardian arriv
 
 - **Outcome:** user can post decisions from a product's page as before: „To ten produkt”, „Żaden z nich” and a re-pin's pick. A post the guardian refuses stores nothing and comes back with a code, which a matched shop's card shows; one for the product's own shop, which only a crafted post sends, shows nothing (the owner's call, 2026-10-09). It refuses four kinds of post:
   - one for a shop outside the product's matched shops, the product's own shop included;
-  - an illegal move: a decline over a decline, or the user's own confirmed item confirmed again;
-  - one from an outdated form, shown before the stored decision changed;
+  - an illegal move: a decline over a decline;
+  - one from an outdated form, shown before the stored decision changed, such as a confirmation posted a second time (the owner's call, 2026-10-10);
   - one for a shop whose stored decision couldn't be read.
 - **Change ID:** decision-route-guardian
 - **PRD refs:** FR-004, FR-006, FR-007, US-02, I-2, I-5, I-7, I-8, I-10, R-02, R-05, R-07, R-08, R-10

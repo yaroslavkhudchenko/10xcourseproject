@@ -1,8 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { matchRow, naturaProductRow, productRow } from "@/lib/services/testing/stored-rows";
+import { declinedRow, matchRow, naturaProductRow, notFoundRow, productRow } from "@/lib/services/testing/stored-rows";
 import { stubSupabase, type StubCall, type StubRelation } from "@/lib/services/testing/stub-supabase";
-import { APP, contextOf } from "@/lib/services/testing/route-context";
+import { APP, contextOf, formPost, type FormFields } from "@/lib/services/testing/route-context";
 import { POST as postDecision } from "@/pages/api/watchlist/matches";
 
 // risk: #6, #1 and #4 (context/foundation/test-plan.md): a decision is stored over a newer one, along a move no page
@@ -15,8 +15,9 @@ import { POST as postDecision } from "@/pages/api/watchlist/matches";
 // expected values: the code each case comes back with, as the decision-route-guardian plan's table states it and the
 // product's page reads it back (decisionBackTo): a shop outside the product's matched shops, its own included, or a
 // move no page's form offers (MatchChoice.astro) is invalid data, shown on no card for the own shop (the owner's call,
-// 2026-10-09); a form shown with another decision than the stored one finds the decision already stored; a decision
-// that couldn't be read is a failure, never none; and another user's product answers exactly like an id no one has
+// 2026-10-09); a form shown with another decision than the stored one finds the decision already stored, as does a
+// confirmation posted again after the first made the match the user's (the owner's call, 2026-10-10); a decision that
+// couldn't be read is a failure, never none; and another user's product answers exactly like an id no one has
 // (scripts/check-two-users.mjs). Never read off the route.
 
 const PRODUCT_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
@@ -51,20 +52,11 @@ const ROSSMANN_SOFT = { ...SOFT, shopItemId: "26900", name: "Soft", productUrl: 
 // The product's stored decisions in Natura: the user's match of X, the same match by the matching rule, the user's
 // match of Z, which another tab stored, the user's decline, a lookup that found nothing, and a match without its item,
 // which can't be read.
-const NO_ITEM = {
-  shop_item_id: null,
-  name: null,
-  brand: null,
-  size_text: null,
-  size_value: null,
-  size_unit: null,
-  eans: [],
-};
 const userMatchOfX = matchRow(PRODUCT_ID, "natura", SOFT.shopItemId);
 const autoMatchOfX = { ...userMatchOfX, decided_by: "auto" };
 const matchOfZ = matchRow(PRODUCT_ID, "natura", "JM00370");
-const declined = { ...userMatchOfX, ...NO_ITEM, state: "unmatched" };
-const notFound = { ...userMatchOfX, ...NO_ITEM, state: "not_found", decided_by: "auto" };
+const declined = declinedRow(PRODUCT_ID, "natura");
+const notFound = notFoundRow(PRODUCT_ID, "natura");
 const unreadable = { ...userMatchOfX, shop_item_id: null };
 
 const TIMEOUT: StubRelation = { error: { code: "57014", message: "canceling statement due to statement timeout" } };
@@ -74,38 +66,26 @@ const ROSSMANN_PRODUCT = [productRow(PRODUCT_ID, "26900")];
 /** The same product picked in Natura: its matched shops are Rossmann, Hebe and Super-Pharm. */
 const NATURA_PRODUCT = [naturaProductRow(PRODUCT_ID, "NV89063")];
 
-/** A form's fields, each posted once or, like a candidate's `eans`, once per value. */
-type Fields = Record<string, string | string[]>;
-
 /**
  * The fields every decision form of the product's page posts for Natura (MatchChoice.astro): the product, the shop, the
  * list's filter, a re-pin's `replaces`, which a first choice's forms leave out, and the action. The user came from
  * "Do sprawdzenia" (`f=check`).
  */
-function decisionFields(action: "confirm" | "decline", replaces?: string): Fields {
+function decisionFields(action: "confirm" | "decline", replaces?: string): FormFields {
   return { itemId: PRODUCT_ID, shop: "natura", f: "check", ...(replaces === undefined ? {} : { replaces }), action };
 }
 
 /** "To ten produkt" for one of Natura's items, with a re-pin's `replaces`, if any. */
-const confirm = (item: typeof SOFT, replaces?: string): Fields => ({ ...decisionFields("confirm", replaces), ...item });
+const confirm = (item: typeof SOFT, replaces?: string): FormFields => ({
+  ...decisionFields("confirm", replaces),
+  ...item,
+});
 
 /** "Żaden z nich", with a re-pin's `replaces`, if any. */
-const decline = (replaces?: string): Fields => decisionFields("decline", replaces);
+const decline = (replaces?: string): FormFields => decisionFields("decline", replaces);
 
 /** A decision posted as a form from the app's own page. */
-function decisionRequest(fields: Fields): Request {
-  const body = new URLSearchParams();
-  for (const [name, value] of Object.entries(fields)) {
-    for (const each of Array.isArray(value) ? value : [value]) {
-      body.append(name, each);
-    }
-  }
-  return new Request(`${APP}/api/watchlist/matches`, {
-    method: "POST",
-    headers: { Origin: APP, "Sec-Fetch-Site": "same-origin" },
-    body,
-  });
-}
+const decisionRequest = (fields: FormFields): Request => formPost("/api/watchlist/matches", fields);
 
 /** The stand-in database: the user's `product` row, Rossmann's Nivea Soft unless said otherwise, and its decisions. */
 function world(decisions: StubRelation, product: StubRelation = ROSSMANN_PRODUCT) {
@@ -159,7 +139,7 @@ describe("/api/watchlist/matches answers a post it can't read before reading any
     );
   });
 
-  it.each<{ why: string; fields: Fields; location: string }>([
+  it.each<{ why: string; fields: FormFields; location: string }>([
     {
       why: "an action no form posts",
       fields: { ...decline(), action: "repin" },
@@ -225,7 +205,7 @@ describe("/api/watchlist/matches reads the product and its decisions before any 
     expect(decisionWrites(queries)).toEqual([]);
   });
 
-  it("reads the product and its decisions, at once, before it writes the decision", async () => {
+  it("reads the product and its decisions before it writes the decision", async () => {
     const { client, queries } = world([]);
 
     await locationAfter(decisionRequest(confirm(SOFT)), client);
@@ -244,12 +224,18 @@ interface Move {
   post: string;
   over: string;
   stored: Record<string, unknown>[];
-  fields: Fields;
+  fields: FormFields;
   code: string;
 }
 
 describe("/api/watchlist/matches stores nothing the guardian refuses", () => {
-  it.each<{ action: string; shop: string; product: StubRelation; stored: Record<string, unknown>[]; fields: Fields }>([
+  it.each<{
+    action: string;
+    shop: string;
+    product: StubRelation;
+    stored: Record<string, unknown>[];
+    fields: FormFields;
+  }>([
     {
       action: "decline",
       shop: "rossmann",
@@ -286,7 +272,7 @@ describe("/api/watchlist/matches stores nothing the guardian refuses", () => {
   );
 
   it.each<Move>([
-    // The moves no page's form offers.
+    // The move no page's form offers.
     {
       post: "a decline with unmatched",
       over: "the user's decline",
@@ -294,12 +280,14 @@ describe("/api/watchlist/matches stores nothing the guardian refuses", () => {
       fields: decline("unmatched"),
       code: "error=invalid",
     },
+    // A re-pin's „To ten produkt” on an automatic match's own item, posted again from a second tab, or by a second tap
+    // without JavaScript, after the first post made the match the user's.
     {
       post: "a confirm of X with matched:X",
       over: "the user's own match of X",
       stored: [userMatchOfX],
       fields: confirm(SOFT, `matched:${SOFT.shopItemId}`),
-      code: "error=invalid",
+      code: "decided=1",
     },
     // A first choice's form, posted after a decision was stored meanwhile, and a re-pin's, after another tab changed
     // the decision it replaces: the stored decision stands.

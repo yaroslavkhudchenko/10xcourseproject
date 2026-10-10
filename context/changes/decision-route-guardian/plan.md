@@ -388,6 +388,26 @@ None. No migration runs, and rows stored earlier in a product's own shop stay as
   - each admitted post's insert columns are pinned;
   - an own-shop re-pin over a decision stored there earlier is refused.
 
+### Phase 3
+
+- **Beyond the plan's list, the documents gained:**
+  - the glossary's "outdated form" row, beside the "guardian" row;
+  - in the roadmap, S-01's fourth refusal (a decision that couldn't be read) and its status, `in-progress`.
+
+### Review fixes (2026-10-10)
+
+The implementation review (`reviews/impl-review.md`) found 2 warnings and 5 observations, and the owner took every recommendation.
+
+- **F1, a confirmation posted again (the owner's call, 2026-10-10):** a confirm of X over the user's own match of X is now an outdated form, answered `decided=1` („Ten produkt ma już zapisaną decyzję.”), not an illegal move.
+  - A page posts it only from a re-pin's form shown while the match of X was automatic: from a second tab, or by a second tap without JavaScript, after the first post made the match the user's.
+  - Before S-01 the compare-and-swap stored it again and answered `saved`. `decided` keeps the archived contract that a double submit ends as decided (`context/archive/2026-09-27-shop-matching-first-two-shops/reviews/impl-review.md:45`).
+  - `illegal-move` keeps only a decline over the user's decline, which no page posts. `moveRefusal` in `watched-product.ts` replaces `isLegalMove` and names the refusal.
+  - Both test files pin the second post.
+- **F2:** the route tests share `formPost` and `FormFields` (`route-context.ts`) and `declinedRow`, `notFoundRow` and `NO_ITEM_COLUMNS` (`stored-rows.ts`), and `matches.test.ts` imports `NO_ITEM_COLUMNS`. Its `formOf` stays: it builds the `FormData` that `parseMatchForm` reads, not a request.
+- **F3, F4 and F5, carried to S-02 and S-03:** queued in `follow-ups/review-fixes.md`.
+- **F6:** the route test that checks both reads come before the write no longer says "at once".
+- **F7:** the roadmap and the change's notes say "outdated form", `decisionFieldsFor`'s comment names the guardian, and this section records Phase 3's extras.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
