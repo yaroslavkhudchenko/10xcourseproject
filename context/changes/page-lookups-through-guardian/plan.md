@@ -713,7 +713,7 @@ The implementation review (`reviews/impl-review.md`, verdict APPROVED) found 4 o
 
 - [x] 3.14 The reviewer reads the diff of `match-step.test.ts`, `shop-matching.test.ts` and `price-pages.test.ts` and confirms every changed line is arrangement: no title, expected value or line inside a multi-line expect statement changed — 5db17e1
 - [x] 3.15 The reviewer confirms that `lookupOutcome` stores only a change `admitLookup` admitted, and that `[id].astro`'s frontmatter only calls services and maps their results — 5db17e1
-- [ ] 3.16 After the deploy, on a phone, the owner opens a product from „Do sprawdzenia” and a product matched in every shop: the cards, the prices with their ages, the cheapest shop and the list beside show as before. This costs what any view costs (Implementation Approach).
+- [x] 3.16 After the deploy, on a phone, the owner opens a product from „Do sprawdzenia” and a product matched in every shop: the cards, the prices with their ages, the cheapest shop and the list beside show as before. This costs what any view costs (Implementation Approach). — the owner's check on a phone, 2026-10-10
 
 ### Phase 4: Documents
 
@@ -729,5 +729,5 @@ The implementation review (`reviews/impl-review.md`, verdict APPROVED) found 4 o
 
 #### Manual
 
-- [ ] 4.8 The owner reads the FR-007 note against the code's cases (`src/lib/services/watchlist-rows.ts:213-216`, `:241-243`) and confirms both edge cases read right: an unread price counts, and a fresh price that can't be ordered online doesn't
+- [x] 4.8 The owner reads the FR-007 note against the code's cases (`src/lib/services/watchlist-rows.ts:213-216`, `:241-243`) and confirms both edge cases read right: an unread price counts, and a fresh price that can't be ordered online doesn't — the owner's reading, 2026-10-10
 - [x] 4.9 The reviewer confirms the read rules' comment and CLAUDE.md's three paragraphs name the per-product readers as the code has them — ed640b2
