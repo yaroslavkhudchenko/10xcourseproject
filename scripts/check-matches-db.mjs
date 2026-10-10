@@ -1,9 +1,13 @@
 // Database contract check: proves that shop matches stay private to their owner, attach only to the owner's own
 // products, change only through their owner and never to another product, user or shop, and go with their product,
-// and that both tables refuse values outside their bounds.
+// and that both tables refuse values outside their bounds. Since M-2's S-02 it proves that no caller stores a decision
+// in its product's own shop, by a direct insert or by record_decision, and what record_decision allows: it saves as its
+// caller in one statement, answers another user's product as one no one has, writes nothing over a decision other than
+// the one it expects, and refuses anon, an expectation it can't read and a shop no one knows.
 // Run: SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=<anon key> node scripts/check-matches-db.mjs
 // Each run signs up two fresh users, so it can run again without resetting the database.
 
+import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 const { SUPABASE_URL, SUPABASE_KEY } = process.env;
@@ -81,12 +85,49 @@ const otherNaturaItem = {
 // Hebe's Nivea Soft, as the research note's sample has it (§2.2), which the user picks in place of a decline.
 const hebeItem = { shop_item_id: "000000000000218807", name: "Nivea Soft" };
 
-// Each user adds one product, which their matches then belong to.
-async function addProduct(user, label) {
-  const product = await user.client.from("watchlist_items").insert(rossmannItem("26900")).select("id").single();
-  check(`user ${label} adds a Rossmann product`, !product.error && Boolean(product.data?.id), show(product));
+// The same product picked in Natura instead, by its SKU: Natura is then its own shop, and Rossmann a matched shop.
+const { shop_item_id: naturaSku, ...naturaFields } = naturaItem;
+const naturaProduct = { source: "natura", source_item_id: naturaSku, ...naturaFields };
+
+// Each user adds one product, which their matches then belong to; user A adds more, each for checks of its own.
+async function addProduct(user, label, item = rossmannItem("26900")) {
+  const product = await user.client.from("watchlist_items").insert(item).select("id").single();
+  check(
+    `user ${label} adds ${item.source} product ${item.source_item_id}`,
+    !product.error && Boolean(product.data?.id),
+    show(product),
+  );
   return product.data?.id;
 }
+
+// Decisions as both a direct insert and record_decision take them: the user's decline, a lookup's "not found", and
+// the user's match of an item.
+const userDecline = { state: "unmatched", decided_by: "user" };
+const lookupNotFound = { state: "not_found", decided_by: "auto" };
+const userMatch = (item) => ({ state: "matched", decided_by: "user", ...item });
+
+// record_decision as the app calls it: a decision's columns and the decision it replaces, none unless `replaces` names
+// a state, an item and who decided it. PostgREST finds the function by its arguments' names, so all 16 are sent, each
+// as itself or null.
+const saveDecision = (client, itemId, shopId, decision, replaces = {}) =>
+  client.rpc("record_decision", {
+    p_item: itemId,
+    p_shop: shopId,
+    p_state: decision.state,
+    p_decided_by: decision.decided_by,
+    p_shop_item_id: decision.shop_item_id ?? null,
+    p_name: decision.name ?? null,
+    p_brand: decision.brand ?? null,
+    p_size_text: decision.size_text ?? null,
+    p_size_value: decision.size_value ?? null,
+    p_size_unit: decision.size_unit ?? null,
+    p_eans: decision.eans ?? [],
+    p_product_url: decision.product_url ?? null,
+    p_image_url: decision.image_url ?? null,
+    p_replaces_state: replaces.state ?? null,
+    p_replaces_item: replaces.shopItemId ?? null,
+    p_replaces_decided_by: replaces.decidedBy ?? null,
+  });
 
 const a = await signUpUser("a");
 const b = await signUpUser("b");
@@ -313,7 +354,7 @@ check(
   show(retried),
 );
 
-// 7. A decision has no delete path of its own: it goes only with its product (10). Without a session nothing is
+// 7. A decision has no delete path of its own: it goes only with its product (12). Without a session nothing is
 // readable or writable.
 const deleted = await a.client.from("watchlist_matches").delete().eq("id", aMatchId);
 check("user A can't delete their match", deleted.error?.code === "42501", show(deleted));
@@ -340,7 +381,10 @@ for (const [index, [what, fields]] of productRefusals.entries()) {
   check(`watchlist_items refuses ${what}`, result.error?.code === "23514", show(result));
 }
 
-// 9. watchlist_matches keeps each state's shape. Rossmann has no decision for the product, so only a check refuses.
+// 9. watchlist_matches keeps each state's shape. User A's fresh product has no decision, and Natura is one of its
+// matched shops, so only a check refuses each row, and a missing check shows as an added row. Its own shop, Rossmann,
+// would meet the trigger first (10).
+const shapesItemId = await addProduct(a, "A", rossmannItem("26901"));
 const matchRefusals = [
   ["a match without the shop's item id", { state: "matched", decided_by: "auto", name: naturaItem.name }],
   ["a decline decided automatically", { state: "unmatched", decided_by: "auto" }],
@@ -349,11 +393,225 @@ const matchRefusals = [
 for (const [what, fields] of matchRefusals) {
   const result = await a.client
     .from("watchlist_matches")
-    .insert({ watchlist_item_id: aItemId, shop_id: "rossmann", ...fields });
+    .insert({ watchlist_item_id: shapesItemId, shop_id: "natura", ...fields });
   check(`watchlist_matches refuses ${what}`, result.error?.code === "23514", show(result));
 }
 
-// 10. Removing a product removes its owner's decisions with it: the composite key cascades the delete, which needs no
+// 10. A product holds no decision in its own shop, the shop it was picked in: the trigger
+// watchlist_matches_not_own_shop refuses one in any state with 23001, by a direct insert and by record_decision alike,
+// before the table's checks and keys. It reads the product's own shop and refuses no fixed one, so for a product picked
+// in Natura it refuses Natura and lets Rossmann through. It reads the product as its caller, so to user B, user A's
+// product is one no one has: B's insert and save in their own name meet the composite key, 23503 and gone, and B's
+// insert in A's name meets the insert policy, 42501, as in 4. PostgreSQL checks that policy after a before trigger, so
+// only a trigger that reads the product as its caller lets that insert get so far, and the trigger tells B nothing
+// about A's product.
+const ownShopItemId = await addProduct(a, "A", rossmannItem("26902"));
+const ownShopDecisions = [
+  ["an automatic match", { state: "matched", decided_by: "auto", shop_item_id: "26902", name: "Soft" }],
+  ["the user's decline", userDecline],
+  ["a lookup's 'not found'", lookupNotFound],
+];
+for (const [what, decision] of ownShopDecisions) {
+  const inserted = await a.client
+    .from("watchlist_matches")
+    .insert({ watchlist_item_id: ownShopItemId, shop_id: "rossmann", ...decision });
+  const saved = await saveDecision(a.client, ownShopItemId, "rossmann", decision);
+  check(
+    `user A can't store ${what} in their product's own shop, by an insert or by record_decision`,
+    inserted.error?.code === "23001" && saved.error?.code === "23001",
+    `insert ${show(inserted)}, record_decision ${show(saved)}`,
+  );
+}
+const ownShopRows = await a.client
+  .from("watchlist_matches")
+  .select("id")
+  .eq("watchlist_item_id", ownShopItemId)
+  .eq("shop_id", "rossmann");
+check(
+  "user A reads no Rossmann decision for their product picked in Rossmann",
+  !ownShopRows.error && ownShopRows.data?.length === 0,
+  show(ownShopRows),
+);
+const fromNaturaItemId = await addProduct(a, "A", naturaProduct);
+const naturaDecision = await a.client
+  .from("watchlist_matches")
+  .insert({ watchlist_item_id: fromNaturaItemId, shop_id: "natura", ...userDecline });
+const rossmannDecision = await a.client
+  .from("watchlist_matches")
+  .insert({
+    watchlist_item_id: fromNaturaItemId,
+    shop_id: "rossmann",
+    state: "matched",
+    decided_by: "auto",
+    shop_item_id: "26900",
+    name: "Soft krem uniwersalny, nawilżający",
+  })
+  .select("shop_id")
+  .single();
+check(
+  "for user A's product picked in Natura, a Natura decision is refused and a Rossmann one stored",
+  naturaDecision.error?.code === "23001" && !rossmannDecision.error && rossmannDecision.data?.shop_id === "rossmann",
+  `Natura ${show(naturaDecision)}, Rossmann ${show(rossmannDecision)}`,
+);
+const missingItemId = randomUUID();
+const bOwnShopInsert = await b.client
+  .from("watchlist_matches")
+  .insert({ watchlist_item_id: ownShopItemId, user_id: b.id, shop_id: "rossmann", ...userDecline });
+const bMissingInsert = await b.client
+  .from("watchlist_matches")
+  .insert({ watchlist_item_id: missingItemId, user_id: b.id, shop_id: "rossmann", ...userDecline });
+const bOwnShopSave = await saveDecision(b.client, ownShopItemId, "rossmann", userDecline);
+const bMissingSave = await saveDecision(b.client, missingItemId, "rossmann", userDecline);
+check(
+  "user B's insert and save for user A's product in its own shop answer as for an id no one has: 23503 and gone",
+  bOwnShopInsert.error?.code === "23503" &&
+    bMissingInsert.error?.code === "23503" &&
+    bOwnShopSave.data === "gone" &&
+    bMissingSave.data === "gone",
+  `insert ${show(bOwnShopInsert)}, no one's ${show(bMissingInsert)}; ` +
+    `record_decision ${show(bOwnShopSave)}, no one's ${show(bMissingSave)}`,
+);
+const bInAsName = await b.client
+  .from("watchlist_matches")
+  .insert({ watchlist_item_id: ownShopItemId, user_id: a.id, shop_id: "rossmann", ...userDecline });
+check(
+  "user B can't add a decision in user A's name in that product's own shop, refused by RLS, not the trigger",
+  bInAsName.error?.code === "42501",
+  show(bInAsName),
+);
+
+// 11. record_decision saves a decision in one statement, as its caller, so RLS, the keys and the update grant bind it
+// as they bind a direct write. It inserts, or replaces the stored decision only while it's the one the save expects:
+// none, which also stands for a lookup that found nothing, the user's decline, or a match by its item and who decided
+// it (F4 in the review of M-2's S-01). It answers saved, decided when another decision stood, and gone when its caller
+// has no such product, another user's included. An expectation it can't read, or a shop no one knows, is an error,
+// never gone or decided, and changes nothing. User A's fresh product goes through a lookup, a retry, a first choice and
+// re-pins in Natura.
+const saveItemId = await addProduct(a, "A", rossmannItem("26903"));
+// Its decisions: what a save sets, the state, who decided, the item and checked_at, which moves on every write, and
+// the columns no save changes.
+const readSaved = () =>
+  a.client
+    .from("watchlist_matches")
+    .select("id, watchlist_item_id, user_id, shop_id, state, decided_by, shop_item_id, checked_at, created_at")
+    .eq("watchlist_item_id", saveItemId)
+    .order("shop_id");
+const sameRows = (read, earlier) => !read.error && JSON.stringify(read.data) === JSON.stringify(earlier.data);
+const anonSave = await saveDecision(anon, saveItemId, "natura", lookupNotFound);
+check("anon can't execute record_decision", anonSave.error?.code === "42501", show(anonSave));
+const lookupSaved = await saveDecision(a.client, saveItemId, "natura", lookupNotFound);
+const afterLookup = await readSaved();
+const lookupRow = afterLookup.data?.[0];
+check(
+  "user A saves a lookup's 'not found', expecting no decision",
+  lookupSaved.data === "saved" && afterLookup.data?.length === 1 && lookupRow?.state === "not_found",
+  `record_decision ${show(lookupSaved)}, rows ${show(afterLookup)}`,
+);
+// The save sends no time, so the database's clock stamps the replaced decision, as it stamped the inserted one.
+const retrySaved = await saveDecision(a.client, saveItemId, "natura", lookupNotFound);
+const afterRetry = await readSaved();
+const retryRow = afterRetry.data?.[0];
+check(
+  "a retry's save over that 'not found' is saved, and its checked_at moves forward on the database's clock",
+  retrySaved.data === "saved" &&
+    afterRetry.data?.length === 1 &&
+    retryRow.state === "not_found" &&
+    Date.parse(retryRow.checked_at) > Date.parse(lookupRow?.checked_at) &&
+    retryRow.created_at === lookupRow?.created_at,
+  `record_decision ${show(retrySaved)}, checked_at ${lookupRow?.checked_at} -> ${retryRow?.checked_at}`,
+);
+const confirmSaved = await saveDecision(a.client, saveItemId, "natura", userMatch(naturaItem));
+const afterConfirm = await readSaved();
+const confirmRow = afterConfirm.data?.[0];
+check(
+  "a first choice's confirm over it, expecting no decision, is saved as the user's match",
+  confirmSaved.data === "saved" &&
+    confirmRow?.state === "matched" &&
+    confirmRow.decided_by === "user" &&
+    confirmRow.shop_item_id === naturaItem.shop_item_id,
+  `record_decision ${show(confirmSaved)}, rows ${show(afterConfirm)}`,
+);
+// F4: a tab shown the rule's match of the item, which another tab has since made the user's, expects the rule's.
+const ruleExpected = await saveDecision(a.client, saveItemId, "natura", userMatch(otherNaturaItem), {
+  state: "matched",
+  shopItemId: naturaItem.shop_item_id,
+  decidedBy: "auto",
+});
+const afterRuleExpected = await readSaved();
+check(
+  "a save expecting that item matched by the rule, not by the user, is decided and changes nothing",
+  ruleExpected.data === "decided" && sameRows(afterRuleExpected, afterConfirm),
+  `record_decision ${show(ruleExpected)}, rows ${show(afterRuleExpected)}`,
+);
+const repinSaved = await saveDecision(a.client, saveItemId, "natura", userMatch(otherNaturaItem), {
+  state: "matched",
+  shopItemId: naturaItem.shop_item_id,
+  decidedBy: "user",
+});
+const afterRepin = await readSaved();
+const repinRow = afterRepin.data?.[0];
+check(
+  "a re-pin expecting the user's match of that item is saved, to the other item, on the same row",
+  repinSaved.data === "saved" &&
+    afterRepin.data?.length === 1 &&
+    repinRow.shop_item_id === otherNaturaItem.shop_item_id &&
+    ["id", "watchlist_item_id", "user_id", "shop_id", "created_at"].every(
+      (column) => repinRow[column] === lookupRow?.[column],
+    ),
+  `record_decision ${show(repinSaved)}, rows ${show(afterRepin)}`,
+);
+const declineExpected = await saveDecision(a.client, saveItemId, "natura", userDecline, { state: "unmatched" });
+const afterDeclineExpected = await readSaved();
+check(
+  "a save expecting a decline over that match is decided and changes nothing",
+  declineExpected.data === "decided" && sameRows(afterDeclineExpected, afterRepin),
+  `record_decision ${show(declineExpected)}, rows ${show(afterDeclineExpected)}`,
+);
+// User B's saves for user A's product: in Natura, where A has a decision, though B expects exactly that one, and in
+// Hebe, where A has none.
+const bOverDecision = await saveDecision(b.client, saveItemId, "natura", userMatch(naturaItem), {
+  state: "matched",
+  shopItemId: otherNaturaItem.shop_item_id,
+  decidedBy: "user",
+});
+const bWithoutDecision = await saveDecision(b.client, saveItemId, "hebe", userDecline);
+const bMissing = await saveDecision(b.client, missingItemId, "hebe", userDecline);
+const afterB = await readSaved();
+check(
+  "user B's saves for user A's product answer gone, where A has a decision and where A has none, as for no one's",
+  bOverDecision.data === "gone" &&
+    bWithoutDecision.data === "gone" &&
+    bMissing.data === "gone" &&
+    sameRows(afterB, afterDeclineExpected),
+  `record_decision ${show(bOverDecision)}, ${show(bWithoutDecision)}, no one's ${show(bMissing)}; ` +
+    `user A's rows ${show(afterB)}`,
+);
+// One expectation for each way the save can't read one: each would otherwise reach the conflict's where and answer
+// decided.
+const unreadableExpectations = [
+  ["a match without its decider", { state: "matched", shopItemId: otherNaturaItem.shop_item_id }],
+  ["a decline that names an item", { state: "unmatched", shopItemId: otherNaturaItem.shop_item_id }],
+  ["no decision, with a decider", { decidedBy: "user" }],
+  ["a state it doesn't know", { state: "not_found" }],
+];
+for (const [what, replaces] of unreadableExpectations) {
+  const result = await saveDecision(a.client, saveItemId, "natura", userDecline, replaces);
+  check(`record_decision refuses expecting ${what}`, result.error?.code === "22023", show(result));
+}
+const unknownShop = await saveDecision(a.client, saveItemId, "dm", lookupNotFound);
+check(
+  "record_decision refuses a shop no one knows through the shop's key, not as gone",
+  unknownShop.error?.code === "23503" && unknownShop.error.message.includes("watchlist_matches_shop_id_fkey"),
+  show(unknownShop),
+);
+const afterRefusals = await readSaved();
+check(
+  "the refused saves change none of user A's decisions",
+  sameRows(afterRefusals, afterDeclineExpected),
+  show(afterRefusals),
+);
+
+// 12. Removing a product removes its owner's decisions with it: the composite key cascades the delete, which needs no
 // delete grant on watchlist_matches. User B's product is the same Rossmann item, and B's decision for it stays.
 const aDecisions = () => a.client.from("watchlist_matches").select("id").eq("watchlist_item_id", aItemId);
 const aBefore = await aDecisions();

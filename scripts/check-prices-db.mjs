@@ -372,11 +372,12 @@ check("price_observations accepts a regular price and a 30-day low of 99999.99",
 // S-02's EAN rule joined the elements with commas, so it read an element holding a comma, or a two-dimensional array
 // (written as the literal Postgres reads it from), as a list of EANs.
 const eanShapes = [
-  { what: "an EAN holding a comma", eans: ["40059000,40059001"], shop: "rossmann" },
+  { what: "an EAN holding a comma", eans: ["40059000,40059001"], shop: "super-pharm" },
   { what: "a two-dimensional EAN array", eans: "{{40059000},{40059001}}", shop: "hebe" },
 ];
 for (const [index, { what, eans, shop }] of eanShapes.entries()) {
-  // A fresh product id, and a shop the product has no decision for, so a missing check shows up as an added row.
+  // A fresh product id, and a matched shop the product has no decision for yet (Super-Pharm's comes in 8), so a missing
+  // check shows up as an added row. Never Rossmann, the product's own shop, where a trigger refuses before any check.
   const product = await a.client.from("watchlist_items").insert({ ...rossmannItem(rossmannId(3 + index)), eans });
   check(`watchlist_items refuses ${what}`, product.error?.code === "23514", show(product));
   const match = await a.client

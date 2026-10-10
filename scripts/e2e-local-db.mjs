@@ -1,14 +1,17 @@
-// Local superuser access for the e2e tests (tests/e2e): what no user token may do. It holds every shop for a run, under
-// the run's own name, and switches only that run's shops back on afterwards; it reads the shop request log's sequence,
-// and it moves a seeded check back in time. Every statement runs as the local postgres superuser through `docker exec`
-// on the local stack's database container, so it can never reach a hosted project, and nothing runs unless .env and
-// .dev.vars point at the local stack.
+// Local superuser access for the e2e tests (tests/e2e) and the database tests: what no user token may do. It holds
+// every shop for a run, under the run's own name, and switches only that run's shops back on afterwards; it reads the
+// shop request log's sequence, it moves a seeded check back in time, and it holds a watched product's removal open while
+// a database test saves a decision for it (holdRemoval). Every statement runs as the local postgres superuser through
+// `docker exec` on the local stack's database container, so it can never reach a hosted project, and nothing runs
+// unless .env and .dev.vars point at the local stack.
 // Between runs, before exploring the app with playwright-cli: `node scripts/e2e-local-db.mjs stop`, then `restore`.
 
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
 // The repository's root: the files the guard judges are the ones the build reads, wherever the command runs from.
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -21,6 +24,10 @@ const HOLDER = /^[A-Za-z0-9-]{1,40}$/;
 const SHOP_ID = /^[a-z-]{1,40}$/;
 // The database's rule for a shop item id (watchlist_items, watchlist_matches, price_observations).
 const SHOP_ITEM_ID = /^[A-Za-z0-9._-]{1,40}$/;
+// A watched product's id, the one value a held removal puts into its statements.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// How long a held removal waits for a save to wait on it, and a test for the removal to be held, before giving up.
+const HOLD_SECONDS = 10;
 // The only SUPABASE_URL a run accepts: the local stack, over plain http, on any port, quoted or not.
 const LOCAL_URL = /^(["']?)http:\/\/(?:127\.0\.0\.1|localhost)(?::\d{1,5})?\/?\1$/;
 
@@ -121,6 +128,112 @@ export function sql(statement) {
     { encoding: "utf8" },
   );
   return output.split(/\r?\n/).filter((line) => line !== "");
+}
+
+// The wait inside a held removal's transaction, after its delete: until the transaction blocks another backend, as a
+// save that meets the deleted decision or product does. It reads the lock that backend waits for in pg_locks, which
+// every role may read and which is read afresh by each query, unlike pg_stat_activity, whose snapshot a transaction
+// keeps and which hides another role's wait from a role without pg_read_all_stats. Past HOLD_SECONDS it raises, which
+// rolls the removal back. Its text starts with its own dollar quote, by which a test finds it running (holdRemoval).
+const HOLD_WAIT = `do $hold_removal$
+declare
+  deadline constant timestamptz := clock_timestamp() + interval '${String(HOLD_SECONDS)} seconds';
+begin
+  loop
+    exit when exists (
+      select 1
+      from pg_locks as l
+      where not l.granted and pg_backend_pid() = any (pg_blocking_pids(l.pid))
+    );
+    if clock_timestamp() > deadline then
+      raise exception 'holdRemoval: no save waited on the removal within ${String(HOLD_SECONDS)} seconds';
+    end if;
+    perform pg_sleep(0.02);
+  end loop;
+end
+$hold_removal$`;
+
+/**
+ * Holds a watched product's removal open while a database test saves a decision for it, so the two overlap
+ * (src/lib/services/matches.db.test.ts). As the local superuser, in one transaction, it deletes the product, whose key
+ * deletes its decisions with it, then waits until its transaction blocks another backend (pg_blocking_pids), as a save
+ * that meets the deleted decision or product does, and commits at once, well within the store's 2-second limit. If
+ * nothing waits on it within HOLD_SECONDS, it rolls back and fails, so a test can't pass without the overlap. It starts
+ * psql without waiting for it, and gives two promises:
+ * - `held` resolves once the delete, its cascade included, has returned. psql sends each statement, one `-c` each, as
+ *   its own request in one session, so the hold's backend, found by its application_name, runs the wait only after the
+ *   delete; one `-c` holding every statement would be a single request, shown whole from the start.
+ * - `done` resolves once the removal commits, and rejects when it rolled back or psql failed.
+ * It refuses any id but a UUID, and, like sql(), runs nothing unless .env and .dev.vars point at the local stack.
+ * @param {string} itemId
+ * @returns {{ held: Promise<void>, done: Promise<void> }}
+ */
+export function holdRemoval(itemId) {
+  if (!UUID.test(itemId)) throw new Error(`refusing to hold the removal of ${itemId}`);
+  assertLocalSupabase();
+  const id = itemId.toLowerCase();
+  // The hold's backend, by its name: one product's removal is held at a time.
+  const holder = `hold-removal-${id}`;
+  const removal = promisify(execFile)("docker", [
+    "exec",
+    databaseContainer(),
+    "psql",
+    "-U",
+    "postgres",
+    "-d",
+    `dbname=postgres application_name=${holder}`,
+    "-v",
+    "ON_ERROR_STOP=1",
+    "-qAt",
+    "-c",
+    "begin",
+    "-c",
+    `do $remove$ begin delete from public.watchlist_items where id = '${id}'; if not found then raise exception 'holdRemoval: no watched product ${id}'; end if; end $remove$`,
+    "-c",
+    HOLD_WAIT,
+    "-c",
+    "commit",
+  ]);
+  let ended = false;
+  const done = removal.then(
+    () => {
+      ended = true;
+    },
+    (error) => {
+      ended = true;
+      throw new Error(`the held removal of ${id} failed: ${failureOf(error)}`);
+    },
+  );
+  const held = (async () => {
+    const deadline = Date.now() + HOLD_SECONDS * 1000;
+    for (;;) {
+      // sql() connects as the hold's own role, to which pg_stat_activity shows the hold's statement.
+      const waiting = sql(
+        `select pid from pg_stat_activity where application_name = '${holder}' and query like 'do $hold_removal$%'`,
+      );
+      if (waiting.length > 0) return;
+      if (ended) throw new Error(`the removal of ${id} ended before it was held`);
+      if (Date.now() > deadline) {
+        throw new Error(`the removal of ${id} wasn't held within ${String(HOLD_SECONDS)} seconds`);
+      }
+      await sleep(50);
+    }
+  })();
+  // Either may reject before a test awaits it, as when the other fails first; the test still sees it when it does.
+  held.catch(() => undefined);
+  done.catch(() => undefined);
+  return { held, done };
+}
+
+/**
+ * What a failed psql run said: its error output, or else the error's message.
+ * @param {unknown} error
+ * @returns {string}
+ */
+function failureOf(error) {
+  const stderr = typeof error === "object" && error !== null && "stderr" in error ? String(error.stderr).trim() : "";
+  if (stderr) return stderr;
+  return error instanceof Error ? error.message : String(error);
 }
 
 /**

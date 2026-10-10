@@ -1,24 +1,48 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { declinedRow, matchRow, naturaProductRow, notFoundRow, productRow } from "@/lib/services/testing/stored-rows";
-import { stubSupabase, TIMEOUT, type StubCall, type StubRelation } from "@/lib/services/testing/stub-supabase";
+import {
+  EXPECTS_DECLINE,
+  EXPECTS_NONE,
+  expectsMatch,
+  recordDecisionArgs,
+  type ExpectedArgs,
+  type SavedColumns,
+} from "@/lib/services/testing/record-decision";
+import {
+  declinedRow,
+  matchRow,
+  NO_ITEM_COLUMNS,
+  naturaProductRow,
+  notFoundRow,
+  productRow,
+} from "@/lib/services/testing/stored-rows";
+import {
+  stubSupabase,
+  TIMEOUT,
+  type StubCall,
+  type StubRelation,
+  type StubRpc,
+} from "@/lib/services/testing/stub-supabase";
 import { APP, contextOf, formPost, type FormFields } from "@/lib/services/testing/route-context";
 import { POST as postDecision } from "@/pages/api/watchlist/matches";
 
 // risk: #6, #1 and #4 (context/foundation/test-plan.md): a decision is stored over a newer one, along a move no page
 // offers or in the product's own shop, or another user's product answers unlike an id no one has.
 // facet: the decision route, called through its exported handler over the stand-in database, which serves the user's
-// product and its stored decisions and records every query, so each test sees where the route sends the user back to
-// and whether it wrote a decision. The stand-in's insert never conflicts, so a decision the route stores comes back
-// saved: the compare-and-swap over a stored decision, and the race between the route's read and its write, stay pinned
-// by matches.test.ts and matches.db.test.ts.
+// product and its stored decisions, answers the store's one call, record_decision, and records every query, so each
+// test sees where the route sends the user back to, whether it saved a decision, and what it handed the store: the
+// form's own state and item and, over a match, who decided it, as the guardian read it. The call answers saved unless a
+// test says otherwise, and each of the store's other outcomes, decided, gone or a failure, comes back as its own code.
+// What the database does with the call, the compare-and-swap over a stored decision and a removal during the save, is
+// pinned by matches.db.test.ts.
 // expected values: the code each case comes back with, as the decision-route-guardian plan's table states it and the
 // product's page reads it back (decisionBackTo): a shop outside the product's matched shops, its own included, or a
 // move no page's form offers (MatchChoice.astro) is invalid data, shown on no card for the own shop (the owner's call,
 // 2026-10-09); a form shown with another decision than the stored one finds the decision already stored, as does a
 // confirmation posted again after the first made the match the user's (the owner's call, 2026-10-10); a decision that
 // couldn't be read is a failure, never none; and another user's product answers exactly like an id no one has
-// (scripts/check-two-users.mjs). Never read off the route.
+// (scripts/check-two-users.mjs). The call's arguments are the decision-store-backstop plan's: all 16, the expected
+// decision by its state, its item and, for a match, who decided it. Never read off the route.
 
 const PRODUCT_ID = "9b9146bf-03e0-44ca-a9fc-1b1811c40ecb";
 // An id no product on the user's list has: RLS reads another user's product the same way.
@@ -48,6 +72,36 @@ const MEN = {
 };
 // Rossmann's Nivea Soft 300 ml, as a confirm form posts a Rossmann item.
 const ROSSMANN_SOFT = { ...SOFT, shopItemId: "26900", name: "Soft", productUrl: "", imageUrl: "" };
+
+// What the store saves of each of Natura's items the route admits: the user's match of it, its size read from its text
+// and an empty link as none; and the user's decline, which carries no item.
+const userMatchOfSoft: SavedColumns = {
+  state: "matched",
+  decided_by: "user",
+  shop_item_id: SOFT.shopItemId,
+  name: SOFT.name,
+  brand: "NIVEA",
+  size_text: "300 ml",
+  size_value: 300,
+  size_unit: "ml",
+  eans: SOFT.eans,
+  product_url: SOFT.productUrl,
+  image_url: SOFT.imageUrl,
+};
+const userMatchOfMen: SavedColumns = {
+  state: "matched",
+  decided_by: "user",
+  shop_item_id: MEN.shopItemId,
+  name: MEN.name,
+  brand: "NIVEA",
+  size_text: "500 ml",
+  size_value: 500,
+  size_unit: "ml",
+  eans: MEN.eans,
+  product_url: null,
+  image_url: null,
+};
+const userDecline: SavedColumns = { state: "unmatched", decided_by: "user", ...NO_ITEM_COLUMNS };
 
 // The product's stored decisions in Natura: the user's match of X, the same match by the matching rule, the user's
 // match of Z, which another tab stored, the user's decline, a lookup that found nothing, and a match without its item,
@@ -85,9 +139,18 @@ const decline = (replaces?: string): FormFields => decisionFields("decline", rep
 /** A decision posted as a form from the app's own page. */
 const decisionRequest = (fields: FormFields): Request => formPost("/api/watchlist/matches", fields);
 
-/** The stand-in database: the user's `product` row, Rossmann's Nivea Soft unless said otherwise, and its decisions. */
-function world(decisions: StubRelation, product: StubRelation = ROSSMANN_PRODUCT) {
-  return stubSupabase({ relations: { watchlist_items: product, watchlist_matches: decisions } });
+/** The store's call answering saved, as it does unless a test says otherwise. */
+const SAVED: StubRpc = () => ({ data: "saved" });
+
+/**
+ * The stand-in database: the user's `product` row, Rossmann's Nivea Soft unless said otherwise, its decisions, and the
+ * store's one call, record_decision, which answers `save`.
+ */
+function world(decisions: StubRelation, product: StubRelation = ROSSMANN_PRODUCT, save: StubRpc = SAVED) {
+  return stubSupabase({
+    relations: { watchlist_items: product, watchlist_matches: decisions },
+    rpc: { record_decision: save },
+  });
 }
 
 /** Where the route sends the user back to after `request`. */
@@ -96,18 +159,37 @@ async function locationAfter(request: Request, supabase: SupabaseClient | null):
   return response.headers.get("Location");
 }
 
-/** The writes the route made to the user's decisions: every insert or update on watchlist_matches, with its values. */
+/**
+ * The writes the route made to the user's decisions: every call to record_decision, with its arguments, and any insert
+ * or update on watchlist_matches, with its values, so a route that wrote past the store would show too.
+ */
 function decisionWrites(queries: StubCall[][]): StubCall[] {
-  return queries.flatMap(([[kind, relation], ...calls]) =>
-    kind === "from" && relation === "watchlist_matches"
+  return queries.flatMap(([first, ...calls]) => {
+    const [kind, name] = first;
+    if (kind === "rpc") {
+      return name === "record_decision" ? [first] : [];
+    }
+    return kind === "from" && name === "watchlist_matches"
       ? calls.filter(([method]) => method === "insert" || method === "update")
-      : [],
-  );
+      : [];
+  });
 }
 
-/** Each query the route made, in order, as its relation and what it did there, such as `watchlist_items select`. */
+/** The store's one call for a decision in `shop` of the user's product, with its 16 arguments. */
+const saveIn = (shop: string, columns: SavedColumns, expects: ExpectedArgs): StubCall => [
+  "rpc",
+  "record_decision",
+  recordDecisionArgs(PRODUCT_ID, shop, columns, expects),
+];
+
+/**
+ * Each query the route made, in order, as its relation and what it did there, such as `watchlist_items select`, or as
+ * the function it called, such as `rpc record_decision`.
+ */
 function queryKinds(queries: StubCall[][]): string[] {
-  return queries.map(([[, relation], [operation]]) => `${String(relation)} ${operation}`);
+  return queries.map(([[kind, name], [operation]]) =>
+    kind === "rpc" ? `rpc ${String(name)}` : `${String(name)} ${operation}`,
+  );
 }
 
 beforeEach(() => {
@@ -225,11 +307,7 @@ describe("/api/watchlist/matches reads the product and its decisions before any 
 
     await locationAfter(decisionRequest(confirm(SOFT)), client);
 
-    expect(queryKinds(queries)).toEqual([
-      "watchlist_items select",
-      "watchlist_matches select",
-      "watchlist_matches insert",
-    ]);
+    expect(queryKinds(queries)).toEqual(["watchlist_items select", "watchlist_matches select", "rpc record_decision"]);
   });
 });
 
@@ -339,14 +417,17 @@ describe("/api/watchlist/matches stores nothing the guardian refuses", () => {
 });
 
 describe("/api/watchlist/matches stores every decision the page's forms post", () => {
-  it.each<Move & { stores: Record<string, unknown> }>([
+  // Each post hands the store the form's own state and item, and the decision its form was shown with: none, the
+  // user's decline, or a match by its item and who decided it, as the guardian read it.
+  it.each<Move & { saves: SavedColumns; expects: ExpectedArgs }>([
     {
       post: "a first choice's confirm",
       over: "no decision",
       stored: [],
       fields: confirm(SOFT),
       code: "matched=1",
-      stores: { state: "matched", decided_by: "user", shop_item_id: SOFT.shopItemId },
+      saves: userMatchOfSoft,
+      expects: EXPECTS_NONE,
     },
     {
       post: "a first choice's decline",
@@ -354,7 +435,8 @@ describe("/api/watchlist/matches stores every decision the page's forms post", (
       stored: [notFound],
       fields: decline(),
       code: "declined=1",
-      stores: { state: "unmatched", decided_by: "user", shop_item_id: null },
+      saves: userDecline,
+      expects: EXPECTS_NONE,
     },
     {
       post: "a confirm of Y with matched:X",
@@ -362,7 +444,8 @@ describe("/api/watchlist/matches stores every decision the page's forms post", (
       stored: [userMatchOfX],
       fields: confirm(MEN, `matched:${SOFT.shopItemId}`),
       code: "matched=1",
-      stores: { state: "matched", decided_by: "user", shop_item_id: MEN.shopItemId },
+      saves: userMatchOfMen,
+      expects: expectsMatch(SOFT.shopItemId, "user"),
     },
     {
       post: "a decline with matched:X",
@@ -370,7 +453,8 @@ describe("/api/watchlist/matches stores every decision the page's forms post", (
       stored: [autoMatchOfX],
       fields: decline(`matched:${SOFT.shopItemId}`),
       code: "declined=1",
-      stores: { state: "unmatched", decided_by: "user", shop_item_id: null },
+      saves: userDecline,
+      expects: expectsMatch(SOFT.shopItemId, "auto"),
     },
     // The re-pin's choice still offers the item the rule matched on its own, and confirming it makes the match the
     // user's.
@@ -380,7 +464,8 @@ describe("/api/watchlist/matches stores every decision the page's forms post", (
       stored: [autoMatchOfX],
       fields: confirm(SOFT, `matched:${SOFT.shopItemId}`),
       code: "matched=1",
-      stores: { state: "matched", decided_by: "user", shop_item_id: SOFT.shopItemId },
+      saves: userMatchOfSoft,
+      expects: expectsMatch(SOFT.shopItemId, "auto"),
     },
     {
       post: "a confirm of Y with unmatched",
@@ -388,17 +473,16 @@ describe("/api/watchlist/matches stores every decision the page's forms post", (
       stored: [declined],
       fields: confirm(MEN, "unmatched"),
       code: "matched=1",
-      stores: { state: "matched", decided_by: "user", shop_item_id: MEN.shopItemId },
+      saves: userMatchOfMen,
+      expects: EXPECTS_DECLINE,
     },
-  ])("stores $post over $over, answering $code", async ({ stored, fields, code, stores }) => {
+  ])("stores $post over $over, answering $code", async ({ stored, fields, code, saves, expects }) => {
     const { client, queries } = world(stored);
 
     expect(await locationAfter(decisionRequest(fields), client)).toBe(
       `/watchlist/${PRODUCT_ID}?f=check&shop=natura&${code}`,
     );
-    expect(decisionWrites(queries)).toEqual([
-      ["insert", expect.objectContaining({ watchlist_item_id: PRODUCT_ID, shop_id: "natura", ...stores })],
-    ]);
+    expect(decisionWrites(queries)).toStrictEqual([saveIn("natura", saves, expects)]);
   });
 
   it("stores a decline in Rossmann, a matched shop of a product picked in Natura, answering declined=1", async () => {
@@ -407,17 +491,45 @@ describe("/api/watchlist/matches stores every decision the page's forms post", (
     expect(await locationAfter(decisionRequest({ ...decline(), shop: "rossmann" }), client)).toBe(
       `/watchlist/${PRODUCT_ID}?f=check&shop=rossmann&declined=1`,
     );
-    expect(decisionWrites(queries)).toEqual([
-      [
-        "insert",
-        expect.objectContaining({
-          watchlist_item_id: PRODUCT_ID,
-          shop_id: "rossmann",
-          state: "unmatched",
-          decided_by: "user",
-          shop_item_id: null,
-        }),
-      ],
+    expect(decisionWrites(queries)).toStrictEqual([saveIn("rossmann", userDecline, EXPECTS_NONE)]);
+  });
+});
+
+describe("/api/watchlist/matches answers each of the store's outcomes", () => {
+  // A re-pin's „Żaden z nich” on the user's match of X, which the guardian admits: what comes back is the store's.
+  const repinDecline = decline(`matched:${SOFT.shopItemId}`);
+
+  it.each<{ outcome: string; save: StubRpc; code: string }>([
+    // Another decision stood when the call ran: one stored meanwhile, from another tab.
+    { outcome: "decided", save: () => ({ data: "decided" }), code: "decided=1" },
+    // The product was removed before the call, or by a removal that reached the decision first.
+    { outcome: "gone", save: () => ({ data: "gone" }), code: "error=gone" },
+    {
+      outcome: "an error",
+      save: () => ({ error: { code: "57014", message: "canceling statement due to statement timeout" } }),
+      code: "error=failed",
+    },
+  ])("answers $code when the store's call answers $outcome, after one call", async ({ save, code }) => {
+    const { client, queries } = world([userMatchOfX], ROSSMANN_PRODUCT, save);
+
+    expect(await locationAfter(decisionRequest(repinDecline), client)).toBe(
+      `/watchlist/${PRODUCT_ID}?f=check&shop=natura&${code}`,
+    );
+    expect(decisionWrites(queries)).toStrictEqual([
+      saveIn("natura", userDecline, expectsMatch(SOFT.shopItemId, "user")),
+    ]);
+  });
+
+  it("expects the rule's match of X for a confirm of X with matched:X over it, and answers decided=1 when another tab made X the user's meanwhile", async () => {
+    // The guardian read an automatic match of X; another tab confirmed X before this post's call ran. The call, which
+    // expects the match decided by the rule, writes nothing over the user's own match and answers decided.
+    const { client, queries } = world([autoMatchOfX], ROSSMANN_PRODUCT, () => ({ data: "decided" }));
+
+    expect(await locationAfter(decisionRequest(confirm(SOFT, `matched:${SOFT.shopItemId}`)), client)).toBe(
+      `/watchlist/${PRODUCT_ID}?f=check&shop=natura&decided=1`,
+    );
+    expect(decisionWrites(queries)).toStrictEqual([
+      saveIn("natura", userMatchOfSoft, expectsMatch(SOFT.shopItemId, "auto")),
     ]);
   });
 });

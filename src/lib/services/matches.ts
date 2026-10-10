@@ -12,6 +12,7 @@ import { filterHref, type ListFilter } from "@/lib/services/watchlist-rows";
 import {
   SHOP_IDS,
   type MatchedItem,
+  type MatchState,
   type RepinnableMatch,
   type ShopId,
   type ShopLookup,
@@ -22,10 +23,12 @@ import {
 
 // Each watched product's decision per shop (public.watchlist_matches), private to its user. Every read and write goes
 // through the user's own client, so RLS keeps each user to their own decisions: a user reads, adds and changes only
-// their own. RLS lets a user change their decision in any state, so each write narrows itself to the decision it
-// expects (record). Each call gives up after 2 s, like the watchlist's.
+// their own. RLS lets a user change their decision in any state, so each write, one call to record_decision, narrows
+// itself to the decision it expects (record). Each call gives up after 2 s, like the watchlist's.
 const DATABASE_TIMEOUT_MS = 2000;
 const TABLE = "watchlist_matches";
+// The one statement that saves a decision (supabase/migrations/20261010190000_decision_store_backstop.sql).
+const SAVE = "record_decision";
 
 /**
  * A shop's own id for an item, such as Natura's SKU: the characters the table allows, within its limit. It goes into
@@ -45,6 +48,14 @@ const MATCHED_PREFIX = "matched:";
  * only that decision, as a compare-and-swap, so a form from a stale tab can't overwrite a newer one.
  */
 export type ExpectedDecision = { state: "matched"; shopItemId: string } | { state: "unmatched" };
+
+/**
+ * The decision a write replaces: the form's own state and item (ExpectedDecision), and for a match who decided it, as
+ * the guardian read it (admitDecision). So a match that changed hands since, such as an automatic one the user
+ * confirmed in another tab, stands as a decision other than the expected one.
+ */
+export type ReplacedDecision =
+  { state: "matched"; shopItemId: string; decidedBy: ShopMatch["decidedBy"] } | { state: "unmatched" };
 
 /**
  * The `replaces` field a re-pin's forms post for the decision they were shown with: `matched:<the item's id>` for a
@@ -69,8 +80,9 @@ const replacesSchema = z.union([
  * What every decision names, for one of `shops`: the user's product and the shop, and a re-pin's the decision it
  * replaces. The route takes every priced shop (PRICED_SHOPS), any of which can be a product's matched shop, so a
  * decision for a shop that isn't switched on fails. The form doesn't say which shop is the product's own: the guardian
- * refuses a decision there (admitDecision), and one stored there before is left out of every read of that product's
- * decisions (the rules below).
+ * refuses a decision there (admitDecision), and the database refuses to store one for any caller, record_decision's
+ * one call included (the trigger watchlist_matches_not_own_shop, 23001), which the store reads as a failure. Every
+ * read of a product's decisions leaves out its own shop too (the rules below).
  */
 function decisionFieldsFor(shops: readonly MatchableShop[]) {
   return {
@@ -220,13 +232,35 @@ export function decisionBackTo(
 }
 
 /**
- * What storing a decision came to. `decided`: the product's decision for the shop isn't the one the write expected to
- * replace, as after a double submit or from a stale tab, so it stands. `gone`: the product isn't on the user's list.
+ * What storing a decision came to, as record_decision's one call answers it. `decided`: the product's decision for the
+ * shop isn't the one the write expected to replace, as after a double submit, from a stale tab or over a match that
+ * changed hands, so it stands. `gone`: the product isn't on the user's list, removed before the save or by a removal
+ * that reached its decision first. `failed`: anything else, such as the database's refusal of a decision in the
+ * product's own shop, a call that timed out, or an answer the store can't read.
  */
 export type RecordResult = "saved" | "decided" | "gone" | "failed";
 
+/** A match's item columns, as watchlist_matches names them: a copy of what the shop showed for it, never its price. */
+interface ItemColumns {
+  shop_item_id: string | null;
+  name: string | null;
+  brand: string | null;
+  size_text: string | null;
+  size_value: number | null;
+  size_unit: Size["unit"] | null;
+  eans: string[];
+  product_url: string | null;
+  image_url: string | null;
+}
+
+/** A decision as the store writes it, by its columns: what was decided, by whom, and a match's item. */
+interface WrittenDecision extends ItemColumns {
+  state: MatchState;
+  decided_by: ShopMatch["decidedBy"];
+}
+
 // A decline or a lookup that found nothing carries none of the item's columns, as the table's checks require.
-const NO_ITEM = {
+const NO_ITEM: ItemColumns = {
   shop_item_id: null,
   name: null,
   brand: null,
@@ -239,7 +273,7 @@ const NO_ITEM = {
 };
 
 /** The item's columns: a copy of what the shop showed for it, never its price. */
-function itemColumns(item: MatchedItem) {
+function itemColumns(item: MatchedItem): ItemColumns {
   return {
     shop_item_id: item.shopItemId,
     name: item.name,
@@ -263,7 +297,7 @@ export function recordLookup(
   shop: ShopId,
   outcome: Extract<ShopLookup, { kind: "accepted" | "not-found" }>,
 ): Promise<RecordResult> {
-  const columns =
+  const columns: WrittenDecision =
     outcome.kind === "accepted"
       ? { state: "matched", decided_by: "auto", ...itemColumns(outcome.candidate) }
       : { state: "not_found", decided_by: "auto", ...NO_ITEM };
@@ -272,16 +306,17 @@ export function recordLookup(
 
 /**
  * Stores the user's decision for one shop: the candidate they confirmed, or "Żaden z nich". A re-pin's decision
- * replaces only the decision its form was shown with (`replaces`); a first choice's, only a lookup that found nothing.
+ * replaces only the decision its form was shown with (`replaces`), a match only while its item and who decided it
+ * still stand; a first choice's, only a lookup that found nothing.
  */
 export function recordDecision(
   supabase: SupabaseClient,
   itemId: string,
   shop: ShopId,
   decision: MatchDecision,
-  replaces: ExpectedDecision | null = null,
+  replaces: ReplacedDecision | null = null,
 ): Promise<RecordResult> {
-  const columns =
+  const columns: WrittenDecision =
     decision.action === "confirm"
       ? { state: "matched", decided_by: "user", ...itemColumns(decision.item) }
       : { state: "unmatched", decided_by: "user", ...NO_ITEM };
@@ -289,58 +324,62 @@ export function recordDecision(
 }
 
 /**
- * Inserts the product's decision for the shop, so a product no longer on the list reads `gone`. When it has one
- * already, the update changes it only while it's still the decision this write expects, as a compare-and-swap: the
- * one `replaces` names, its state and, for a match, its item, or without `replaces` a lookup that found nothing. RLS
- * lets the user change their own decision in any state, so the write narrows itself. The update asks for its rows
- * back, and no row back means the product's decision isn't the one expected: it was decided, or changed meanwhile.
+ * Saves the product's decision for the shop in one call to record_decision, one statement in the database: it inserts
+ * the decision, or replaces the stored one only while it's still the decision this write expects, as a
+ * compare-and-swap: the one `replaces` names, its state and, for a match, its item and who decided it, or without
+ * `replaces` none, which also stands for a lookup that found nothing. RLS lets the user change their own decision in
+ * any state, so the write narrows itself, and the database stamps its check time. The call answers saved, decided
+ * (another decision stood, so nothing was written) or gone (no such product on the user's list, also when a removal
+ * reached the decision first), so a removal never reads as decided. Anything else is a failure, logged once: an error,
+ * such as the database's refusal of a decision in the product's own shop (23001) or a call that timed out, and an
+ * answer the store can't read.
  */
 async function record(
   supabase: SupabaseClient,
   itemId: string,
   shop: ShopId,
-  columns: Record<string, unknown>,
-  replaces: ExpectedDecision | null,
+  columns: WrittenDecision,
+  replaces: ReplacedDecision | null,
 ): Promise<RecordResult> {
-  const inserted = await supabase
-    .from(TABLE)
-    .insert({ watchlist_item_id: itemId, shop_id: shop, ...columns })
+  const result = await supabase
+    .rpc(SAVE, saveArguments(itemId, shop, columns, replaces))
     .abortSignal(AbortSignal.timeout(DATABASE_TIMEOUT_MS));
-  if (!inserted.error) {
-    return "saved";
-  }
-  // The key to the user's own product: there's no such product on their list.
-  if (inserted.error.code === "23503") {
-    return "gone";
-  }
-  // Anything but the one-decision-per-shop key is a failure.
-  if (inserted.error.code !== "23505") {
-    logFailure("insert failed", inserted.error.message);
+  if (result.error) {
+    logFailure("save failed", result.error.message);
     return "failed";
   }
+  const answer: unknown = result.data;
+  if (answer === "saved" || answer === "decided" || answer === "gone") {
+    return answer;
+  }
+  logFailure("unexpected save result", answer === null ? "null" : typeof answer);
+  return "failed";
+}
 
-  const update = supabase
-    .from(TABLE)
-    .update({ ...columns, checked_at: new Date().toISOString() })
-    .eq("watchlist_item_id", itemId)
-    .eq("shop_id", shop);
-  const expected =
-    replaces === null
-      ? update.eq("state", "not_found")
-      : replaces.state === "matched"
-        ? update.eq("state", "matched").eq("shop_item_id", replaces.shopItemId)
-        : update.eq("state", "unmatched");
-  const updated = await expected.select("id").abortSignal(AbortSignal.timeout(DATABASE_TIMEOUT_MS));
-  if (updated.error) {
-    logFailure("update failed", updated.error.message);
-    return "failed";
-  }
-  const rows: unknown = updated.data;
-  if (!Array.isArray(rows)) {
-    logFailure("unexpected update result", typeof rows);
-    return "failed";
-  }
-  return rows.length > 0 ? "saved" : "decided";
+/**
+ * record_decision's arguments for a decision: all 16, each value as itself or null, since PostgREST finds the function
+ * by its arguments' names, and a key left undefined would be dropped from the call's body. The decision it replaces is
+ * none (three nulls), a match by its state, item and decider, or the user's decline by its state alone.
+ */
+function saveArguments(itemId: string, shop: ShopId, columns: WrittenDecision, replaces: ReplacedDecision | null) {
+  return {
+    p_item: itemId,
+    p_shop: shop,
+    p_state: columns.state,
+    p_decided_by: columns.decided_by,
+    p_shop_item_id: columns.shop_item_id,
+    p_name: columns.name,
+    p_brand: columns.brand,
+    p_size_text: columns.size_text,
+    p_size_value: columns.size_value,
+    p_size_unit: columns.size_unit,
+    p_eans: columns.eans,
+    p_product_url: columns.product_url,
+    p_image_url: columns.image_url,
+    p_replaces_state: replaces === null ? null : replaces.state,
+    p_replaces_item: replaces?.state === "matched" ? replaces.shopItemId : null,
+    p_replaces_decided_by: replaces?.state === "matched" ? replaces.decidedBy : null,
+  };
 }
 
 // Only the columns a decision shows; the row's own id and owner stay in the database.

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ExpectedDecision, MatchesRead, MatchForm } from "@/lib/services/matches";
+import type { ExpectedDecision, MatchesRead, MatchForm, ReplacedDecision } from "@/lib/services/matches";
+import { overMatch } from "@/lib/services/testing/record-decision";
 import {
   admitDecision,
   admitLookup,
@@ -94,15 +95,22 @@ const decline = (replaces: ExpectedDecision | null = null): MatchForm => ({
 const overMatchOf = (item: MatchedItem): ExpectedDecision => ({ state: "matched", shopItemId: item.shopItemId });
 const overDecline: ExpectedDecision = { state: "unmatched" };
 
+/**
+ * The decision an admitted change replaces over a match of `item`: the form's own state and item, with who decided the
+ * match the guardian read.
+ */
+const replacingMatchOf = (item: MatchedItem, decidedBy: ShopMatch["decidedBy"]): ReplacedDecision =>
+  overMatch(item.shopItemId, decidedBy);
+
 /** What the guardian says to `form` for `own`, by default the product picked in Rossmann, with these decisions. */
 function admit(stored: ShopMatch[], form: MatchForm, own: WatchlistProduct = product): DecisionAdmission {
   return admitDecision(watchedProductOf(own, read(...stored)), form);
 }
 
-/** The admission of a decision in Natura: recordDecision's arguments, the form's own `replaces` among them. */
-const admittedInNatura = (form: MatchForm): DecisionAdmission => ({
+/** The admission of a decision in Natura: recordDecision's arguments, the decision it replaces among them. */
+const admittedInNatura = (form: MatchForm, replaces: ReplacedDecision | null): DecisionAdmission => ({
   kind: "admitted",
-  change: { itemId: ITEM_ID, shop: "natura", decision: form.decision, replaces: form.replaces },
+  change: { itemId: ITEM_ID, shop: "natura", decision: form.decision, replaces },
 });
 
 const refusedAs = (reason: DecisionRefusal): DecisionAdmission => ({ kind: "refused", reason });
@@ -116,50 +124,71 @@ interface Move {
 }
 
 describe("admitDecision: the moves the page's forms post", () => {
-  it.each<Move>([
-    { post: "a first choice's confirm", over: "no decision", stored: [], form: confirm(itemX) },
-    { post: "a first choice's decline", over: "no decision", stored: [], form: decline() },
-    { post: "a first choice's confirm", over: "a lookup that found nothing", stored: [notFound], form: confirm(itemX) },
-    { post: "a first choice's decline", over: "a lookup that found nothing", stored: [notFound], form: decline() },
+  // Each admitted change carries the decision it replaces: the form's own `replaces` as posted, none or the user's
+  // decline, and over a match the form's state and item with who decided the match the guardian read, so the write
+  // refuses a match that changed hands since.
+  it.each<Move & { replaces: ReplacedDecision | null }>([
+    { post: "a first choice's confirm", over: "no decision", stored: [], form: confirm(itemX), replaces: null },
+    { post: "a first choice's decline", over: "no decision", stored: [], form: decline(), replaces: null },
+    {
+      post: "a first choice's confirm",
+      over: "a lookup that found nothing",
+      stored: [notFound],
+      form: confirm(itemX),
+      replaces: null,
+    },
+    {
+      post: "a first choice's decline",
+      over: "a lookup that found nothing",
+      stored: [notFound],
+      form: decline(),
+      replaces: null,
+    },
     {
       post: "a confirm of Y with matched:X",
       over: "an automatic match of X",
       stored: [autoMatchOfX],
       form: confirm(itemY, overMatchOf(itemX)),
+      replaces: replacingMatchOf(itemX, "auto"),
     },
     {
       post: "a confirm of Y with matched:X",
       over: "the user's match of X",
       stored: [userMatchOfX],
       form: confirm(itemY, overMatchOf(itemX)),
+      replaces: replacingMatchOf(itemX, "user"),
     },
     {
       post: "a decline with matched:X",
       over: "an automatic match of X",
       stored: [autoMatchOfX],
       form: decline(overMatchOf(itemX)),
+      replaces: replacingMatchOf(itemX, "auto"),
     },
     {
       post: "a decline with matched:X",
       over: "the user's match of X",
       stored: [userMatchOfX],
       form: decline(overMatchOf(itemX)),
+      replaces: replacingMatchOf(itemX, "user"),
     },
     {
       post: "a confirm of Y with unmatched",
       over: "the user's decline",
       stored: [declined],
       form: confirm(itemY, overDecline),
+      replaces: overDecline,
     },
-  ])("admits $post over $over, as the change recordDecision stores", ({ stored, form }) => {
-    expect(admit(stored, form)).toEqual(admittedInNatura(form));
+  ])("admits $post over $over, as the change recordDecision stores", ({ stored, form, replaces }) => {
+    expect(admit(stored, form)).toEqual(admittedInNatura(form, replaces));
   });
 
   it("admits a confirm of X with matched:X over an automatic match of X, which recordDecision makes the user's", () => {
-    // The re-pin's choice still offers the item the rule matched on its own, and confirming it stores it as the user's.
+    // The re-pin's choice still offers the item the rule matched on its own, and confirming it stores it as the user's,
+    // only while the rule's match stands: a match the user confirmed meanwhile, in another tab, is another decision.
     const form = confirm(itemX, overMatchOf(itemX));
 
-    expect(admit([autoMatchOfX], form)).toEqual(admittedInNatura(form));
+    expect(admit([autoMatchOfX], form)).toEqual(admittedInNatura(form, replacingMatchOf(itemX, "auto")));
   });
 });
 
@@ -213,7 +242,7 @@ describe("admitDecision: a shop whose decision couldn't be read", () => {
   it("admits a post in Natura beside Hebe's decision that couldn't be read", () => {
     const watched = watchedProductOf(product, { matches: [], unreadable: ["hebe"] });
 
-    expect(admitDecision(watched, confirm(itemX))).toEqual(admittedInNatura(confirm(itemX)));
+    expect(admitDecision(watched, confirm(itemX))).toEqual(admittedInNatura(confirm(itemX), null));
   });
 });
 
