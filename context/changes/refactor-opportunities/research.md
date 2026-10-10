@@ -570,7 +570,7 @@ Refinements to the analysis, from the sub-reports, each re-checked:
 ## Related Research
 
 - `context/changes/price-refresh-flow-analysis/research.md` - the analysis this change ranks
-- `context/changes/decision-store-backstop/research.md` and `context/changes/page-lookups-through-guardian/research.md`, on the branches `refactor/decision-store-backstop` and `refactor/page-lookups-through-guardian` - M-2's S-02 and S-03
+- `context/changes/decision-store-backstop/research.md`, on the branch `refactor/decision-store-backstop`, and `context/archive/2026-10-10-page-lookups-through-guardian/research.md` - M-2's S-02 and S-03
 - `context/domain/03-anti-corruption-layer.md`, `context/domain/02-invariant-aggregate-refactor.md`, `context/domain/domain-distillation.md`, `context/map/repo-map.md`
 
 ## Open Questions
