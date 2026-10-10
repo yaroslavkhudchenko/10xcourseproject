@@ -307,8 +307,9 @@ describe("priceTargetFor", () => {
   );
 
   it("gives changed for the item of a decision stored in a product's own shop, which its page never shows", async () => {
-    // Natura's NV81063 stored as a match of the product picked in Natura's NV89063, as a direct write could: the page
-    // shows the product's own item there, so a request naming NV81063 is a stale or crafted one.
+    // Natura's NV81063 stored as a match of the product picked in Natura's NV89063, as a direct write could before
+    // S-02's migration: the page shows the product's own item there, so a request naming NV81063 is a stale or crafted
+    // one.
     const { client } = stubClient({
       watchlist_items: { data: fromNaturaRow },
       watchlist_matches: { data: [{ ...matchedRow, shop_item_id: "NV81063" }] },

@@ -640,6 +640,7 @@ These run in CI only.
 
 ## Migration Notes
 
+- **The delete runs before the trigger exists (S-02's review, F5).** An own-shop insert committed between the two statements during the push, which only a crafted call could send, would have survived. The owner's count after the push, no decision in an own shop, rules that out. A later migration that adds a guard creates the guard first, then cleans up what it refuses.
 - **What it deletes.** The migration deletes own-shop decisions, which can't be undone, since migrations don't roll back (`context/deployment/deploy-plan.md:303`). The owner counts them first, and all decisions before and after the push, so a delete that removed more would show. The research expects none: no page ever offered one, and since PR #44 only a crafted post, until S-01's guardian, or a direct call could store one (research §4).
 - **The code still deployed** saves against the new schema: Phase 1's CI shows it, so the window between the push and the deploy, and any rollback of the Worker to code before S-02, keep working. This holds while the trigger and the delete stay as Phase 1 proved them (Critical Implementation Details, "Timing & lifecycle").
 - **Changing `record_decision`'s parameters later** needs a new migration that drops it first and grants it again. A changed signature beside the old one would add an overload, which PostgREST tells apart by argument names only.
@@ -682,6 +683,7 @@ These run in CI only.
 - **The lookups' and the page service's tests pin the call with `expect.objectContaining`** on the product, the shop, the state, `auto`, the item's id and the three nulls, not all 16 keys with `toStrictEqual`. Their candidates come from the adapters' recordings, and the store's tests pin every argument strictly. Two lookups keep pinning `p_size_text` and `p_eans`.
 - **Store test titles that described the insert and the update were reworded:** "…without an update" now ends "…as gone, as the call answers it", and a retry's match "…with a new check time" became "…, expecting no decision", since the database stamps the time. The store's read stub lost its unused `insert` and `update`. New store tests cover the answers it can't read and `recordLookup` passing `decided` and `gone` through. Two tests now make the same call as a neighbour, kept for their titles.
 - **The store logs a `null` answer's type as `null`,** where `typeof` would say `object`.
+- **The store's columns are typed** (`ItemColumns`, `WrittenDecision`), and `saveArguments` builds the call's 16 arguments from them, so "all 16 keys, never `undefined`" is a rule the compiler checks too (S-02's review, F9).
 - **The route's per-outcome table** (`decided`, `gone`, an error) runs on one post, a re-pin's decline over the user's match of X, and pins the call's arguments too.
 - **The database test's own-shop case also asserts the log line names `watchlist_matches_not_own_shop`,** so a failure for another reason, such as PGRST202, can't pass it.
 - **Checked offline only, not gates.**
@@ -715,7 +717,22 @@ These run in CI only.
   where m.shop_id = i.source;
   ```
 
-- **The push:** `npx.cmd supabase db push` from S-02's worktree (`10xcourseproject-wt`), linked there once with `npx.cmd supabase link`, at the branch's head f18182d, whose CI was green. `node scripts/check-migrations-applied.mjs` then printed `All 9 migrations are applied`.
+- **The push:** `npx.cmd supabase db push` from S-02's worktree (`10xcourseproject-wt`), linked there once with `npx.cmd supabase link`, at the branch's head f18182d, whose CI was green. `node scripts/check-migrations-applied.mjs` then printed `All 9 migrations are applied`. That check, which reads production's applied migrations, is the push's evidence: what `db push` listed and what `migration list --linked` printed weren't reported (S-02's review, F9).
+- **The merge came before the push (S-02's review, F1).** #55 was marked ready once its CI was green, and merged at 20:38 UTC on 2026-10-10, at f18182d, before the owner's `db push`. The checked deploy refused, as designed: Workers Builds failed 38 seconds after the merge and the `Deploy check` workflow failed, so nothing deployed and production stayed on the previous version, which Phase 1's CI showed works against the new schema. After the push, a retried build deploys. Row 4.7 stays unticked, since the merge didn't follow the push, and the plan-only commit recording the counts (52f493f) missed the merge and lands in the close-out as 601123a. A migration's pull request now stays in draft until the push is confirmed (`context/deployment/deploy-plan.md`, "Later migrations").
+
+### Review fixes (2026-10-10)
+
+The implementation review (`reviews/impl-review.md`, verdict APPROVED) found 1 warning and 8 observations, and the owner took every recommendation.
+
+- **F1, the merge before the push:** Phase 4's notes record the order, the refused build and its retry, row 4.7 stays unticked, and the runbook keeps a migration's pull request in draft until the push is confirmed.
+- **F2, what the F4 tests prove:** the two database cases and the check's comment say the match changes hands between the guardian's read and the save, not that a stale tab is refused: a form never carries the decider, so a post the guardian reads after the other tab's save lands (test plan §7).
+- **F3, the overlap with no decision stored:** a third held case in `matches.db.test.ts`, a lookup's first outcome on a product with no decision, answers `gone` while its removal is held.
+- **F4, `holdRemoval`'s own limits:** its session sets `lock_timeout` to 5 s, and `execFile` stops the docker client after `HOLD_SECONDS` plus 5 s.
+- **F5, the delete before the guard:** recorded in the Migration Notes, with the rule for later migrations.
+- **F6, six test comments:** a decision in a product's own shop is "one stored before S-02's migration", which the readers still leave out, no longer one a direct write could store.
+- **F7, the lookups' stub:** its dead `update` is gone.
+- **F8, four lines:** CLAUDE.md says neither `anon` nor `authenticated` may execute the trigger's function, the test plan that only the first EAN shape moved, and the roadmap's S-02 Risk that two direct inserts changed and the e2e seed didn't. Critical Implementation Details' "starts its insert again" holds only with a decision stored: with none, the product's key itself waits on the removal and then refuses the insert. The migration's own comment says the same and stays as pushed.
+- **F9, two facts:** the typed columns and `saveArguments` (Phase 2), and the push's evidence (Phase 4).
 
 ## Progress
 

@@ -237,9 +237,11 @@ describe("the decision write against the real database", () => {
     expect(await decisionOf(productId)).toMatchObject({ state: "matched", decided_by: "user", shop_item_id: X });
   });
 
-  // A match that changed hands (S-01's F4): a tab shown the automatic match of X posts after another tab made X the
-  // user's own. Its form names X, as the user's match does, so only who decided it tells them apart.
-  it("refuses a confirmation of X from a tab shown the automatic match of X, once another tab made X the user's", async () => {
+  // A match that changed hands (S-01's F4) between the guardian's read and the save: the guardian read the automatic
+  // match of X, and another tab made X the user's own before this save ran. The form names X either way, so only who
+  // decided it, as the guardian read it, tells them apart. A post the guardian reads after the other tab's save expects
+  // the user's match and lands, an edge context/foundation/test-plan.md §7 accepts.
+  it("refuses a confirmation of X once another tab makes X the user's between the guardian's read and the save", async () => {
     const productId = await matchedProduct(X);
     await expect(recordDecision(client, productId, SHOP, confirm(X), overMatch(X, "auto"))).resolves.toBe("saved");
 
@@ -248,7 +250,7 @@ describe("the decision write against the real database", () => {
     expect(await decisionOf(productId)).toMatchObject({ state: "matched", decided_by: "user", shop_item_id: X });
   });
 
-  it("refuses a pick of Y from a tab shown the automatic match of X, once another tab made X the user's", async () => {
+  it("refuses a pick of Y once another tab makes X the user's between the guardian's read and the save", async () => {
     const productId = await matchedProduct(X);
     await expect(recordDecision(client, productId, SHOP, confirm(X), overMatch(X, "auto"))).resolves.toBe("saved");
 
@@ -270,9 +272,10 @@ describe("the decision write against the real database", () => {
     expect(await whatRemains(productId)).toEqual({ products: [productId], decisions: [] });
   });
 
-  // A removal held open while a save runs: the removal has deleted the product and, through its key, the decision, and
-  // holds both until a save waits on it, then commits. The save, which met the decision being deleted, starts its
-  // insert again once the removal commits, and the product's key refuses it: gone, never decided.
+  // A removal held open while a save runs: the removal has deleted the product and, through its key, any decision, and
+  // holds them until a save waits on it, then commits. A save that met the decision being deleted starts its insert
+  // again once the removal commits; with no decision stored, the product's key waits on the removal itself. Either way
+  // the product's key then refuses the insert: gone, never decided.
   it("answers a re-pin over a match gone while the product's removal, held open, deletes it", async () => {
     const productId = await matchedProduct(X);
     const { held, done } = holdRemoval(productId);
@@ -290,6 +293,22 @@ describe("the decision write against the real database", () => {
   it("answers a retry's lookup over „not found” gone while the product's removal, held open, deletes it", async () => {
     const productId = await addProduct();
     await expect(recordLookup(client, productId, SHOP, { kind: "not-found" })).resolves.toBe("saved");
+    const { held, done } = holdRemoval(productId);
+    await held;
+
+    const [result] = await Promise.all([
+      recordLookup(client, productId, SHOP, { kind: "accepted", candidate: candidateOf(X) }),
+      done,
+    ]);
+
+    expect(result).toBe("gone");
+    expect(await whatRemains(productId)).toEqual({ products: [], decisions: [] });
+  });
+
+  it("answers a lookup's first outcome gone while the product's removal, held open, deletes the product", async () => {
+    // No decision is stored, so the save meets no row of its own: the product's key waits on the removal that holds the
+    // product, and refuses the insert once the removal commits.
+    const productId = await addProduct();
     const { held, done } = holdRemoval(productId);
     await held;
 

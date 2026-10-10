@@ -164,6 +164,8 @@ $hold_removal$`;
  *   its own request in one session, so the hold's backend, found by its application_name, runs the wait only after the
  *   delete; one `-c` holding every statement would be a single request, shown whole from the start.
  * - `done` resolves once the removal commits, and rejects when it rolled back or psql failed.
+ * Its session gives up on a lock after 5 s, and the docker client is stopped after HOLD_SECONDS plus 5 s, so a delete
+ * blocked by another open transaction, such as one left in a local psql, fails rather than waits forever.
  * It refuses any id but a UUID, and, like sql(), runs nothing unless .env and .dev.vars point at the local stack.
  * @param {string} itemId
  * @returns {{ held: Promise<void>, done: Promise<void> }}
@@ -174,26 +176,32 @@ export function holdRemoval(itemId) {
   const id = itemId.toLowerCase();
   // The hold's backend, by its name: one product's removal is held at a time.
   const holder = `hold-removal-${id}`;
-  const removal = promisify(execFile)("docker", [
-    "exec",
-    databaseContainer(),
-    "psql",
-    "-U",
-    "postgres",
-    "-d",
-    `dbname=postgres application_name=${holder}`,
-    "-v",
-    "ON_ERROR_STOP=1",
-    "-qAt",
-    "-c",
-    "begin",
-    "-c",
-    `do $remove$ begin delete from public.watchlist_items where id = '${id}'; if not found then raise exception 'holdRemoval: no watched product ${id}'; end if; end $remove$`,
-    "-c",
-    HOLD_WAIT,
-    "-c",
-    "commit",
-  ]);
+  const removal = promisify(execFile)(
+    "docker",
+    [
+      "exec",
+      databaseContainer(),
+      "psql",
+      "-U",
+      "postgres",
+      "-d",
+      `dbname=postgres application_name=${holder}`,
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-qAt",
+      "-c",
+      "set lock_timeout = '5s'",
+      "-c",
+      "begin",
+      "-c",
+      `do $remove$ begin delete from public.watchlist_items where id = '${id}'; if not found then raise exception 'holdRemoval: no watched product ${id}'; end if; end $remove$`,
+      "-c",
+      HOLD_WAIT,
+      "-c",
+      "commit",
+    ],
+    { timeout: (HOLD_SECONDS + 5) * 1000 },
+  );
   let ended = false;
   const done = removal.then(
     () => {

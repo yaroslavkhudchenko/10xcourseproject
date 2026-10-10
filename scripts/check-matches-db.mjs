@@ -531,7 +531,8 @@ check(
     confirmRow.shop_item_id === naturaItem.shop_item_id,
   `record_decision ${show(confirmSaved)}, rows ${show(afterConfirm)}`,
 );
-// F4: a tab shown the rule's match of the item, which another tab has since made the user's, expects the rule's.
+// F4: a save that expects the rule's match of the item, as the guardian read it, after another tab made the item the
+// user's between that read and the save.
 const ruleExpected = await saveDecision(a.client, saveItemId, "natura", userMatch(otherNaturaItem), {
   state: "matched",
   shopItemId: naturaItem.shop_item_id,

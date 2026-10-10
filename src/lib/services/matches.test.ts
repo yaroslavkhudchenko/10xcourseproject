@@ -707,7 +707,7 @@ describe("recordDecision: a re-pin replaces only the decision its form was shown
   it("makes an automatic match the user's own when they confirm its item, only while it's still the one shown", async () => {
     // The re-pin's choice offers the item the rule matched on its own: confirming it stores the same item as matched,
     // decided by the user, over that very match, which the call expects decided by the rule. So a match the user
-    // confirmed meanwhile, in another tab, stands.
+    // confirmed in another tab after the guardian read it stands.
     const { client, queries } = saving();
 
     const result = await recordDecision(

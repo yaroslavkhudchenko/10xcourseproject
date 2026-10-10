@@ -102,7 +102,7 @@ const NATURA_PRODUCT_RELATIONS: Record<string, StubRelation> = {
   price_observations: [],
 };
 
-/** The product picked in Natura with a match stored in Natura too, its own shop, as a direct write could store it. */
+/** The product picked in Natura with a match in Natura too, its own shop, as one stored before S-02's migration. */
 const WITH_OWN_SHOP_MATCH: Record<string, StubRelation> = {
   ...NATURA_PRODUCT_RELATIONS,
   watchlist_matches: [
