@@ -15,6 +15,11 @@ export interface StubError {
 /** A relation's canned answer: its rows, or the error every query of it gets. */
 export type StubRelation = readonly Record<string, unknown>[] | { error: StubError };
 
+/** A relation whose every query times out, as Postgres cancels a statement that runs too long. */
+export const TIMEOUT: StubRelation = {
+  error: { code: "57014", message: "canceling statement due to statement timeout" },
+};
+
 /** What an RPC answers to its arguments: its data, or an error. */
 export type StubRpc = (args: unknown) => { data?: unknown; error?: StubError };
 

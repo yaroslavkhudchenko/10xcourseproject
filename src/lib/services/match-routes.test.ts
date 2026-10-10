@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { declinedRow, matchRow, naturaProductRow, notFoundRow, productRow } from "@/lib/services/testing/stored-rows";
-import { stubSupabase, type StubCall, type StubRelation } from "@/lib/services/testing/stub-supabase";
+import { stubSupabase, TIMEOUT, type StubCall, type StubRelation } from "@/lib/services/testing/stub-supabase";
 import { APP, contextOf, formPost, type FormFields } from "@/lib/services/testing/route-context";
 import { POST as postDecision } from "@/pages/api/watchlist/matches";
 
@@ -58,8 +58,6 @@ const matchOfZ = matchRow(PRODUCT_ID, "natura", "JM00370");
 const declined = declinedRow(PRODUCT_ID, "natura");
 const notFound = notFoundRow(PRODUCT_ID, "natura");
 const unreadable = { ...userMatchOfX, shop_item_id: null };
-
-const TIMEOUT: StubRelation = { error: { code: "57014", message: "canceling statement due to statement timeout" } };
 
 /** The user's product, Rossmann's Nivea Soft, picked there: its matched shops are Natura, Hebe and Super-Pharm. */
 const ROSSMANN_PRODUCT = [productRow(PRODUCT_ID, "26900")];

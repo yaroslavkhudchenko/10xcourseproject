@@ -147,7 +147,7 @@ export async function listTargets(
  * once (loadWatchedProduct), and only its matched shops' standings count: a decision stored in its own shop is left
  * out, and so is a row there that couldn't be read. A matched shop whose decision couldn't be read has no item to fetch
  * and is named unread, in the priced shops' order, while the other shops' items are still fetched, as the island asks
- * each shop on its own (shopItemFor). The product's read decides first: none for a product that isn't on the user's
+ * each shop on its own (priceTargetFor). The product's read decides first: none for a product that isn't on the user's
  * list, whatever its decisions' read (RLS answers another user's product the same way), so it asks no shop; `failed`
  * when the product couldn't be read, or its decisions couldn't be read at all.
  */

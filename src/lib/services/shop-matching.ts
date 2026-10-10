@@ -27,7 +27,13 @@ import { toShopQuery } from "@/lib/services/search-query";
 import type { ShopGate } from "@/lib/services/shop-gate";
 import { SHOP_ADAPTERS } from "@/lib/services/shops/registry";
 import { splitTrailingSize } from "@/lib/services/size";
-import { admitLookup, matchedShopsIn, type LoadedProduct, type Standing } from "@/lib/services/watched-product";
+import {
+  admitLookup,
+  matchedShopsIn,
+  type LoadedProduct,
+  type LookupRefusal,
+  type Standing,
+} from "@/lib/services/watched-product";
 import type { ListFilter } from "@/lib/services/watchlist-rows";
 import { shopUnavailableText } from "@/lib/shop-messages";
 import type {
@@ -388,6 +394,7 @@ async function lookupOutcome(
       if (admission.kind === "refused") {
         // Nothing is stored. A settled decision stands, as when the store finds one meanwhile; a decision that couldn't
         // be read, or a shop that isn't one of the product's matched shops, shows as a decision that couldn't be read.
+        logRefusedLookup(shop, admission.reason);
         return {
           ...SHOWN_ONLY,
           view: admission.reason === "settled" ? decidedView(product, filter) : { kind: "read-failed" },
@@ -430,6 +437,17 @@ async function lookupOutcome(
 /** The card of a shop that gave no answer, in the words every page uses. */
 function unavailableView(shop: MatchableShop, { reason, until }: ShopUnavailable): MatchView {
   return { kind: "unavailable", message: shopUnavailableText(SHOP_LABELS[shop].name, reason, until) };
+}
+
+/**
+ * Logs a lookup's outcome the guardian refused, by the shop and the refusal alone. The steps look a shop up only where
+ * the guardian admits what it finds, so a refusal means the two rules have drifted apart, after the lookup's searches
+ * were spent.
+ */
+function logRefusedLookup(shop: MatchableShop, refusal: LookupRefusal): void {
+  const entry = { event: "shop-lookup", shop, reason: "lookup refused", refusal };
+  // eslint-disable-next-line no-console -- one line per refused lookup; Workers observability collects it.
+  console.warn(JSON.stringify(entry));
 }
 
 /**

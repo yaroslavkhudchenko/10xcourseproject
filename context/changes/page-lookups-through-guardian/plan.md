@@ -651,6 +651,15 @@ None. No migration runs and no stored row changes. S-02 rebases onto this slice 
 - **The glossary's row widens its table:** Prettier re-pads the other rows of the Matching table, whitespace only.
 - **Left as they are:** the glossary's "decision" row ("guarded by `admitDecision`"), outside the contract; the comments that name `matchedShopsOf` as the matched shops' derivation (`parseMatchedShop`, `registry.ts`, `match-card.ts`, `PriceComparison.tsx`), which stay true; and the test plan's dated §6.6 notes, which are history.
 
+### Review fixes (2026-10-10)
+
+The implementation review (`reviews/impl-review.md`, verdict APPROVED) found 4 observations, and the owner took every recommendation.
+
+- **F1, a refused lookup:** `lookupOutcome` logs one `shop-lookup` line naming the shop and the refusal (`logRefusedLookup`), as it logs a step that threw. No refusal can happen, since the steps look a shop up only where the guardian admits what it finds. A deliberate break of the guardian printed the line and turned 14 lookup tests red.
+- **F2, the admissions' first checks:** `readableStanding` in `watched-product.ts` holds the matched-shop check and the unreadable check, in that order, and both admissions start with it. The guardian's tests are unchanged.
+- **F3, the timeout fixture** (lesson "Define shared constants and helpers once"): `TIMEOUT` is exported once from `src/lib/services/testing/stub-supabase.ts`, in place of three copies in `match-routes.test.ts`, `matches.test.ts` and `product-page.test.ts`, and the test plan's pattern 1 names it.
+- **F4, the documents:** `productTargets`' doc names `priceTargetFor`, as `matches.ts` and CLAUDE.md do, and the glossary's decision row names `admitLookup` beside `admitDecision`.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
