@@ -658,6 +658,20 @@ These run in CI only.
   - anon's refusals of a function (`scripts/check-shop-gate-db.mjs:115-127`);
   - a migration checked against the code still deployed (`context/archive/2026-10-01-fix-matches-and-watchlist/plan.md:98`)
 
+## Implementation Notes
+
+### Phase 1
+
+- **The migration's version is `20261010190000`,** after `20261006221608_price_history.sql`. No test pins the list: the deploy gate's test reads the folder (`scripts/check-migrations-applied.test.mjs:79`), and the new name matches its pattern.
+- **`check-matches-db.mjs`'s new sections are 10 (the own shop) and 11 (`record_decision`),** so the removal moves from 10 to 12, and section 7's pointer to it follows.
+- **Each section adds its own product.** `addProduct` takes an optional product row, Rossmann's 26900 by default. Section 9 adds Rossmann 26901, section 10 Rossmann 26902 and, for its negative control, Natura NV89063, and section 11 Rossmann 26903. Each check's name names the shop and the id.
+- **Section 11's user B calls after A's six steps,** on the same product, so B meets a shop where A has a decision (Natura, B's call expecting A's re-pinned match exactly) and one where A has none. The contract lists B's calls first.
+- **Section 11 proves each rule of the expectation check with its own 22023:** a match without its decider (the contract's case), a decline naming an item, no decision but a decider, and an unknown state. The unknown shop's 23503 also names `watchlist_matches_shop_id_fkey`.
+- **Step 4 (F4) re-pins to the other item** while expecting the rule's match of X, rather than confirming X again, so "nothing changes" shows in the item as well as in `checked_at`.
+- **The catalogue reads a function's security into the row's `invoker` field** (`not prosecdef`), which then means "runs as its caller" for views and functions alike.
+- **The table's comment is two string literals** joined by SQL's newline continuation, to stay within 120 columns.
+- **Checked locally on PGlite only, not a gate.** In the scratchpad, every migration applied on Postgres 17.5 and 18.3, with stubs for `auth` and the API roles. The delete, the trigger, `record_decision`'s six steps and refusals, and today's insert-then-update store behaved as the contract says. Copies of the three checks passed against a small PostgREST-like stand-in, and each failed when its rule was removed. Real PostgREST, the CLI's apply and concurrency are CI's.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -666,12 +680,12 @@ These run in CI only.
 
 #### Automated
 
-- [ ] 1.1 The branch sits on `main` with S-01 and S-03 merged: after `git fetch origin`, `git merge-base --is-ancestor origin/main HEAD` exits 0 and `git log --merges --oneline origin/main | grep -c "/refactor/page-lookups-through-guardian$"` prints 1
-- [ ] 1.2 S-03 left what Phase 2 builds on: `git grep -n "admitLookup" -- src/lib/services/watched-product.ts src/lib/services/shop-matching.ts` finds its definition and its call in the lookup's step, and `git grep -nE "(recordLookup|recordDecision)\(" -- src ':!*.test.ts'` finds the two definitions in `matches.ts` and one caller each, in `shop-matching.ts` and the decision route
-- [ ] 1.3 Lint passes: `npm run lint`
-- [ ] 1.4 The unit suite passes, the deploy gate's test reading the new migration's version among them: `npm run test`
-- [ ] 1.5 Types check: `npx astro sync && npx astro check`
-- [ ] 1.6 Phase 1 leaves the app's code and tests alone: `git diff --name-only origin/main...HEAD -- src tests` prints nothing
+- [x] 1.1 The branch sits on `main` with S-01 and S-03 merged: after `git fetch origin`, `git merge-base --is-ancestor origin/main HEAD` exits 0 and `git log --merges --oneline origin/main | grep -c "/refactor/page-lookups-through-guardian$"` prints 1
+- [x] 1.2 S-03 left what Phase 2 builds on: `git grep -n "admitLookup" -- src/lib/services/watched-product.ts src/lib/services/shop-matching.ts` finds its definition and its call in the lookup's step, and `git grep -nE "(recordLookup|recordDecision)\(" -- src ':!*.test.ts'` finds the two definitions in `matches.ts` and one caller each, in `shop-matching.ts` and the decision route
+- [x] 1.3 Lint passes: `npm run lint`
+- [x] 1.4 The unit suite passes, the deploy gate's test reading the new migration's version among them: `npm run test`
+- [x] 1.5 Types check: `npx astro sync && npx astro check`
+- [x] 1.6 Phase 1 leaves the app's code and tests alone: `git diff --name-only origin/main...HEAD -- src tests` prints nothing
 - [ ] 1.7 CI only: CI's `smoke` job passes on Phase 1's commit: the migration applies, the database checks pass with the new refusals, and `npm run test:db`, smoke and the two-user check pass with the store unchanged
 - [ ] 1.8 CI only: CI's `e2e` job passes on Phase 1's commit, the seed's direct decision inserts and the two specs that tap „Żaden z nich” included
 

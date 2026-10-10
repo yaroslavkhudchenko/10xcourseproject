@@ -1,9 +1,10 @@
 // Database contract check: holds the public schema to the relations and functions this app's migrations make, each
 // with its protection, so a new one can't slip in unprotected (test plan risk #4: "a new table inherits the rules").
 // As the local superuser (scripts/e2e-local-db.mjs) it fails on a relation or a function outside the reviewed list
-// below, a table without RLS, a view that doesn't run as its caller (security_invoker), any privilege of anon but
-// EXECUTE on applied_migrations(), and a function PUBLIC may execute. It first shows it can see each of those faults:
-// scratch objects that carry them, made in a transaction that is rolled back, must be flagged.
+// below, a table without RLS, a view that doesn't run as its caller (security_invoker), a function whose security,
+// definer or invoker, isn't its reviewed one, any privilege of anon but EXECUTE on applied_migrations(), and a function
+// PUBLIC may execute. It first shows it can see each of those faults: scratch objects that carry them, and
+// record_decision made security definer, all in a transaction that is rolled back, must be flagged.
 // Run: node scripts/check-catalog-db.mjs, with the local stack running and .env and .dev.vars pointing at it. It only
 // reads the catalogue, and its scratch objects never outlive their transaction. A migration that adds a table, a view
 // or a function adds it to the reviewed list, together with its protection.
@@ -34,11 +35,18 @@ const RELATIONS = new Map([
   ["latest_price_observations", "view"],
   ["price_summaries", "view"],
 ]);
-const FUNCTIONS = [
-  "applied_migrations()",
-  "report_shop_block(text, text, integer, text)",
-  "reserve_shop_request(text)",
-];
+// Each function with its security: a definer runs as its owner, past RLS, and an invoker as its caller, under RLS. So
+// record_decision, which writes the caller's own decisions, is bound by RLS only while it's an invoker, and the
+// trigger's function reads a product as its caller, to whom another user's product is one no one has.
+const RECORD_DECISION =
+  "record_decision(uuid, text, text, text, text, text, text, text, numeric, text, text[], text, text, text, text, text)";
+const FUNCTIONS = new Map([
+  ["applied_migrations()", "definer"],
+  [RECORD_DECISION, "invoker"],
+  ["refuse_own_shop_decision()", "invoker"],
+  ["report_shop_block(text, text, integer, text)", "definer"],
+  ["reserve_shop_request(text)", "definer"],
+]);
 // anon's one privilege: the deploy gate asks this function with the publishable key alone
 // (supabase/migrations/20261006183345_applied_migrations.sql).
 const ANON_EXECUTES = "applied_migrations()";
@@ -55,7 +63,8 @@ const SEQUENCE_PRIVILEGES = "USAGE, SELECT, UPDATE";
 // - a relation PostgREST could serve: its name, its relkind, whether RLS is on, whether it runs as its caller, and
 //   whether anon holds any privilege on it or on one of its columns;
 // - a sequence: its name and whether anon holds any privilege on it;
-// - a function: its name and argument types, whether PUBLIC may execute it, and whether anon may;
+// - a function: its name and argument types, whether PUBLIC may execute it, whether it runs as its caller (it isn't
+//   security definer), and whether anon may execute it;
 // - the schema itself: whether anon may create in it. Its USAGE stays, since anon's call of applied_migrations() needs it.
 const CATALOGUE = `
 select 'relation', c.relname::text, c.relkind::text, c.relrowsecurity::text,
@@ -73,7 +82,7 @@ union all
 select 'function', p.proname || '(' || oidvectortypes(p.proargtypes) || ')', '',
   exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
     where a.grantee = 0 and a.privilege_type = 'EXECUTE')::text,
-  '', has_function_privilege('anon', p.oid, 'EXECUTE')::text
+  (not p.prosecdef)::text, has_function_privilege('anon', p.oid, 'EXECUTE')::text
 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
 where n.nspname = 'public'
 union all
@@ -99,17 +108,23 @@ function faultsOf(rows) {
   const functions = rows.filter((row) => row.type === "function");
   const kindOf = (row) => KINDS[row.relkind] ?? `relkind ${row.relkind}`;
   const named = (row) => (row.type === "relation" ? `${kindOf(row)} ${row.name}` : `${row.type} ${row.name}`);
+  const securityOf = (row) => (row.invoker === "true" ? "invoker" : "definer");
   return {
     unreviewed: [
       ...relations.filter((row) => RELATIONS.get(row.name) !== kindOf(row)),
-      ...functions.filter((row) => !FUNCTIONS.includes(row.name)),
+      ...functions.filter((row) => !FUNCTIONS.has(row.name)),
     ].map(named),
     missing: [
       ...[...RELATIONS].filter(([name, kind]) => !relations.some((row) => row.name === name && kindOf(row) === kind)),
-      ...FUNCTIONS.filter((name) => !functions.some((row) => row.name === name)).map((name) => [name, "function"]),
+      ...[...FUNCTIONS.keys()]
+        .filter((name) => !functions.some((row) => row.name === name))
+        .map((name) => [name, "function"]),
     ].map(([name, kind]) => `${kind} ${name}`),
     withoutRls: relations.filter((row) => kindOf(row) === "table" && row.flag !== "true").map(named),
     withoutInvoker: relations.filter((row) => kindOf(row) === "view" && row.invoker !== "true").map(named),
+    otherSecurity: functions
+      .filter((row) => FUNCTIONS.has(row.name) && FUNCTIONS.get(row.name) !== securityOf(row))
+      .map(named),
     anon: rows
       .filter((row) => row.anon === "true" && !(row.type === "function" && row.name === ANON_EXECUTES))
       .map(named),
@@ -121,7 +136,7 @@ const list = (names) => (names.length === 0 ? "none" : names.join(", "));
 
 // 1. The self-test: scratch objects that carry every fault the check looks for, flagged in the same transaction that
 // made them, which is then rolled back. A table without RLS that anon may read, a view that runs as its owner, and a
-// function PUBLIC may execute, all outside the reviewed list.
+// function PUBLIC may execute, all outside the reviewed list, and record_decision made to run as its owner.
 const SCRATCH = "catalog_check_scratch";
 const scratchTable = `table ${SCRATCH}`;
 const scratchView = `view ${SCRATCH}_view`;
@@ -137,6 +152,7 @@ grant select on table public.${SCRATCH} to anon;
 create view public.${SCRATCH}_view as select 1 as one;
 create function public.${SCRATCH}_function() returns integer language sql as 'select 1';
 grant execute on function public.${SCRATCH}_function() to public;
+alter function public.${RECORD_DECISION} security definer;
 ${CATALOGUE};
 rollback;`),
   );
@@ -159,6 +175,11 @@ check(
   "the self-test flags its scratch view, which runs as its owner",
   flags(scratch.withoutInvoker, scratchView),
   list(scratch.withoutInvoker),
+);
+check(
+  "the self-test flags record_decision made security definer, which runs as its owner",
+  flags(scratch.otherSecurity, `function ${RECORD_DECISION}`),
+  list(scratch.otherSecurity),
 );
 check(
   "the self-test flags anon's privileges on its scratch table and function",
@@ -197,6 +218,11 @@ check(
   "every public view runs as its caller (security_invoker)",
   faults.withoutInvoker.length === 0,
   list(faults.withoutInvoker),
+);
+check(
+  "every public function runs with its reviewed security, as its owner (definer) or as its caller (invoker)",
+  faults.otherSecurity.length === 0,
+  list(faults.otherSecurity),
 );
 check(
   "anon holds no privilege in public but EXECUTE on applied_migrations()",
