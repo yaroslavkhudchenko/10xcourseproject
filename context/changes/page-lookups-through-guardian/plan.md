@@ -59,7 +59,7 @@ When this plan is done:
 
 - `stubClient` in `src/lib/services/shop-matching.test.ts:1071-1104` answers each query by its table and its first call, so a lookup's write can answer a 23505 then an update with no row (`decided`), a 23503 (`gone`) or another error (`failed`). No test drives these at the step level today (research §4).
 - `stubSupabase` answers relations and RPCs (`src/lib/services/testing/stub-supabase.ts`), and `price-routes.test.ts:121-131` runs the real gate over it with replayed shop answers: the harness the page's service needs for a lookup that answers.
-- `npx vitest list` prints every test title as written, 1320 lines at b3faab1, so a sorted comparison shows any title that changed or went.
+- `npx vitest list` prints a table test (`it.each`, `describe.each`) once, as its template (`… > $why`): 1320 lines at b3faab1 for the 2,897 tests a run executes. A run's JSON report (`npx vitest run --reporter=json`) names every test it ran by its file and its full name, a table test once per row, so a sorted comparison of those names shows any test that went or changed its name (the plan review's F1).
 - `decisionNotice` and `decisionError` default to every priced shop when given none (`src/lib/services/match-view.ts:407-431`); the page passes an empty list when there's no product (`[id].astro:78`, `:132-133`).
 - The refresh route turns no items into `?prices=none` and `failed` into `?prices=failed` (`src/pages/api/watchlist/refresh.ts:55-60`; `src/lib/services/price-refresh.ts:139-149`).
 - A lookup's admission can refuse only where `record`'s compare-and-swap would answer `decided`: it refuses a match or a decline and admits undecided and „not found”, so it changes no stored outcome (research, inference 2).
@@ -88,7 +88,7 @@ The guardian learns the lookup first, alone and test-first. The loader comes nex
 
 - The branch holds S-01's head with its review fixes: `git merge-base --is-ancestor c1edc39 HEAD` exits 0. A rebase onto `origin/main` is optional, since `main` adds only a README change.
 - `npm run test` passes.
-- The base's test titles are recorded, before any test file changes: `npx vitest list | LC_ALL=C sort > node_modules/.cache/s03-base-titles.txt`.
+- The base's test names are recorded from a run, before any test file changes: `test_names > node_modules/.cache/s03-base-names.txt`, with `test_names` as the shared checks below define it (2,897 lines at b3faab1).
 
 **The shared checks, which every phase runs:**
 
@@ -100,11 +100,21 @@ git diff -U0 "$BASE" -- ':(glob)src/**/*.test.ts' tests/e2e \
   | grep -E '^-[^-]' \
   | grep -E 'expect\(|\.(not\.)?to[A-Z]|\b(it|test|describe)(\.each)?\(|\]\)\('
 
-# title-diff: every title the base listed is still listed
-npx vitest list | LC_ALL=C sort | LC_ALL=C comm -23 node_modules/.cache/s03-base-titles.txt -
+# test-names: every test a run executes, one line each: its file and its full name, so a table test shows once per row
+test_names() {
+  npx vitest run --reporter=json --outputFile=node_modules/.cache/s03-run.json > /dev/null
+  node -e 'const path = require("node:path");
+    for (const file of require(path.resolve(process.argv[1])).testResults) {
+      const name = path.relative(process.cwd(), file.name).split(path.sep).join("/");
+      for (const test of file.assertionResults) console.log(`${name} > ${JSON.stringify(test.fullName)}`);
+    }' node_modules/.cache/s03-run.json | LC_ALL=C sort
+}
+
+# title-diff: every test the base ran still runs, under the same name
+test_names | LC_ALL=C comm -23 node_modules/.cache/s03-base-names.txt -
 ```
 
-Both print nothing. Neither sees a changed line inside a multi-line expect statement, so the reviewer reads the test diff too (Phase 3).
+Both print nothing. `title-diff` names each row of a table test, so a row dropped, merged or renamed shows. Neither sees a changed value inside a kept row or a multi-line expect statement, so the reviewer reads the test diff too (Phase 3).
 
 **What each view and action costs the shops**, the same before and after this plan (lesson "Bound what each page view and action costs every shop"):
 
@@ -398,7 +408,7 @@ export function openProductPage(input: ProductPageInput): Promise<OpenedProductP
 
 #### 5. Tests
 
-**Files**: `src/lib/services/match-step.test.ts`, `src/lib/services/shop-matching.test.ts`, `src/lib/services/price-pages.test.ts`, `src/lib/services/product-page.test.ts` (new)
+**Files**: `src/lib/services/match-step.test.ts`, `src/lib/services/shop-matching.test.ts`, `src/lib/services/price-pages.test.ts`, `src/lib/services/product-page.test.ts` (new), and `src/lib/services/price-routes.test.ts` only if its harness moves
 
 **Intent**: Build the inputs as a loaded product, keep every assertion, and pin what no test pinned: a lookup's write that answers `decided`, `gone` or `failed`, and the page's composition.
 
@@ -408,11 +418,15 @@ export function openProductPage(input: ProductPageInput): Promise<OpenedProductP
 - `shop-matching.test.ts`:
   - `opened` takes the test's `product`, `matches` and `shops`, with today's defaults, and builds `loaded` with `loadedProductOf`; the table's input type at `:1418` names those fields;
   - the new step tests use `stubClient`'s answers by table and first call.
-- `price-pages.test.ts`: `productPage` reads through `loadWatchedProduct` and calls `openProductPage` with an empty address on a view that isn't the user's own navigation, then maps the steps as it does today. Its `expect` at `:219` and every case stay, and its unused imports go.
+- `price-pages.test.ts`: `productPage` reads through `loadWatchedProduct` and calls `openProductPage` with an empty address on a view that isn't the user's own navigation, then maps the steps as it does today. Its `expect` at `:219` and every case stay, and its unused imports go. The comments that name the product page's own call are rewritten: the file's header (`:15-18`) and `productPage`'s doc comment (`:184-188`) name `openProductPage` as the page's own call, in place of `productPricesOf`.
 - `product-page.test.ts`: the cases in "Testing Strategy, Phase 3".
   - It runs the real gate over `stubSupabase` with replayed shop answers, as `price-routes.test.ts:121-131` does.
-  - If it needs that file's `world`, `served` and `reservations`, they move into `src/lib/services/testing/` rather than being copied (lesson "Define shared constants and helpers once").
+  - If it needs that file's `world`, `served` and `reservations`, they move into `src/lib/services/testing/` rather than being copied (lesson "Define shared constants and helpers once"), by the rule for `price-routes.test.ts` below.
   - Every URL is spelled out, as `shop-matching.test.ts` spells Natura's EAN search, which `natura-ean-hit.json` answers.
+- `price-routes.test.ts`, only if that harness moves: `world`, `served`, `reservations` and `bodiesSentTo`, which reads the same stubbed fetch, come from `src/lib/services/testing/`.
+  - `served()` and `bodiesSentTo()` keep their argument-free calls: the shared module keeps the stubbed fetch that `world` sets, so the 16 and 2 expect lines that call them stand byte for byte (the plan review's F2).
+  - `reservations(queries)`, in 15 expect lines, takes its input and moves as it is.
+  - Only the moved definitions and the imports change in this file.
 
 ### Success Criteria:
 

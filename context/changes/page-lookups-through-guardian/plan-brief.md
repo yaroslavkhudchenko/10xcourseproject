@@ -59,7 +59,7 @@ The page reads `loadWatchedProduct` at once with the list's three reads, then ca
 | 3. The product page runs on one loaded product | The step on a standing, the steps on the loaded product, `openProductPage`  | Changing what a view shows or asks a shop (seam table, step tests, e2e in CI) |
 | 4. Documents                                   | The D-01 note, CLAUDE.md, the read rules' comment, glossary, test plan      | Wording that misstates the code's „Do sprawdzenia” (the owner reads it)       |
 
-**Prerequisites:** S-01's head (c1edc39), which `main` holds since PR #47; the base's test titles recorded before Phase 1. No migration, and no shop request.
+**Prerequisites:** S-01's head (c1edc39), which `main` holds since PR #47; the base's test names recorded from a test run before Phase 1, one per test, a table test once per row. No migration, and no shop request.
 **Estimated effort:** about two sessions across 4 phases.
 
 ## Open Risks & Assumptions
