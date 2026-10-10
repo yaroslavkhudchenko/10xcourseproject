@@ -615,6 +615,15 @@ None. No migration runs and no stored row changes. S-02 rebases onto this slice 
 - Lessons: "Bound what each page view and action costs every shop", "Never read an unreadable answer as missing", "Keep decision logic in tested services", "Define shared constants and helpers once" (`context/foundation/lessons.md`)
 - The test plan's cookbook, §6.2 patterns 1 and 2: `context/foundation/test-plan.md`
 
+## Implementation Notes
+
+### Phase 1
+
+- **Rossmann's cases take Rossmann's recorded item.** The contract names Natura's item X as the accepted candidate, and the Natura cases use X with the offer from `natura-ean-hit.json`. A lookup in Rossmann can only give a Rossmann item, so the Rossmann cases use its recorded Nivea Soft 300 ml (26900, as its adapter maps it from `rossmann-lookup-nivea-soft-300.json`): Rossmann as a matched shop of a product picked in Natura, and the own-shop rows of a product picked in Rossmann. The guardian never reads the candidate, so no expected value depends on it.
+- **`watchedProductOf`'s comment names `admitLookup`** beside `admitDecision`; a comment only.
+- **The module's header states the end state.** It calls the guardian the one place that decides what a lookup may store, which holds once Phase 3 sends `lookupOutcome` through `admitLookup`; until then nothing calls it.
+- **Red first, as traced:** the tests alone failed 21 of 62 (no `admitLookup` yet); a skeleton that admitted everything failed 15; adding the matched-shop check left 8; adding the unreadable check left the 6 settled cases; the final rule passes 62.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -623,12 +632,12 @@ None. No migration runs and no stored row changes. S-02 rebases onto this slice 
 
 #### Automated
 
-- [ ] 1.1 The guardian's tests pass: `npx vitest run src/lib/services/watched-product.test.ts`
-- [ ] 1.2 Dropping the `settled` refusal, then the matched-shop check, from `admitLookup` each turns its tests red, and restoring them turns them green again
-- [ ] 1.3 The unit suite passes: `npm run test`
-- [ ] 1.4 Lint passes: `npm run lint`
-- [ ] 1.5 Types check: `npx astro sync && npx astro check`
-- [ ] 1.6 No existing assertion or test title moved: `assertion-diff` and `title-diff` (Implementation Approach) print nothing
+- [x] 1.1 The guardian's tests pass: `npx vitest run src/lib/services/watched-product.test.ts`
+- [x] 1.2 Dropping the `settled` refusal, then the matched-shop check, from `admitLookup` each turns its tests red, and restoring them turns them green again
+- [x] 1.3 The unit suite passes: `npm run test`
+- [x] 1.4 Lint passes: `npm run lint`
+- [x] 1.5 Types check: `npx astro sync && npx astro check`
+- [x] 1.6 No existing assertion or test title moved: `assertion-diff` and `title-diff` (Implementation Approach) print nothing
 
 ### Phase 2: One loader for a watched product, gone first (F5)
 

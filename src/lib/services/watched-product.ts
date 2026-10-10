@@ -1,13 +1,16 @@
 import type { ExpectedDecision, MatchDecision, MatchesRead, MatchForm } from "@/lib/services/matches";
-import { matchedShopsOf, PRICED_SHOPS, type PricedShop } from "@/lib/services/price-comparison";
-import type { ShopId, ShopMatch, WatchlistProduct } from "@/types";
+import { matchedShopsOf, PRICED_SHOPS, type MatchableShop, type PricedShop } from "@/lib/services/price-comparison";
+import type { ShopId, ShopLookup, ShopMatch, WatchlistProduct } from "@/types";
 
-// The guardian of a watched product's decisions: the one place that decides whether a decision posted from the
-// product's page may be stored. It knows the product's matched shops (matchedShopsOf) and where the product stands in
-// each, from the two reads its page makes, and admits a confirm or a decline only from the decision the form was shown
-// with, and only along the moves the page offers. It does no I/O: the decision route reads the product and its
-// decisions, asks it, and stores only what it admits, with recordDecision, whose compare-and-swap checks the form's
-// `replaces` again at write time.
+// The guardian of a watched product's decisions: the one place that decides whether a change to them may be stored, a
+// decision posted from the product's page or what a lookup on that page settled on its own. It knows the product's
+// matched shops (matchedShopsOf) and where the product stands in each, from the two reads its page makes. It admits a
+// confirm or a decline only from the decision the form was shown with, and only along the moves the page offers
+// (admitDecision), and a lookup's automatic match or nothing found only where no decision is settled: where the
+// product is undecided, or over a lookup that found nothing (admitLookup). It does no I/O: the decision route reads the
+// product and its decisions, asks it, and stores only what it admits, with recordDecision, whose compare-and-swap
+// checks the form's `replaces` again at write time. A lookup's admitted change carries what recordLookup stores, and
+// recordLookup's own compare-and-swap changes only a lookup that found nothing.
 
 /**
  * Where a watched product stands in one of its matched shops: no decision stored there (`undecided`), its stored
@@ -57,7 +60,8 @@ export type DecisionAdmission =
  * a standing in each of its matched shops among `shops`, the priced shops unless a test names others. A shop the read
  * lists as unreadable is unreadable, whatever else the read holds; otherwise a shop with a stored decision is decided,
  * and one without is undecided. A decision stored in the product's own shop, or in any shop outside its matched
- * shops, has no standing, so no decision is admitted there (admitDecision).
+ * shops, has no standing, so nothing is admitted there: no posted decision (admitDecision) and no lookup's outcome
+ * (admitLookup).
  */
 export function watchedProductOf(
   product: WatchlistProduct,
@@ -148,4 +152,59 @@ function moveRefusal(decision: MatchDecision, stored: ShopMatch | null): Decisio
   // An automatic match's item may be confirmed in place; the user's own item comes back only from an older form.
   const confirmedId = stored?.state === "matched" && stored.decidedBy === "user" ? stored.item.shopItemId : null;
   return decision.item.shopItemId === confirmedId ? "outdated-form" : null;
+}
+
+/**
+ * A lookup's outcome the guardian admitted, as recordLookup stores it: the watched product, the matched shop, and what
+ * the lookup settled on its own, the candidate the matching rule accepted or nothing found, which the write stores only
+ * where no decision is stored, or over a lookup that found nothing.
+ */
+export interface LookupChange {
+  itemId: string;
+  shop: PricedShop;
+  outcome: Extract<ShopLookup, { kind: "accepted" | "not-found" }>;
+}
+
+/**
+ * Why the guardian refused a lookup's outcome, which is then stored nowhere:
+ *
+ * - `not-a-matched-shop`: the shop isn't one of the product's matched shops, its own shop included
+ * - `unreadable`: the product's decision in the shop couldn't be read
+ * - `settled`: a decision no lookup overwrites is stored there: a match, automatic or the user's, or the user's decline
+ */
+export type LookupRefusal = "not-a-matched-shop" | "unreadable" | "settled";
+
+/** What the guardian said to a lookup's outcome: the change to store, or why nothing may be stored. */
+export type LookupAdmission = { kind: "admitted"; change: LookupChange } | { kind: "refused"; reason: LookupRefusal };
+
+/**
+ * Whether what a lookup settled on its own in a shop, as lookupInShop gives it, may be stored for the watched product:
+ * the change to store, or why not. Its checks run in this order, and the first that fails refuses the outcome:
+ *
+ * 1. The shop must be one of the product's matched shops, so never its own (`not-a-matched-shop`).
+ * 2. The product's decision there must have been read (`unreadable`).
+ * 3. The product must be undecided there, or hold a lookup that found nothing, which a retry looks up again
+ *    (`settled`): a match, automatic or the user's, and the user's decline stand, whatever the lookup found.
+ *
+ * The change is the watched product's, whose standing it was judged by, and carries recordLookup's arguments; at write
+ * time, recordLookup's own compare-and-swap still changes only a lookup that found nothing, so a decision stored since
+ * the read stands.
+ */
+export function admitLookup(
+  watched: WatchedProduct,
+  shop: MatchableShop,
+  outcome: LookupChange["outcome"],
+): LookupAdmission {
+  const priced = PRICED_SHOPS.find((each) => each === shop);
+  const standing = priced === undefined ? undefined : watched.standings[priced];
+  if (priced === undefined || standing === undefined) {
+    return { kind: "refused", reason: "not-a-matched-shop" };
+  }
+  if (standing.kind === "unreadable") {
+    return { kind: "refused", reason: "unreadable" };
+  }
+  if (standing.kind === "decided" && standing.decision.state !== "not_found") {
+    return { kind: "refused", reason: "settled" };
+  }
+  return { kind: "admitted", change: { itemId: watched.itemId, shop: priced, outcome } };
 }
