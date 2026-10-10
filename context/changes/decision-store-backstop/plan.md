@@ -33,34 +33,34 @@ From `context/changes/decision-store-backstop/research.md`, re-anchored at 83f00
 
 Every decision, a lookup's and the user's, reaches the database through one call, `record_decision`, which answers:
 
-| case                                                                                                                                  | answer                                                                       |
-| ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| no decision, or a lookup that found nothing, where the write expects none                                                             | `saved`                                                                      |
-| the expected match (its item and who decided it), or the expected decline                                                             | `saved`: the decision's columns change, `checked_at` on the database's clock |
-| any other stored decision                                                                                                             | `decided`, nothing written                                                   |
-| a product not on the user's list, another user's included, or one whose removal reaches the product or its decision first and commits | `gone`, nothing written                                                      |
-| a removal that reaches the decision after the save has locked it                                                                      | what the save would answer without it; the removal then deletes the decision |
-| the product's own shop, an unknown shop, a shape the table refuses, an expectation it can't read                                      | an error, which the store reads as `failed`, logged once                     |
+| case                                                                                                                                                               | answer                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| no decision, or a lookup that found nothing, where the write expects none                                                                                          | `saved`                                                                      |
+| the expected match (its item and who decided it), or the expected decline                                                                                          | `saved`: the decision's columns change, `checked_at` on the database's clock |
+| any other stored decision                                                                                                                                          | `decided`, nothing written                                                   |
+| a product not on the user's list, another user's included, or one whose removal reaches its decision first, or the product when no decision is stored, and commits | `gone`, nothing written                                                      |
+| a removal that reaches the decision after the save has locked it, even one that has deleted the product already                                                    | what the save would answer without it; the removal then deletes the decision |
+| the product's own shop, an unknown shop, a shape the table refuses, an expectation it can't read                                                                   | an error, which the store reads as `failed`, logged once                     |
 
 The store maps `saved`, `decided` and `gone` as before, and anything else, an error or an answer it can't read, to `failed`.
 
-A removal never causes `decided`. When the removal's delete reaches the product or its decision first and commits, the save answers `gone`. Otherwise the save answers exactly what it would without the removal, `saved` for the expected decision, and the removal then deletes the decision with its product. So `decided` always means that a decision other than the expected one stood when the save ran.
+A removal never causes `decided`. When the removal's delete reaches the decision first, or the product when no decision is stored, and commits, the save answers `gone`. Otherwise the save answers exactly what it would without the removal, `saved` for the expected decision, even when the removal has deleted the product already, and the removal then deletes the decision with its product. So `decided` always means that a decision other than the expected one stood when the save ran.
 
 **What a signed-in user's direct database call allows after S-02** (the lesson "Check what a direct database call allows"; research §2's table, updated):
 
-| direct call                                                                                                                                  | after S-02                                              | what binds it                                                  | proved by                                                                    |
-| -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| insert a decision in its product's own shop, or save one with `record_decision`                                                              | refused, 23001                                          | the trigger                                                    | `check-matches-db.mjs`, new                                                  |
-| insert a decision for another user's product, or save one with `record_decision`, in any shop, its own included                              | refused exactly like an id no one has: 23503, or `gone` | the composite key; the trigger sees only the caller's products | `check-matches-db.mjs`, section 4 and new                                    |
-| `record_decision` as anon                                                                                                                    | refused, 42501                                          | `execute` revoked                                              | `check-matches-db.mjs`, new                                                  |
-| `record_decision` over a decision other than the one it expects, who decided it included                                                     | nothing written, `decided`                              | the conflict's `where`                                         | `check-matches-db.mjs`, new; `matches.db.test.ts`                            |
-| `record_decision` over the decision it expects                                                                                               | `saved`; only the decision's 12 columns change          | the update policy and the column grant                         | `check-matches-db.mjs`, new                                                  |
-| `record_decision` with an expected decision it can't read                                                                                    | refused, 22023, nothing written                         | the function                                                   | `check-matches-db.mjs`, new                                                  |
-| insert any well-formed decision in a matched shop, an automatic match or a "not found" included                                              | allowed, as before                                      | the insert policy, the keys, the checks                        | accepted (`CLAUDE.md:60`)                                                    |
-| update a decision without naming the one it replaces; decline over a decline; reset to "not found"; mark a match automatic; set `checked_at` | allowed, as before                                      | the update policy, the column grant                            | accepted; the negative control `src/lib/services/matches.db.test.ts:216-244` |
-| choose a row's `id`, `checked_at` or `created_at` on insert                                                                                  | allowed, as before                                      | the table-wide insert grant                                    | accepted: the id probe (`context/foundation/test-plan.md:417`)               |
-| store an item the shop never offered                                                                                                         | allowed, as before                                      | the format checks                                              | I-11, parked (`context/foundation/roadmap.md:145`)                           |
-| move a decision to another product, user or shop; delete one; anything as anon                                                               | refused, as before                                      | the column grant, no delete grant, revoked grants              | `check-matches-db.mjs`, sections 5 to 7                                      |
+| direct call                                                                                                                                  | after S-02                                                                                       | what binds it                                                                        | proved by                                                                    |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| insert a decision in its product's own shop, or save one with `record_decision`                                                              | refused, 23001                                                                                   | the trigger                                                                          | `check-matches-db.mjs`, new                                                  |
+| insert a decision for another user's product, or save one with `record_decision`, in any shop, its own included                              | refused exactly like an id no one has: 23503, or `gone`; in the owner's name, 42501, never 23001 | the composite key and the insert policy; the trigger sees only the caller's products | `check-matches-db.mjs`, section 4 and new                                    |
+| `record_decision` as anon                                                                                                                    | refused, 42501                                                                                   | `execute` revoked                                                                    | `check-matches-db.mjs`, new                                                  |
+| `record_decision` over a decision other than the one it expects, who decided it included                                                     | nothing written, `decided`                                                                       | the conflict's `where`                                                               | `check-matches-db.mjs`, new; `matches.db.test.ts`                            |
+| `record_decision` over the decision it expects                                                                                               | `saved`; only the decision's 12 columns change                                                   | the update policy and the column grant                                               | `check-matches-db.mjs`, new                                                  |
+| `record_decision` with an expected decision it can't read                                                                                    | refused, 22023, nothing written                                                                  | the function                                                                         | `check-matches-db.mjs`, new                                                  |
+| insert any well-formed decision in a matched shop, an automatic match or a "not found" included                                              | allowed, as before                                                                               | the insert policy, the keys, the checks                                              | accepted (`CLAUDE.md:60`)                                                    |
+| update a decision without naming the one it replaces; decline over a decline; reset to "not found"; mark a match automatic; set `checked_at` | allowed, as before                                                                               | the update policy, the column grant                                                  | accepted; the negative control `src/lib/services/matches.db.test.ts:216-244` |
+| choose a row's `id`, `checked_at` or `created_at` on insert                                                                                  | allowed, as before                                                                               | the table-wide insert grant                                                          | accepted: the id probe (`context/foundation/test-plan.md:417`)               |
+| store an item the shop never offered                                                                                                         | allowed, as before                                                                               | the format checks                                                                    | I-11, parked (`context/foundation/roadmap.md:145`)                           |
+| move a decision to another product, user or shop; delete one; anything as anon                                                               | refused, as before                                                                               | the column grant, no delete grant, revoked grants                                    | `check-matches-db.mjs`, sections 5 to 7                                      |
 
 It is verified by:
 
@@ -68,7 +68,7 @@ It is verified by:
 - `npm run test:db` passing on Phase 1's commit, with the store unchanged, which shows the code still deployed saves against the new schema;
 - the store's, the route's, the guardian's and the lookups' unit tests pinning the one call;
 - the database test answering `gone` to a removal held open while a save runs;
-- the owner's count of own-shop decisions returning no rows after the push.
+- the owner's count of own-shop decisions returning no rows after the push, and the count of all decisions dropping by exactly as many.
 
 ### Key Discoveries:
 
@@ -138,9 +138,11 @@ If S-03 left the writers under other names or shapes, Phase 2 moves whatever wri
 
 - **Timing & lifecycle.**
   - Push Phase 1's commit and wait for its green `smoke` and `e2e` jobs before Phase 2's code lands. It is the only commit on which today's `record` runs against the new schema.
+  - After Phase 1's green CI, only `record_decision` and the comments may change in the migration. An edit to the trigger or the delete reruns Phase 1's proof on a throwaway branch holding Phase 1's commit and the edit, through a draft pull request closed once its `smoke` and `e2e` jobs are green, and the Implementation Notes record it.
   - The owner pushes the migration to production only in Phase 4, after the pull request's final CI. From that push on the migration file never changes: production doesn't re-apply an edited version, so a fix is a new migration.
 - **Gone, never decided.**
-  - A removal whose delete reaches the decision's row or the product first holds it until it commits. The save waits on it, then starts its insert again, which fails the composite key: `gone`. The `where` is never evaluated on a deleted row.
+  - A removal deletes its product and, at the end of the same statement, the product's decisions. When its delete reaches the decision first, or the product when no decision is stored, it holds that row until it commits. The save waits on it, then starts its insert again, which fails the composite key: `gone`. The `where` is never evaluated on a deleted row.
+  - Over a stored decision the save never waits on the product, since its update changes no key column. So a save that locks the decision after the removal deleted the product, but before the cascade, answers as it would without the removal, and the cascade then deletes the decision.
   - The handler reads the violated constraint's name. Only `watchlist_matches_own_product` is `gone`; the shop's key, for a shop no one knows, is raised again.
   - Both keys stay non-deferrable, as they are. A deferred key would fail only at commit, after the function had answered `saved`, and a deferrable key can't arbitrate a conflict.
 - **The trigger's privacy.**
@@ -239,7 +241,7 @@ exception when foreign_key_violation then
 - **A new section: no decision in a product's own shop.** It runs before the removal of section 10, on products of its own.
   - **A's Rossmann product.** A well-formed decision in Rossmann, one of each state (an automatic match, the user's decline, a lookup's "not found"), is refused with 23001, by a direct insert and by `record_decision`. A then reads no Rossmann decision for it.
   - **A product A adds from Natura.** A decision in Natura is refused with 23001, while one in Rossmann, a matched shop of that product, is stored. This is the negative control: the trigger reads the product's own shop and refuses no fixed one.
-  - **User B.** B's direct insert and `record_decision` for A's product in its own shop answer 23503 and `gone`, exactly as for an id no one has. So the trigger tells B nothing about A's product.
+  - **User B.** B's direct insert and `record_decision` for A's product in its own shop answer 23503 and `gone`, exactly as for an id no one has. B's insert in A's name (`user_id` A's) for that product in its own shop answers 42501, as section 4's does in Hebe, never 23001: PostgreSQL checks the insert policy after a `before` trigger, so only a trigger that reads the product as its caller lets that insert get so far. So the trigger tells B nothing about A's product.
 - **A new section: `record_decision` saves as its caller, in one statement.**
   - anon gets 42501.
   - B's call for A's product answers `gone`, in a shop where A has a decision and in one where A has none, and so does B's call for an id no one has. A's rows read back unchanged.
@@ -282,7 +284,7 @@ exception when foreign_key_violation then
 
 #### Automated Verification:
 
-- The branch sits on `main` with S-01 and S-03 merged: after `git fetch origin`, `git merge-base --is-ancestor origin/main HEAD` exits 0 and `git log --merges --oneline origin/main | grep -c "page-lookups-through-guardian"` prints 1
+- The branch sits on `main` with S-01 and S-03 merged: after `git fetch origin`, `git merge-base --is-ancestor origin/main HEAD` exits 0 and `git log --merges --oneline origin/main | grep -c "/refactor/page-lookups-through-guardian$"` prints 1
 - S-03 left what Phase 2 builds on: `git grep -n "admitLookup" -- src/lib/services/watched-product.ts src/lib/services/shop-matching.ts` finds its definition and its call in the lookup's step, and `git grep -nE "(recordLookup|recordDecision)\(" -- src ':!*.test.ts'` finds the two definitions in `matches.ts` and one caller each, in `shop-matching.ts` and the decision route
 - Lint passes: `npm run lint`
 - The unit suite passes, the deploy gate's test reading the new migration's version among them: `npm run test`
@@ -363,14 +365,14 @@ The `smoke` job's database checks are `check-matches-db.mjs` with the new refusa
   2. stays open until a backend its own transaction blocks shows up, by `pg_blocking_pids`, refreshing the activity snapshot each time;
   3. commits at once, or, past a deadline of a few seconds, rolls back with an error.
 - It returns two promises:
-  - `held`, which resolves once the delete has run, as the local superuser can see in `pg_stat_activity`;
+  - `held`, which resolves once the delete statement, its cascade included, has returned: psql gets each statement as its own `-c` option, one request each in one session, so `pg_stat_activity` shows the wait's statement only after the delete, and `held` resolves when the hold's backend, named by its `application_name`, runs it (one `-c` holding every statement would be a single request, shown whole from the start);
   - `done`, which resolves when the transaction commits and rejects when it rolled back.
 - Like `sql()`, it runs nothing unless `assertLocalSupabase()` passes.
 - CI's `smoke` job already has Docker and writes `.env` and `.dev.vars` before `npm run test:db` (`.github/workflows/ci.yml:44-48`, `:69-72`), so the workflow doesn't change.
 
 #### 5. The tests
 
-**Files**: `src/lib/services/matches.test.ts`, `src/lib/services/match-routes.test.ts`, `src/lib/services/watched-product.test.ts`, `src/lib/services/shop-matching.test.ts`, `src/lib/services/matches.db.test.ts`
+**Files**: `src/lib/services/matches.test.ts`, `src/lib/services/match-routes.test.ts`, `src/lib/services/watched-product.test.ts`, `src/lib/services/shop-matching.test.ts`, `src/lib/services/product-page.test.ts` (S-03's), `src/lib/services/matches.db.test.ts`
 
 **Intent**: Pin the one call where each writer makes it, close F3 in the route's tests, and prove the call against the real database.
 
@@ -407,6 +409,10 @@ The `smoke` job's database checks are `check-matches-db.mjs` with the new refusa
   - `writesOf` reads a call as its name and arguments.
   - The 8 write assertions pin the lookup's one call (an automatic match or "not found", by `auto`, expecting none), then the first price check.
   - The step-level tests S-03 added for a write that answers `decided`, `failed` or `gone` answer the one call instead of an insert and an update, with the same expected views.
+- **`product-page.test.ts`, the page's service (S-03's).**
+  - Its stand-in answers `record_decision` through a handler, `saved` by default, in its own `world`, or in the shared one if S-03 moved `price-routes.test.ts`' into `src/lib/services/testing/`.
+  - Its two cases whose lookup stores an outcome, a retry that stored its outcome and a match the view's lookup has just stored, pin the lookup's one call and its arguments, as the lookups' tests do, and keep their expected results.
+  - Its other cases stay as S-03 left them.
 - **`matches.db.test.ts`, the real database.**
   - Its 9 cases run through the one call, with `overMatch` naming the decider.
   - Two new cases for F4: a tab shown the automatic match of X, before the user confirmed X in another tab, confirms X and then picks Y. Both answer `decided`, and the user's match of X stands.
@@ -418,8 +424,9 @@ The `smoke` job's database checks are `check-matches-db.mjs` with the new refusa
 
 #### Automated Verification:
 
-- The store's, the route's, the guardian's and the lookups' tests pass: `npx vitest run src/lib/services/matches.test.ts src/lib/services/match-routes.test.ts src/lib/services/watched-product.test.ts src/lib/services/shop-matching.test.ts`
-- Dropping the decider from the admitted change turns the guardian's, the store's and the route's decider tests red, and restoring it turns them green again
+- The store's, the route's, the guardian's, the lookups' and the page service's tests pass: `npx vitest run src/lib/services/matches.test.ts src/lib/services/match-routes.test.ts src/lib/services/watched-product.test.ts src/lib/services/shop-matching.test.ts src/lib/services/product-page.test.ts`
+- Dropping the decider from the guardian's admitted change turns the guardian's and the route's decider tests red, and restoring it turns them green again
+- Making the store send `null` for `p_replaces_decided_by` turns the store's and the route's decider tests red, and restoring it turns them green again
 - Making the route hand the store `null` for `replaces` turns the route's re-pin argument tests red, and restoring it turns them green again
 - The store writes `watchlist_matches` only through `record_decision`: `git grep -nE "\.(insert|update)\(" -- src/lib/services/matches.ts` prints nothing
 - The unit suite passes: `npm run test`
@@ -450,7 +457,7 @@ The documents say what the database and the store now do, and this plan records 
 **Contract**:
 
 - **"Data" (`:60`).**
-  - The compare-and-swap sentence names `record_decision`: one `security invoker` statement that inserts, or replaces the stored decision only while it is the expected one, its state, its item and, for a match, who decided it. It answers `saved`, `decided` or `gone`, the last only for the product's own key, on the database's clock.
+  - The compare-and-swap sentence names `record_decision`: one `security invoker` statement that inserts, or replaces the stored decision only while it is the expected one, its state, its item and, for a match, who decided it. It answers `saved`, `decided` or `gone`, the last only for the product's own key, when a removal reaches the decision first, or the product when no decision is stored, so a removal never makes it answer `decided`. It stamps `checked_at` on the database's clock.
   - A new sentence says the `before insert` trigger `watchlist_matches_not_own_shop` refuses a decision in its product's own shop for every caller, with 23001, reading the product as its caller.
   - The ABA risk names the decider: a decision's `replaces` names a state, an item and who decided it, not a version.
 - **"Shops and matching" (`:59`).**
@@ -532,12 +539,12 @@ The owner counts the old rows, pushes the migration from this branch, confirms i
 
 ### Changes Required:
 
-None in the repository, beyond this plan's notes, which record the count.
+None in the repository, beyond this plan's notes, which record the counts.
 
 The order:
 
 1. The pull request's final CI is green.
-2. The owner counts own-shop decisions in production's SQL editor, read-only:
+2. The owner counts, read-only in production's SQL editor and while no one else is saving, the own-shop decisions by state and all decisions:
 
    ```sql
    select m.state, count(*)
@@ -546,10 +553,12 @@ The order:
    where m.shop_id = i.source
    group by m.state
    order by m.state;
+
+   select count(*) from public.watchlist_matches;
    ```
 
 3. From a checkout of this branch, the owner runs `npx supabase db push`. In PowerShell, write `npx.cmd`.
-4. The owner confirms the push, then counts again.
+4. The owner confirms the push, then runs both counts again: no own-shop decision is left, and all decisions are fewer by exactly the own-shop decisions counted before.
 5. The owner merges, and the checked deploy runs.
 6. The owner checks the phone.
 
@@ -564,10 +573,10 @@ From step 3 on, the migration file never changes.
 
 #### Manual Verification:
 
-- Before the push, the owner's read-only count, grouped by state, ran in the dashboard's SQL editor, and its result is recorded in this plan's notes
+- Before the push, the owner's two read-only counts, the own-shop decisions by state and all decisions, ran in the dashboard's SQL editor, and their results are recorded in this plan's notes
 - `npx supabase db push` from a checkout of this branch listed only the new migration and applied it
 - `npx supabase migration list --linked` shows the new version on the remote, and `node scripts/check-migrations-applied.mjs` prints `All <n> migrations are applied`
-- The same count after the push returns no rows
+- After the push, the own-shop count returns no rows, and all decisions are fewer by exactly the own-shop decisions counted before
 - The owner merged the pull request after the push was confirmed
 - On a phone after the deploy, a re-pin's „Żaden z nich” saves („Zapisano: brak w …”), a first choice's „To ten produkt” saves („Zapisano dopasowanie.”), and the product page opens
 
@@ -590,6 +599,7 @@ The gate's check runs with `CHECK_SUPABASE_URL` and `CHECK_SUPABASE_KEY` in the 
   - No call for any refusal.
   - The order: read, read, call.
 - **The lookups.** The one call and its arguments, then the first price check; S-03's `decided`, `failed` and `gone` steps on the one call.
+- **The page's service (S-03's `product-page.test.ts`).** The lookup's one call and its arguments in its two cases that store, answered `saved`; its other cases unchanged.
 - **Unchanged:**
   - `price-pages.test.ts`' negative control (no `rpc`), since its views aren't the user's own navigation and save nothing;
   - `price-routes.test.ts`;
@@ -601,7 +611,7 @@ These run in CI only.
 
 - **`check-matches-db.mjs` (Phase 1).**
   - The own shop refused by a direct insert and by `record_decision`, beside the Natura product's Rossmann decision stored.
-  - Another user's product answers like an id no one has, its own shop included.
+  - Another user's product answers like an id no one has, its own shop included, and B's insert in A's name there answers 42501, never 23001.
   - anon refused.
   - The compare-and-swap's answers, the database's clock, and the expectations it refuses.
 - **`check-prices-db.mjs` and `check-catalog-db.mjs` (Phase 1).** The EAN shapes off the own shop; both functions reviewed as invoker, the self-test flagging a definer.
@@ -615,8 +625,8 @@ These run in CI only.
 
 ### Manual Testing Steps:
 
-1. Before the push, run the count in production's SQL editor and note it.
-2. After the push, run it again: no rows.
+1. Before the push, run both counts in production's SQL editor and note them.
+2. After the push, run them again: no own-shop rows, and all decisions fewer by exactly the own-shop decisions counted before.
 3. After the deploy, on a phone:
    1. Open a product with an automatic match, tap „Zmień”, then „Żaden z nich”. The card shows „Zapisano: brak w …” and „Dopasuj ponownie”.
    2. On a product whose shop offers a choice, tap „To ten produkt”. The card shows „Zapisano dopasowanie.” and the matched item.
@@ -630,8 +640,8 @@ These run in CI only.
 
 ## Migration Notes
 
-- **What it deletes.** The migration deletes own-shop decisions, which can't be undone, since migrations don't roll back (`context/deployment/deploy-plan.md:303`). The owner counts them first. The research expects none: no page ever offered one, and since PR #44 only a crafted post, until S-01's guardian, or a direct call could store one (research §4).
-- **The code still deployed** saves against the new schema: Phase 1's CI shows it, so the window between the push and the deploy, and any rollback of the Worker to code before S-02, keep working.
+- **What it deletes.** The migration deletes own-shop decisions, which can't be undone, since migrations don't roll back (`context/deployment/deploy-plan.md:303`). The owner counts them first, and all decisions before and after the push, so a delete that removed more would show. The research expects none: no page ever offered one, and since PR #44 only a crafted post, until S-01's guardian, or a direct call could store one (research §4).
+- **The code still deployed** saves against the new schema: Phase 1's CI shows it, so the window between the push and the deploy, and any rollback of the Worker to code before S-02, keep working. This holds while the trigger and the delete stay as Phase 1 proved them (Critical Implementation Details, "Timing & lifecycle").
 - **Changing `record_decision`'s parameters later** needs a new migration that drops it first and grants it again. A changed signature beside the old one would add an overload, which PostgREST tells apart by argument names only.
 
 ## References
@@ -656,7 +666,7 @@ These run in CI only.
 
 #### Automated
 
-- [ ] 1.1 The branch sits on `main` with S-01 and S-03 merged: after `git fetch origin`, `git merge-base --is-ancestor origin/main HEAD` exits 0 and `git log --merges --oneline origin/main | grep -c "page-lookups-through-guardian"` prints 1
+- [ ] 1.1 The branch sits on `main` with S-01 and S-03 merged: after `git fetch origin`, `git merge-base --is-ancestor origin/main HEAD` exits 0 and `git log --merges --oneline origin/main | grep -c "/refactor/page-lookups-through-guardian$"` prints 1
 - [ ] 1.2 S-03 left what Phase 2 builds on: `git grep -n "admitLookup" -- src/lib/services/watched-product.ts src/lib/services/shop-matching.ts` finds its definition and its call in the lookup's step, and `git grep -nE "(recordLookup|recordDecision)\(" -- src ':!*.test.ts'` finds the two definitions in `matches.ts` and one caller each, in `shop-matching.ts` and the decision route
 - [ ] 1.3 Lint passes: `npm run lint`
 - [ ] 1.4 The unit suite passes, the deploy gate's test reading the new migration's version among them: `npm run test`
@@ -669,8 +679,9 @@ These run in CI only.
 
 #### Automated
 
-- [ ] 2.1 The store's, the route's, the guardian's and the lookups' tests pass: `npx vitest run src/lib/services/matches.test.ts src/lib/services/match-routes.test.ts src/lib/services/watched-product.test.ts src/lib/services/shop-matching.test.ts`
-- [ ] 2.2 Dropping the decider from the admitted change turns the guardian's, the store's and the route's decider tests red, and restoring it turns them green again
+- [ ] 2.1 The store's, the route's, the guardian's, the lookups' and the page service's tests pass: `npx vitest run src/lib/services/matches.test.ts src/lib/services/match-routes.test.ts src/lib/services/watched-product.test.ts src/lib/services/shop-matching.test.ts src/lib/services/product-page.test.ts`
+- [ ] 2.2 Dropping the decider from the guardian's admitted change turns the guardian's and the route's decider tests red, and restoring it turns them green again
+- [ ] 2.11 Making the store send `null` for `p_replaces_decided_by` turns the store's and the route's decider tests red, and restoring it turns them green again
 - [ ] 2.3 Making the route hand the store `null` for `replaces` turns the route's re-pin argument tests red, and restoring it turns them green again
 - [ ] 2.4 The store writes `watchlist_matches` only through `record_decision`: `git grep -nE "\.(insert|update)\(" -- src/lib/services/matches.ts` prints nothing
 - [ ] 2.5 The unit suite passes: `npm run test`
@@ -698,9 +709,9 @@ These run in CI only.
 
 #### Manual
 
-- [ ] 4.3 Before the push, the owner's read-only count, grouped by state, ran in the dashboard's SQL editor, and its result is recorded in this plan's notes
+- [ ] 4.3 Before the push, the owner's two read-only counts, the own-shop decisions by state and all decisions, ran in the dashboard's SQL editor, and their results are recorded in this plan's notes
 - [ ] 4.4 `npx supabase db push` from a checkout of this branch listed only the new migration and applied it
 - [ ] 4.5 `npx supabase migration list --linked` shows the new version on the remote, and `node scripts/check-migrations-applied.mjs` prints `All <n> migrations are applied`
-- [ ] 4.6 The same count after the push returns no rows
+- [ ] 4.6 After the push, the own-shop count returns no rows, and all decisions are fewer by exactly the own-shop decisions counted before
 - [ ] 4.7 The owner merged the pull request after the push was confirmed
 - [ ] 4.8 On a phone after the deploy, a re-pin's „Żaden z nich” saves („Zapisano: brak w …”), a first choice's „To ten produkt” saves („Zapisano dopasowanie.”), and the product page opens
