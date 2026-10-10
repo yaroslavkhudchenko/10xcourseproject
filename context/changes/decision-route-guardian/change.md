@@ -1,7 +1,7 @@
 ---
 change_id: decision-route-guardian
 title: Decisions posted from a product's page pass one guardian
-status: implementing
+status: impl_reviewed
 created: 2026-10-09
 updated: 2026-10-10
 archived_at: null

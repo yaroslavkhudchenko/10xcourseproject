@@ -413,8 +413,8 @@ None. No migration runs, and rows stored earlier in a product's own shop stay as
 - [x] 2.5 Lint passes: `npm run lint` — b4df130
 - [x] 2.6 Types check: `npx astro sync && npx astro check` — b4df130
 - [x] 2.7 The build passes: `npm run build` — b4df130
-- [ ] 2.8 CI's `smoke` job passes on the pull request: the decision write against the real database (`npm run test:db`), `check-matches-db`, the two-user check of `gone`, and smoke
-- [ ] 2.9 CI's `e2e` job passes on the pull request, including the two specs that post a re-pin's decline
+- [x] 2.8 CI's `smoke` job passes on the pull request: the decision write against the real database (`npm run test:db`), `check-matches-db`, the two-user check of `gone`, and smoke — 74db1eb
+- [x] 2.9 CI's `e2e` job passes on the pull request, including the two specs that post a re-pin's decline — 74db1eb
 
 #### Manual
 
