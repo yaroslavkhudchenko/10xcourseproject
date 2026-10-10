@@ -69,7 +69,7 @@ export function priceMissingText(lastKnown = true): string {
 }
 
 /**
- * What a product's page says while it shows a price the shop gave that the app couldn't store: the list shows only
- * stored prices (the owner's words, 2026-10-10).
+ * What a product's page says while it shows a price the shop gave that the app couldn't store, on the shop's card and
+ * to screen readers with the shop's answer: the list shows only stored prices (the owner's words, 2026-10-10).
  */
 export const PRICE_UNSAVED_TEXT = "Nie udało się zapisać tej ceny, więc lista jej nie pokaże.";

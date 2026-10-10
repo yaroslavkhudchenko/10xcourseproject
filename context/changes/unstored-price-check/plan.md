@@ -278,6 +278,14 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 - **The announcement joins through `withUnsavedText`.** A private helper adds a period only when the text has none, then the sentence: „Natura: 16,99 zł, najtaniej. Nie udało się zapisać tej ceny, więc lista jej nie pokaże.”
 - **`start`'s comment only.** The reducer's `start` already spreads the row, so it keeps `unsaved`. Its comment now says the row keeps its price and whether it was stored.
 
+### Phase 2
+
+- **The kitchen sink reaches the unstored answer through „Odśwież ceny”.** `CHECKED`'s prices are under 15 minutes old, so opening the page refetches neither shop. Both new states tap the button (`REFETCH`, both shops), and `unsaved-then-failed` taps it twice. Natura's unstored answer is its promotion at 19,99 zł (`NATURA_UNSAVED`), beside Rossmann's stored `ROSSMANN_ANSWER`, and both states follow `notice-stopped-failed` in `PRICE_STATES`.
+- **`PRICE_UNSAVED_TEXT`'s comment names the card.** Phase 1's open point: `shop-messages.ts` now says the page shows the sentence on the shop's card and reads it with the shop's answer.
+- **The card test builds its own stored rows** (`SHOPS`, `stored()`), since the state test's helpers are private to that file. It also asserts „Najtaniej” on the stored card, one assertion beyond the plan's list, so it shows both cards keep the same mark.
+- **The line takes the card's notice style.** `text-warning-foreground text-sm`, as the missing price's line has it (`ShopCard.tsx:118`); the contrast check already covers warning-foreground on card.
+- **The kitchen sink's legend stays.** `src/dev/product-page.astro`'s „Macierz 7 stanów” doesn't name the two new states; the plan named only `fixtures.ts`.
+
 ## References
 
 - Research: `context/changes/unstored-price-check/research.md`
@@ -294,20 +302,20 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 1.1 The state, sentence and route tests pass
-- [x] 1.2 The whole unit suite passes
-- [x] 1.3 Lint passes
-- [x] 1.4 Types check
+- [x] 1.1 The state, sentence and route tests pass — 1f147dc
+- [x] 1.2 The whole unit suite passes — 1f147dc
+- [x] 1.3 Lint passes — 1f147dc
+- [x] 1.4 Types check — 1f147dc
 
 ### Phase 2: The card shows the line
 
 #### Automated
 
-- [ ] 2.1 The card's test passes
-- [ ] 2.2 The whole unit suite passes
-- [ ] 2.3 Lint passes, the kitchen sink's fixtures included
-- [ ] 2.4 Types check
-- [ ] 2.5 The production build passes
+- [x] 2.1 The card's test passes
+- [x] 2.2 The whole unit suite passes
+- [x] 2.3 Lint passes, the kitchen sink's fixtures included
+- [x] 2.4 Types check
+- [x] 2.5 The production build passes
 - [ ] 2.6 CI's `ci`, `smoke` and `e2e` jobs pass on the pull request
 
 #### Manual
