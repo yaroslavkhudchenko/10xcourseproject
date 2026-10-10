@@ -102,7 +102,7 @@ None. Every layer M-2 touches is present (`## Baseline`), and the guardian arriv
 - **Parallel with:** S-03
 - **Blockers:** The owner pushes this slice's migration to production from its pull request's branch before it merges. The checked deploy refuses code whose migration production lacks.
 - **Unknowns:**
-  - What happens to old decisions stored in a product's own shop: delete them in the migration, or count them first and enforce the rule on new rows only? — Owner: user. Block: no. Plan to count first; no page reads such rows.
+  - What happens to old decisions stored in a product's own shop: delete them in the migration, or count them first and enforce the rule on new rows only? — Owner: user. Block: no. Answered 2026-10-10: the owner counts them, by state, before the push, and the migration deletes them, so the rule holds for every row; all decisions are counted before and after the push too, so a delete that removed more would show (the owner's call).
 - **Risk:** This adds the project's first write function on a user's own table, and about 17 direct inserts in the database checks and the e2e seed must change with it. The database checks must prove that RLS still binds the new write path and that nothing new can be updated, as the recorded lesson "Check what a direct database call allows" (`context/foundation/lessons.md`) requires.
 - **Status:** in-progress
 

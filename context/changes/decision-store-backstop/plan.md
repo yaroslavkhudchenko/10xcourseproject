@@ -689,6 +689,16 @@ These run in CI only.
   - `holdRemoval`'s statements, replayed on a real Postgres 17.10 (embedded-postgres): the held re-pin and the held retry each answered `gone` in about 30 ms and the hold committed; a hold with no save rolled back at its deadline.
   - The `docker exec` path and the real PostgREST are CI's.
 
+### Phase 3
+
+- **F3 closed by Phase 2's route tests (2c09a46).** `match-routes.test.ts` answers `record_decision` through the shared stand-in, counts the call in `decisionWrites` beside any table write and names it in `queryKinds`. Every admitted post pins the call's 16 arguments with `toStrictEqual`, the form's own state and item and, over a match, the decider the guardian read, and the store's `decided`, `gone` and an error come back `decided=1`, `error=gone` and `error=failed`. So the route's hand-off to the store is pinned at the route, not only below it.
+- **F4 closed by the decider in the expected decision (2c09a46).** The guardian's admitted change carries who decided the match it read (`replacedDecision`), the store sends it as `p_replaces_decided_by`, and `record_decision`'s `where` compares it (41d9229). So an automatic match that became the user's between the guardian's read and the write answers `decided`, and the user's match stands. The guardian's, the store's and the route's tests pin the decider, and `matches.db.test.ts` and `check-matches-db.mjs` its refusal against the database, in CI.
+- **The ABA edge doesn't narrow to the time for a stale form,** so the test plan's §7 and `CLAUDE.md`'s "Data" say what the code does, in place of the contract's "a decision's form names who decided it too". A form's `replaces` names a state and an item, never who decided: the guardian takes the decider from the decision it reads (`replacedDecision`), so the decider stops only a match that changed hands between that read and the write. A stale form shown an automatic match still lands after another tab made it the user's, unless it confirms that item (`outdated-form`), so §7's "Re-evaluate" keeps who decided and when.
+- **`CLAUDE.md`'s rule for a new function's grants named `applied_migrations()` as "the one exception".** Phase 1's trigger function is a second, which no API role may execute, so the sentence names both. The contract didn't name that sentence, but Phase 1 made it untrue.
+- **The glossary's "own shop" row** says in its meaning that the database refuses a decision there, and names the trigger in its name in code, as the table keeps a term's meaning apart from its names.
+- **The test plan's note is titled "M-2's S-02",** since M-1 had an S-02 too, and its "Last updated" moved to 2026-10-10. The roadmap's answer also says all decisions are counted before and after the push, as Phase 4 and the brief's Key Decisions do.
+- **The plan's line numbers for `CLAUDE.md` and the test plan were pre-S-03,** so each passage was found by its words; every one still read as the plan assumed.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -710,26 +720,26 @@ These run in CI only.
 
 #### Automated
 
-- [x] 2.1 The store's, the route's, the guardian's, the lookups' and the page service's tests pass: `npx vitest run src/lib/services/matches.test.ts src/lib/services/match-routes.test.ts src/lib/services/watched-product.test.ts src/lib/services/shop-matching.test.ts src/lib/services/product-page.test.ts`
-- [x] 2.2 Dropping the decider from the guardian's admitted change turns the guardian's and the route's decider tests red, and restoring it turns them green again
-- [x] 2.11 Making the store send `null` for `p_replaces_decided_by` turns the store's and the route's decider tests red, and restoring it turns them green again
-- [x] 2.3 Making the route hand the store `null` for `replaces` turns the route's re-pin argument tests red, and restoring it turns them green again
-- [x] 2.4 The store writes `watchlist_matches` only through `record_decision`: `git grep -nE "\.(insert|update)\(" -- src/lib/services/matches.ts` prints nothing
-- [x] 2.5 The unit suite passes: `npm run test`
-- [x] 2.6 Lint passes: `npm run lint`
-- [x] 2.7 Types check: `npx astro sync && npx astro check`
-- [x] 2.8 The build passes: `npm run build`
-- [ ] 2.9 CI only: CI's `smoke` job passes on the pull request: `npm run test:db` with the 9 cases through the one call, the decider's race, the own shop and the two held-open removals answering `gone`, the database checks, smoke and the two-user check
-- [ ] 2.10 CI only: CI's `e2e` job passes on the pull request, the two specs that tap „Żaden z nich” unchanged
+- [x] 2.1 The store's, the route's, the guardian's, the lookups' and the page service's tests pass: `npx vitest run src/lib/services/matches.test.ts src/lib/services/match-routes.test.ts src/lib/services/watched-product.test.ts src/lib/services/shop-matching.test.ts src/lib/services/product-page.test.ts` — 2c09a46
+- [x] 2.2 Dropping the decider from the guardian's admitted change turns the guardian's and the route's decider tests red, and restoring it turns them green again — 2c09a46
+- [x] 2.11 Making the store send `null` for `p_replaces_decided_by` turns the store's and the route's decider tests red, and restoring it turns them green again — 2c09a46
+- [x] 2.3 Making the route hand the store `null` for `replaces` turns the route's re-pin argument tests red, and restoring it turns them green again — 2c09a46
+- [x] 2.4 The store writes `watchlist_matches` only through `record_decision`: `git grep -nE "\.(insert|update)\(" -- src/lib/services/matches.ts` prints nothing — 2c09a46
+- [x] 2.5 The unit suite passes: `npm run test` — 2c09a46
+- [x] 2.6 Lint passes: `npm run lint` — 2c09a46
+- [x] 2.7 Types check: `npx astro sync && npx astro check` — 2c09a46
+- [x] 2.8 The build passes: `npm run build` — 2c09a46
+- [x] 2.9 CI only: CI's `smoke` job passes on the pull request: `npm run test:db` with the 9 cases through the one call, the decider's race, the own shop and the two held-open removals answering `gone`, the database checks, smoke and the two-user check — 2c09a46
+- [x] 2.10 CI only: CI's `e2e` job passes on the pull request, the two specs that tap „Żaden z nich” unchanged — 2c09a46
 
 ### Phase 3: Documents
 
 #### Automated
 
-- [ ] 3.1 The changed Markdown passes Prettier: `npx prettier --check context/foundation/test-plan.md context/domain/glossary.md context/foundation/roadmap.md context/changes/decision-store-backstop/plan.md`
-- [ ] 3.2 The closed edge is gone: `git grep -n "with no migration or invariant to refuse it" -- CLAUDE.md context/foundation` prints nothing
-- [ ] 3.3 The documents name the save: `git grep -c "record_decision" -- CLAUDE.md context/domain/glossary.md context/foundation/test-plan.md` counts at least one in each file
-- [ ] 3.4 The unit suite still passes: `npm run test`
+- [x] 3.1 The changed Markdown passes Prettier: `npx prettier --check context/foundation/test-plan.md context/domain/glossary.md context/foundation/roadmap.md context/changes/decision-store-backstop/plan.md`
+- [x] 3.2 The closed edge is gone: `git grep -n "with no migration or invariant to refuse it" -- CLAUDE.md context/foundation` prints nothing
+- [x] 3.3 The documents name the save: `git grep -c "record_decision" -- CLAUDE.md context/domain/glossary.md context/foundation/test-plan.md` counts at least one in each file
+- [x] 3.4 The unit suite still passes: `npm run test`
 
 ### Phase 4: Ship
 

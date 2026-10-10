@@ -6,7 +6,7 @@
 >
 > Refresh: re-run `/10x-test-plan --refresh` when stale (see §8).
 >
-> Last updated: 2026-10-09
+> Last updated: 2026-10-10
 
 ## 1. Strategy
 
@@ -139,8 +139,9 @@ How to add new tests in this project. Each sub-section is filled in once the rel
   - `npm run test:db` (`vitest.db.config.ts`) runs it, in CI's `smoke` job against its local stack. The default run, which the end-of-turn hook and CI's `ci` job use, leaves it out, since neither has a database.
   - Refuse any `SUPABASE_URL` but the local stack before any request, and sign up a fresh throwaway user through Auth. Never a secret key.
   - Import the real service function, never a hand copy of its query, which drifts.
+  - A save that must overlap a product's removal, which no user's token can hold open, uses `holdRemoval` (`scripts/e2e-local-db.mjs`): as the local superuser, it deletes the product in a transaction that commits as soon as a save waits on it, and fails the test when none does.
   - Its negative control shows the database alone would let the wrong write through: an update by id over a changed decision succeeds.
-  - Run locally with `npx supabase start`, then `SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=<anon key> npm run test:db`.
+  - Run locally with `npx supabase start`, then `SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_KEY=<anon key> npm run test:db`. The held removal runs through the local stack's database container, so the run also needs Docker access to it and the local stack in `.env` and `.dev.vars`.
 - **4. Two users over HTTP** (`scripts/check-two-users.mjs`):
   - Against the workerd preview, user B gets for user A's product exactly what a product no one has gets: the same status, the same body, or the same `Location` once the id is swapped. Every answer is `private, no-store`.
   - A new route or page that takes a product's id joins its list.
@@ -153,9 +154,10 @@ How to add new tests in this project. Each sub-section is filled in once the rel
   - As the local superuser, it holds `public` to a reviewed list of relations and functions, each with its protection:
     - RLS on every table;
     - `security_invoker` on every view;
+    - each function's reviewed security, `security definer` or `security invoker`, so `record_decision`, which RLS binds only while it runs as its caller, stays an invoker;
     - no privilege of anon but EXECUTE on `applied_migrations()`;
     - nothing PUBLIC may execute.
-  - A migration that adds one adds it to the list, in the same change.
+  - A migration that adds one adds it to the list, a function with its security, in the same change.
   - Its self-test plants every fault in a transaction it rolls back, and each must be flagged before the real catalogue is read.
 - **Done means:** the test goes red under a deliberate break of the behaviour it protects.
   - A check that needs the local stack can't be broken on a machine without Docker. It carries its own negative control, which CI runs, and its rules can be broken offline over canned rows or a stand-in app, as rollout Phase 2's were.
@@ -401,6 +403,12 @@ How to add new tests in this project. Each sub-section is filled in once the rel
     - The database checks and the spec need Docker, which the developer machine lacks, so they ran only in CI's `smoke` and `e2e` jobs.
     - The edges the owner accepted are in §7.
 
+- **M-2's S-02, the database's backstop and the one save (`decision-store-backstop`, 2026-10-10; a roadmap slice, not a rollout phase):**
+  - **Two refusals told apart:** the trigger `watchlist_matches_not_own_shop` refuses a decision in its product's own shop with 23001 (`restrict_violation`), by a direct insert and by `record_decision` alike, while the table's shape checks refuse with 23514, so `check-matches-db.mjs` shows which refused a row. The trigger fires before the checks, so the shape checks' inserts moved to a matched shop of a fresh product, and `check-prices-db.mjs`'s EAN shapes to Super-Pharm, where only a check can refuse each row and a missing one shows as an added row. The trigger reads the product as its caller, so another user's product still answers as an id no one has, never 23001. It closes §7's edge of a decision stored in a product's own shop.
+  - **The held-open removal** (§6.2, pattern 3): `holdRemoval` deletes the product as the local superuser and commits as soon as a save waits on its transaction, never after a fixed sleep, since the store gives up after 2 seconds; when no save waits within 10 seconds, it rolls back and fails. So `matches.db.test.ts`'s re-pin and retry's lookup during a removal can't pass without the overlap.
+  - **The old store against the new schema:** Phase 1's commit added the migration and left the store as it was, so its green `smoke` and `e2e` jobs ran the old insert-then-update against the new schema, as production runs it from the owner's push until the deploy, and after a rollback of the Worker.
+  - **CI only:** every database proof, the migration applied, the three database checks and `npm run test:db` with its held removals, runs only in CI's `smoke` job, since the developer machine has no Docker. The offline runs on PGlite and an embedded Postgres, in the change's Implementation Notes, are no gates.
+
 ## 7. What We Deliberately Don't Test
 
 Exclusions agreed during the rollout (Phase 2 interview, Q5). Future contributors should respect these unless the underlying assumption changes.
@@ -415,7 +423,7 @@ Edges rollout Phase 2 found and the owner accepted rather than fixed (2026-10-07
 - **The selected row beside a product** — from lg, its tag follows the island's live prices, while its screen-reader line and the chips' counts stay the list's own read. Re-evaluate if a screen-reader user meets the mismatch.
 - **A block report that fails** — after a 403 or a challenge the gate answers `blocked` to its caller even when it can't record the block, and the shop stays switched on for every other path and user. Re-evaluate if a failed report ever shows in the logs.
 - **Search text the schema admits** — the search schema checks characters and length only, so text such as `../../etc/passwd` or `union select password from users` passes, and whether a shop's firewall would flag it is unknown and must not be probed. Since `add-from-other-shops` (2026-10-09) each search sends the text to all four shops, so one refusal can stop any of them. Re-evaluate if a shop stops after a search.
-- **A stale decision that matches the newer one (ABA)** — a re-pin's form names the state and the item it replaces, not a version. So a stale form still lands when its content matches the newer decision, as after a decline, a re-pin and a decline again. It writes the same content over the newer decision. Re-evaluate if decisions gain anything a stale tab could lose, such as who decided and when.
+- **A stale decision that matches the newer one (ABA)** — a re-pin's form names the state and the item it replaces, not a version, nor who decided a match: the guardian adds that as it reads the stored decision, and the write (`record_decision`) expects all three, so since M-2's S-02 a match that changed hands between that read and the write stands (S-01's F4). A stale form still lands when the decision it names has the newer decision's state and item as the guardian reads it, as after a decline, a re-pin and a decline again, or after another tab made the form's automatic match the user's, where only a confirmation of that item is refused (`outdated-form`). Its write replaces the newer decision. Re-evaluate if decisions gain anything a stale tab could lose, such as who decided and when.
 - **The id probe** — the table-wide insert grants let a caller choose a row's id. Someone who already knows a product's UUID, say from a shared link, could learn through a duplicate-key error whether it exists. No route posts an id for an insert, and closing it needs a column-level insert grant, a migration. Re-evaluate before inviting more people.
 - **The pages' four recorded differences** — each page stays honest in its own way:
   - a decision whose time doesn't parse is unread on the product page only;
@@ -440,7 +448,6 @@ Edges `add-from-other-shops` found and the owner accepted rather than fixed (202
 
 - **Rossmann's words for a product from another shop** (the owner's call, 2026-10-08) — a lookup's search by name sends the words of the product's own shop, so a product whose name uses words Rossmann doesn't write may not be found there, though Rossmann sells it: Super-Pharm's "Maybelline Mascara Lash Sensational Sky High Cosmic Black 7.2 ml" found nothing (`rossmann-lookup-maybelline-sky-high-cosmic-black.json`), where Rossmann writes "tusz do rzęs" and "7,2 ml". The lookup stores "not found", and "Szukaj ponownie" sends the same query; `shop-matching.test.ts` pins Rossmann's empty answer as "not found". Re-evaluate if a product Rossmann sells shows as not found there, or when a change gives Rossmann's lookup a better query.
 - **A right item that lacks a word of a captionless product's name** — every word of such a product's name must be in an item's name, so an item the shop writes without one of them is left to the user, the right item first: Super-Pharm's Nivea Soft 300 ml (10132) for Natura's (NV89063), whose name adds "intensywnie", and Super-Pharm's Creme Soft shower gel 750 ml (20377) for Natura's (NV18540), whose name adds "Kremowy". `matching.test.ts` pins both. Re-evaluate if users keep picking the first item offered for such products.
-- **A decision stored in a product's own shop** — the decision form doesn't say which shop is the product's own, so a crafted post for that shop is stored, with no migration or invariant to refuse it. Every read of the product's decisions leaves it out, and no page offers it. Re-evaluate if a read ever takes a product's decisions without narrowing them to its matched shops.
 - **The same product added from two shops** (the owner's call 7, 2026-10-06) — the list keeps one row per shop item, so a product added once from Rossmann and once from Natura is two rows, each priced and matched on its own; „Na liście” marks an entry only for the items it holds. Re-evaluate if the owner finds a product twice on the list.
 - **What a shop's search didn't find** (the owner's call 2, 2026-10-06) — each shop's search gives only its first 10 hits, so an entry names the shops whose searches found it and claims nothing about the others, and a shop's „brak wyników” says only that its search found nothing. Re-evaluate if an entry's shops are read as the only shops selling it.
 - **A reload repeats the search** ("What We're NOT Doing") — nothing is cached, so each search on the user's own navigation, a reload included, costs one request to each shop's cap. Re-evaluate if searches ever use up a shop's cap.
