@@ -4,7 +4,8 @@ import type { ShopId, ShopLookup, ShopMatch, WatchlistProduct } from "@/types";
 
 // The guardian of a watched product's decisions: the one place that decides whether a change to them may be stored, a
 // decision posted from the product's page or what a lookup on that page settled on its own. It knows the product's
-// matched shops (matchedShopsOf) and where the product stands in each, from the two reads its page makes. It admits a
+// matched shops (matchedShopsOf) and where the product stands in each, from the two reads its page makes, which
+// loadWatchedProduct makes for a product's readers, handing them its row beside this view (LoadedProduct). It admits a
 // confirm or a decline only from the decision the form was shown with, and only along the moves the page offers
 // (admitDecision), and a lookup's automatic match or nothing found only where no decision is settled: where the
 // product is undecided, or over a lookup that found nothing (admitLookup). It does no I/O: the decision route reads the
@@ -27,6 +28,17 @@ export interface WatchedProduct {
   itemId: string;
   ownShop: ShopId;
   standings: Readonly<Partial<Record<PricedShop, Standing>>>;
+}
+
+/**
+ * A watched product as a reader of one product takes it (loadWatchedProduct): its row, which its page shows and looks
+ * it up by, beside the guardian's view of it (watchedProductOf), and whether its decisions could be read at all.
+ */
+export interface LoadedProduct {
+  product: WatchlistProduct;
+  watched: WatchedProduct;
+  /** `unread`: the decisions couldn't be read at all, so every matched shop stands unreadable. */
+  decisions: "read" | "unread";
 }
 
 /**
@@ -56,16 +68,16 @@ export type DecisionAdmission =
   { kind: "admitted"; change: DecisionChange } | { kind: "refused"; reason: DecisionRefusal };
 
 /**
- * A watched product as the guardian judges it, from its row and its stored decisions as listMatches reads them, with
- * a standing in each of its matched shops among `shops`, the priced shops unless a test names others. A shop the read
- * lists as unreadable is unreadable, whatever else the read holds; otherwise a shop with a stored decision is decided,
- * and one without is undecided. A decision stored in the product's own shop, or in any shop outside its matched
- * shops, has no standing, so nothing is admitted there: no posted decision (admitDecision) and no lookup's outcome
- * (admitLookup).
+ * A watched product as the guardian judges it, from its row and its stored decisions as listMatches reads them, null
+ * when they couldn't be read at all, with a standing in each of its matched shops among `shops`, the priced shops
+ * unless a test names others. Without a read, every matched shop is unreadable. A shop the read lists as unreadable is
+ * unreadable, whatever else the read holds; otherwise a shop with a stored decision is decided, and one without is
+ * undecided. A decision stored in the product's own shop, or in any shop outside its matched shops, has no standing,
+ * so nothing is admitted there: no posted decision (admitDecision) and no lookup's outcome (admitLookup).
  */
 export function watchedProductOf(
   product: WatchlistProduct,
-  read: MatchesRead,
+  read: MatchesRead | null,
   shops: readonly PricedShop[] = PRICED_SHOPS,
 ): WatchedProduct {
   const standings: Partial<Record<PricedShop, Standing>> = {};
@@ -76,13 +88,36 @@ export function watchedProductOf(
 }
 
 /** Where the product stands in one of its matched shops, by watchedProductOf's rules. */
-function standingFrom(read: MatchesRead, shop: PricedShop): Standing {
-  if (read.unreadable.includes(shop)) {
+function standingFrom(read: MatchesRead | null, shop: PricedShop): Standing {
+  if (read === null || read.unreadable.includes(shop)) {
     return { kind: "unreadable" };
   }
   // A product has one decision per shop.
   const decision = read.matches.find((match) => match.shop === shop);
   return decision === undefined ? { kind: "undecided" } : { kind: "decided", decision };
+}
+
+/**
+ * A watched product as a reader of one product takes it, from its row and its stored decisions as listMatches reads
+ * them, null when they couldn't be read at all: the row beside the guardian's view (watchedProductOf), with a standing
+ * in each of its matched shops among `shops`, the priced shops unless a test names others. Its decisions are `unread`
+ * without a read, and `read` with one, odd rows included: a shop the read lists as unreadable stands unreadable alone.
+ */
+export function loadedProductOf(
+  product: WatchlistProduct,
+  read: MatchesRead | null,
+  shops: readonly PricedShop[] = PRICED_SHOPS,
+): LoadedProduct {
+  return { product, watched: watchedProductOf(product, read, shops), decisions: read === null ? "unread" : "read" };
+}
+
+/**
+ * The watched product's matched shops: the priced shops it has a standing in, in the priced shops' order, as
+ * watchedProductOf derived them. So never its own shop, nor a shop outside the priced shops it was built with, and the
+ * same shops whether or not its decisions could be read.
+ */
+export function matchedShopsIn(watched: WatchedProduct): PricedShop[] {
+  return PRICED_SHOPS.filter((shop) => watched.standings[shop] !== undefined);
 }
 
 /**

@@ -3,9 +3,12 @@ import type { ExpectedDecision, MatchesRead, MatchForm } from "@/lib/services/ma
 import {
   admitDecision,
   admitLookup,
+  loadedProductOf,
+  matchedShopsIn,
   watchedProductOf,
   type DecisionAdmission,
   type DecisionRefusal,
+  type LoadedProduct,
   type LookupAdmission,
   type LookupChange,
   type LookupRefusal,
@@ -325,6 +328,22 @@ describe("watchedProductOf", () => {
       hebe: undecided,
     });
   });
+
+  it("reads every matched shop as unreadable when the decisions couldn't be read at all, and gives the own shop none", () => {
+    const unreadable = { kind: "unreadable" } as const;
+
+    expect(watchedProductOf(product, null)).toEqual({
+      itemId: ITEM_ID,
+      ownShop: "rossmann",
+      standings: { natura: unreadable, hebe: unreadable, "super-pharm": unreadable },
+    });
+    // Picked in Natura, the same product stands unreadable in Rossmann, and has no standing in Natura, its own shop.
+    expect(watchedProductOf(pickedInNatura, null).standings).toEqual({
+      rossmann: unreadable,
+      hebe: unreadable,
+      "super-pharm": unreadable,
+    });
+  });
 });
 
 /** What a lookup settled on its own in a shop, as recordLookup stores it: an accepted candidate, or nothing found. */
@@ -489,5 +508,68 @@ describe("admitLookup", () => {
     { lookup: "a lookup that found nothing", over: "the user's decline", stored: [declined], outcome: nothingFound },
   ])("refuses $lookup in Natura over $over, a settled decision no lookup overwrites", ({ stored, outcome }) => {
     expect(lookUp(stored, "natura", outcome)).toEqual(lookupRefusedAs("settled"));
+  });
+});
+
+describe("loadedProductOf", () => {
+  const undecided = { kind: "undecided" } as const;
+  const unreadable = { kind: "unreadable" } as const;
+
+  it("gives the product's row beside its standing in each matched shop, its decisions read", () => {
+    expect(loadedProductOf(product, read(autoMatchOfX))).toEqual<LoadedProduct>({
+      product,
+      watched: {
+        itemId: ITEM_ID,
+        ownShop: "rossmann",
+        standings: { natura: { kind: "decided", decision: autoMatchOfX }, hebe: undecided, "super-pharm": undecided },
+      },
+      decisions: "read",
+    });
+  });
+
+  it("marks decisions that couldn't be read at all as unread, every matched shop standing unreadable", () => {
+    expect(loadedProductOf(product, null)).toEqual<LoadedProduct>({
+      product,
+      watched: {
+        itemId: ITEM_ID,
+        ownShop: "rossmann",
+        standings: { natura: unreadable, hebe: unreadable, "super-pharm": unreadable },
+      },
+      decisions: "unread",
+    });
+  });
+
+  it("keeps decisions read beside one shop's odd row as read, with that shop alone unreadable", () => {
+    // Hebe's row came back odd, as listMatches reads it: the other shops' decisions still stand.
+    expect(loadedProductOf(product, { matches: [autoMatchOfX], unreadable: ["hebe"] })).toEqual<LoadedProduct>({
+      product,
+      watched: {
+        itemId: ITEM_ID,
+        ownShop: "rossmann",
+        standings: { natura: { kind: "decided", decision: autoMatchOfX }, hebe: unreadable, "super-pharm": undecided },
+      },
+      decisions: "read",
+    });
+  });
+});
+
+describe("matchedShopsIn", () => {
+  it("gives Natura, Hebe and Super-Pharm for a product picked in Rossmann", () => {
+    expect(matchedShopsIn(watchedProductOf(product, read(autoMatchOfX)))).toEqual(["natura", "hebe", "super-pharm"]);
+  });
+
+  it("gives Rossmann, Hebe and Super-Pharm for a product picked in Natura", () => {
+    expect(matchedShopsIn(watchedProductOf(pickedInNatura, read()))).toEqual(["rossmann", "hebe", "super-pharm"]);
+  });
+
+  it("gives only the shops the product was built with, in the priced shops' order", () => {
+    const watched = watchedProductOf(product, read(), ["super-pharm", "natura", "rossmann"]);
+
+    expect(matchedShopsIn(watched)).toEqual(["natura", "super-pharm"]);
+  });
+
+  it("gives the same shops when the product's decisions couldn't be read at all", () => {
+    expect(matchedShopsIn(loadedProductOf(product, null).watched)).toEqual(["natura", "hebe", "super-pharm"]);
+    expect(matchedShopsIn(loadedProductOf(pickedInNatura, null).watched)).toEqual(["rossmann", "hebe", "super-pharm"]);
   });
 });

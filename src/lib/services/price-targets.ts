@@ -1,9 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "astro/zod";
-import { listMatches, listMatchStates, shopItemIdSchema } from "@/lib/services/matches";
+import { listMatches, listMatchStates, loadWatchedProduct, shopItemIdSchema } from "@/lib/services/matches";
 import {
   listPricedItems,
-  matchedShopsOf,
   PRICED_SHOPS,
   productPriceKeys,
   staleTargets,
@@ -12,6 +11,7 @@ import {
   type PricedShop,
 } from "@/lib/services/price-comparison";
 import { listLatestPrices } from "@/lib/services/prices";
+import { matchedShopsIn, watchedProductOf } from "@/lib/services/watched-product";
 import { getWatchlistProduct, listWatchlist, watchlistItemIdSchema } from "@/lib/services/watchlist";
 import type { PriceKey, ShopMatch } from "@/types";
 
@@ -74,8 +74,10 @@ export async function priceTargetFor(
  * The product's item in a shop as the user's rows give it: whether the product is still on the user's list, and the
  * item a refresh fetches there, null without one; `failed` when the rows couldn't be read (shopItemFor). The product is
  * read first, since it says which shop is its own: there its own item stands, whatever decision is stored in that shop,
- * and only in another shop, one of its matched shops, are its decisions read for its match. So refetching a product's
- * own item reads one row, and its match two, one after the other.
+ * and only in another shop, one of its matched shops, are its decisions read for its match, by where the product
+ * stands there (watchedProductOf): a decision that couldn't be read is a failure, since it may hide a match, a match
+ * gives its item, and anything else none. So refetching a product's own item reads one row, and its match two, one
+ * after the other.
  */
 async function itemInRows(
   supabase: SupabaseClient,
@@ -93,10 +95,11 @@ async function itemInRows(
     return { listed: true, key: { shop, shopItemId: product.sourceItemId } };
   }
   const read = await listMatches(supabase, itemId);
-  if (read === null || read.unreadable.includes(shop)) {
+  const standing = watchedProductOf(product, read).standings[shop];
+  if (standing?.kind === "unreadable") {
     return "failed";
   }
-  const match = read.matches.find((decision) => decision.shop === shop);
+  const match = standing?.kind === "decided" ? standing.decision : null;
   return { listed: true, key: match?.state === "matched" ? { shop, shopItemId: match.item.shopItemId } : null };
 }
 
@@ -141,32 +144,37 @@ export async function listTargets(
  * What a product page's "Odśwież ceny" fetches without JavaScript: every shop item of the user's product, however
  * recently it was checked, as the island's button does: its own item and its match in each of its matched shops among
  * `shops`, the priced shops unless a test names others (productPriceKeys). The product and its decisions are read at
- * once, the decisions in every one of `shops`, and only its matched shops' decisions count: one stored in its own shop
- * is left out, and so is a row there that couldn't be read. A matched shop whose decision couldn't be read has no item
- * to fetch and is named unread, while the other shops' items are still fetched, as the island asks each shop on its own
- * (shopItemFor). None for a product that isn't on the user's list (RLS answers another user's product the same way);
- * `failed` when the product or its decisions couldn't be read at all.
+ * once (loadWatchedProduct), and only its matched shops' standings count: a decision stored in its own shop is left
+ * out, and so is a row there that couldn't be read. A matched shop whose decision couldn't be read has no item to fetch
+ * and is named unread, in the priced shops' order, while the other shops' items are still fetched, as the island asks
+ * each shop on its own (shopItemFor). The product's read decides first: none for a product that isn't on the user's
+ * list, whatever its decisions' read (RLS answers another user's product the same way), so it asks no shop; `failed`
+ * when the product couldn't be read, or its decisions couldn't be read at all.
  */
 export async function productTargets(
   supabase: SupabaseClient,
   itemId: string,
   shops: readonly PricedShop[] = PRICED_SHOPS,
 ): Promise<RefreshTargets | "failed"> {
-  const [product, read] = await Promise.all([
-    getWatchlistProduct(supabase, itemId),
-    listMatches(supabase, itemId, shops),
-  ]);
-  if (product === "failed" || read === null) {
-    return "failed";
-  }
-  if (product === null) {
+  const loaded = await loadWatchedProduct(supabase, itemId, shops);
+  if (loaded === null) {
     return { keys: [], unread: [] };
   }
-  const matched = matchedShopsOf(product.source, shops);
-  return {
-    keys: productPriceKeys(product, read.matches.map(priceDecisionOf), shops),
-    unread: read.unreadable.filter((shop) => matched.includes(shop)),
-  };
+  if (loaded === "failed" || loaded.decisions === "unread") {
+    return "failed";
+  }
+  const { product, watched } = loaded;
+  const decided: PriceDecision[] = [];
+  const unread: PricedShop[] = [];
+  for (const shop of matchedShopsIn(watched)) {
+    const standing = watched.standings[shop];
+    if (standing?.kind === "decided") {
+      decided.push(priceDecisionOf(standing.decision));
+    } else if (standing?.kind === "unreadable") {
+      unread.push(shop);
+    }
+  }
+  return { keys: productPriceKeys(product, decided, shops), unread };
 }
 
 /** A product's stored decision in a shop as its prices read it: a match names its item there, any other none. */

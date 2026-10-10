@@ -2,11 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "astro/zod";
 import { ERROR_PARAM, SHOP_PARAM, type DecisionCode } from "@/lib/notices";
 import { linksOfShop, optionalText } from "@/lib/services/form-fields";
-import { PRICED_SHOPS, type MatchableShop } from "@/lib/services/price-comparison";
+import { PRICED_SHOPS, type MatchableShop, type PricedShop } from "@/lib/services/price-comparison";
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import { SHOP_ADAPTERS } from "@/lib/services/shops/registry";
 import { parseSize } from "@/lib/services/size";
-import { watchedProductOf, type WatchedProduct } from "@/lib/services/watched-product";
+import { loadedProductOf, type LoadedProduct } from "@/lib/services/watched-product";
 import { getWatchlistProduct, watchlistItemIdSchema } from "@/lib/services/watchlist";
 import { filterHref, type ListFilter } from "@/lib/services/watchlist-rows";
 import {
@@ -471,21 +471,28 @@ export async function listMatches(
 }
 
 /**
- * A watched product as the guardian judges a decision for it (watchedProductOf), from its page's own two reads, run at
- * once: the product, and its stored decisions in every priced shop. Null when the product isn't on the user's list,
- * which is how RLS reads another user's product too, so the two answer alike. `failed` when the product couldn't be
- * read, or its decisions couldn't be read at all, never null. The product's read decides first, as on its page:
- * without the product, its decisions don't count. The id must already be a UUID.
+ * A watched product as a reader of one product takes it (loadedProductOf): its row beside the guardian's view, from
+ * its page's own two reads, run at once: the product, and its stored decisions in `shops`, the priced shops unless a
+ * test names others, which reach both the read and the guardian's view. The product's read decides first, as on its
+ * page: without the product, its decisions don't count. So null when the product isn't on the user's list, which is
+ * how RLS reads another user's product too, so the two answer alike, whatever its decisions' read; and `failed` when
+ * the product couldn't be read, whatever its decisions'. A product whose decisions couldn't be read at all is loaded
+ * with its decisions `unread`, every matched shop standing unreadable, and each reader says what that comes to for it.
+ * The id must already be a UUID.
  */
 export async function loadWatchedProduct(
   supabase: SupabaseClient,
   itemId: string,
-): Promise<WatchedProduct | null | "failed"> {
-  const [product, read] = await Promise.all([getWatchlistProduct(supabase, itemId), listMatches(supabase, itemId)]);
+  shops: readonly PricedShop[] = PRICED_SHOPS,
+): Promise<LoadedProduct | null | "failed"> {
+  const [product, read] = await Promise.all([
+    getWatchlistProduct(supabase, itemId),
+    listMatches(supabase, itemId, shops),
+  ]);
   if (product === null || product === "failed") {
     return product;
   }
-  return read === null ? "failed" : watchedProductOf(product, read);
+  return loadedProductOf(product, read, shops);
 }
 
 // Only the columns the list needs: which product, which shop, where the product stands there, and a match's item, whose

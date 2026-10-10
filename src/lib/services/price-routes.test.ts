@@ -391,6 +391,18 @@ describe("/api/watchlist/refresh asks each shop only what is due", () => {
     expect(served()).toEqual([]);
   });
 
+  it("asks no shop for a product the user doesn't have whose decisions can't be read, finding nothing to refresh", async () => {
+    // The product's read decides first: without the product, its decisions don't count, so the refresh has no item.
+    const unreadable = { ...PRODUCT_RELATIONS, watchlist_matches: { error: { code: "57014", message: "timeout" } } };
+    const { client, queries } = world(unreadable, Object.values(RECORDINGS));
+
+    const response = await postRefresh(contextOf(refreshRequest({ itemId: NOBODYS_ID }), client));
+
+    expect(response.headers.get("Location")).toBe(`/watchlist/${NOBODYS_ID}?prices=none`);
+    expect(reservations(queries)).toEqual([]);
+    expect(served()).toEqual([]);
+  });
+
   it("asks each of a product's shops once, whatever its prices' age", async () => {
     const { client, queries } = world(PRODUCT_RELATIONS, Object.values(RECORDINGS));
 

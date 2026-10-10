@@ -624,6 +624,13 @@ None. No migration runs and no stored row changes. S-02 rebases onto this slice 
 - **The module's header states the end state.** It calls the guardian the one place that decides what a lookup may store, which holds once Phase 3 sends `lookupOutcome` through `admitLookup`; until then nothing calls it.
 - **Red first, as traced:** the tests alone failed 21 of 62 (no `admitLookup` yet); a skeleton that admitted everything failed 15; adding the matched-shop check left 8; adding the unreadable check left the 6 settled cases; the final rule passes 62.
 
+### Phase 2
+
+- **One existing import line changed in `matches.test.ts`.** Its import from `@/lib/services/testing/stored-rows` also takes `declinedRow`, `matchRow` and `productRow`, which the loader's tests need. It holds no expect, matcher or title, so the assertion check allows it; a second import of the same module would avoid it, which nothing in the repository does.
+- **The loader's `shops` shows through the standings.** `listMatches`' answer for a listed shop doesn't depend on which other shops are listed, and its query doesn't filter by shop, so the test shows `shops` through the standings: an odd Super-Pharm row reads `unreadable` with the default shops and has no standing with `["rossmann", "natura", "hebe"]`.
+- **The guardian's header names `loadWatchedProduct` and `LoadedProduct`.** The read-rules comment in `matches.ts` stays for Phase 4, as planned, and is still accurate.
+- **2.8, by reading:** `[id].astro`'s not-found branch renders `ProductUnavailable` with the decision's error and the removal's notice only, and the prices alert stands only in the shown product's branch, so `?prices=none` in place of `?prices=failed` shows nothing different.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -632,28 +639,28 @@ None. No migration runs and no stored row changes. S-02 rebases onto this slice 
 
 #### Automated
 
-- [x] 1.1 The guardian's tests pass: `npx vitest run src/lib/services/watched-product.test.ts`
-- [x] 1.2 Dropping the `settled` refusal, then the matched-shop check, from `admitLookup` each turns its tests red, and restoring them turns them green again
-- [x] 1.3 The unit suite passes: `npm run test`
-- [x] 1.4 Lint passes: `npm run lint`
-- [x] 1.5 Types check: `npx astro sync && npx astro check`
-- [x] 1.6 No existing assertion or test title moved: `assertion-diff` and `title-diff` (Implementation Approach) print nothing
+- [x] 1.1 The guardian's tests pass: `npx vitest run src/lib/services/watched-product.test.ts` — 09d7eed
+- [x] 1.2 Dropping the `settled` refusal, then the matched-shop check, from `admitLookup` each turns its tests red, and restoring them turns them green again — 09d7eed
+- [x] 1.3 The unit suite passes: `npm run test` — 09d7eed
+- [x] 1.4 Lint passes: `npm run lint` — 09d7eed
+- [x] 1.5 Types check: `npx astro sync && npx astro check` — 09d7eed
+- [x] 1.6 No existing assertion or test title moved: `assertion-diff` and `title-diff` (Implementation Approach) print nothing — 09d7eed
 
 ### Phase 2: One loader for a watched product, gone first (F5)
 
 #### Automated
 
-- [ ] 2.1 The guardian's, the loader's, the routes' and the price targets' tests pass: `npx vitest run src/lib/services/watched-product.test.ts src/lib/services/matches.test.ts src/lib/services/match-routes.test.ts src/lib/services/price-targets.test.ts src/lib/services/price-routes.test.ts`
-- [ ] 2.2 Making `productTargets` answer `failed` before a product not on the list, and making the route ask the guardian before it answers decisions unread as a whole, each turns its new tests red, and restoring each turns them green again
-- [ ] 2.3 `productTargets` derives no matched shops of its own: `grep -c "matchedShopsOf" src/lib/services/price-targets.ts` prints 0
-- [ ] 2.4 The unit suite passes: `npm run test`
-- [ ] 2.5 Lint passes: `npm run lint`
-- [ ] 2.6 Types check: `npx astro sync && npx astro check`
-- [ ] 2.7 No existing assertion or test title moved: `assertion-diff` and `title-diff` print nothing
+- [x] 2.1 The guardian's, the loader's, the routes' and the price targets' tests pass: `npx vitest run src/lib/services/watched-product.test.ts src/lib/services/matches.test.ts src/lib/services/match-routes.test.ts src/lib/services/price-targets.test.ts src/lib/services/price-routes.test.ts`
+- [x] 2.2 Making `productTargets` answer `failed` before a product not on the list, and making the route ask the guardian before it answers decisions unread as a whole, each turns its new tests red, and restoring each turns them green again
+- [x] 2.3 `productTargets` derives no matched shops of its own: `grep -c "matchedShopsOf" src/lib/services/price-targets.ts` prints 0
+- [x] 2.4 The unit suite passes: `npm run test`
+- [x] 2.5 Lint passes: `npm run lint`
+- [x] 2.6 Types check: `npx astro sync && npx astro check`
+- [x] 2.7 No existing assertion or test title moved: `assertion-diff` and `title-diff` print nothing
 
 #### Manual
 
-- [ ] 2.8 Reading the product page's not-found view (`src/pages/watchlist/[id].astro:223-226`), the reviewer confirms it shows no prices notice, so `?prices=none` in place of `?prices=failed` shows nothing different
+- [x] 2.8 Reading the product page's not-found view (`src/pages/watchlist/[id].astro:223-226`), the reviewer confirms it shows no prices notice, so `?prices=none` in place of `?prices=failed` shows nothing different
 
 ### Phase 3: The product page runs on one loaded product
 

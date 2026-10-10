@@ -505,6 +505,14 @@ describe("productTargets", () => {
     expect(await productTargets(client, SOFT_ID)).toEqual<RefreshTargets>({ keys: [], unread: [] });
   });
 
+  it("gives nothing for a product that isn't on the user's list, even when its decisions can't be read", async () => {
+    // The product's read decides first, as on its page: without the product, its decisions don't count.
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client } = stubClient({ watchlist_items: { data: null }, watchlist_matches: readFailure });
+
+    expect(await productTargets(client, SOFT_ID)).toEqual<RefreshTargets>({ keys: [], unread: [] });
+  });
+
   it.each([
     { why: "the product", answers: { watchlist_items: readFailure, watchlist_matches: { data: [] } } },
     { why: "its decisions", answers: { watchlist_items: { data: softRow }, watchlist_matches: readFailure } },
