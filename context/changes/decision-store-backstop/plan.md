@@ -718,7 +718,9 @@ These run in CI only.
   ```
 
 - **The push:** `npx.cmd supabase db push` from S-02's worktree (`10xcourseproject-wt`), linked there once with `npx.cmd supabase link`, at the branch's head f18182d, whose CI was green. `node scripts/check-migrations-applied.mjs` then printed `All 9 migrations are applied`. That check, which reads production's applied migrations, is the push's evidence: what `db push` listed and what `migration list --linked` printed weren't reported (S-02's review, F9).
-- **The merge came before the push (S-02's review, F1).** #55 was marked ready once its CI was green, and merged at 20:38 UTC on 2026-10-10, at f18182d, before the owner's `db push`. The checked deploy refused, as designed: Workers Builds failed 38 seconds after the merge and the `Deploy check` workflow failed, so nothing deployed and production stayed on the previous version, which Phase 1's CI showed works against the new schema. After the push, a retried build deploys. Row 4.7 stays unticked, since the merge didn't follow the push, and the plan-only commit recording the counts (52f493f) missed the merge and lands in the close-out as 601123a. A migration's pull request now stays in draft until the push is confirmed (`context/deployment/deploy-plan.md`, "Later migrations").
+- **The merge came before the push (S-02's review, F1).** #55 was marked ready once its CI was green, and merged at 20:38 UTC on 2026-10-10, at f18182d, before the owner's `db push`. The checked deploy refused, as designed: Workers Builds failed 38 seconds after the merge and the `Deploy check` workflow failed, so nothing deployed and production stayed on the previous version, which Phase 1's CI showed works against the new schema. After the push, the owner retried the build: Workers Builds went green on 783b214 at 21:56 UTC, and the `Deploy check` workflow, run by hand since a retried build has no push to start it, passed. Row 4.7 stays unticked, since the merge didn't follow the push, and the plan-only commit recording the counts (52f493f) missed the merge and lands in the close-out as 601123a. A migration's pull request now stays in draft until the push is confirmed (`context/deployment/deploy-plan.md`, "Later migrations").
+
+- **The phone check passed on 2026-10-11:** a re-pin's „Żaden z nich” and a first choice's „To ten produkt” saved, and the product page opened.
 
 ### Review fixes (2026-10-10)
 
@@ -781,7 +783,7 @@ The implementation review (`reviews/impl-review.md`, verdict APPROVED) found 1 w
 #### Automated
 
 - [x] 4.1 `gh pr checks <PR>` shows `ci`, `smoke` and `e2e` passing on the head the owner pushes from — f18182d
-- [ ] 4.2 After the merge, `gh run list --workflow "Deploy check" --limit 1` shows the merge's run succeeded
+- [x] 4.2 After the merge, `gh run list --workflow "Deploy check" --limit 1` shows the merge's run succeeded — 783b214
 
 #### Manual
 
@@ -790,4 +792,4 @@ The implementation review (`reviews/impl-review.md`, verdict APPROVED) found 1 w
 - [x] 4.5 `npx supabase migration list --linked` shows the new version on the remote, and `node scripts/check-migrations-applied.mjs` prints `All <n> migrations are applied` — the owner, 2026-10-10
 - [x] 4.6 After the push, the own-shop count returns no rows, and all decisions are fewer by exactly the own-shop decisions counted before — the owner, 2026-10-10
 - [ ] 4.7 The owner merged the pull request after the push was confirmed
-- [ ] 4.8 On a phone after the deploy, a re-pin's „Żaden z nich” saves („Zapisano: brak w …”), a first choice's „To ten produkt” saves („Zapisano dopasowanie.”), and the product page opens
+- [x] 4.8 On a phone after the deploy, a re-pin's „Żaden z nich” saves („Zapisano: brak w …”), a first choice's „To ten produkt” saves („Zapisano dopasowanie.”), and the product page opens — the owner's check on a phone, 2026-10-11
