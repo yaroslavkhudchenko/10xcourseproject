@@ -55,7 +55,7 @@ In PRD refs, FR-NNN and US-NN are the PRD's, I-NN the refactor plan's invariants
 | ID   | Change ID                     | Outcome (user can …)                                                                                     | Prerequisites | PRD refs                                                                                                      | Status   |
 | ---- | ----------------------------- | -------------------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------- | -------- |
 | S-01 | decision-route-guardian       | post decisions as before, and a post the guardian refuses stores nothing; a matched shop's card says why | —             | FR-004, FR-006, FR-007, US-02, I-2, I-5, I-7, I-8, I-10, R-02, R-05, R-07, R-08, R-10                         | done     |
-| S-02 | decision-store-backstop       | rely on the database to refuse a decision in a product's own shop, and on each decision saving at once   | S-01          | FR-005, FR-007, US-02, I-1, I-3, I-5, I-8, R-01, R-03, R-05, R-08, R-16                                       | proposed |
+| S-02 | decision-store-backstop       | rely on the database to refuse a decision in a product's own shop, and on each decision saving at once   | S-01          | FR-005, FR-007, US-02, I-1, I-3, I-5, I-8, R-01, R-03, R-05, R-08, R-16                                       | planning |
 | S-03 | page-lookups-through-guardian | open a product whose lookups and decisions go through the same guardian, with the same results           | S-01          | FR-006, FR-007, FR-008, US-02, I-4, I-6, I-8, I-9, I-12, I-13, R-04, R-06, R-08, R-09, R-12, R-14, R-15, D-01 | done     |
 
 ## Baseline
@@ -104,7 +104,7 @@ None. Every layer M-2 touches is present (`## Baseline`), and the guardian arriv
 - **Unknowns:**
   - What happens to old decisions stored in a product's own shop: delete them in the migration, or count them first and enforce the rule on new rows only? — Owner: user. Block: no. Plan to count first; no page reads such rows.
 - **Risk:** This adds the project's first write function on a user's own table, and about 17 direct inserts in the database checks and the e2e seed must change with it. The database checks must prove that RLS still binds the new write path and that nothing new can be updated, as the recorded lesson "Check what a direct database call allows" (`context/foundation/lessons.md`) requires.
-- **Status:** proposed
+- **Status:** planning
 
 ### S-03: A product's page looks shops up and shows decisions through the guardian
 
