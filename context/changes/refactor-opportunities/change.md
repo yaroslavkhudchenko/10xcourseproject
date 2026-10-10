@@ -1,7 +1,7 @@
 ---
 change_id: refactor-opportunities
 title: Refactor opportunities from the refresh flow analysis
-status: new
+status: preparing
 created: 2026-10-10
 updated: 2026-10-10
 archived_at: null
