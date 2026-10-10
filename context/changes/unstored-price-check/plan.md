@@ -311,13 +311,13 @@ One line per adaptation, added in the phase's commit (`context/foundation/lesson
 
 #### Automated
 
-- [x] 2.1 The card's test passes
-- [x] 2.2 The whole unit suite passes
-- [x] 2.3 Lint passes, the kitchen sink's fixtures included
-- [x] 2.4 Types check
-- [x] 2.5 The production build passes
-- [ ] 2.6 CI's `ci`, `smoke` and `e2e` jobs pass on the pull request
+- [x] 2.1 The card's test passes — d72e415
+- [x] 2.2 The whole unit suite passes — d72e415
+- [x] 2.3 Lint passes, the kitchen sink's fixtures included — d72e415
+- [x] 2.4 Types check — d72e415
+- [x] 2.5 The production build passes — d72e415
+- [x] 2.6 CI's `ci`, `smoke` and `e2e` jobs pass on the pull request — d72e415
 
 #### Manual
 
-- [ ] 2.7 `/dev/product-page` shows both new states in light and dark, at 390 and 1280 px
+- [x] 2.7 `/dev/product-page` shows both new states in light and dark, at 390 and 1280 px — checked in the browser (Playwright) at 390 px and the 2-column desktop layout (1400 px), light and dark, 2026-10-10

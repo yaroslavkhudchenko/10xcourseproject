@@ -1,7 +1,7 @@
 ---
 change_id: unstored-price-check
 title: Say when a refreshed price couldn't be saved
-status: implementing
+status: implemented
 created: 2026-10-10
 updated: 2026-10-10
 archived_at: null
