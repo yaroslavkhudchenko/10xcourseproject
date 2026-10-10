@@ -438,7 +438,7 @@ The implementation review (`reviews/impl-review.md`) found 2 warnings and 5 obse
 
 #### Manual
 
-- [ ] 2.10 After the deploy, on a phone: a re-pin's „Żaden z nich” and a first choice's „To ten produkt” still save and show their notice on the shop's card
+- [x] 2.10 After the deploy, on a phone: a re-pin's „Żaden z nich” and a first choice's „To ten produkt” still save and show their notice on the shop's card — the owner's check on a phone, 2026-10-10
 
 ### Phase 3: Documents
 
