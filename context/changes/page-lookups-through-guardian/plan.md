@@ -696,9 +696,9 @@ None. No migration runs and no stored row changes. S-02 rebases onto this slice 
 - [x] 3.8 Types check: `npx astro sync && npx astro check` — 5db17e1
 - [x] 3.9 The build passes: `npm run build` (it downloads the fonts, so it needs network) — 5db17e1
 - [x] 3.10 No existing assertion or test title moved: `assertion-diff` and `title-diff` print nothing — 5db17e1
-- [ ] 3.11 CI only: CI's `ci` job passes on the pull request
-- [ ] 3.12 CI only: CI's `smoke` job passes on the pull request: `npm run test:db` (a lookup's write against the real database, the late lookup included), the database checks, the two-user check (another user's product answers like a missing one through the page with `?repin=` and `?retry=`, the price route, the decision route and the product's refresh) and smoke
-- [ ] 3.13 CI only: CI's `e2e` job passes on the pull request: the 10 specs, unchanged, with no shop request reserved
+- [x] 3.11 CI only: CI's `ci` job passes on the pull request — ed640b2
+- [x] 3.12 CI only: CI's `smoke` job passes on the pull request: `npm run test:db` (a lookup's write against the real database, the late lookup included), the database checks, the two-user check (another user's product answers like a missing one through the page with `?repin=` and `?retry=`, the price route, the decision route and the product's refresh) and smoke — ed640b2
+- [x] 3.13 CI only: CI's `e2e` job passes on the pull request: the 10 specs, unchanged, with no shop request reserved — ed640b2
 
 #### Manual
 
@@ -710,15 +710,15 @@ None. No migration runs and no stored row changes. S-02 rebases onto this slice 
 
 #### Automated
 
-- [x] 4.1 The changed Markdown passes Prettier: `npx prettier --check context/foundation/prd.md context/domain/glossary.md context/foundation/test-plan.md`
-- [x] 4.2 The note lands once and the PRD loses no line: `grep -c "page-lookups-through-guardian" context/foundation/prd.md` prints 1, and `git diff "$BASE" -- context/foundation/prd.md | grep -E '^-[^-]'` prints nothing
-- [x] 4.3 CLAUDE.md names the new pieces: `grep -oE "admitLookup|openProductPage|matchedShopsIn" CLAUDE.md | sort -u` prints all three
-- [x] 4.4 The glossary's guardian row names the lookup's admission and the loader: `grep "^| guardian" context/domain/glossary.md | grep -oE "admitLookup|loadWatchedProduct" | sort -u` prints both
-- [x] 4.5 The unit suite passes: `npm run test`
-- [x] 4.6 Lint passes: `npm run lint`
-- [x] 4.7 No existing assertion or test title moved: `assertion-diff` and `title-diff` print nothing
+- [x] 4.1 The changed Markdown passes Prettier: `npx prettier --check context/foundation/prd.md context/domain/glossary.md context/foundation/test-plan.md` — ed640b2
+- [x] 4.2 The note lands once and the PRD loses no line: `grep -c "page-lookups-through-guardian" context/foundation/prd.md` prints 1, and `git diff "$BASE" -- context/foundation/prd.md | grep -E '^-[^-]'` prints nothing — ed640b2
+- [x] 4.3 CLAUDE.md names the new pieces: `grep -oE "admitLookup|openProductPage|matchedShopsIn" CLAUDE.md | sort -u` prints all three — ed640b2
+- [x] 4.4 The glossary's guardian row names the lookup's admission and the loader: `grep "^| guardian" context/domain/glossary.md | grep -oE "admitLookup|loadWatchedProduct" | sort -u` prints both — ed640b2
+- [x] 4.5 The unit suite passes: `npm run test` — ed640b2
+- [x] 4.6 Lint passes: `npm run lint` — ed640b2
+- [x] 4.7 No existing assertion or test title moved: `assertion-diff` and `title-diff` print nothing — ed640b2
 
 #### Manual
 
 - [ ] 4.8 The owner reads the FR-007 note against the code's cases (`src/lib/services/watchlist-rows.ts:213-216`, `:241-243`) and confirms both edge cases read right: an unread price counts, and a fresh price that can't be ordered online doesn't
-- [x] 4.9 The reviewer confirms the read rules' comment and CLAUDE.md's three paragraphs name the per-product readers as the code has them
+- [x] 4.9 The reviewer confirms the read rules' comment and CLAUDE.md's three paragraphs name the per-product readers as the code has them — ed640b2
