@@ -205,6 +205,23 @@ describe("/api/watchlist/matches reads the product and its decisions before any 
     expect(decisionWrites(queries)).toEqual([]);
   });
 
+  it.each<{ action: string; shop: string; product: StubRelation; fields: FormFields }>([
+    { action: "decline", shop: "rossmann", product: ROSSMANN_PRODUCT, fields: { ...decline(), shop: "rossmann" } },
+    { action: "confirm", shop: "natura", product: NATURA_PRODUCT, fields: confirm(MEN) },
+  ])(
+    "answers error=failed to a $action in $shop, the product's own shop, when its decisions can't be read at all, writing nothing",
+    async ({ shop, product, fields }) => {
+      // Decisions that couldn't be read at all are a failure to try again, answered before the guardian, which would
+      // call a post for the product's own shop invalid.
+      const { client, queries } = world(TIMEOUT, product);
+
+      expect(await locationAfter(decisionRequest(fields), client)).toBe(
+        `/watchlist/${PRODUCT_ID}?f=check&shop=${shop}&error=failed`,
+      );
+      expect(decisionWrites(queries)).toEqual([]);
+    },
+  );
+
   it("reads the product and its decisions before it writes the decision", async () => {
     const { client, queries } = world([]);
 

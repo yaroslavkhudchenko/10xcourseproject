@@ -4,6 +4,7 @@ import {
   decisionBackTo,
   listMatches,
   listMatchStates,
+  loadWatchedProduct,
   MATCH_ERRORS,
   matchErrorMessage,
   parseMatchForm,
@@ -27,7 +28,8 @@ import { searchNatura } from "@/lib/services/shops/natura";
 import { searchRossmannItems } from "@/lib/services/shops/rossmann";
 import { searchSuperPharm } from "@/lib/services/shops/super-pharm";
 import { createReplayFetch } from "@/lib/services/testing/replay-fetch";
-import { NO_ITEM_COLUMNS } from "@/lib/services/testing/stored-rows";
+import { declinedRow, matchRow, NO_ITEM_COLUMNS, productRow } from "@/lib/services/testing/stored-rows";
+import { stubSupabase, type StubRelation } from "@/lib/services/testing/stub-supabase";
 import type { ListFilter } from "@/lib/services/watchlist-rows";
 import type { MatchedItem, RepinnableMatch, ShopCandidate, ShopSearch } from "@/types";
 
@@ -1057,6 +1059,153 @@ describe("listMatches", () => {
     const { client } = stubClient(result);
 
     expect(await listMatches(client, ITEM_ID)).toBeNull();
+  });
+});
+
+describe("loadWatchedProduct", () => {
+  // The user's Nivea Soft, picked in Rossmann (26900) and so matched in Natura, Hebe and Super-Pharm, as stored-rows.ts
+  // writes its row, and its decisions: the user's match in Natura (NV89063) and the user's decline in Hebe.
+  const productRows = [productRow(ITEM_ID, "26900")];
+  const decisionRows = [matchRow(ITEM_ID, "natura", "NV89063"), declinedRow(ITEM_ID, "hebe")];
+  const TIMEOUT: StubRelation = { error: { code: "57014", message: "canceling statement due to statement timeout" } };
+
+  /** The stand-in database: the product rows and decision rows RLS lets the user see, or the error a read gets. */
+  const world = (products: StubRelation, decisions: StubRelation) =>
+    stubSupabase({ relations: { watchlist_items: products, watchlist_matches: decisions } });
+
+  // The product and its decisions as its page reads them from those rows, each decision checked when stored-rows.ts
+  // says it was.
+  const STORED_AT = "2026-09-27T12:05:00+00:00";
+  const product = {
+    id: ITEM_ID,
+    source: "rossmann",
+    sourceItemId: "26900",
+    brand: "NIVEA",
+    name: "Produkt 26900",
+    caption: null,
+    sizeText: "300 ml",
+    size: { value: 300, unit: "ml" },
+    imageUrl: null,
+    addedAt: "2026-09-27T12:00:00+00:00",
+    eans: [],
+    productUrl: null,
+  };
+  const naturaMatch = {
+    watchlistItemId: ITEM_ID,
+    shop: "natura",
+    decidedBy: "user",
+    checkedAt: STORED_AT,
+    state: "matched",
+    item: {
+      shopItemId: "NV89063",
+      brand: "NIVEA",
+      name: "Produkt NV89063",
+      sizeText: "300 ml",
+      size: { value: 300, unit: "ml" },
+      eans: [],
+      productUrl: null,
+      imageUrl: null,
+    },
+  };
+  const hebeDecline = {
+    watchlistItemId: ITEM_ID,
+    shop: "hebe",
+    decidedBy: "user",
+    checkedAt: STORED_AT,
+    state: "unmatched",
+    item: null,
+  };
+  const unreadable = { kind: "unreadable" };
+
+  beforeEach(() => {
+    // A read that fails and a row that's odd are logged; these tests look at what the loader gives.
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  it.each<{ decisions: string; answer: StubRelation }>([
+    { decisions: "read", answer: [] },
+    { decisions: "can't be read at all", answer: TIMEOUT },
+  ])(
+    "gives null for a product the read can't see, as RLS reads another user's, when its decisions $decisions",
+    async ({ answer }) => {
+      // The product's read decides first: without the product, its decisions don't count.
+      const { client } = world([], answer);
+
+      expect(await loadWatchedProduct(client, ITEM_ID)).toBeNull();
+    },
+  );
+
+  it.each<{ decisions: string; answer: StubRelation }>([
+    { decisions: "read", answer: decisionRows },
+    { decisions: "can't be read at all", answer: TIMEOUT },
+  ])("gives failed when the product can't be read and its decisions $decisions", async ({ answer }) => {
+    const { client } = world(TIMEOUT, answer);
+
+    expect(await loadWatchedProduct(client, ITEM_ID)).toBe("failed");
+  });
+
+  it("gives the product beside its standing in each matched shop, its decisions read", async () => {
+    const { client, queries } = world(productRows, decisionRows);
+
+    expect(await loadWatchedProduct(client, ITEM_ID)).toEqual({
+      product,
+      watched: {
+        itemId: ITEM_ID,
+        ownShop: "rossmann",
+        standings: {
+          natura: { kind: "decided", decision: naturaMatch },
+          hebe: { kind: "decided", decision: hebeDecline },
+          "super-pharm": { kind: "undecided" },
+        },
+      },
+      decisions: "read",
+    });
+    // The product by its id, and its decisions by the product's.
+    expect(queries.map(([from]) => from)).toEqual([
+      ["from", "watchlist_items"],
+      ["from", "watchlist_matches"],
+    ]);
+    expect(queries[0]).toContainEqual(["eq", "id", ITEM_ID]);
+    expect(queries[1]).toContainEqual(["eq", "watchlist_item_id", ITEM_ID]);
+  });
+
+  it("gives the product with its decisions unread when they can't be read at all, every matched shop unreadable", async () => {
+    const { client } = world(productRows, TIMEOUT);
+
+    expect(await loadWatchedProduct(client, ITEM_ID)).toEqual({
+      product,
+      watched: {
+        itemId: ITEM_ID,
+        ownShop: "rossmann",
+        standings: { natura: unreadable, hebe: unreadable, "super-pharm": unreadable },
+      },
+      decisions: "unread",
+    });
+  });
+
+  it("takes a test's shops for its read and its standings, so a shop outside them has no standing", async () => {
+    // A Super-Pharm row in a state a later migration might add before the code knows it.
+    const oddSuperPharmRow = { ...declinedRow(ITEM_ID, "super-pharm"), state: "repinned" };
+    const { client } = world(productRows, [...decisionRows, oddSuperPharmRow]);
+
+    // Every priced shop by default: Super-Pharm's decision couldn't be read.
+    expect(await loadWatchedProduct(client, ITEM_ID)).toMatchObject({
+      watched: { standings: { "super-pharm": unreadable } },
+      decisions: "read",
+    });
+    // Without Super-Pharm, as a shop switched off again would be, its row counts for nothing.
+    expect(await loadWatchedProduct(client, ITEM_ID, ["rossmann", "natura", "hebe"])).toEqual({
+      product,
+      watched: {
+        itemId: ITEM_ID,
+        ownShop: "rossmann",
+        standings: {
+          natura: { kind: "decided", decision: naturaMatch },
+          hebe: { kind: "decided", decision: hebeDecline },
+        },
+      },
+      decisions: "read",
+    });
   });
 });
 

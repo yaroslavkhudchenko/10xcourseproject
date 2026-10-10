@@ -2,9 +2,16 @@ import { describe, expect, it } from "vitest";
 import type { ExpectedDecision, MatchesRead, MatchForm } from "@/lib/services/matches";
 import {
   admitDecision,
+  admitLookup,
+  loadedProductOf,
+  matchedShopsIn,
   watchedProductOf,
   type DecisionAdmission,
   type DecisionRefusal,
+  type LoadedProduct,
+  type LookupAdmission,
+  type LookupChange,
+  type LookupRefusal,
 } from "@/lib/services/watched-product";
 import type { MatchedItem, ShopMatch, WatchlistProduct } from "@/types";
 
@@ -320,5 +327,249 @@ describe("watchedProductOf", () => {
       natura: undecided,
       hebe: undecided,
     });
+  });
+
+  it("reads every matched shop as unreadable when the decisions couldn't be read at all, and gives the own shop none", () => {
+    const unreadable = { kind: "unreadable" } as const;
+
+    expect(watchedProductOf(product, null)).toEqual({
+      itemId: ITEM_ID,
+      ownShop: "rossmann",
+      standings: { natura: unreadable, hebe: unreadable, "super-pharm": unreadable },
+    });
+    // Picked in Natura, the same product stands unreadable in Rossmann, and has no standing in Natura, its own shop.
+    expect(watchedProductOf(pickedInNatura, null).standings).toEqual({
+      rossmann: unreadable,
+      hebe: unreadable,
+      "super-pharm": unreadable,
+    });
+  });
+});
+
+/** What a lookup settled on its own in a shop, as recordLookup stores it: an accepted candidate, or nothing found. */
+type Outcome = LookupChange["outcome"];
+
+// Natura's item X as a lookup there accepts it, with the offer Natura's recorded EAN hit carried (natura-ean-hit.json).
+const acceptedX: Outcome = {
+  kind: "accepted",
+  candidate: {
+    ...itemX,
+    shop: "natura",
+    offer: { price: 16.99, regularPrice: 22.99, lowestPrice30d: 17.99, promoEndsOn: null, available: true },
+  },
+};
+
+// Rossmann's Nivea Soft 300 ml (26900), the product's own item when it's picked in Rossmann, as a lookup in Rossmann
+// accepts it for the product picked in Natura, with the offer its search item carried
+// (rossmann-lookup-nivea-soft-300.json): its name joined with its caption, as Rossmann's adapter gives it.
+const acceptedSoftInRossmann: Outcome = {
+  kind: "accepted",
+  candidate: {
+    shop: "rossmann",
+    shopItemId: "26900",
+    brand: "NIVEA",
+    name: "Soft krem do twarzy, ciała i dłoni, nawilżający",
+    sizeText: "300 ml",
+    size: { value: 300, unit: "ml" },
+    eans: ["4005900009319", "4005808890637", "5900017001234"],
+    productUrl: null,
+    imageUrl: null,
+    offer: { price: 15.99, regularPrice: 26.99, lowestPrice30d: 26.99, promoEndsOn: "2026-10-14", available: true },
+  },
+};
+
+const nothingFound: Outcome = { kind: "not-found" };
+
+/** What the guardian says to a lookup's outcome in `shop` for `own`, by default the product picked in Rossmann. */
+function lookUp(
+  stored: ShopMatch[],
+  shop: LookupChange["shop"],
+  outcome: Outcome,
+  own: WatchlistProduct = product,
+): LookupAdmission {
+  return admitLookup(watchedProductOf(own, read(...stored)), shop, outcome);
+}
+
+/** The admission of a lookup's outcome in `shop`: recordLookup's arguments, the outcome as the lookup settled it. */
+const lookupAdmittedIn = (shop: LookupChange["shop"], outcome: Outcome): LookupAdmission => ({
+  kind: "admitted",
+  change: { itemId: ITEM_ID, shop, outcome },
+});
+
+const lookupRefusedAs = (reason: LookupRefusal): LookupAdmission => ({ kind: "refused", reason });
+
+// The table tests name a lookup and the decision it meets in two short fields, as the moves' tables do.
+interface Meeting {
+  lookup: string;
+  over: string;
+  stored: ShopMatch[];
+  outcome: Outcome;
+}
+
+describe("admitLookup", () => {
+  it.each<Meeting>([
+    { lookup: "a lookup's accepted candidate", over: "no decision", stored: [], outcome: acceptedX },
+    { lookup: "a lookup that found nothing", over: "no decision", stored: [], outcome: nothingFound },
+    {
+      lookup: "a retry's accepted candidate",
+      over: "a lookup that found nothing",
+      stored: [notFound],
+      outcome: acceptedX,
+    },
+    {
+      lookup: "a retry that found nothing again",
+      over: "a lookup that found nothing",
+      stored: [notFound],
+      outcome: nothingFound,
+    },
+  ])("admits $lookup in Natura over $over, as the change recordLookup stores", ({ stored, outcome }) => {
+    expect(lookUp(stored, "natura", outcome)).toEqual(lookupAdmittedIn("natura", outcome));
+  });
+
+  it("admits a lookup's accepted candidate in Rossmann, a matched shop of a product picked in Natura", () => {
+    expect(lookUp([], "rossmann", acceptedSoftInRossmann, pickedInNatura)).toEqual({
+      kind: "admitted",
+      change: { itemId: ITEM_ID, shop: "rossmann", outcome: acceptedSoftInRossmann },
+    });
+  });
+
+  it.each<{ lookup: string; own: WatchlistProduct; shop: LookupChange["shop"]; outcome: Outcome }>([
+    { lookup: "a lookup's accepted candidate", own: product, shop: "rossmann", outcome: acceptedSoftInRossmann },
+    { lookup: "a lookup that found nothing", own: product, shop: "rossmann", outcome: nothingFound },
+    { lookup: "a lookup's accepted candidate", own: pickedInNatura, shop: "natura", outcome: acceptedX },
+    { lookup: "a lookup that found nothing", own: pickedInNatura, shop: "natura", outcome: nothingFound },
+  ])("refuses $lookup in $shop, the own shop of a product picked there", ({ own, shop, outcome }) => {
+    expect(lookUp([], shop, outcome, own)).toEqual(lookupRefusedAs("not-a-matched-shop"));
+  });
+
+  it("refuses a lookup in the own shop over a decision stored there earlier, which no read counts", () => {
+    // A lookup that found nothing, which a lookup in a matched shop may replace, stored in Rossmann, the own shop.
+    const rossmannNotFound: ShopMatch = { ...notFound, shop: "rossmann" };
+
+    expect(lookUp([rossmannNotFound], "rossmann", acceptedSoftInRossmann)).toEqual(
+      lookupRefusedAs("not-a-matched-shop"),
+    );
+  });
+
+  it("refuses a lookup in the own shop the read lists as unreadable as not a matched shop, never as unreadable", () => {
+    const watched = watchedProductOf(product, { matches: [], unreadable: ["rossmann"] });
+
+    expect(admitLookup(watched, "rossmann", nothingFound)).toEqual(lookupRefusedAs("not-a-matched-shop"));
+  });
+
+  it("refuses a lookup in a priced shop the product was built without, as one switched off", () => {
+    const watched = watchedProductOf(product, read(), ["rossmann", "natura", "hebe"]);
+
+    expect(admitLookup(watched, "super-pharm", nothingFound)).toEqual(lookupRefusedAs("not-a-matched-shop"));
+    expect(admitLookup(watched, "hebe", nothingFound)).toMatchObject({ kind: "admitted" });
+  });
+
+  it.each<{ lookup: string; outcome: Outcome }>([
+    { lookup: "a lookup's accepted candidate", outcome: acceptedX },
+    { lookup: "a lookup that found nothing", outcome: nothingFound },
+  ])("refuses $lookup in a shop whose decision couldn't be read, never taking it for undecided", ({ outcome }) => {
+    const watched = watchedProductOf(product, { matches: [], unreadable: ["natura"] });
+
+    expect(admitLookup(watched, "natura", outcome)).toEqual(lookupRefusedAs("unreadable"));
+  });
+
+  it("admits a lookup in Natura beside Hebe's decision that couldn't be read", () => {
+    const watched = watchedProductOf(product, { matches: [], unreadable: ["hebe"] });
+
+    expect(admitLookup(watched, "natura", acceptedX)).toEqual(lookupAdmittedIn("natura", acceptedX));
+  });
+
+  it.each<Meeting>([
+    {
+      lookup: "a lookup's accepted candidate",
+      over: "an automatic match of X",
+      stored: [autoMatchOfX],
+      outcome: acceptedX,
+    },
+    {
+      lookup: "a lookup that found nothing",
+      over: "an automatic match of X",
+      stored: [autoMatchOfX],
+      outcome: nothingFound,
+    },
+    {
+      lookup: "a lookup's accepted candidate",
+      over: "the user's match of X",
+      stored: [userMatchOfX],
+      outcome: acceptedX,
+    },
+    {
+      lookup: "a lookup that found nothing",
+      over: "the user's match of X",
+      stored: [userMatchOfX],
+      outcome: nothingFound,
+    },
+    { lookup: "a lookup's accepted candidate", over: "the user's decline", stored: [declined], outcome: acceptedX },
+    { lookup: "a lookup that found nothing", over: "the user's decline", stored: [declined], outcome: nothingFound },
+  ])("refuses $lookup in Natura over $over, a settled decision no lookup overwrites", ({ stored, outcome }) => {
+    expect(lookUp(stored, "natura", outcome)).toEqual(lookupRefusedAs("settled"));
+  });
+});
+
+describe("loadedProductOf", () => {
+  const undecided = { kind: "undecided" } as const;
+  const unreadable = { kind: "unreadable" } as const;
+
+  it("gives the product's row beside its standing in each matched shop, its decisions read", () => {
+    expect(loadedProductOf(product, read(autoMatchOfX))).toEqual<LoadedProduct>({
+      product,
+      watched: {
+        itemId: ITEM_ID,
+        ownShop: "rossmann",
+        standings: { natura: { kind: "decided", decision: autoMatchOfX }, hebe: undecided, "super-pharm": undecided },
+      },
+      decisions: "read",
+    });
+  });
+
+  it("marks decisions that couldn't be read at all as unread, every matched shop standing unreadable", () => {
+    expect(loadedProductOf(product, null)).toEqual<LoadedProduct>({
+      product,
+      watched: {
+        itemId: ITEM_ID,
+        ownShop: "rossmann",
+        standings: { natura: unreadable, hebe: unreadable, "super-pharm": unreadable },
+      },
+      decisions: "unread",
+    });
+  });
+
+  it("keeps decisions read beside one shop's odd row as read, with that shop alone unreadable", () => {
+    // Hebe's row came back odd, as listMatches reads it: the other shops' decisions still stand.
+    expect(loadedProductOf(product, { matches: [autoMatchOfX], unreadable: ["hebe"] })).toEqual<LoadedProduct>({
+      product,
+      watched: {
+        itemId: ITEM_ID,
+        ownShop: "rossmann",
+        standings: { natura: { kind: "decided", decision: autoMatchOfX }, hebe: unreadable, "super-pharm": undecided },
+      },
+      decisions: "read",
+    });
+  });
+});
+
+describe("matchedShopsIn", () => {
+  it("gives Natura, Hebe and Super-Pharm for a product picked in Rossmann", () => {
+    expect(matchedShopsIn(watchedProductOf(product, read(autoMatchOfX)))).toEqual(["natura", "hebe", "super-pharm"]);
+  });
+
+  it("gives Rossmann, Hebe and Super-Pharm for a product picked in Natura", () => {
+    expect(matchedShopsIn(watchedProductOf(pickedInNatura, read()))).toEqual(["rossmann", "hebe", "super-pharm"]);
+  });
+
+  it("gives only the shops the product was built with, in the priced shops' order", () => {
+    const watched = watchedProductOf(product, read(), ["super-pharm", "natura", "rossmann"]);
+
+    expect(matchedShopsIn(watched)).toEqual(["natura", "super-pharm"]);
+  });
+
+  it("gives the same shops when the product's decisions couldn't be read at all", () => {
+    expect(matchedShopsIn(loadedProductOf(product, null).watched)).toEqual(["natura", "hebe", "super-pharm"]);
+    expect(matchedShopsIn(loadedProductOf(pickedInNatura, null).watched)).toEqual(["rossmann", "hebe", "super-pharm"]);
   });
 });

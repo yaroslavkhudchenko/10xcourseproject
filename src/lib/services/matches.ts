@@ -2,11 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "astro/zod";
 import { ERROR_PARAM, SHOP_PARAM, type DecisionCode } from "@/lib/notices";
 import { linksOfShop, optionalText } from "@/lib/services/form-fields";
-import { PRICED_SHOPS, type MatchableShop } from "@/lib/services/price-comparison";
+import { PRICED_SHOPS, type MatchableShop, type PricedShop } from "@/lib/services/price-comparison";
 import { PRODUCT_LIMITS } from "@/lib/services/product-limits";
 import { SHOP_ADAPTERS } from "@/lib/services/shops/registry";
 import { parseSize } from "@/lib/services/size";
-import { watchedProductOf, type WatchedProduct } from "@/lib/services/watched-product";
+import { loadedProductOf, type LoadedProduct } from "@/lib/services/watched-product";
 import { getWatchlistProduct, watchlistItemIdSchema } from "@/lib/services/watchlist";
 import { filterHref, type ListFilter } from "@/lib/services/watchlist-rows";
 import {
@@ -394,11 +394,13 @@ const rowSchema = z.discriminatedUnion("state", [
 // product: its list is its own matched shops, every priced shop but the one it was picked in (matchedShopsOf), so a
 // row of its own shop, a decision or an odd row, is left out as one outside the list (rule 1). The reads can't know a
 // product's own shop, since its row is read at the same time, so they read every priced shop, and whoever reads a
-// product's decisions narrows them to its matched shops: the product page's steps run in those shops alone
-// (runMatchSteps), a posted decision is judged by its standing in them alone (watchedProductOf), a refetch reads a
-// decision only in one of them (shopItemFor), a product's refresh keeps theirs (productTargets), and the list's rows and
-// priced items theirs (matchStatesOf, listPricedItems). Narrowing a read to fewer shops gives what reading those shops
-// alone gives.
+// product's decisions narrows them to its matched shops. The product page, the decision route and a product's refresh
+// read them through loadWatchedProduct and keep its matched shops' standings (watchedProductOf): the page's steps run
+// in those shops alone (runMatchSteps), a posted decision and a lookup's outcome are judged there (admitDecision,
+// admitLookup), and a product's refresh fetches their matched items (productTargets). The island's refetch reads one
+// matched shop's standing (priceTargetFor), and the list's rows and priced items keep their own matched shops'
+// decisions (matchStatesOf, listPricedItems). Narrowing a read to fewer shops gives what reading those shops alone
+// gives.
 
 /** A shop the reads use: one of `shops`, or undefined for any other value. */
 function listedShop(shop: unknown, shops: readonly MatchableShop[]): MatchableShop | undefined {
@@ -471,21 +473,28 @@ export async function listMatches(
 }
 
 /**
- * A watched product as the guardian judges a decision for it (watchedProductOf), from its page's own two reads, run at
- * once: the product, and its stored decisions in every priced shop. Null when the product isn't on the user's list,
- * which is how RLS reads another user's product too, so the two answer alike. `failed` when the product couldn't be
- * read, or its decisions couldn't be read at all, never null. The product's read decides first, as on its page:
- * without the product, its decisions don't count. The id must already be a UUID.
+ * A watched product as a reader of one product takes it (loadedProductOf): its row beside the guardian's view, from
+ * its page's own two reads, run at once: the product, and its stored decisions in `shops`, the priced shops unless a
+ * test names others, which reach both the read and the guardian's view. The product's read decides first, as on its
+ * page: without the product, its decisions don't count. So null when the product isn't on the user's list, which is
+ * how RLS reads another user's product too, so the two answer alike, whatever its decisions' read; and `failed` when
+ * the product couldn't be read, whatever its decisions'. A product whose decisions couldn't be read at all is loaded
+ * with its decisions `unread`, every matched shop standing unreadable, and each reader says what that comes to for it.
+ * The id must already be a UUID.
  */
 export async function loadWatchedProduct(
   supabase: SupabaseClient,
   itemId: string,
-): Promise<WatchedProduct | null | "failed"> {
-  const [product, read] = await Promise.all([getWatchlistProduct(supabase, itemId), listMatches(supabase, itemId)]);
+  shops: readonly PricedShop[] = PRICED_SHOPS,
+): Promise<LoadedProduct | null | "failed"> {
+  const [product, read] = await Promise.all([
+    getWatchlistProduct(supabase, itemId),
+    listMatches(supabase, itemId, shops),
+  ]);
   if (product === null || product === "failed") {
     return product;
   }
-  return read === null ? "failed" : watchedProductOf(product, read);
+  return loadedProductOf(product, read, shops);
 }
 
 // Only the columns the list needs: which product, which shop, where the product stands there, and a match's item, whose

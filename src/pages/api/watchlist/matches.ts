@@ -52,14 +52,16 @@ export const POST: APIRoute = async (context) => {
   const backTo = (outcome: DecisionOutcome) => decisionBackTo(match.itemId, match.shop, outcome, filter);
   // Read before any write: a product not on the user's list, another user's included, is gone, and nothing tells the
   // two apart.
-  const watched = await loadWatchedProduct(supabase, match.itemId);
-  if (watched === null) {
+  const loaded = await loadWatchedProduct(supabase, match.itemId);
+  if (loaded === null) {
     return context.redirect(backTo({ error: "gone" }));
   }
-  if (watched === "failed") {
+  // A product that couldn't be read, or whose decisions couldn't be read at all, is a failure to try again, whichever
+  // shop the post names: answered before the guardian, which would call a post for the product's own shop invalid.
+  if (loaded === "failed" || loaded.decisions === "unread") {
     return context.redirect(backTo({ error: "failed" }));
   }
-  const admission = admitDecision(watched, match);
+  const admission = admitDecision(loaded.watched, match);
   if (admission.kind === "refused") {
     return context.redirect(backTo(REFUSALS[admission.reason]));
   }

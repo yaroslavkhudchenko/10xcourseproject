@@ -14,23 +14,15 @@ import ProductUnavailable from "@/components/watchlist/ProductUnavailable.astro"
 import RemoveProduct from "@/components/watchlist/RemoveProduct.astro";
 import WatchlistShell from "@/layouts/WatchlistShell.astro";
 import { ERROR_PARAM, LIST_PRICES_PARAM, PRICES_NOTICES, PRICES_PARAM, REMOVAL_PARAM } from "@/lib/notices";
-import { autoRefreshOf, repinShopOf, retryShopOf } from "@/lib/services/match-step";
 import { decisionError, decisionNotice } from "@/lib/services/match-view";
-import {
-  listMatches,
-  listMatchStates,
-  matchErrorMessage,
-  type MatchesRead,
-  type MatchStatesRead,
-} from "@/lib/services/matches";
-import { matchedShopsOf } from "@/lib/services/price-comparison";
+import { listMatchStates, loadWatchedProduct, matchErrorMessage, type MatchStatesRead } from "@/lib/services/matches";
 import { parsePriceRefreshCode } from "@/lib/services/price-refresh";
-import { listLatestPrices, productPricesOf, type ListPricesRead } from "@/lib/services/prices";
+import { listLatestPrices, type ListPricesRead } from "@/lib/services/prices";
+import { openProductPage } from "@/lib/services/product-page";
 import { isOwnNavigation } from "@/lib/services/search-query";
 import { shopGateFor } from "@/lib/services/shop-gate";
-import { runMatchSteps } from "@/lib/services/shop-matching";
+import type { LoadedProduct } from "@/lib/services/watched-product";
 import {
-  getWatchlistProduct,
   listWatchlist,
   parseWatchlistItemId,
   productFullName,
@@ -39,7 +31,7 @@ import {
 } from "@/lib/services/watchlist";
 import { filterHref, listChipsOf, listRowsOf, parseListFilter, rowProductOf } from "@/lib/services/watchlist-rows";
 import { cn } from "@/lib/utils";
-import type { WatchlistItem, WatchlistProduct } from "@/types";
+import type { WatchlistItem } from "@/types";
 
 const { user, supabase } = Astro.locals;
 const params = Astro.url.searchParams;
@@ -48,78 +40,74 @@ const params = Astro.url.searchParams;
 const ownNavigation = isOwnNavigation(Astro.request.headers);
 
 // Only a UUID reaches the database, and another user's product reads as no product at all (RLS): neither makes a shop
-// call. The product and its stored decisions need only the id, so both are read at once; the decisions count only
-// once the product is there.
+// call. The product and its stored decisions need only the id, so both are read at once (loadWatchedProduct), and the
+// product's read decides first: its decisions count only once the product is there. A product whose decisions couldn't
+// be read at all is still shown, with every matched shop's decision unreadable.
 const id = parseWatchlistItemId(Astro.params.id);
-type ProductReads = [WatchlistProduct | null | "failed", MatchesRead | null];
-const productReads: Promise<ProductReads> =
+type ProductLoad = LoadedProduct | null | "failed";
+const productLoad: Promise<ProductLoad> =
   id === null
-    ? Promise.resolve<ProductReads>([null, null])
+    ? Promise.resolve<ProductLoad>(null)
     : supabase
-      ? Promise.all([getWatchlistProduct(supabase, id), listMatches(supabase, id)])
-      : Promise.resolve<ProductReads>(["failed", null]);
+      ? loadWatchedProduct(supabase, id)
+      : Promise.resolve<ProductLoad>("failed");
 // The list beside the product, from lg: the list page's own three reads, at the same time as the product's. They ask
 // no shop, and a phone, which doesn't show the list, still makes them, since the server can't know the screen's width.
 type ListReads = [WatchlistItem[] | null, MatchStatesRead | null, ListPricesRead | null];
 const listReads: Promise<ListReads> = supabase
   ? Promise.all([listWatchlist(supabase), listMatchStates(supabase), listLatestPrices(supabase)])
   : Promise.resolve<ListReads>([null, null, null]);
-const [[product, matches], [items, matchRead, priceRead]] = await Promise.all([productReads, listReads]);
-if (product === null) {
+// Both are done before any lookup below starts, so no lookup's write can race the list's read of the decisions.
+const [loaded, [items, matchRead, priceRead]] = await Promise.all([productLoad, listReads]);
+if (loaded === null) {
   Astro.response.status = 404;
-} else if (product === "failed") {
+} else if (loaded === "failed") {
   Astro.response.status = 503;
 }
-// The product the page shows, when there is one.
+// The product's row, or why there's none, and the product the page shows, when there is one.
+const product = loaded === null || loaded === "failed" ? loaded : loaded.product;
 const shown = product !== null && product !== "failed" ? product : null;
-// Its matched shops, every priced shop but its own, the one it was picked in, in the pages' order (matchedShopsOf):
-// the shops the page looks it up in, and the only ones its address and its notices may name. Its decisions were read
-// in every priced shop, and only these shops' count.
-const matchedShops = shown === null ? [] : matchedShopsOf(shown.source);
 
-// The matched shop the page was opened to look up again (`?retry=natura`) or to change the stored decision of
-// (`?repin=natura`), if any: an address naming the product's own shop, or any other, opens the plain page.
-const retryShop = retryShopOf(params, matchedShops);
-const repinShop = repinShopOf(params, matchedShops);
 // The filter the list was shown with, which every link, form and redirect of the page keeps, so the list beside the
 // product keeps its chip; any other value of `f` is the whole list.
 const listFilter = parseListFilter(params.get("f"));
-// What the page does for each matched shop, in the pages' order (runMatchSteps): its card's view, the choice the user
-// opened to change its stored decision ("Zmień", "Dopasuj ponownie"), whether the lookup's own outcome couldn't be
-// stored, its stored or just stored match, whose prices are shown next to the product's own shop's, and whether a retry
-// stored its outcome. The shops' lookups run at once, each shop's searches one after the other, and a shop whose step
-// throws shows as unavailable beside the others. The steps also tell whether the island may refetch on its own.
-const steps =
-  supabase && shown !== null
-    ? await runMatchSteps({
+// What the page does with the product it shows (openProductPage): it looks the product up in its matched shops, every
+// priced shop but its own, the only ones its address may name, so an address naming its own shop opens the plain page.
+// The shops' lookups run at once, each shop's searches one after the other, and a shop whose step throws shows as
+// unavailable beside the others. A retry that stored its outcome comes back before any price is read.
+const opened =
+  supabase && loaded !== null && loaded !== "failed"
+    ? await openProductPage({
         supabase,
         gate: shopGateFor(supabase),
-        product: shown,
-        matches,
-        retryShop,
-        repinShop,
+        loaded,
+        params,
         ownNavigation,
         filter: listFilter,
-        shops: matchedShops,
       })
-    : [];
-if (shown !== null && steps.some((each) => each.retried)) {
+    : null;
+if (shown !== null && opened?.kind === "retried") {
   // The plain URL shows the stored outcome, so a `?retry=<shop>` left in the address bar can't repeat the lookup.
   return Astro.redirect(filterHref(`/watchlist/${shown.id}`, listFilter));
 }
-
-// The prices of the product's own item, in the shop it was picked in, and of each matched shop's item, its stored match
-// or the one a step has just stored (productPricesOf). They're read after the steps, so a match a step has just stored
-// comes with the price it was found with. Without the stored prices the island still shows every shop, each saying its
-// price couldn't be read until its shop answers, and a shop whose own row couldn't be read says so too.
-const { shops: priceShops, pricesFailed } =
-  supabase && shown !== null ? await productPricesOf(supabase, shown, steps) : { shops: [], pricesFailed: false };
+const page = opened?.kind === "shown" ? opened : null;
+// The product's matched shops, the only ones its notices may name: none without a product, never every priced shop.
+const matchedShops = page?.matchedShops ?? [];
+// What the page does for each matched shop, in the pages' order: its card's view, the choice the user opened to change
+// its stored decision ("Zmień", "Dopasuj ponownie"), whether the lookup's own outcome couldn't be stored, and its stored
+// or just stored match, whose prices are shown next to the product's own shop's.
+const steps = page?.steps ?? [];
+// The prices of the product's own item, in the shop it was picked in, and of each matched shop's item, read after the
+// steps, so a match a step has just stored comes with the price it was found with. Without the stored prices the island
+// still shows every shop, each saying its price couldn't be read until its shop answers, and a shop whose own row
+// couldn't be read says so too.
+const priceShops = page?.shops ?? [];
+const pricesFailed = page?.pricesFailed ?? false;
 // The server's time for the island's first render, so the ages it shows match this page's HTML.
 const renderedAt = new Date().toISOString();
-const autoRefresh = autoRefreshOf(
-  steps.map(({ step }) => step),
-  ownNavigation,
-);
+// Whether the island may refetch out-of-date prices on its own: only on the user's own navigation, with no re-pin's
+// choice open.
+const autoRefresh = page?.autoRefresh ?? false;
 
 const title =
   product === null

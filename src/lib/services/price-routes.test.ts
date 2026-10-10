@@ -1,7 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
-import { stubSupabase, type StubRelation } from "@/lib/services/testing/stub-supabase";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { StubRelation } from "@/lib/services/testing/stub-supabase";
 import { APP, contextOf, formPost, type FormFields } from "@/lib/services/testing/route-context";
-import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
+import type { ReplayEntry } from "@/lib/services/testing/replay-fetch";
+import { bodiesSentTo, reservations, served, world } from "@/lib/services/testing/gate-world";
 import { matchRow, naturaProductRow, productRow } from "@/lib/services/testing/stored-rows";
 import { POST as postPrices } from "@/pages/api/watchlist/prices";
 import { POST as postRefresh } from "@/pages/api/watchlist/refresh";
@@ -111,44 +112,6 @@ const WITH_OWN_SHOP_MATCH: Record<string, StubRelation> = {
     matchRow(PRODUCT_ID, "super-pharm", "10132"),
   ],
 };
-
-let fetchMock: Mock<typeof fetch>;
-
-/**
- * The routes' world: the stand-in database with `relations`, the gate's counter answering `outcome` (allowed unless
- * said otherwise), and the shops answering `recordings` through the global fetch the gate calls.
- */
-function world(relations: Record<string, StubRelation>, recordings: ReplayEntry[], outcome = "allowed") {
-  fetchMock = vi.fn(createReplayFetch(recordings));
-  vi.stubGlobal("fetch", fetchMock);
-  return stubSupabase({
-    relations,
-    rpc: {
-      reserve_shop_request: () => ({ data: { outcome } }),
-      report_shop_block: () => ({ data: null }),
-    },
-  });
-}
-
-/**
- * The URLs the shops were sent, in order, whether or not a recording answered them: a request the replay doesn't know
- * reads as `failed/network`, so a test that needs every shop answered asserts the route's `done` code too.
- */
-function served(): string[] {
-  return fetchMock.mock.calls.map(([input]) => (input instanceof Request ? input.url : String(input)));
-}
-
-/** The bodies sent to `url`, in order: one Algolia URL answers every Super-Pharm request, told apart by its body. */
-function bodiesSentTo(url: string): unknown[] {
-  return fetchMock.mock.calls.flatMap(([input, init]) =>
-    (input instanceof Request ? input.url : String(input)) === url ? [init?.body] : [],
-  );
-}
-
-/** The shops the gate reserved a request for, in order. */
-function reservations(queries: unknown[][][]): unknown[] {
-  return queries.flatMap(([[kind, name, args]]) => (kind === "rpc" && name === "reserve_shop_request" ? [args] : []));
-}
 
 /** The refusals the gate reported, in order, each with its arguments. */
 function blockReports(queries: unknown[][][]): unknown[] {
@@ -387,6 +350,18 @@ describe("/api/watchlist/refresh asks each shop only what is due", () => {
     const response = await postRefresh(contextOf(refreshRequest(fields), client));
 
     expect(response.headers.get("Location")).toBe(location);
+    expect(reservations(queries)).toEqual([]);
+    expect(served()).toEqual([]);
+  });
+
+  it("asks no shop for a product the user doesn't have whose decisions can't be read, finding nothing to refresh", async () => {
+    // The product's read decides first: without the product, its decisions don't count, so the refresh has no item.
+    const unreadable = { ...PRODUCT_RELATIONS, watchlist_matches: { error: { code: "57014", message: "timeout" } } };
+    const { client, queries } = world(unreadable, Object.values(RECORDINGS));
+
+    const response = await postRefresh(contextOf(refreshRequest({ itemId: NOBODYS_ID }), client));
+
+    expect(response.headers.get("Location")).toBe(`/watchlist/${NOBODYS_ID}?prices=none`);
     expect(reservations(queries)).toEqual([]);
     expect(served()).toEqual([]);
   });

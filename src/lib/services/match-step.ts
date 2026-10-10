@@ -1,6 +1,6 @@
 import { REPIN_PARAM, RETRY_PARAM } from "@/lib/notices";
-import type { MatchesRead } from "@/lib/services/matches";
 import { parseMatchedShop, type MatchableShop, type PricedShop } from "@/lib/services/price-comparison";
+import type { Standing } from "@/lib/services/watched-product";
 import type { RepinnableMatch, ShopMatch } from "@/types";
 
 /**
@@ -17,8 +17,9 @@ export type MatchStep =
 
 /**
  * The matched shop whose stored decision the page was opened to change (`?repin=natura`, from "Zmień" or "Dopasuj
- * ponownie"): one of `shops`, the priced shops unless the page names its product's matched shops (matchedShopsOf). Null
- * for any other value, the product's own shop and the old `?repin=1` included, which then opens the plain page.
+ * ponownie"): one of `shops`, the priced shops unless the page names its loaded product's matched shops, as
+ * openProductPage does (matchedShopsIn). Null for any other value, the product's own shop and the old `?repin=1`
+ * included, which then opens the plain page.
  */
 export function repinShopOf(params: URLSearchParams, shops?: readonly PricedShop[]): PricedShop | null {
   return parseMatchedShop(params.get(REPIN_PARAM), shops);
@@ -26,17 +27,21 @@ export function repinShopOf(params: URLSearchParams, shops?: readonly PricedShop
 
 /**
  * The matched shop whose stored "not found" the page was opened to look up again (`?retry=natura`, from "Szukaj
- * ponownie"): one of `shops`, the priced shops unless the page names its product's matched shops (matchedShopsOf). Null
- * for any other value, the product's own shop and the old `?retry=1` included, which then opens the plain page.
+ * ponownie"): one of `shops`, the priced shops unless the page names its loaded product's matched shops, as
+ * openProductPage does (matchedShopsIn). Null for any other value, the product's own shop and the old `?retry=1`
+ * included, which then opens the plain page.
  */
 export function retryShopOf(params: URLSearchParams, shops?: readonly PricedShop[]): PricedShop | null {
   return parseMatchedShop(params.get(RETRY_PARAM), shops);
 }
 
-/** What the decision rests on: the product's stored decisions, the shop, and how the page was opened. */
+/** What the decision rests on: where the product stands in the shop, the shop, and how the page was opened. */
 export interface MatchStepInput {
-  /** The product's stored decisions, as `listMatches` reads them: null when they couldn't be read at all. */
-  matches: MatchesRead | null;
+  /**
+   * Where the product stands in the shop, as the guardian reads its stored decisions (watchedProductOf): no decision,
+   * its decision, or a decision that couldn't be read, as every one of them is when they couldn't be read at all.
+   */
+  standing: Standing;
   shop: MatchableShop;
   /** The shop the page was opened to look up again (`?retry=<shop>`, from "Szukaj ponownie"), if any. */
   retryShop: MatchableShop | null;
@@ -47,21 +52,21 @@ export interface MatchStepInput {
 }
 
 /**
- * Decides whether opening a product's page may spend requests to the shop, which count against the cap everyone
- * shares. A decision the matching rule or the user settled is only shown, even with `?retry=<shop>`, unless the user's
- * own navigation opens its choice with `?repin=<shop>`: a link from another site, or a prerender, gets the stored
- * decision, whose card holds the link that opens the choice. A lookup that found nothing has no such choice: it's the
- * one decision a retry checks again. Without the shop's stored decision nothing is looked up there, because a lookup
- * could ask again about what's settled. A request that isn't the user's own navigation only gets the button, and so
- * does a shop with no decision on a page opened to re-pin or retry another shop, which asks only that shop. Any other
- * view of a shop with no decision, on the user's own navigation, looks the product up there, whichever matched shop it
- * is.
+ * Decides, from the product's standing in the shop, whether opening a product's page may spend requests to the shop,
+ * which count against the cap everyone shares. A decision the matching rule or the user settled is only shown, even
+ * with `?retry=<shop>`, unless the user's own navigation opens its choice with `?repin=<shop>`: a link from another
+ * site, or a prerender, gets the stored decision, whose card holds the link that opens the choice. A lookup that found
+ * nothing has no such choice: it's the one decision a retry checks again. Where the shop's decision couldn't be read
+ * (an unreadable standing) nothing is looked up, because a lookup could ask again about what's settled. A request that
+ * isn't the user's own navigation only gets the button, and so does a shop with no decision on a page opened to re-pin
+ * or retry another shop, which asks only that shop. Any other view of a shop with no decision, on the user's own
+ * navigation, looks the product up there, whichever matched shop it is.
  */
-export function decideMatchStep({ matches, shop, retryShop, repinShop, ownNavigation }: MatchStepInput): MatchStep {
-  if (matches === null || matches.unreadable.includes(shop)) {
+export function decideMatchStep({ standing, shop, retryShop, repinShop, ownNavigation }: MatchStepInput): MatchStep {
+  if (standing.kind === "unreadable") {
     return { kind: "read-failed" };
   }
-  const stored = matches.matches.find((match) => match.shop === shop);
+  const stored = standing.kind === "decided" ? standing.decision : undefined;
   if (stored !== undefined && isRepinnable(stored)) {
     return repinShop === shop && ownNavigation ? { kind: "repin", match: stored } : { kind: "stored", match: stored };
   }

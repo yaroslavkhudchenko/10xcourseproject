@@ -17,6 +17,7 @@ import {
 import { searchRossmannItems } from "@/lib/services/shops/rossmann";
 import { createReplayFetch, type ReplayEntry } from "@/lib/services/testing/replay-fetch";
 import { CHALLENGE, loggedLines, type ServedAnswer } from "@/lib/services/testing/shop-answers";
+import { loadedProductOf } from "@/lib/services/watched-product";
 import hebeEanOffline from "@/lib/services/shops/fixtures/hebe-ean-offline.json";
 import hebeEanOnline from "@/lib/services/shops/fixtures/hebe-ean-online.json";
 import hebeIdUnknown from "@/lib/services/shops/fixtures/hebe-id-unknown.json";
@@ -1158,16 +1159,34 @@ const throwingFor = (shop: MatchableShop, gate: ShopGate): ShopGate => ({
       : gate.fetch(shopId, url, init),
 });
 
-/** The page opened plainly, by the user's own navigation, for the product without decisions, in every matched shop. */
-function opened(fields: Pick<MatchStepsInput, "supabase" | "gate"> & Partial<MatchStepsInput>): MatchStepsInput {
+/**
+ * What a test opens the page with: the steps' input with, in place of the loaded product, the watched product, its
+ * stored decisions as listMatches reads them, and the priced shops it's loaded with, the priced shops unless a test
+ * names others, its matched shops among them.
+ */
+type OpenedFields = Omit<MatchStepsInput, "loaded"> & {
+  product: WatchlistProduct;
+  matches: MatchesRead | null;
+  shops?: readonly PricedShop[];
+};
+
+/**
+ * The page opened plainly, by the user's own navigation, for the product without decisions, in every matched shop: the
+ * product loaded with its decisions as loadWatchedProduct loads them (loadedProductOf).
+ */
+function opened({
+  product = softInBoth,
+  matches = stored(),
+  shops,
+  ...fields
+}: Pick<MatchStepsInput, "supabase" | "gate"> & Partial<OpenedFields>): MatchStepsInput {
   return {
-    product: softInBoth,
-    matches: stored(),
     retryShop: null,
     repinShop: null,
     ownNavigation: true,
     filter: "all",
     ...fields,
+    loaded: loadedProductOf(product, matches, shops),
   };
 }
 
@@ -1415,7 +1434,7 @@ describe("runMatchSteps: each matched shop's step on the product's page", () => 
     ]);
   });
 
-  it.each<{ why: string; input: Partial<MatchStepsInput>; views: string[] }>([
+  it.each<{ why: string; input: Partial<OpenedFields>; views: string[] }>([
     {
       why: "decisions that couldn't be read",
       input: { matches: null },
@@ -1437,6 +1456,156 @@ describe("runMatchSteps: each matched shop's step on the product's page", () => 
     expect(requestedUrls(fetchMock)).toEqual([]);
     expect(queries).toEqual([]);
   });
+});
+
+// A lookup's write the store doesn't save (record in matches.ts): a decision another tab stored meanwhile (`decided`:
+// the insert meets the product's decision there, 23505, and the update, narrowed to a lookup that found nothing,
+// changes no row), a product no longer on the list (`gone`, 23503), or any other error (`failed`). Natura is looked up
+// on the user's own navigation, while Hebe and Super-Pharm, which the user declined, are only shown.
+describe("runMatchSteps: a lookup's write the store doesn't save", () => {
+  const declinedElsewhere = [hebeDeclined, superPharmDeclined];
+  /** The insert meets the product's decision in Natura, and the narrowed update changes no row. */
+  const decidedMeanwhile = (table: string, first: string | undefined): Answer => {
+    if (table === "watchlist_matches" && first === "insert") {
+      return { error: { code: "23505", message: "duplicate key value violates unique constraint" } };
+    }
+    return first === "update" ? { data: [] } : {};
+  };
+  const unsavedWrites = [
+    {
+      answer: "gone, the product no longer on the list",
+      error: { code: "23503", message: "insert or update violates foreign key constraint" },
+    },
+    { answer: "failed", error: { code: "57014", message: "canceling statement due to statement timeout" } },
+  ];
+
+  it("shows the decision stored meanwhile, with no first price, when the write of Natura's match answers decided", async () => {
+    const { gate, fetchMock } = setup([answers.eanHit, answers.name]);
+    const { client, queries } = stubClient(decidedMeanwhile);
+
+    const steps = await runMatchSteps(
+      opened({ supabase: client, gate, product: watched(soft), matches: stored(...declinedElsewhere) }),
+    );
+
+    expect(steps.map(({ shop, step }) => [shop, step.kind])).toEqual([
+      ["natura", "lookup"],
+      ["hebe", "stored"],
+      ["super-pharm", "stored"],
+    ]);
+    // The decision stands: the card says one is stored and links to the plain page, which shows it. The lookup's match
+    // has no price row and isn't looked up again.
+    expect(steps[0]).toEqual({
+      shop: "natura",
+      step: { kind: "lookup", retry: false },
+      view: { kind: "decided", href: PLAIN_PAGE },
+      repin: null,
+      unsaved: false,
+      item: null,
+      retried: false,
+    });
+    expect(requestedUrls(fetchMock)).toEqual([EAN_SEARCH]);
+    // The insert, then the update narrowed to a lookup that found nothing, and no first price.
+    expect(writesOf(queries).map(([table, first]) => [table, first])).toEqual([
+      ["watchlist_matches", "insert"],
+      ["watchlist_matches", "update"],
+    ]);
+    expect(queries[1]).toContainEqual(["eq", "state", "not_found"]);
+  });
+
+  it("doesn't count a retry whose write answers decided as stored, and shows the decision stored meanwhile", async () => {
+    const { gate, fetchMock } = setup([answers.eanHit, answers.name]);
+    const { client, queries } = stubClient(decidedMeanwhile);
+
+    const steps = await runMatchSteps(
+      opened({
+        supabase: client,
+        gate,
+        product: watched(soft),
+        matches: stored(naturaNotFound, ...declinedElsewhere),
+        retryShop: "natura",
+      }),
+    );
+
+    expect(steps[0]).toEqual({
+      shop: "natura",
+      step: { kind: "lookup", retry: true },
+      view: { kind: "decided", href: PLAIN_PAGE },
+      repin: null,
+      unsaved: false,
+      item: null,
+      retried: false,
+    });
+    expect(requestedUrls(fetchMock)).toEqual([EAN_SEARCH]);
+    expect(writesOf(queries).map(([table]) => table)).toEqual(["watchlist_matches", "watchlist_matches"]);
+  });
+
+  it.each(unsavedWrites)(
+    "leaves Natura's automatic match unsaved when its write answers $answer: no first price, and its card shows the item",
+    async ({ error }) => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const { gate, fetchMock } = setup([answers.eanHit, answers.name]);
+      const { client, queries } = stubClient((table) => (table === "watchlist_matches" ? { error } : {}));
+
+      const steps = await runMatchSteps(
+        opened({ supabase: client, gate, product: watched(soft), matches: stored(...declinedElsewhere) }),
+      );
+
+      // The match has no price row, so its card shows its item, with no "Zmień" until it's stored, and the next view
+      // looks Natura up again.
+      expect(steps[0]).toMatchObject({
+        shop: "natura",
+        step: { kind: "lookup", retry: false },
+        view: {
+          kind: "matched",
+          note: "Dopasowano automatycznie: ten sam EAN i rozmiar.",
+          item: { name: "NIVEA SOFT krem intensywnie nawilżający 300 ml" },
+          unsaved: true,
+          action: null,
+        },
+        repin: null,
+        unsaved: true,
+        item: null,
+        retried: false,
+      });
+      expect(requestedUrls(fetchMock)).toEqual([EAN_SEARCH]);
+      // The insert alone: only a 23505 leads to an update, and no first price follows a match that wasn't stored.
+      expect(writesOf(queries).map(([table, first]) => [table, first])).toEqual([["watchlist_matches", "insert"]]);
+    },
+  );
+
+  it.each(unsavedWrites)(
+    "leaves Natura's „not found” unsaved when its write answers $answer, and shows it",
+    async ({ error }) => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const { gate, fetchMock } = setup([answers.eanMiss]);
+      const { client, queries } = stubClient((table) => (table === "watchlist_matches" ? { error } : {}));
+      // An EAN Natura doesn't list, and a name that can't be searched: the lookup finds nothing.
+      const product = watched({
+        brand: null,
+        name: "?",
+        caption: null,
+        sizeText: null,
+        size: null,
+        eans: [MISSING_EAN],
+      });
+
+      const steps = await runMatchSteps(
+        opened({ supabase: client, gate, product, matches: stored(...declinedElsewhere) }),
+      );
+
+      expect(steps[0]).toMatchObject({
+        shop: "natura",
+        step: { kind: "lookup", retry: false },
+        view: { kind: "not-found", href: `${PLAIN_PAGE}?retry=natura` },
+        repin: null,
+        unsaved: true,
+        item: null,
+        retried: false,
+      });
+      expect(requestedUrls(fetchMock)).toEqual([MISSING_EAN_SEARCH]);
+      expect(writesOf(queries).map(([table, first]) => [table, first])).toEqual([["watchlist_matches", "insert"]]);
+    },
+  );
 });
 
 // A product picked in another shop than Rossmann is matched in every priced shop but its own (matchedShopsOf), Rossmann
