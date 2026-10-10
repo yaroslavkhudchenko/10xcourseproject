@@ -187,6 +187,15 @@ const REFETCH = [start("rossmann"), start("natura")];
 const MISSING: RefreshResult = { kind: "missing", checkedAt: CHECKED_AT, saved: true };
 const SESSION_ENDED: RefreshResult = { kind: "session-ended" };
 const MATCH_CHANGED: RefreshResult = { kind: "match-changed" };
+// The answers to "Odśwież ceny" at CHECKED's prices: Rossmann's, the price it had, stored; and Natura's, a lower price
+// deeper in its promotion, which the route couldn't store, so the list won't show it.
+const ROSSMANN_ANSWER: RefreshResult = { kind: "price", offer: offer(26.99), checkedAt: CHECKED_AT, saved: true };
+const NATURA_UNSAVED: RefreshResult = {
+  kind: "price",
+  offer: { ...NATURA_PROMO, price: 19.99 },
+  checkedAt: CHECKED_AT,
+  saved: false,
+};
 
 /** The island's state for `shops` as the server rendered it at NOW, then after each action in turn. */
 function island(shops: PriceComparisonShop[], ...actions: PriceComparisonAction[]): PriceComparisonState {
@@ -509,6 +518,36 @@ const PRICE_STATES: AreaState[] = [
       CHECKED,
       ...REFETCH,
       done("rossmann", { kind: "unavailable", reason: "stopped" }, ANSWERED_AT),
+      done("natura", { kind: "unavailable", reason: "failed" }, ANSWERED_AT),
+    ),
+    natura: MATCHED,
+  },
+  {
+    code: "unsaved",
+    text:
+      "po „Odśwież ceny” Natura podała niższą cenę, której nie udało się zapisać: karta ma „Najtaniej” i zdanie, " +
+      "że lista tej ceny nie pokaże",
+    state: island(
+      CHECKED,
+      ...REFETCH,
+      done("rossmann", ROSSMANN_ANSWER, ANSWERED_AT),
+      done("natura", NATURA_UNSAVED, ANSWERED_AT),
+    ),
+    natura: MATCHED,
+  },
+  {
+    code: "unsaved-then-failed",
+    text:
+      "jak unsaved, a przy kolejnym „Odśwież ceny” pobranie z Natury się nie udało: pod niezapisaną ceną komunikat " +
+      "o błędzie, a pod nim to samo zdanie",
+    // "Odśwież ceny" twice: the second time, Rossmann answers as before, and Natura gives no answer.
+    state: island(
+      CHECKED,
+      ...REFETCH,
+      done("rossmann", ROSSMANN_ANSWER, ANSWERED_AT),
+      done("natura", NATURA_UNSAVED, ANSWERED_AT),
+      ...REFETCH,
+      done("rossmann", ROSSMANN_ANSWER, ANSWERED_AT),
       done("natura", { kind: "unavailable", reason: "failed" }, ANSWERED_AT),
     ),
     natura: MATCHED,

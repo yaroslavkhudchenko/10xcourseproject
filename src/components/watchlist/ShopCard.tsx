@@ -6,7 +6,7 @@ import { gapText, type ComparedRow } from "@/components/watchlist/price-comparis
 import { SHOP_FILLS } from "@/components/watchlist/shop-fills";
 import ShopLink from "@/components/watchlist/ShopLink";
 import { ageText, formatDay, formatPrice, SHOP_LABELS, type PricedShop } from "@/lib/services/price-comparison";
-import { priceMissingText, priceUnavailableText } from "@/lib/shop-messages";
+import { PRICE_UNSAVED_TEXT, priceMissingText, priceUnavailableText } from "@/lib/shop-messages";
 import { cn } from "@/lib/utils";
 
 /**
@@ -56,10 +56,11 @@ interface Props {
 
 // One shop's price on its card: the shop's dot, its name and the site the price comes from; the price in shelf-label
 // style with the regular one it replaces, a promotion's end and whether it can't be ordered online; the shop's 30-day
-// low and the price's age; why it may be out of date or missing; and "Zobacz w sklepie". The cheapest card has an ink
-// edge and a "Najtaniej" tag hanging off it, one out of date a warm edge and a "Nieaktualna" tag. While its shop is
-// asked again, "Odświeżam…" stands by the name and the price fades. Without a price, a visible gap. It keeps no state,
-// so it renders the same in the island and in the kitchen sink.
+// low and the price's age; why it may be out of date or missing, and, while the price is one the route couldn't store
+// (`unsaved`), that the list won't show it; and "Zobacz w sklepie". The cheapest card has an ink edge and a "Najtaniej"
+// tag hanging off it, one out of date a warm edge and a "Nieaktualna" tag. While its shop is asked again, "Odświeżam…"
+// stands by the name and the price fades. Without a price, a visible gap. It keeps no state, so it renders the same in
+// the island and in the kitchen sink.
 export default function ShopCard({ row, now, children }: Props) {
   // The shop's name describes the card's "Zobacz w sklepie", which every card repeats; the id is this card's own.
   const nameId = useId();
@@ -121,6 +122,7 @@ export default function ShopCard({ row, now, children }: Props) {
           {priceUnavailableText(label.name, row.notice.reason, row.notice.until, hasPrice)}
         </p>
       )}
+      {row.unsaved && <p className="text-warning-foreground text-sm">{PRICE_UNSAVED_TEXT}</p>}
       {row.productUrl && <ShopLink href={row.productUrl} describedBy={nameId} className="lg:text-body self-start" />}
       {children}
     </Card>

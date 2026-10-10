@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { priceMissingText, priceUnavailableText } from "@/lib/shop-messages";
+import { PRICE_UNSAVED_TEXT, priceMissingText, priceUnavailableText } from "@/lib/shop-messages";
 
 // 12:05 UTC on 28 September is 14:05 in Poland, on summer time.
 const PAUSE_END = "2026-09-28T12:05:00.000Z";
@@ -48,5 +48,11 @@ describe("priceMissingText", () => {
 
   it("mentions no price when there's none", () => {
     expect(priceMissingText(false)).toBe("Sklep nie zwraca tego produktu.");
+  });
+});
+
+describe("PRICE_UNSAVED_TEXT", () => {
+  it("says, in the owner's words of 2026-10-10, that the list won't show a price the app couldn't store", () => {
+    expect(PRICE_UNSAVED_TEXT).toBe("Nie udało się zapisać tej ceny, więc lista jej nie pokaże.");
   });
 });
