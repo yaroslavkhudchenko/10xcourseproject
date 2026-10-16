@@ -1,0 +1,596 @@
+# An AI code review on every pull request Implementation Plan
+
+## Overview
+
+Add the AI code review that Module 5's lessons 2 and 3 build:
+
+- a small reviewer agent that reads a ready pull request's title, description and diff, and returns six criteria scored 1–10, a binding `pass`/`fail` verdict and a Markdown summary;
+- a GitHub Actions job that runs it on every ready pull request to `main`, keeps one comment up to date, labels the pull request `ai-cr:passed` or `ai-cr:failed`, and goes red on `fail`;
+- promptfoo evals that compare the reviewer on three models before its prompt or model changes.
+
+The check is advisory: it stays out of the `preventFailedDeploy` ruleset, so a missing key or a provider outage never blocks a merge or a deploy. The owner can make it required after a trial, as they did with `e2e`. The work follows `requirements.md` (the course's `m5l3-requirements`) and the research in `research.md`.
+
+## Current State Analysis
+
+- **CI has no secrets, labels or actions of its own.** `.github/` holds `ci.yml` (jobs `ci`, `smoke`, `e2e`) and `deploy-check.yml`. The repository has 0 secrets, 0 variables and no `ai-cr:*` label (research §1).
+- **The ruleset admits no bypass.** `preventFailedDeploy` requires `ci`, `smoke` and `e2e` with 0 approvals and no bypass actors, and every merge deploys to production through Workers Builds (research §1, `CLAUDE.md:72`).
+- **Five documents state CI has no secrets:** `CLAUDE.md:68`, `README.md:106`, `context/deployment/deploy-plan.md:310`, `context/foundation/infrastructure.md:85`, and `context/foundation/test-plan.md:193` (for the `e2e` job).
+- **The templates need adapting to this repo** (research §2, §4):
+  - `m5l3-review.yml.template:10` targets `master`.
+  - It reads `secrets.LLM_PROVIDER_API_KEY` and never creates the `ai-cr:review` label.
+  - Its action runs `dist/review.js`, which `.gitignore:2` (`dist/`) would hide.
+- **`.github/actions/ai-reviewer/` is skipped by the app's TypeScript and Vitest, but not by ESLint 10 or Tailwind's scan** (research §3). It needs one `globalIgnores` entry (`eslint.config.js:238`) and one `@source not` line (`src/styles/global.css:4-8`).
+- **Diffs here are mostly documents.** Over the 56 merged PRs, leaving out `.claude/`, `context/`, the recorded shop answers and lockfiles takes the median diff from 131 KB to 27 KB (research §5). One review costs fractions of a cent on the template's models (research §6).
+- **The libraries match the plan** (research §9): `ai` 7.0.142 and `@openrouter/ai-sdk-provider` 3.1.0, both needing Node ≥22, ESM only, and zod 4.6.7. Node 24.21 runs `.ts` files and `.test.ts` tests directly, with erasable syntax only (research §4, re-checked 2026-10-16 with `node --test`).
+
+## Desired End State
+
+A pull request to `main` that is marked ready for review gets one comment from the `review` job, with:
+
+- the verdict and the six scores;
+- the summary;
+- the paths left out of the review;
+- the model, and the run's tokens and cost.
+
+It also carries one label, `ai-cr:passed` or `ai-cr:failed`, and the `review` check passes or fails with the verdict. Further pushes update the same comment and label. Adding `ai-cr:review` reviews the PR again and removes the label. A draft PR is not reviewed.
+
+A PR that changes only left-out paths gets a "nothing to review" comment, a `pass` and no model call. When the key is missing, or the model gives no valid answer, the job fails with the reason in its summary, and posts no verdict.
+
+`git diff origin/main...HEAD | npm run review --prefix .github/actions/ai-reviewer` reviews a branch locally with the owner's key. `npm run eval --prefix .github/actions/ai-reviewer` compares three models on four planted diffs.
+
+The app's lint, types, unit tests, build and lockfile are untouched by the reviewer's folder. The documents name the one repository secret and the advisory check.
+
+**Verified by:**
+
+- the reviewer's unit tests (`node --test`), its own type check and the app's unchanged gates;
+- this pull request reviewing itself once the owner has added the secret and marked it ready;
+- the owner's eval run.
+
+### Key Discoveries:
+
+- A skipped job reports success, and a workflow-level `cancel-in-progress` group lets any label event cancel a running review (research §2). So `concurrency` goes on the job, under the job's `if:`.
+- `pull_request` runs the PR's own copy of the workflow and the local action, so this pull request reviews itself once it's ready and the secret exists (research §7).
+- On a fork PR the secret is empty, and the review fails visibly. There are 0 forks today (research §7).
+- AI SDK 7's structured output is `Output.object` on `generateText` or `ToolLoopAgent`. A schema violation throws `AI_NoObjectGeneratedError` and isn't retried by `maxRetries`. The cost comes in `finalStep.providerMetadata.openrouter.usage.cost` (research §9).
+- OpenRouter supports structured outputs per endpoint. `provider.require_parameters: true` routes only to endpoints that support them, and `provider.data_collection: "deny"` keeps PR text away from providers that may train on it (research §9, §7).
+- A bare model string resolves through the Vercel AI Gateway, so the model is always built with `createOpenRouter` (research §9).
+- Node's type stripping refuses enums, parameter properties, runtime namespaces, relative imports without `.ts`, `@/` aliases and type imports without `type` (research §4).
+- The template's actions are pinned by commit SHA. `actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1` is v7.0.1 and `actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1` is v7.1.0, both verified with `gh api repos/actions/<repo>/commits/<sha>` on 2026-10-16.
+
+## What We're NOT Doing
+
+- **Making `review` required** in `preventFailedDeploy`. That stays the owner's later call; Phase 4 documents how.
+- **`/10x-impl-review-ci`** and Claude Code Action, which break here as shipped (research §8). A later change can add them.
+- **Reviewing `.claude/`, `context/`, the recorded shop answers** (`src/lib/services/shops/fixtures/`), the eval's planted diffs or lockfiles.
+- **Repository context or tools for the agent** beyond the PR's title, description and diff. The requirements park business alignment and architectural fit.
+- **promptfoo in CI.** Evals run locally, with the owner's key.
+- **Re-pinning `ci.yml`'s existing actions** (`checkout@v4`, `setup-node@v4`) to SHAs. Only the new workflow and action follow the lesson's pinning rule.
+- **Publishing the reviewer** as its own repository or package (Module 5 lesson 4's territory).
+- **Fork PR support:** a fork's run fails visibly for lack of the secret.
+
+## Implementation Approach
+
+The reviewer is a small ESM package inside its composite action, `.github/actions/ai-reviewer/`:
+
+- its own `package.json` and lockfile, so nothing reaches the app's lockfile, `npm ci` or Workers Builds;
+- run by Node 24's type stripping (`node src/review.ts`), with no bundle and so no `dist/`;
+- its decisions in pure, tested modules: the diff filter, the size limit, the prompt, the answer check and the comment;
+- the model call behind one `createReviewer` that tests replace with AI SDK's mock model.
+
+The workflow follows the template with this repo's adaptations:
+
+- `main`, and `ready_for_review` among the types, with drafts skipped;
+- the job-level concurrency, a 10-minute timeout and SHA-pinned actions;
+- one secret, `OPENROUTER_API_KEY`, the provider's own variable name, used the same way in CI, local runs and evals;
+- one comment updated per run, all three labels created by the workflow, the cost in the job summary, and a gate step that fails unless the verdict is `pass`.
+
+The default model is the template's `z-ai/glm-5.3` until the Phase 3 eval confirms or replaces it. It's routed with `require_parameters: true` and `data_collection: "deny"`.
+
+**Cost.** A typical review sends about 7k tokens and costs fractions of a cent. Cost is bounded per run by 8,000 output tokens, a 120 s call timeout with one retry for an invalid answer, and the job's 10-minute limit. The OpenRouter key's own credit limit, which the owner sets, bounds it per month. With drafts skipped, about 1.1 reviews run per PR (research §5, §6).
+
+## Critical Implementation Details
+
+- **Ordering in Phase 1.** The ESLint ignore and the Tailwind exclusion land before the first `.ts` file of the reviewer. Otherwise the commit hook's `eslint --fix` and the per-edit hook fail on its files (research §3).
+- **The PR reviews itself.** Phases 1 and 2 go up as a draft pull request, which the job skips. The owner adds the secret first and only then marks the PR ready, so its first run has a key.
+- **Diff paths.** A file's path comes from its `+++ b/…` line, or from `--- a/…` for a deletion (`+++ /dev/null`). For a binary or mode-only section, which has neither line, it comes from the `diff --git` header. A rename counts by its new path. A git-quoted path (`"b/…"` with escapes) is unquoted before matching.
+
+## Phase 1: The reviewer, run locally
+
+### Overview
+
+The reviewer as a package that reviews a diff from the command line, with the app's tooling told to leave its folder alone (lesson 2).
+
+### Changes Required:
+
+#### 1. The app's tooling leaves the reviewer's folder alone
+
+**File**: `eslint.config.js`, `src/styles/global.css`
+
+**Intent**: Keep the reviewer's TypeScript, which has its own dependencies and tsconfig, out of the app's typed lint. Keep its fixtures and its `node_modules` out of Tailwind's class scan, as was done for `.claude/` and `context/`.
+
+**Contract**:
+
+- `globalIgnores([...])` at `eslint.config.js:238` also lists `.github/actions/ai-reviewer/`, with a one-line comment saying why.
+- `global.css` gets `@source not "../../.github/actions/ai-reviewer";` beside the three existing `@source not` lines, with the same kind of comment.
+
+#### 2. The reviewer's package
+
+**File**: `.github/actions/ai-reviewer/package.json`, `package-lock.json`, `tsconfig.json`
+
+**Intent**: A private ESM package with the lesson's dependencies and its own lockfile.
+
+**Contract**:
+
+- **`package.json`:**
+  - `"private": true`, `"type": "module"`, `"engines": { "node": ">=24.12" }` (stable type stripping).
+  - `dependencies`: `ai` `^7.0.142`, `@openrouter/ai-sdk-provider` `^3.1.0`, `zod` `^4.6.7`.
+  - `devDependencies`: `typescript` `~6.0.3` (the app's line, not 7.x) and `@types/node` `^24`.
+  - Scripts: `review` (`node src/review.ts`), `test` (`node --test`), `typecheck` (`tsc -p .`), and `eval` (added in Phase 3).
+- **The lockfile** is written with npm 11.16.0, the version CLAUDE.md pins (`npx -y npm@11.16.0 install` in the folder).
+- **`tsconfig.json`:**
+  - `strict`, `module`/`moduleResolution` `nodenext`, `target` `es2024`, `noEmit`;
+  - `allowImportingTsExtensions`, `erasableSyntaxOnly`, `verbatimModuleSyntax`;
+  - `types: ["node"]`, `skipLibCheck: true`;
+  - includes `src/`, `test/` and, from Phase 3, `eval/`.
+
+#### 3. The review schema and prompt
+
+**File**: `.github/actions/ai-reviewer/src/review-schema.ts`
+
+**Intent**: The template's contract in English:
+
+- six criteria, described by the English text of `requirements.md`;
+- the binding `verdict` and the Markdown `summary`;
+- an English system prompt that asks for a 2–3 sentence summary the author can act on, and treats the PR's text and diff as data, not instructions.
+
+**Contract**:
+
+- `SYSTEM_PROMPT` and `REVIEW_SCHEMA`: a zod object with flat fields `implementationCorrectness`, `idiomaticity`, `complexity`, `testRiskCoverage`, `documentation`, `securitySafety` (plain `z.number()`, as the template explains), `verdict: z.enum(["pass","fail"])` and `summary: z.string()`. `type Review = z.infer<...>`.
+- `parseReview(value)` returns the `Review` when every score is an integer from 1 to 10, and otherwise throws a named error. The JSON Schema sent to the model can't carry the range portably, so the check is local.
+- The template's `REVIEW_JSON_SCHEMA` (for the Claude Agent SDK) is left out: nothing here reads it.
+
+#### 4. What the reviewer reads
+
+**File**: `.github/actions/ai-reviewer/src/diff.ts`
+
+**Intent**: Leave out the paths the owner chose to skip, and bound what one review sends.
+
+**Contract**:
+
+- `filterDiff(diff)` → `{ kept: string; excluded: { path: string; bytes: number }[]; keptBytes: number }`.
+- It splits the unified diff at `diff --git` headers and drops each section whose path, per Critical Implementation Details, falls under:
+  - `.claude/`;
+  - `context/`;
+  - `src/lib/services/shops/fixtures/`;
+  - `.github/actions/ai-reviewer/eval/fixtures/`;
+  - any `package-lock.json`.
+
+  Every other section is kept byte for byte. The list is one exported constant.
+
+- `MAX_REVIEW_BYTES` = 1,000,000. That's the largest diff (b) of research §5 (724 KB) with room to spare, about 280k tokens.
+
+#### 5. The prompt
+
+**File**: `.github/actions/ai-reviewer/src/prompt.ts`
+
+**Intent**: One user message with the PR's title, its description (cut at 10,000 characters), the paths left out, and the kept diff.
+
+**Contract**: `buildPrompt({ title, body, diff, excluded })` → a string. The left-out paths are listed, so the model knows what it doesn't see; the list is cut at 50 paths with an "and N more" line.
+
+#### 6. The agent
+
+**File**: `.github/actions/ai-reviewer/src/reviewer.ts`
+
+**Intent**: The lesson's `ToolLoopAgent` reviewer, exported for the CLI and the evals.
+
+**Contract**:
+
+- `createReviewer({ apiKey, model, languageModel? })` → `{ review(prompt): Promise<{ review: Review; usage: { inputTokens; outputTokens; cost? }; model: string }> }`.
+- **The model:** `createOpenRouter({ apiKey, compatibility: "strict" }).chat(model, { provider: { require_parameters: true, data_collection: "deny" } })`, or the injected `languageModel` (tests).
+- **The agent:** `new ToolLoopAgent({ model, instructions: SYSTEM_PROMPT, output: Output.object({ schema: REVIEW_SCHEMA }), maxOutputTokens: 8000, timeout: 120_000 })`, with no tools.
+- **Failures:** one retry after `AI_NoObjectGeneratedError`, and none after any other error. The result goes through `parseReview`.
+- **Usage and cost:** usage from `result.usage`, and cost from `result.finalStep.providerMetadata?.openrouter?.usage?.cost`.
+- `DEFAULT_MODEL` = `"z-ai/glm-5.3"` is exported from this module only.
+
+#### 7. The command line
+
+**File**: `.github/actions/ai-reviewer/src/review.ts`
+
+**Intent**: The entry point the action and local runs use. It prints one JSON object on stdout, or fails with a reason.
+
+**Contract**:
+
+- **Reads:**
+  - `OPENROUTER_API_KEY`, `REVIEW_MODEL` (empty means `DEFAULT_MODEL`), `PR_TITLE`, `PR_BODY`;
+  - the diff from the file `DIFF_FILE` names, else from stdin.
+- **Prints** `{ ...Review, model, usage, excluded }` on success. Or, without a model call:
+  - with nothing left after filtering: `{ verdict: "pass", summary, skipped: "nothing-to-review", excluded }`;
+  - above `MAX_REVIEW_BYTES`: `{ verdict: "fail", summary, skipped: "too-large", excluded }`, with a summary that says it wasn't reviewed and to split the PR or review it by hand.
+- **Exit codes:**
+  - 0 whenever a verdict is printed;
+  - 1 with one line on stderr and nothing on stdout when no verdict can be given, including a missing `OPENROUTER_API_KEY`. That message names the repository secret and the local `export`.
+- **The run's line** (model, tokens, cost) goes to stderr. The key is never printed.
+
+#### 8. The tests
+
+**File**: `.github/actions/ai-reviewer/test/*.test.ts`
+
+**Intent**: The reviewer's decisions at their boundaries, with no network.
+
+**Contract**: `node --test` covers:
+
+- **`filterDiff`:** each excluded root, a kept file beside them, a rename into and out of `context/`, a deletion, a binary section, a quoted path, an empty diff, and the byte limit.
+- **`buildPrompt`:** the cut description and the cut excluded list.
+- **`parseReview`:** a 0, an 11, a 7.5 and a missing field.
+- **`createReviewer`,** with AI SDK's mock language model (from `ai/test`): the instructions and output schema sent, the retry after an invalid answer, and usage and cost read from provider metadata.
+- **The CLI**, spawned:
+  - a missing key: exit 1, empty stdout;
+  - a diff of only `context/`: `nothing-to-review`;
+  - a diff over the limit: `too-large`, with no model call.
+
+### Success Criteria:
+
+#### Automated Verification:
+
+- The reviewer installs from its lockfile: `npm ci --prefix .github/actions/ai-reviewer`
+- The reviewer's tests pass: `npm test --prefix .github/actions/ai-reviewer`
+- The reviewer type-checks: `npm run typecheck --prefix .github/actions/ai-reviewer`
+- Making `filterDiff` keep `context/` turns its tests red, and restoring it turns them green again
+- Making `parseReview` accept an 11 turns its tests red, and restoring it turns them green again
+- ESLint ignores the folder: `npx eslint --print-config .github/actions/ai-reviewer/src/review.ts` reports the file as ignored, and `npm run lint` passes
+- The app's unit suite passes: `npm run test`
+- Types check and leave the folder out: `npx astro sync && npx astro check` passes, and `npx tsc -p tsconfig.json --listFilesOnly` lists no file under `.github/`
+- The build passes: `npm run build`
+- The app's dependencies are untouched: `git diff --exit-code origin/main -- package.json package-lock.json`
+
+#### Manual Verification:
+
+- With the owner's key exported, `git diff origin/main...HEAD | npm run review --prefix .github/actions/ai-reviewer` prints a JSON review with six integer scores, a verdict and a summary, and a stderr line with the model, tokens and cost
+
+**Implementation Note**: The manual run needs the owner's OpenRouter key, so it can wait for Phase 2's manual steps, where the key is made anyway. Open the pull request as a draft with Phase 1's commit, so CI runs on it.
+
+---
+
+## Phase 2: The review in CI
+
+### Overview
+
+The composite action and the workflow from the lesson's templates, adapted to this repository (lesson 3), with the reviewer's tests added to CI's `ci` job.
+
+### Changes Required:
+
+#### 1. The composite action
+
+**File**: `.github/actions/ai-reviewer/action.yml`
+
+**Intent**: The template's action, running the reviewer's TypeScript directly instead of a built `dist/review.js`.
+
+**Contract**:
+
+- **Inputs:** `api-key` (required), `pr-title` (required), `pr-body` (default `""`), `diff-file` (required) and `model` (default `""`).
+- **Outputs:** `verdict` and `review-file`.
+- **Steps:**
+  1. `actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0` with `node-version: 24`, `cache: npm` and `cache-dependency-path: ${{ github.action_path }}/package-lock.json`.
+  2. `npm ci --prefix "$GITHUB_ACTION_PATH" --omit=dev --no-audit --no-fund`.
+  3. `node "$GITHUB_ACTION_PATH/src/review.ts" > "$review_file"`. The key, title, body, diff path and model reach it through `env`, never interpolated into the script.
+  4. The template's verdict extraction.
+
+#### 2. The comment
+
+**File**: `.github/actions/ai-reviewer/src/comment.ts`, `.github/actions/ai-reviewer/test/comment.test.ts`
+
+**Intent**: The PR comment's Markdown, from the review JSON, in a tested module rather than inline in YAML.
+
+**Contract**:
+
+- `node src/comment.ts <review.json>` prints Markdown that starts with the marker `<!-- ai-review -->`.
+- It holds:
+  - the verdict;
+  - a table of the six scores (left out for a skipped review);
+  - the summary;
+  - the left-out paths, folded in `<details>` and capped at 50;
+  - a footer with the model, the tokens and the cost.
+- The output stays under GitHub's 65,536-character comment limit by cutting the summary.
+
+#### 3. The workflow
+
+**File**: `.github/workflows/ai-review.yml`
+
+**Intent**: The template's review job, adapted to `main`, drafts, labels, this repository's single comment and an advisory gate.
+
+**Contract**:
+
+- **Trigger:** `on: pull_request` with `branches: [main]` and `types: [opened, synchronize, reopened, ready_for_review, labeled]`.
+- **Permissions:** `contents: read`, `pull-requests: write`, `issues: write`.
+- **Job `review`:**
+  - `if: github.event.pull_request.draft == false && (github.event.action != 'labeled' || github.event.label.name == 'ai-cr:review')`;
+  - job-level `concurrency: { group: ai-review-${{ github.event.pull_request.number }}, cancel-in-progress: true }`;
+  - `timeout-minutes: 10`, `runs-on: ubuntu-latest`.
+- **Steps:**
+  1. `actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1` with `fetch-depth: 0`.
+  2. The diff, `git diff "origin/$BASE_REF...HEAD" > "$RUNNER_TEMP/pr.diff"`.
+  3. The action, with `api-key: ${{ secrets.OPENROUTER_API_KEY }}`.
+  4. Once a verdict exists:
+     - one comment, found by its marker and edited, or created when missing;
+     - `gh label create --force` for `ai-cr:passed` (green), `ai-cr:failed` (red) and `ai-cr:review`;
+     - the passed/failed swap, and removing `ai-cr:review`;
+     - the comment's Markdown in `$GITHUB_STEP_SUMMARY`.
+  5. When there is no verdict, a step that writes the reason to the job summary.
+  6. The gate, `test "$VERDICT" = pass`.
+
+#### 4. The reviewer's checks in CI
+
+**File**: `.github/workflows/ci.yml`
+
+**Intent**: The `ci` job installs, tests and type-checks the reviewer, so a red reviewer test blocks a merge like any other test. The app's `npm run test` doesn't reach the folder.
+
+**Contract**: After the `ci` job's `npm run test` step, it runs:
+
+- `npm ci --prefix .github/actions/ai-reviewer`;
+- `npm test --prefix .github/actions/ai-reviewer`;
+- `npm run typecheck --prefix .github/actions/ai-reviewer`.
+
+### Success Criteria:
+
+#### Automated Verification:
+
+- The comment's tests pass with the reviewer's: `npm test --prefix .github/actions/ai-reviewer`
+- Every action the new workflow and action use is pinned by SHA: `git grep -nE "uses: [^ ]+@v[0-9]" -- .github/workflows/ai-review.yml .github/actions/ai-reviewer/action.yml` prints nothing
+- The review job skips drafts and label events other than `ai-cr:review`, and holds its concurrency at the job level: `git grep -n "draft == false" -- .github/workflows/ai-review.yml` finds the job's `if:`, and the `concurrency:` key sits under `jobs.review`
+- The app's gates pass: `npm run lint`, `npm run test`, `npx astro check` and `npm run build`
+- CI only: CI's `ci` job runs the reviewer's install, tests and type check, and passes
+- CI only: the `review` job is skipped on the draft pull request
+
+#### Manual Verification:
+
+- The owner creates an OpenRouter key with a credit limit (about $5), adds it as the repository secret `OPENROUTER_API_KEY`, and marks the pull request ready. The `review` check then runs, one comment appears with the scores, summary, left-out paths, model and cost, and the PR gets `ai-cr:passed` or `ai-cr:failed`.
+- A further push edits the same comment rather than adding one.
+- Adding `ai-cr:review` reviews the PR again and removes the label.
+- Adding an unrelated label while a review runs leaves that review running.
+- `ci`, `smoke` and `e2e` stay green throughout, and the ruleset is unchanged.
+
+**Implementation Note**: The pull request stays a draft until the owner has added the secret. Give the owner the key and secret steps while it's a draft, then mark it ready, so its first review runs with a key.
+
+---
+
+## Phase 3: promptfoo evals
+
+### Overview
+
+The lesson's eval, run locally: the same reviewer on three models and four planted diffs, to choose the default model now and to check any later prompt or model change.
+
+### Changes Required:
+
+#### 1. The eval provider
+
+**File**: `.github/actions/ai-reviewer/eval/reviewer-provider.mjs`
+
+**Intent**: Run the real reviewer for each case, with `filterDiff`, `buildPrompt` and `createReviewer` imported from `src/`, instead of a copy of the prompt. The eval then tests what CI runs.
+
+**Contract**:
+
+- A promptfoo custom provider: `id()`, and `callApi(prompt, context)` reading `context.vars` (`title`, `body`, `diff`) and its `config.model`.
+- It returns `{ output: JSON.stringify(review), tokenUsage, cost }`.
+- If promptfoo can't import the reviewer's TypeScript through Node's type stripping, it spawns `node src/review.ts` instead, and the Implementation Notes record it.
+
+#### 2. The config and fixtures
+
+**File**: `.github/actions/ai-reviewer/eval/promptfooconfig.yaml`, `eval/fixtures/*.diff`
+
+**Intent**: The template's config, with this repo's provider and two more cases.
+
+**Contract**:
+
+- **Providers:** the custom provider three times, with `config.model` set to `z-ai/glm-5.3`, `deepseek/deepseek-v4.1-flash` and `openai/gpt-5.6-luna`.
+- **Grader:** `openrouter:anthropic/claude-sonnet-5.5`.
+- **Tests:**
+
+  | Case                                                                                                              | Assertions                                                                                       |
+  | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+  | `react19-migration.diff`, a React 16 → 19 migration with three planted flaws                                      | `is-json`; an `llm-rubric` that all three flaws are named and explained; `verdict === "fail"`    |
+  | `sql-injection.diff`                                                                                              | `is-json`; an `llm-rubric` that names the injection; `verdict === "fail" && securitySafety <= 3` |
+  | `shop-gate-bypass.diff`, a service that calls `fetch` on a shop host where the surrounding code uses `gate.fetch` | `is-json`; an `llm-rubric` that it flags the bypass; `verdict === "fail"`                        |
+  | `clean-refactor.diff`, a small refactor with its test                                                             | `is-json`; `verdict === "pass"`                                                                  |
+
+#### 3. The eval command
+
+**File**: `.github/actions/ai-reviewer/eval/run.mjs`, `package.json` (`eval` script)
+
+**Intent**: One command that runs the pinned promptfoo with telemetry off, the same way on Windows and elsewhere.
+
+**Contract**:
+
+- `npm run eval` runs `node eval/run.mjs`, which spawns `npx --yes promptfoo@0.124.1 eval -c eval/promptfooconfig.yaml` with `PROMPTFOO_DISABLE_TELEMETRY=1` and `PROMPTFOO_DISABLE_UPDATE=1` set.
+- promptfoo isn't a dependency, so its 690 packages stay out of the reviewer's lockfile (research §10).
+
+### Success Criteria:
+
+#### Automated Verification:
+
+- The provider module loads without a model call: `node -e "import('./.github/actions/ai-reviewer/eval/reviewer-provider.mjs').then(() => console.log('ok'))"` prints `ok`
+- Each fixture keeps a non-empty diff through `filterDiff`, checked by a test in `npm test --prefix .github/actions/ai-reviewer`
+- The config validates with telemetry off: `npx --yes promptfoo@0.124.1 validate -c .github/actions/ai-reviewer/eval/promptfooconfig.yaml`
+- A reviewed pull request leaves the planted diffs out: a `filterDiff` test shows `eval/fixtures/` among the excluded paths
+- The app's gates pass: `npm run lint`, `npm run test`, `npx astro check` and `npm run build`
+
+#### Manual Verification:
+
+- The owner runs `npm run eval --prefix .github/actions/ai-reviewer` with their key. All three models return valid JSON for all four cases, and the run's cost shows in its output.
+- The default model passes the React, SQL and gate cases' assertions and the clean case's `pass`. If another model does better, `DEFAULT_MODEL` changes to it, and the Implementation Notes record the results and the choice.
+
+**Implementation Note**: The eval's results decide `DEFAULT_MODEL`. Record each model's pass count and the run's cost in the Implementation Notes.
+
+---
+
+## Phase 4: Documents
+
+### Overview
+
+The repository's documents name the one secret, the advisory check, and how to run, evaluate and later require the review.
+
+### Changes Required:
+
+#### 1. CLAUDE.md
+
+**File**: `CLAUDE.md`
+
+**Intent**: Keep the rules true. They are:
+
+- CI's one secret is the review's;
+- the `review` job is advisory;
+- the reviewer lives in its own package, out of the app's ESLint and Tailwind scan;
+- how to test, run and evaluate it.
+
+**Contract**:
+
+- **The CI bullet (`:68`):** the `review` job of `ai-review.yml`, its one secret, `OPENROUTER_API_KEY`, and that Cloudflare tokens and Supabase keys still stay out of GitHub.
+- **The ruleset bullet (`:72`):** `review` is advisory and outside the ruleset.
+- **Commands:** `npm test` / `npm run typecheck` / `npm run review` / `npm run eval` with `--prefix .github/actions/ai-reviewer`. Note that the app's `npm run test` and the hooks don't reach it, while CI's `ci` job does.
+- **Architecture:** the folder's own lockfile, written with the pinned npm, and Node's erasable-only TypeScript.
+
+#### 2. The other documents
+
+**File**: `README.md`, `context/deployment/deploy-plan.md`, `context/foundation/infrastructure.md`, `context/foundation/test-plan.md`
+
+**Intent**: Each statement that CI has no secrets gets its exception, and the runbook says how to manage the key and the check.
+
+**Contract**:
+
+- **`README.md:106`**: the CI section names the `review` job and its secret.
+- **`deploy-plan.md`:**
+  - a section "AI review (ci-cd-code-review)": the dedicated OpenRouter key and its credit limit, adding and rotating the secret, what a red `review` means, and how to make `review` required through the ruleset API or settings, as for `e2e`;
+  - line `:310` names the exception.
+- **`infrastructure.md:85`**: the review key is CI's one secret.
+- **`test-plan.md`:** a §4 Stack row for the reviewer and promptfoo, with a `checked:` date, and a §5 Quality Gates row: `AI code review | CI (review job) | advisory | …`.
+
+### Success Criteria:
+
+#### Automated Verification:
+
+- No document still says CI has no secrets without the exception: `git grep -nE "no (repository )?secrets|holds no secrets|Nothing goes into GitHub" -- CLAUDE.md README.md context/foundation context/deployment` shows only lines that also name the review's secret, or lines about the `smoke` or `e2e` job alone
+- The documents are formatted: `npx prettier --check README.md context/deployment/deploy-plan.md context/foundation/infrastructure.md context/foundation/test-plan.md`
+- The app's gates pass: `npm run lint`, `npm run test`, `npx astro check` and `npm run build`
+
+#### Manual Verification:
+
+- The owner reads the deploy plan's new section and finds the key, secret and ruleset steps clear
+
+**Implementation Note**: After this phase, the pull request carries the whole change. The owner merges it once `ci`, `smoke` and `e2e` are green and the review has run on it.
+
+---
+
+## Testing Strategy
+
+### Unit Tests:
+
+- `filterDiff`: excluded roots, renames, deletions, binary and quoted paths, an empty result and the byte limit.
+- `buildPrompt`: the description and excluded-list caps.
+- `parseReview`: scores outside 1–10, non-integers, missing fields.
+- `createReviewer`, with the mock model: what is sent, the one retry, usage and cost.
+- The CLI's no-call paths: missing key, nothing to review, too large.
+- `comment.ts`: a full review, a skipped one, the 50-path cap, the length cap.
+
+### Integration Tests:
+
+- This pull request's own `review` runs on the ready push, a later push, and an added `ai-cr:review`.
+- CI's `ci` job runs the reviewer's tests and type check.
+
+### Manual Testing Steps:
+
+1. Create the key with a credit limit, add the secret, and mark the PR ready. Check the comment, the label and the job summary's cost.
+2. Push a commit and check the same comment is edited.
+3. Add `ai-cr:review` and check the re-run and the label's removal.
+4. Add an unrelated label during a run and check the review isn't cancelled.
+5. Run `npm run eval` and record each model's results.
+
+## Performance Considerations
+
+- **Job time:** about 7–11 s of `npm ci` (cached by `setup-node` after the first run), plus one model call bounded at 120 s. The job's limit is 10 minutes.
+- **Diff size:** the filtered diff is 27 KB at the median and 724 KB at the max (research §5), held in memory once.
+- **Model time:** a cheap model's call on a median diff is expected to take seconds. It's measured in Phase 2's first run.
+
+## Migration Notes
+
+No data changes. The one new state is the repository secret and three labels.
+
+To roll back:
+
+- delete `.github/workflows/ai-review.yml`, or
+- remove the secret, so the job fails visibly without blocking merges, since it isn't required.
+
+## References
+
+- Research: `context/changes/ci-cd-code-review/research.md`
+- Requirements: `context/changes/ci-cd-code-review/requirements.md`
+- Templates: `.claude/config-templates/m5l2-review-schema.ts.template`, `m5l3-review.yml.template`, `m5l3-action.yml.template`, `m5l3-promptfooconfig.yaml.template`
+- Prompts: `.claude/prompts/m5l2-agent.md`, `m5l3-cicd.md`, `m5l3-promptfoo.md`
+- A check made required after a trial: `context/archive/2026-10-02-testing-critical-browser-flows/plan.md:325`, `:815`
+
+## Progress
+
+> Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
+
+### Phase 1: The reviewer, run locally
+
+#### Automated
+
+- [ ] 1.1 The reviewer installs from its lockfile: `npm ci --prefix .github/actions/ai-reviewer`
+- [ ] 1.2 The reviewer's tests pass: `npm test --prefix .github/actions/ai-reviewer`
+- [ ] 1.3 The reviewer type-checks: `npm run typecheck --prefix .github/actions/ai-reviewer`
+- [ ] 1.4 Making `filterDiff` keep `context/` turns its tests red, and restoring it turns them green again
+- [ ] 1.5 Making `parseReview` accept an 11 turns its tests red, and restoring it turns them green again
+- [ ] 1.6 ESLint ignores the folder: `npx eslint --print-config .github/actions/ai-reviewer/src/review.ts` reports the file as ignored, and `npm run lint` passes
+- [ ] 1.7 The app's unit suite passes: `npm run test`
+- [ ] 1.8 Types check and leave the folder out: `npx astro sync && npx astro check` passes, and `npx tsc -p tsconfig.json --listFilesOnly` lists no file under `.github/`
+- [ ] 1.9 The build passes: `npm run build`
+- [ ] 1.10 The app's dependencies are untouched: `git diff --exit-code origin/main -- package.json package-lock.json`
+
+#### Manual
+
+- [ ] 1.11 With the owner's key exported, `git diff origin/main...HEAD | npm run review --prefix .github/actions/ai-reviewer` prints a JSON review with six integer scores, a verdict and a summary, and a stderr line with the model, tokens and cost
+
+### Phase 2: The review in CI
+
+#### Automated
+
+- [ ] 2.1 The comment's tests pass with the reviewer's: `npm test --prefix .github/actions/ai-reviewer`
+- [ ] 2.2 Every action the new workflow and action use is pinned by SHA: `git grep -nE "uses: [^ ]+@v[0-9]" -- .github/workflows/ai-review.yml .github/actions/ai-reviewer/action.yml` prints nothing
+- [ ] 2.3 The review job skips drafts and label events other than `ai-cr:review`, and holds its concurrency at the job level: `git grep -n "draft == false" -- .github/workflows/ai-review.yml` finds the job's `if:`, and the `concurrency:` key sits under `jobs.review`
+- [ ] 2.4 The app's gates pass: `npm run lint`, `npm run test`, `npx astro check` and `npm run build`
+- [ ] 2.5 CI only: CI's `ci` job runs the reviewer's install, tests and type check, and passes
+- [ ] 2.6 CI only: the `review` job is skipped on the draft pull request
+
+#### Manual
+
+- [ ] 2.7 The owner creates an OpenRouter key with a credit limit (about $5), adds it as the repository secret `OPENROUTER_API_KEY`, and marks the pull request ready. The `review` check then runs, one comment appears with the scores, summary, left-out paths, model and cost, and the PR gets `ai-cr:passed` or `ai-cr:failed`.
+- [ ] 2.8 A further push edits the same comment rather than adding one.
+- [ ] 2.9 Adding `ai-cr:review` reviews the PR again and removes the label.
+- [ ] 2.10 Adding an unrelated label while a review runs leaves that review running.
+- [ ] 2.11 `ci`, `smoke` and `e2e` stay green throughout, and the ruleset is unchanged.
+
+### Phase 3: promptfoo evals
+
+#### Automated
+
+- [ ] 3.1 The provider module loads without a model call: `node -e "import('./.github/actions/ai-reviewer/eval/reviewer-provider.mjs').then(() => console.log('ok'))"` prints `ok`
+- [ ] 3.2 Each fixture keeps a non-empty diff through `filterDiff`, checked by a test in `npm test --prefix .github/actions/ai-reviewer`
+- [ ] 3.3 The config validates with telemetry off: `npx --yes promptfoo@0.124.1 validate -c .github/actions/ai-reviewer/eval/promptfooconfig.yaml`
+- [ ] 3.4 A reviewed pull request leaves the planted diffs out: a `filterDiff` test shows `eval/fixtures/` among the excluded paths
+- [ ] 3.5 The app's gates pass: `npm run lint`, `npm run test`, `npx astro check` and `npm run build`
+
+#### Manual
+
+- [ ] 3.6 The owner runs `npm run eval --prefix .github/actions/ai-reviewer` with their key. All three models return valid JSON for all four cases, and the run's cost shows in its output.
+- [ ] 3.7 The default model passes the React, SQL and gate cases' assertions and the clean case's `pass`. If another model does better, `DEFAULT_MODEL` changes to it, and the Implementation Notes record the results and the choice.
+
+### Phase 4: Documents
+
+#### Automated
+
+- [ ] 4.1 No document still says CI has no secrets without the exception: `git grep -nE "no (repository )?secrets|holds no secrets|Nothing goes into GitHub" -- CLAUDE.md README.md context/foundation context/deployment` shows only lines that also name the review's secret, or lines about the `smoke` or `e2e` job alone
+- [ ] 4.2 The documents are formatted: `npx prettier --check README.md context/deployment/deploy-plan.md context/foundation/infrastructure.md context/foundation/test-plan.md`
+- [ ] 4.3 The app's gates pass: `npm run lint`, `npm run test`, `npx astro check` and `npm run build`
+
+#### Manual
+
+- [ ] 4.4 The owner reads the deploy plan's new section and finds the key, secret and ruleset steps clear
