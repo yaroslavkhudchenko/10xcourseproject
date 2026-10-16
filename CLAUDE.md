@@ -67,33 +67,33 @@ Prerequisite: copy `.env.example` to both `.env` (Node processes: build, check, 
 - `.nvmrc` pins Node 24.18.0 (npm 11.16.0), and both CI and Workers Builds read it. Change dependencies with that npm. npm 11.6.2 writes lockfiles without the `@emnapi/*` entries that `npm ci` in npm 10.9 and 11.16 requires, so CI fails at install. Local Node below 24.16 prints non-fatal `EBADENGINE` warnings from `eslint-plugin-astro` at install.
 - CI (`.github/workflows/ci.yml`) runs on pushes and PRs to `main`: lint, `astro check`, unit tests and build in the `ci` job; the shop gate, watchlist, shop matches, price observations and catalogue database checks, the database tests (`npm run test:db`), the smoke test and the two-user check against a local Supabase in the `smoke` job; and the Playwright e2e suite on the production preview, against a local Supabase of its own, in the `e2e` job. It never deploys and needs no repository secrets; keep Cloudflare tokens and Supabase keys out of GitHub. The `smoke` job also runs the production check against the preview and the deploy gate against the local stack, each passing and failing where it must. The `Deploy check` workflow (`.github/workflows/deploy-check.yml`) runs on each push to `main`: it waits for the commit's `Workers Builds` check and fails when the build is red, so GitHub emails whoever merged; it reads only check runs, with its own read-only `GITHUB_TOKEN`, and prints no link, since a check's link carries the Cloudflare account id.
 - `context/` is the 10x workflow surface: `foundation/` living docs are edited in place, `changes/<id>/` holds per-change artefacts created with `/10x-new`, and `archive/` is read-only (see @context/foundation/README.md).
-- The 10x CLI (`npx @przeprogramowani/10x-cli@latest`) manages `.claude/`, `.10x-cli.json` and the course block at the bottom of this file, and tracks them by content hash. `.prettierignore` and `.gitattributes` (LF everywhere) keep them byte-identical, so never reformat them. Apply a lesson's course block with `get <lesson> --type rules`: in CLI 1.25.2 a plain `get` removes the block. After any `get` or `sync`, check that the block is still there and re-apply it if not. On Windows the CLI's manifest write sometimes fails with `EPERM` (the file is briefly locked), and some runs print nothing; rerun the same command.
+- The 10x CLI (`npx @przeprogramowani/10x-cli@latest`) manages `.claude/`, `.10x-cli.json` and the course block at the bottom of this file, and tracks them by content hash. `.prettierignore` and `.gitattributes` (LF everywhere) keep them byte-identical, so never reformat them. Apply a lesson's course block with `get <lesson> --type rules`. A plain `get` writes its own lesson's block too (CLI 1.30.1; 1.25.2 removed the block instead), so a module fetched through its last lesson keeps that lesson's block until the one being worked on is applied. After any `get` or `sync`, check that the block is still there and re-apply it if not. On Windows the CLI's manifest write sometimes fails with `EPERM` (the file is briefly locked), and some runs print nothing; rerun the same command.
 - `CLAUDE.md.scaffold` is the starter's original rules file left by the bootstrap merge and `context/changes/bootstrap-verification/verification.md` is its audit log; Claude Code loads neither.
 - Changes reach `main` only through pull requests. The `preventFailedDeploy` ruleset requires green `ci`, `smoke` and `e2e` checks, and every merge deploys to production through Workers Builds, so open the PR and leave the merge to the owner.
 - The default branch is `main` of a public GitHub repository: never commit account IDs, emails, the workers.dev subdomain or key values. There is no enforced commit convention yet.
 
 <!-- BEGIN @przeprogramowani/10x-cli -->
 
-## 10xDevs AI Toolkit - Module 4, Lesson 1 (Context at Scale)
+## 10xDevs AI Toolkit - Module 5, Lesson 1 (AI Internal Builders)
 
-Keep this rules file lean and point from it to the context that lives elsewhere. A large codebase does not need a larger root file.
+Classify recurring team friction before you build anything for it. The default answer is an existing tool; build only a thin helper where local, cross-system pain justifies it.
 
 ```
-lean root rules file -> context/ (system of record) -> per-module rules only when a trigger signal appears
+/10x-opportunity-map -> /10x-mom-test -> /10x-shape -> /10x-prd -> /10x-roadmap
 ```
 
 ### Task Router - Where to start
 
 | Skill | Use it when |
 | --- | --- |
-| `/10x-agents-md` -> `/10x-rule-review` | Slimming a bloated root rules file: move details out into `context/` and leave a pointer behind. |
-| `/10x-ray <skill> [args]` | You want to see how a skill works: it maps the skill's steps, fan-outs and human gates, then runs it and explains each step as it happens. Add `--mode html` to watch in the browser. |
-| `/10x-lesson` | An agent mistake that keeps coming back should become a recorded lesson, not another line in this file. |
+| `/10x-opportunity-map` | A team keeps hitting the same friction, or someone says "let's build a dashboard / agent / automation". Writes a build / buy / complement / wait map with a first useful version and a data-risk caveat to `context/team/opportunity-map.md`. |
+| `/10x-mom-test` | You have a candidate and want to know whether the problem is real. Produces a non-leading critique, interview questions, a survey and go/no-go criteria; saves to `context/team/mom-test-validation.md`. |
+| `/10x-shape` -> `/10x-prd` -> `/10x-roadmap` | A validated candidate is worth building. Continue with the usual 10xWorkflow. |
 
 ### Hard rules
 
-- **Instruction files add up; they don't override.** Tools merge the root, nested and user-level files. Don't repeat the same rule at several levels.
-- **The inclusion test.** A line belongs here only if the agent would get it wrong without it. Facts the agent can read from the code or from `context/` stay there and get a pointer.
-- **Add per-module structure only when a signal shows up.** Examples: the agent keeps confusing two areas, or one module's conventions crowd out everything else. Repo size alone is not a signal.
+- **Buy before you build.** Name the existing or default response first; a helper complements it, it doesn't replace it.
+- **Evidence comes from past behavior.** Ask what people did last time, not whether they would use the tool.
+- **State the data risk.** Every candidate says which data it reads and what could leak or go wrong.
 
 <!-- END @przeprogramowani/10x-cli -->
