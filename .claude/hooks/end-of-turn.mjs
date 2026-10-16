@@ -1,10 +1,13 @@
 #!/usr/bin/env node
-// Stop hook: before the agent finishes a turn, check the uncommitted code once:
+// Stop hook: before the agent finishes a turn, check the uncommitted code once, in the session's checkout and in every
+// checkout an edit reached this session, a sibling git worktree say (session-checkouts.mjs):
 //   - ESLint on every changed or new code file, which also catches files rewritten through a shell command, since
 //     those never reach the per-edit hook;
 //   - the whole Vitest suite, which runs in seconds, so a red test in a module the turn only imported shows up too;
 //   - `astro check --noSync`, the typecheck CI runs, .astro files included.
-// It reports every failure in one message on stderr and exits 2, which keeps the agent working. With
+// Each checkout runs its own installed tools, in parallel with the other checkouts. It reports every failure in one
+// message on stderr and exits 2, which keeps the agent working, and a check that couldn't run counts as a failure: a
+// checkout without node_modules, a tool it doesn't have, one that fails to start or doesn't finish. With
 // stop_hook_active set, it has already sent the agent back once this turn, so it lets it finish and leaves the rest
 // to the commit gate.
 //
@@ -15,9 +18,9 @@ import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { checkoutOf, registered, samePath } from "./session-checkouts.mjs";
 
-const VERSION = 1; // part of the "already passed" key: bump it when the checks change
-const root = path.resolve(process.env.CLAUDE_PROJECT_DIR || path.join(import.meta.dirname, "..", ".."));
+const VERSION = 2; // part of the "already passed" key: bump it when the checks change
 // What eslint.config.js lints; see lint-edited-file.mjs.
 const LINTED = /\.(?:[cm]?[jt]s|[jt]sx|astro)$/i;
 // What lint, the tests or the types can depend on: code, plus JSON such as package.json, tsconfig.json and fixtures.
@@ -29,12 +32,15 @@ const SYNC_TRIGGERS = /^(?:astro\.config\.[cm]?[jt]s|src\/content\.config\.[cm]?
 const TIMEOUT_MS = 100_000; // the hook's own timeout is 120 s
 const MAX_LINES = 120;
 const ENV = { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" };
-const PASSED = path.join(root, "node_modules", ".cache", "claude-hooks", "end-of-turn-passed");
 
-const { code, message, summary } = await main(readPayload());
-if (summary) console.log(`end-of-turn: ${summary}`); // stdout reaches only the debug log
-if (message) process.stderr.write(message, () => process.exit(code));
-else process.exit(code);
+const { code, message, summary, notice } = await main(readPayload());
+// On exit 0 Claude Code reads stdout as JSON when it parses, so a notice reaches the user (not Claude), and a plain
+// summary only the debug log. Each stream is flushed before the exit.
+const line = notice ? JSON.stringify({ systemMessage: notice }) : summary ? `end-of-turn: ${summary}` : "";
+process.stdout.write(line ? `${line}\n` : "", () => {
+  if (message) process.stderr.write(message, () => process.exit(code));
+  else process.exit(code);
+});
 
 async function main(payload) {
   // Cursor, which imports .claude/settings.json hooks, counts its retries in loop_count instead.
@@ -42,70 +48,104 @@ async function main(payload) {
     return { code: 0, summary: "already sent back once this turn" };
   }
 
-  const top = git(["rev-parse", "--show-toplevel"]);
-  const head = git(["rev-parse", "HEAD"]);
-  if (top === null || head === null) return { code: 0, summary: "not a git checkout with a commit" };
+  // The session's checkout comes from the payload's cwd, never from $CLAUDE_PROJECT_DIR, which names the checkout
+  // the session started in. Registered checkouts count while they're still checkouts of the session's repository.
+  const cwd = typeof payload.cwd === "string" && payload.cwd.trim() !== "" ? payload.cwd : process.cwd();
+  const session = checkoutOf(cwd);
+  const roots = session ? [session.root] : [];
+  for (const root of registered(payload.session_id)) {
+    const checkout = checkoutOf(root);
+    if (!checkout || !samePath(checkout.root, root) || roots.some((known) => samePath(known, checkout.root))) continue;
+    if (session && !samePath(checkout.repository, session.repository)) continue;
+    roots.push(checkout.root);
+  }
+  if (roots.length === 0) return { code: 0, notice: `end-of-turn: no git checkout at ${cwd}, so nothing was checked.` };
 
-  const tracked = gitPaths(["diff", "--name-only", "-z", "HEAD"]);
-  const untracked = gitPaths(["ls-files", "-o", "--exclude-standard", "-z"]).filter(
+  const results = await Promise.all(roots.map((root) => checkCheckout(root)));
+  // Paths in a report are relative to their checkout, so a report from any checkout but the session's own names it.
+  const named = roots.length > 1 || !session;
+  const summary = results
+    .map((result, i) => (named ? `${path.basename(roots[i])}: ${result.summary}` : result.summary))
+    .join("; ");
+  const blocks = results.flatMap(({ sections }, i) => {
+    if (sections.length === 0) return [];
+    return [named ? `In ${roots[i]}:\n\n${sections.join("\n\n")}` : sections.join("\n\n")];
+  });
+  if (blocks.length === 0) return { code: 0, summary };
+  return { code: 2, message: `Fix these before you finish:\n\n${blocks.join("\n\n")}\n`, summary };
+}
+
+// One checkout's checks: { sections: the report's failures, summary: one line for the debug log }.
+async function checkCheckout(root) {
+  const head = git(root, ["rev-parse", "HEAD"]);
+  if (head === null) return { sections: [], summary: "no commit to compare with" };
+
+  const tracked = gitPaths(root, ["diff", "--name-only", "-z", "HEAD"]);
+  const untracked = gitPaths(root, ["ls-files", "-o", "--exclude-standard", "-z"]).filter(
     (p) => !p.includes("/") || UNTRACKED_ROOTS.some((folder) => p.startsWith(folder)),
   );
   const changed = [...new Set([...tracked, ...untracked])].filter((p) => RELEVANT.test(p)).sort();
-  if (changed.length === 0) return { code: 0, summary: "no code changed" };
+  if (changed.length === 0) return { sections: [], summary: "no code changed" };
 
   // The same uncommitted code on the same commit already passed: a question asked mid-change costs nothing.
-  const present = changed.filter((p) => isFile(path.join(top, p)));
-  const fingerprints = changed.map((p) => `${p}\0${present.includes(p) ? sha256(readFileSync(path.join(top, p))) : "deleted"}`);
+  const present = changed.filter((p) => isFile(path.join(root, p)));
+  const fingerprints = changed.map((p) => `${p}\0${present.includes(p) ? sha256(readFileSync(path.join(root, p))) : "deleted"}`);
   const key = sha256([VERSION, head, ...fingerprints].join("\n"));
-  if (readText(PASSED) === key) return { code: 0, summary: `${changed.length} changed file(s) already passed` };
+  const passed = path.join(root, "node_modules", ".cache", "claude-hooks", "end-of-turn-passed");
+  if (readText(passed) === key) return { sections: [], summary: `${changed.length} changed file(s) already passed` };
 
-  const lintFiles = present.filter((p) => LINTED.test(p)).map((p) => path.join(top, p));
+  if (!isDirectory(path.join(root, "node_modules"))) {
+    const reason = "this checkout has no node_modules, so ESLint, Vitest and astro check can't run. Run `npm ci` in it.";
+    return { sections: [`Nothing was checked: ${reason}`], summary: "no node_modules" };
+  }
+
+  const lintFiles = present.filter((p) => LINTED.test(p)).map((p) => path.join(root, p));
   const needsSync =
     !isFile(path.join(root, ".astro", "types.d.ts")) ||
-    (changed.some((p) => SYNC_TRIGGERS.test(p)) && !devServerRunning());
+    (changed.some((p) => SYNC_TRIGGERS.test(p)) && !devServerRunning(root));
 
   const started = Date.now();
   const [lint, tests, types] = await Promise.all([
-    lintFiles.length > 0 ? lintAll(lintFiles) : null,
-    runTool("vitest", ["run"]),
-    typecheck(needsSync),
+    lintFiles.length > 0 ? lintAll(root, lintFiles) : null,
+    runTool(root, "vitest", ["run"]),
+    typecheck(root, needsSync),
   ]);
   const seconds = ((Date.now() - started) / 1000).toFixed(1);
 
   const sections = [];
   if (lint) sections.push(lint);
-  if (tests.failed) sections.push(section("Unit tests fail (npx vitest run):", tests.output));
-  if (types.failed) sections.push(section(`Typecheck fails (${types.command}):`, types.output));
-  if (sections.length > 0) {
-    return {
-      code: 2,
-      message: `Fix these before you finish:\n\n${sections.join("\n\n")}\n`,
-      summary: `${sections.length} check(s) failed in ${seconds} s`,
-    };
+  if (tests.failed) {
+    const title = tests.missing ? "Unit tests didn't run:" : "Unit tests fail (npx vitest run):";
+    sections.push(section(title, tests.output));
   }
-  writeText(PASSED, key);
+  if (types.failed) {
+    const title = types.missing ? "Typecheck didn't run:" : `Typecheck fails (${types.command}):`;
+    sections.push(section(title, types.output));
+  }
+  if (sections.length > 0) return { sections, summary: `${sections.length} check(s) failed in ${seconds} s` };
+  writeText(root, passed, key);
   return {
-    code: 0,
+    sections,
     summary: `${changed.length} changed file(s), ${lintFiles.length} linted, tests and ${types.command} passed in ${seconds} s`,
   };
 }
 
-async function typecheck(needsSync) {
+async function typecheck(root, needsSync) {
   if (needsSync) {
-    const sync = await runTool("astro", ["sync"]);
+    const sync = await runTool(root, "astro", ["sync"]);
     if (sync.failed) return { ...sync, command: "npx astro sync" };
   }
-  const check = await runTool("astro", ["check", "--noSync", "--minimumSeverity", "error"]);
+  const check = await runTool(root, "astro", ["check", "--noSync", "--minimumSeverity", "error"]);
   return { ...check, command: needsSync ? "npx astro sync, then npx astro check --noSync" : "npx astro check --noSync" };
 }
 
 // ESLint on the changed files, in batches that keep each command line well under Windows' 32 767 characters.
 // Returns the report section, or null when every file is clean.
-async function lintAll(files) {
+async function lintAll(root, files) {
   const errors = [];
   const crashes = [];
   for (const batch of batches(files, 20_000)) {
-    const run = await runTool("eslint", ["--quiet", "--no-warn-ignored", "--format", "json", ...batch]);
+    const run = await runTool(root, "eslint", ["--quiet", "--no-warn-ignored", "--format", "json", ...batch]);
     if (!run.failed) continue;
     const found = errorsOf(run.stdout);
     if (found === null) crashes.push(run.output);
@@ -115,7 +155,7 @@ async function lintAll(files) {
   if (errors.length > 0) {
     const lines = [];
     for (const { file, messages } of errors) {
-      lines.push(`${display(file)}:`);
+      lines.push(`${display(root, file)}:`);
       for (const m of messages) lines.push(`  ${m.line ?? 0}:${m.column ?? 0}  ${m.message}  (${m.ruleId ?? "parse error"})`);
     }
     if (errors.some(({ messages }) => messages.some((m) => m.ruleId === "prettier/prettier"))) {
@@ -127,10 +167,14 @@ async function lintAll(files) {
   return parts.length > 0 ? parts.join("\n\n") : null;
 }
 
-// A package's own bin script, run with this Node (no npx, no shell); a tool that isn't installed counts as passing.
-function runTool(name, args) {
-  const bin = binOf(name);
-  if (!bin) return Promise.resolve({ failed: false, stdout: "", output: "" });
+// A package's own bin script in the checkout, run with this Node (no npx, no shell). A tool the checkout doesn't have,
+// or one that can't start, fails with `missing` set, since a check that didn't run hasn't passed.
+function runTool(root, name, args) {
+  const bin = binOf(root, name);
+  if (!bin) {
+    const output = `${name} isn't installed in this checkout (no node_modules/${name}): run \`npm ci\` in it.`;
+    return Promise.resolve({ failed: true, missing: true, stdout: "", output });
+  }
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [bin, ...args], { cwd: root, env: ENV, windowsHide: true });
     let stdout = "";
@@ -145,7 +189,7 @@ function runTool(name, args) {
     }, TIMEOUT_MS);
     child.on("error", (error) => {
       clearTimeout(timer);
-      resolve({ failed: false, stdout: "", output: String(error) });
+      resolve({ failed: true, missing: true, stdout: "", output: `${name} could not start: ${String(error)}` });
     });
     child.on("close", (exitCode) => {
       clearTimeout(timer);
@@ -154,7 +198,7 @@ function runTool(name, args) {
   });
 }
 
-function devServerRunning() {
+function devServerRunning(root) {
   try {
     const { pid } = JSON.parse(readFileSync(path.join(root, ".astro", "dev.json"), "utf8"));
     process.kill(pid, 0);
@@ -174,17 +218,17 @@ function readPayload() {
   }
 }
 
-function git(args) {
+function git(root, args) {
   const run = spawnSync("git", args, { cwd: root, encoding: "utf8", windowsHide: true });
   return run.status === 0 ? run.stdout.trim() : null;
 }
 
-function gitPaths(args) {
+function gitPaths(root, args) {
   const run = spawnSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, windowsHide: true });
   return run.status === 0 ? run.stdout.split("\0").filter(Boolean) : [];
 }
 
-function binOf(name) {
+function binOf(root, name) {
   try {
     const directory = path.join(root, "node_modules", name);
     const { bin } = JSON.parse(readFileSync(path.join(directory, "package.json"), "utf8"));
@@ -234,13 +278,21 @@ function clean(text) {
     .trim();
 }
 
-function display(file) {
+function display(root, file) {
   return path.relative(root, file).split(path.sep).join("/");
 }
 
 function isFile(target) {
   try {
     return statSync(target).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function isDirectory(target) {
+  try {
+    return statSync(target).isDirectory();
   } catch {
     return false;
   }
@@ -258,10 +310,10 @@ function readText(file) {
   }
 }
 
-// Only into an installed node_modules: without one, nothing ran, and the next turn just checks again.
-function writeText(file, text) {
+// Only into the checkout's installed node_modules: without one, nothing ran, and the next turn just checks again.
+function writeText(root, file, text) {
   try {
-    if (!statSync(path.join(root, "node_modules")).isDirectory()) return;
+    if (!isDirectory(path.join(root, "node_modules"))) return;
     mkdirSync(path.dirname(file), { recursive: true });
     writeFileSync(file, text);
   } catch {
