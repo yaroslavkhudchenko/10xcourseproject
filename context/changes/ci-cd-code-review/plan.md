@@ -591,6 +591,41 @@ To roll back:
 
   The comment can then reuse the 50-path cap and the usage line.
 
+### Phase 2
+
+- **The comment's commit:** the comment names the commit it reviewed (`For commit abc1234.` in its footer, from `REVIEWED_COMMIT`, the pull request's head SHA), and a value that isn't a commit SHA fails the step.
+  - A run without a verdict leaves the previous comment and label in place, and the plan doesn't clear them. The commit in the comment shows they describe an older commit, beside the red check.
+  - Added after Phase 2's implementation reported the gap.
+- **`prompt.ts` (Phase 1):** two private helpers are exported for `comment.ts` rather than copied (lessons: define helpers once):
+  - `shown` became `pathOnOneLine`;
+  - the surrogate-safe cut moved into `cutAt(text, max)`.
+
+  Behaviour is unchanged.
+- **The workflow's steps:** the template's "Comment and label" became three steps:
+  - "Write the comment" runs `comment.ts`, which loads the reviewer's packages, holds no token, and writes the job summary before any `gh` call.
+  - "Post the comment" and "Label the pull request" are the only steps with `GH_TOKEN`.
+- **The workflow's conditions:**
+  - The comment and label steps run on the default `success()` with `if: steps.review.outputs.verdict != ''`, not the template's `always() && …`, so a run a push cancels posts nothing. The shape test pins that no step uses `always()`.
+  - `defaults.run.shell: bash` gives the run steps `pipefail`, and `GH_REPO` lets `gh` work without a git remote.
+- **The comment search:**
+  - It keeps comments by `github-actions[bot]` whose body starts with the marker (`startswith`, not the plan's "contains"), so a comment that only quotes the marker never matches.
+  - The marker enters the jq filter as a JSON string literal, since gh's `--jq` takes no `--arg`.
+  - The first id comes from `${ids%%$'\n'*}`, not `head`, which could SIGPIPE `gh` under `pipefail`.
+  - An id that isn't digits fails the step (lessons: never read an unreadable answer as missing).
+- **Labels:** each has a description. `ai-cr:review` is blue (`1D76DB`), since the plan gave colours only for passed and failed.
+- **The comment's length:** cutting the summary alone can't guarantee GitHub's 65,536-character limit, so two things back it up:
+  - each listed path shows at most 300 UTF-16 units, then "…";
+  - `renderComment` throws when everything but the summary already breaks the limit, so nothing over it is ever posted.
+- **Checking the review file:** `comment.ts` checks the review file with zod. A file that's missing, isn't JSON or isn't a review gives one stderr line and exit 1, never a comment.
+- **Rendering details:**
+  - a path's code span uses a fence longer than any backtick run in it;
+  - a skipped review's footer says no model was asked;
+  - an empty summary is named as such;
+  - there's no `<details>` when nothing was left out.
+- **Names:** the action's step id is `review` (the template's is `agent`).
+- **The lockfile:** the `yaml` devDependency is `^2.9.1`, written with npm 11.16.0. The lockfile adds only `node_modules/yaml` as dev, and `ai` stays 7.0.142.
+- **Unverified until the manual steps:** that `gh pr edit --remove-label` ignores a label the PR doesn't carry, and that gh's gojq takes the filter. Steps 2.7–2.10 exercise both.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -599,17 +634,17 @@ To roll back:
 
 #### Automated
 
-- [x] 1.1 The reviewer installs from its lockfile: `npm ci --prefix .github/actions/ai-reviewer`
-- [x] 1.2 The reviewer's tests pass: `npm test --prefix .github/actions/ai-reviewer`
-- [x] 1.3 The reviewer type-checks: `npm run typecheck --prefix .github/actions/ai-reviewer`
-- [x] 1.4 Making `filterDiff` keep `context/` turns its tests red, and restoring it turns them green again
-- [x] 1.5 Making `parseReview` accept an 11 turns its tests red, and restoring it turns them green again
-- [x] 1.6 ESLint ignores the folder: `npx eslint --print-config .github/actions/ai-reviewer/src/review.ts` reports the file as ignored, and `npm run lint` passes
-- [x] 1.7 The app's unit suite passes: `npm run test`
-- [x] 1.8 Types check and leave the folder out: `npx astro sync && npx astro check` passes, and `npx tsc -p tsconfig.json --listFilesOnly` lists no file under `.github/`
-- [x] 1.9 The build passes: `npm run build`
-- [x] 1.10 The app's dependencies are untouched: `git diff --exit-code origin/main -- package.json package-lock.json`
-- [x] 1.11 Tailwind's scan leaves the folder out: `git grep -nF '@source not "../../.github/actions/ai-reviewer"' -- src/styles/global.css` finds the line
+- [x] 1.1 The reviewer installs from its lockfile: `npm ci --prefix .github/actions/ai-reviewer` — dc74e2f
+- [x] 1.2 The reviewer's tests pass: `npm test --prefix .github/actions/ai-reviewer` — dc74e2f
+- [x] 1.3 The reviewer type-checks: `npm run typecheck --prefix .github/actions/ai-reviewer` — dc74e2f
+- [x] 1.4 Making `filterDiff` keep `context/` turns its tests red, and restoring it turns them green again — dc74e2f
+- [x] 1.5 Making `parseReview` accept an 11 turns its tests red, and restoring it turns them green again — dc74e2f
+- [x] 1.6 ESLint ignores the folder: `npx eslint --print-config .github/actions/ai-reviewer/src/review.ts` reports the file as ignored, and `npm run lint` passes — dc74e2f
+- [x] 1.7 The app's unit suite passes: `npm run test` — dc74e2f
+- [x] 1.8 Types check and leave the folder out: `npx astro sync && npx astro check` passes, and `npx tsc -p tsconfig.json --listFilesOnly` lists no file under `.github/` — dc74e2f
+- [x] 1.9 The build passes: `npm run build` — dc74e2f
+- [x] 1.10 The app's dependencies are untouched: `git diff --exit-code origin/main -- package.json package-lock.json` — dc74e2f
+- [x] 1.11 Tailwind's scan leaves the folder out: `git grep -nF '@source not "../../.github/actions/ai-reviewer"' -- src/styles/global.css` finds the line — dc74e2f
 
 #### Manual
 
@@ -619,10 +654,10 @@ To roll back:
 
 #### Automated
 
-- [ ] 2.1 The comment's tests pass with the reviewer's: `npm test --prefix .github/actions/ai-reviewer`
-- [ ] 2.2 Every action the new workflow and action use is pinned by SHA: `git grep -nE "uses: [^ ]+@v[0-9]" -- .github/workflows/ai-review.yml .github/actions/ai-reviewer/action.yml` prints nothing
-- [ ] 2.3 The workflow's shape test passes: the trigger, the job's `if:` skipping drafts and other labels, the job-level concurrency that cancels only on `synchronize`, the timeout, permissions, `persist-credentials: false`, no job-wide `GH_TOKEN`, and SHA pins, in `npm test --prefix .github/actions/ai-reviewer`
-- [ ] 2.4 The app's gates pass: `npm run lint`, `npm run test`, `npx astro check` and `npm run build`
+- [x] 2.1 The comment's tests pass with the reviewer's: `npm test --prefix .github/actions/ai-reviewer`
+- [x] 2.2 Every action the new workflow and action use is pinned by SHA: `git grep -nE "uses: [^ ]+@v[0-9]" -- .github/workflows/ai-review.yml .github/actions/ai-reviewer/action.yml` prints nothing
+- [x] 2.3 The workflow's shape test passes: the trigger, the job's `if:` skipping drafts and other labels, the job-level concurrency that cancels only on `synchronize`, the timeout, permissions, `persist-credentials: false`, no job-wide `GH_TOKEN`, and SHA pins, in `npm test --prefix .github/actions/ai-reviewer`
+- [x] 2.4 The app's gates pass: `npm run lint`, `npm run test`, `npx astro check` and `npm run build`
 - [ ] 2.5 CI only: CI's `ci` job runs the reviewer's install, tests and type check, and passes
 - [ ] 2.6 CI only: the `review` job is skipped on the draft pull request
 

@@ -43,15 +43,24 @@ export function buildPrompt({ title, body, diff, excluded }: PromptInput): strin
 function descriptionOf(body: string): string {
   if (body.trim() === "") return "(no description)";
   if (body.length <= MAX_BODY_CHARS) return body;
-  // Cut before a surrogate pair rather than through it: a high surrogate last would stand alone.
-  const last = body.charCodeAt(MAX_BODY_CHARS - 1);
-  const end = last >= 0xd800 && last <= 0xdbff ? MAX_BODY_CHARS - 1 : MAX_BODY_CHARS;
-  return `${body.slice(0, end)}\n[The description is cut here, at ${MAX_BODY_CHARS} characters.]`;
+  return `${cutAt(body, MAX_BODY_CHARS)}\n[The description is cut here, at ${MAX_BODY_CHARS} characters.]`;
+}
+
+/**
+ * The first `max` UTF-16 code units of `text`, or one fewer rather than cut through a surrogate pair, whose high
+ * surrogate would stand alone last; `text` itself when it isn't longer. The PR comment (comment.ts) cuts with it too.
+ */
+export function cutAt(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const last = text.charCodeAt(max - 1);
+  return text.slice(0, last >= 0xd800 && last <= 0xdbff ? max - 1 : max);
 }
 
 function leftOutLines(excluded: readonly ExcludedPath[]): string[] {
   if (excluded.length === 0) return ["None: the diff holds every changed file."];
-  const listed = excluded.slice(0, MAX_LISTED_PATHS).map(({ path, bytes }) => `- ${shown(path)} (${bytes} bytes)`);
+  const listed = excluded
+    .slice(0, MAX_LISTED_PATHS)
+    .map(({ path, bytes }) => `- ${pathOnOneLine(path)} (${bytes} bytes)`);
   const more = excluded.length - listed.length;
   return [
     "These changed files are left out of the review by its rules (documents, recorded test data, lockfiles), so the " +
@@ -61,7 +70,10 @@ function leftOutLines(excluded: readonly ExcludedPath[]): string[] {
   ];
 }
 
-/** A path on one line: one holding a control character, such as a line break, is shown as a JSON string. */
-function shown(path: string): string {
+/**
+ * A path on one line: one holding a control character, such as a line break, is shown as a JSON string. The PR comment
+ * (comment.ts) lists the left-out paths with it too.
+ */
+export function pathOnOneLine(path: string): string {
   return /[\u0000-\u001f\u007f]/.test(path) ? JSON.stringify(path) : path;
 }
