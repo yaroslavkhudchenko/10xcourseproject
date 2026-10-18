@@ -1,7 +1,7 @@
 ---
 change_id: ci-cd-code-review
 title: An AI code review on every pull request, as a merge gate's verdict
-status: plan_reviewed
+status: implementing
 created: 2026-10-16
 updated: 2026-10-18
 archived_at: null

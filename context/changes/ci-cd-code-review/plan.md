@@ -557,6 +557,40 @@ To roll back:
 - Prompts: `.claude/prompts/m5l2-agent.md`, `m5l3-cicd.md`, `m5l3-promptfoo.md`
 - A check made required after a trial: `context/archive/2026-10-02-testing-critical-browser-flows/plan.md:325`, `:815`
 
+## Implementation Notes
+
+### Phase 1
+
+- **Base:** before Phase 1's commit, the branch moved onto `main` at `cb9d42a`, after PRs #57 and #58 merged. No Progress SHA existed yet.
+- **#6, usage:** a retried review counts both calls.
+  - The invalid call's tokens come from `NoObjectGeneratedError.usage`, or from the result for `NoOutputGeneratedError`. Its cost comes from OpenRouter's `usage.raw.cost`.
+  - If any part is unknown, the total cost is left out, never under-reported.
+- **#6, retry:** a score that `parseReview` refuses is an invalid answer as well, so it gets the one retry, and two such answers give no review. The plan's list named only the SDK's two errors.
+- **#6, failures:**
+  - The SDK's own `maxRetries` (default 2) still retries temporary API errors within one call. "None after any other error" concerns the reviewer's own retry.
+  - A failure becomes a named `ReviewFailedError`, with the original as its `cause`. The CLI prints it as one line of at most 1,000 characters.
+- **#7, skips:** the skip verdicts and their summaries are a pure `skipOf(filtered)` in `diff.ts` (lessons: decisions in tested services), tested at 1,000,000 and 1,000,001 UTF-8 bytes. The CLI only wires it.
+- **#7, the key:** the CLI filters the diff before reading the key. A PR with nothing to review passes without `OPENROUTER_API_KEY`, since a verdict can be given without a model call. So a missing secret shows only on PRs that change reviewed paths.
+- **#7, the diff source:**
+  - A `DIFF_FILE` that is set but empty fails, instead of falling back to stdin.
+  - Stdin on a terminal fails with a usage hint.
+  - An existing empty file is an empty diff, so "nothing to review".
+- **#7, redaction:** every line the CLI prints replaces the key (8 characters or more) with `[OPENROUTER_API_KEY]`. A test has the stubbed model echo the key to prove it.
+- **#4, paths:**
+  - A pure rename or copy takes its new path from the `rename to` or `copy to` line.
+  - An unquoted `---`/`+++` name drops the TAB that git appends after a name containing a space.
+  - CRLF lines are handled.
+  - A section whose path can't be read is kept and reviewed, never dropped.
+- **#2, the lockfile:** it pins `ai` 7.0.142, the version the plan review verified; `^7.0.142` alone would now resolve 7.0.143, published 2026-10-16. It was written with npm 11.16.0.
+- **#8, tests:** two CLI cases beyond the plan: `DIFF_FILE=""` fails, and a full review against a stubbed OpenRouter answer. Every spawned CLI runs with the reviewer's variables stripped and a `data:` URL `--import` preload that replaces `fetch`, so no test reaches the network.
+- **Exports for Phase 2:**
+  - `review-schema.ts`: `SCORE_KEYS`, `InvalidReviewError`;
+  - `diff.ts`: `skipOf` and its types;
+  - `prompt.ts`: `MAX_BODY_CHARS`, `MAX_LISTED_PATHS`;
+  - `reviewer.ts`: `ReviewFailedError`, `usageText`.
+
+  The comment can then reuse the 50-path cap and the usage line.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -565,17 +599,17 @@ To roll back:
 
 #### Automated
 
-- [ ] 1.1 The reviewer installs from its lockfile: `npm ci --prefix .github/actions/ai-reviewer`
-- [ ] 1.2 The reviewer's tests pass: `npm test --prefix .github/actions/ai-reviewer`
-- [ ] 1.3 The reviewer type-checks: `npm run typecheck --prefix .github/actions/ai-reviewer`
-- [ ] 1.4 Making `filterDiff` keep `context/` turns its tests red, and restoring it turns them green again
-- [ ] 1.5 Making `parseReview` accept an 11 turns its tests red, and restoring it turns them green again
-- [ ] 1.6 ESLint ignores the folder: `npx eslint --print-config .github/actions/ai-reviewer/src/review.ts` reports the file as ignored, and `npm run lint` passes
-- [ ] 1.7 The app's unit suite passes: `npm run test`
-- [ ] 1.8 Types check and leave the folder out: `npx astro sync && npx astro check` passes, and `npx tsc -p tsconfig.json --listFilesOnly` lists no file under `.github/`
-- [ ] 1.9 The build passes: `npm run build`
-- [ ] 1.10 The app's dependencies are untouched: `git diff --exit-code origin/main -- package.json package-lock.json`
-- [ ] 1.11 Tailwind's scan leaves the folder out: `git grep -nF '@source not "../../.github/actions/ai-reviewer"' -- src/styles/global.css` finds the line
+- [x] 1.1 The reviewer installs from its lockfile: `npm ci --prefix .github/actions/ai-reviewer`
+- [x] 1.2 The reviewer's tests pass: `npm test --prefix .github/actions/ai-reviewer`
+- [x] 1.3 The reviewer type-checks: `npm run typecheck --prefix .github/actions/ai-reviewer`
+- [x] 1.4 Making `filterDiff` keep `context/` turns its tests red, and restoring it turns them green again
+- [x] 1.5 Making `parseReview` accept an 11 turns its tests red, and restoring it turns them green again
+- [x] 1.6 ESLint ignores the folder: `npx eslint --print-config .github/actions/ai-reviewer/src/review.ts` reports the file as ignored, and `npm run lint` passes
+- [x] 1.7 The app's unit suite passes: `npm run test`
+- [x] 1.8 Types check and leave the folder out: `npx astro sync && npx astro check` passes, and `npx tsc -p tsconfig.json --listFilesOnly` lists no file under `.github/`
+- [x] 1.9 The build passes: `npm run build`
+- [x] 1.10 The app's dependencies are untouched: `git diff --exit-code origin/main -- package.json package-lock.json`
+- [x] 1.11 Tailwind's scan leaves the folder out: `git grep -nF '@source not "../../.github/actions/ai-reviewer"' -- src/styles/global.css` finds the line
 
 #### Manual
 
