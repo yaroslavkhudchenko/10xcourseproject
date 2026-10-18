@@ -626,6 +626,46 @@ To roll back:
 - **The lockfile:** the `yaml` devDependency is `^2.9.1`, written with npm 11.16.0. The lockfile adds only `node_modules/yaml` as dev, and `ai` stays 7.0.142.
 - **Unverified until the manual steps:** that `gh pr edit --remove-label` ignores a label the PR doesn't carry, and that gh's gojq takes the filter. Steps 2.7–2.10 exercise both.
 
+### Phase 3
+
+- **`run.mjs`:**
+  - It doesn't run `npx` by name. It runs `process.execPath` with npm's own `npx-cli.js` (the one beside `npm_execpath`, else the one bundled with this Node), never through a shell. On Windows Node can't spawn `npx` without a shell, and a shell would re-read the arguments it passes through.
+  - The config path is absolute, so the command works from any directory.
+  - It sets `PROMPTFOO_DISABLE_TELEMETRY` and `PROMPTFOO_DISABLE_UPDATE`, lets promptfoo handle Ctrl+C, and exits with promptfoo's code.
+- **tsconfig (Phase 1 #2):** besides adding `eval` to `include`, as the plan promised, it sets `allowJs` and `checkJs`. Without them `include` does nothing for `.mjs`. With them, `npm run typecheck` checks the provider's and `run.mjs`'s calls into `src/` through JSDoc types.
+- **The provider's id** is `ai-reviewer:<model>`, not promptfoo's default `file://reviewer-provider.mjs`. promptfoo groups its token summary by id, so the default would add the three models up as one.
+- **The cost line:** the provider logs one line per review through promptfoo's logger, with the model, tokens and cost, since promptfoo's terminal output shows no cost. That makes criterion 3.6's "the run's cost shows in its output" true.
+- **How failures come back** (lessons: never read an unreadable answer as missing). Each of these returns promptfoo's `error`, never an output an assertion could grade:
+  - a diff that `skipOf` would decide without a model, nothing to review or too large;
+  - a missing key, or vars that aren't text;
+  - a failed review.
+
+  A `config.model` that isn't an id makes the constructor throw, so `validate` and the eval stop before any case.
+- **The config:**
+  - It has a placeholder prompt (`raw: "{{title}}"`), since promptfoo refuses a config without one, and the provider ignores it.
+  - Each rubric names its flaws concretely, because the grader sees only the review's JSON and the rubric, never the diff.
+  - Each case carries a PR's `title` and `body`.
+  - The planted flaws are listed in the config's header, never in the diffs.
+- **The fixtures:** each is real `git diff` output from a scratch repository.
+  - The gate-bypass and clean-refactor diffs are made against the real `rossmann.ts`, `rossmann.test.ts` and `shop-values.ts` at 54557d7.
+  - None holds `{{`, `{%` or `{#` (promptfoo renders vars as Nunjucks templates), a CR or a raw no-break space.
+- **The React fixture:**
+  - It migrates `package.json`, `index.jsx` (`createRoot`), `App.jsx`, `PriceTicker.jsx` and its test (Enzyme to Testing Library), and `setupTests.js`.
+  - Its three flaws are all in `PriceTicker`: an effect without cleanup, hooks after an early return, and `defaultProps` on a function component.
+  - The app's own use triggers the second and third flaws, and the migrated tests don't fail on any of them.
+- **Tests:**
+  - Criterion 3.4 was already covered by `test/diff.test.ts:32`.
+  - `test/eval.test.ts`:
+    - every case's diff is a fixture, and every fixture is used;
+    - each fixture keeps all its sections through `filterDiff` (3.2);
+    - a PR diff that adds the four fixtures next to the provider leaves the fixtures out whole and keeps the provider.
+  - `test/reviewer-provider.test.ts`: 10 tests with a stub global `fetch`, covering the request, the output, tokens, cost and log line, and every `error` path.
+- **The type comment in `reviewer.ts` (Phase 1):** `Usage`'s doc now says that OpenRouter's provider reads a missing token count as 0, so through OpenRouter only the cost can be unknown. It used to say no count is ever 0.
+- **Known before the owner's run:**
+  - **Brevity:** the system prompt asks for a 2–3 sentence summary, so a model could fail the React rubric (all three flaws named and explained) for brevity rather than for missing a flaw. The lesson's rule is to run the eval before changing the prompt, so the owner's results decide.
+  - **No cache for the reviews:** promptfoo caches only built-in providers, so each run asks the three models again. That's 12 reviews (up to 24 calls with retries), plus the grader's calls.
+  - **Telemetry:** with telemetry off, promptfoo 0.124.1 still sends one "telemetry disabled" event.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
@@ -654,12 +694,12 @@ To roll back:
 
 #### Automated
 
-- [x] 2.1 The comment's tests pass with the reviewer's: `npm test --prefix .github/actions/ai-reviewer`
-- [x] 2.2 Every action the new workflow and action use is pinned by SHA: `git grep -nE "uses: [^ ]+@v[0-9]" -- .github/workflows/ai-review.yml .github/actions/ai-reviewer/action.yml` prints nothing
-- [x] 2.3 The workflow's shape test passes: the trigger, the job's `if:` skipping drafts and other labels, the job-level concurrency that cancels only on `synchronize`, the timeout, permissions, `persist-credentials: false`, no job-wide `GH_TOKEN`, and SHA pins, in `npm test --prefix .github/actions/ai-reviewer`
-- [x] 2.4 The app's gates pass: `npm run lint`, `npm run test`, `npx astro check` and `npm run build`
-- [ ] 2.5 CI only: CI's `ci` job runs the reviewer's install, tests and type check, and passes
-- [ ] 2.6 CI only: the `review` job is skipped on the draft pull request
+- [x] 2.1 The comment's tests pass with the reviewer's: `npm test --prefix .github/actions/ai-reviewer` — 54557d7
+- [x] 2.2 Every action the new workflow and action use is pinned by SHA: `git grep -nE "uses: [^ ]+@v[0-9]" -- .github/workflows/ai-review.yml .github/actions/ai-reviewer/action.yml` prints nothing — 54557d7
+- [x] 2.3 The workflow's shape test passes: the trigger, the job's `if:` skipping drafts and other labels, the job-level concurrency that cancels only on `synchronize`, the timeout, permissions, `persist-credentials: false`, no job-wide `GH_TOKEN`, and SHA pins, in `npm test --prefix .github/actions/ai-reviewer` — 54557d7
+- [x] 2.4 The app's gates pass: `npm run lint`, `npm run test`, `npx astro check` and `npm run build` — 54557d7
+- [x] 2.5 CI only: CI's `ci` job runs the reviewer's install, tests and type check, and passes — 54557d7
+- [x] 2.6 CI only: the `review` job is skipped on the draft pull request — 54557d7
 
 #### Manual
 
@@ -673,11 +713,11 @@ To roll back:
 
 #### Automated
 
-- [ ] 3.1 The provider module loads without a model call: `node -e "import('./.github/actions/ai-reviewer/eval/reviewer-provider.mjs').then(() => console.log('ok'))"` prints `ok`
-- [ ] 3.2 Each fixture keeps a non-empty diff through `filterDiff`, checked by a test in `npm test --prefix .github/actions/ai-reviewer`
-- [ ] 3.3 The config validates with telemetry off: `npx --yes promptfoo@0.124.1 validate -c .github/actions/ai-reviewer/eval/promptfooconfig.yaml` (it checks the config's shape and loads the provider, not the assertion types)
-- [ ] 3.4 A reviewed pull request leaves the planted diffs out: a `filterDiff` test shows `eval/fixtures/` among the excluded paths
-- [ ] 3.5 The app's gates pass: `npm run lint`, `npm run test`, `npx astro check` and `npm run build`
+- [x] 3.1 The provider module loads without a model call: `node -e "import('./.github/actions/ai-reviewer/eval/reviewer-provider.mjs').then(() => console.log('ok'))"` prints `ok`
+- [x] 3.2 Each fixture keeps a non-empty diff through `filterDiff`, checked by a test in `npm test --prefix .github/actions/ai-reviewer`
+- [x] 3.3 The config validates with telemetry off: `npx --yes promptfoo@0.124.1 validate -c .github/actions/ai-reviewer/eval/promptfooconfig.yaml` (it checks the config's shape and loads the provider, not the assertion types)
+- [x] 3.4 A reviewed pull request leaves the planted diffs out: a `filterDiff` test shows `eval/fixtures/` among the excluded paths
+- [x] 3.5 The app's gates pass: `npm run lint`, `npm run test`, `npx astro check` and `npm run build`
 
 #### Manual
 

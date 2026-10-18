@@ -1,0 +1,139 @@
+diff --git a/src/lib/services/shops/rossmann.ts b/src/lib/services/shops/rossmann.ts
+index 7b9da51..a526b2d 100644
+--- a/src/lib/services/shops/rossmann.ts
++++ b/src/lib/services/shops/rossmann.ts
+@@ -10,7 +10,7 @@ import {
+ } from "@/lib/services/shops/pinned-prices";
+ import { storableOffer } from "@/lib/services/shops/shop-offer";
+ import { gateUnavailable, isRefusal, shopResponded } from "@/lib/services/shops/shop-outcome";
+-import { countOf, kindOf, within } from "@/lib/services/shops/shop-values";
++import { cleanText, countOf, kindOf, within } from "@/lib/services/shops/shop-values";
+ import { parseSize } from "@/lib/services/size";
+ import { rowProductOf } from "@/lib/services/watchlist-rows";
+ import type {
+@@ -178,7 +178,7 @@ async function searchItems(gate: ShopGate, query: string, size: number): Promise
+     return { kind: "unavailable", reason: "failed" };
+   }
+   const rawHint = read.body.data.spellCheckHint;
+-  const hint = typeof rawHint === "string" ? clean(rawHint) : null;
++  const hint = typeof rawHint === "string" ? cleanText(rawHint) : null;
+   // Rossmann answers a misspelling with results for its correction; a hint equal to the query says nothing new.
+   const spellingHint = hint && hint.toLowerCase() !== query.toLowerCase() ? hint : null;
+   return { kind: "items", items: found, total: items.length, spellingHint };
+@@ -444,17 +444,17 @@ export function toShopCandidate(product: ProductCandidate, offer: ShopOffer | nu
+ function productOf(item: SearchItem): ProductCandidate | null {
+   const sourceItemId = String(item.id);
+   // Some items carry an empty name and keep it in fallbackName instead.
+-  const name = clean(item.name) ?? clean(item.fallbackName);
++  const name = cleanText(item.name) ?? cleanText(item.fallbackName);
+   if (!PRODUCT_ID.test(sourceItemId) || name === null) {
+     return null;
+   }
+-  const sizeText = within(clean(item.unit), PRODUCT_LIMITS.sizeText);
++  const sizeText = within(cleanText(item.unit), PRODUCT_LIMITS.sizeText);
+   return {
+     source: "rossmann",
+     sourceItemId,
+-    brand: cut(clean(item.brand), PRODUCT_LIMITS.brand),
++    brand: cut(cleanText(item.brand), PRODUCT_LIMITS.brand),
+     name: name.slice(0, PRODUCT_LIMITS.name),
+-    caption: cut(clean(item.caption), PRODUCT_LIMITS.caption),
++    caption: cut(cleanText(item.caption), PRODUCT_LIMITS.caption),
+     sizeText,
+     size: parseSize(sizeText),
+     eans: (item.eanNumber ?? [])
+@@ -470,7 +470,7 @@ function productOf(item: SearchItem): ProductCandidate | null {
+  * protocol-relative URL could point anywhere, so only a path counts, and the result must still be on the site.
+  */
+ function productUrlFor(navigateUrl: unknown): string | null {
+-  const path = typeof navigateUrl === "string" ? clean(navigateUrl) : null;
++  const path = typeof navigateUrl === "string" ? cleanText(navigateUrl) : null;
+   if (path === null || !path.startsWith("/") || path.startsWith("//")) {
+     return null;
+   }
+@@ -488,18 +488,12 @@ function pickImage(pictures: unknown[]): string | null {
+     if (!picture.success) {
+       return [];
+     }
+-    const url = within(clean(picture.data.medium), PRODUCT_LIMITS.imageUrl);
++    const url = within(cleanText(picture.data.medium), PRODUCT_LIMITS.imageUrl);
+     return url !== null && isRossmannImage(url) ? [{ type: picture.data.type, url }] : [];
+   });
+   return (usable.find((picture) => picture.type === 1) ?? usable.at(0))?.url ?? null;
+ }
+ 
+-/** Trims a text field, and treats an empty one as missing. */
+-function clean(value: string | null | undefined): string | null {
+-  const trimmed = value?.trim() ?? "";
+-  return trimmed === "" ? null : trimmed;
+-}
+-
+ /** Cuts text to its limit. */
+ function cut(value: string | null, max: number): string | null {
+   return value === null ? null : value.slice(0, max);
+diff --git a/src/lib/services/shops/shop-values.test.ts b/src/lib/services/shops/shop-values.test.ts
+new file mode 100644
+index 0000000..1ba1d4c
+--- /dev/null
++++ b/src/lib/services/shops/shop-values.test.ts
+@@ -0,0 +1,37 @@
++import { describe, expect, it } from "vitest";
++import { cleanText, textOf } from "@/lib/services/shops/shop-values";
++
++describe("cleanText", () => {
++  it.each([
++    { form: "a trailing space, as Rossmann sends the name „Soft ”", text: "Soft ", cleaned: "Soft" },
++    { form: "spaces and a line break around it", text: "  300 ml\n", cleaned: "300 ml" },
++    { form: "nothing to trim", text: "NIVEA", cleaned: "NIVEA" },
++  ])("trims text with $form", ({ text, cleaned }) => {
++    expect(cleanText(text)).toBe(cleaned);
++  });
++
++  it.each([
++    { why: "empty text", value: "" },
++    { why: "only spaces", value: "   " },
++    { why: "null", value: null },
++    { why: "a field left out", value: undefined },
++  ])("reads $why as none", ({ value }) => {
++    expect(cleanText(value)).toBeNull();
++  });
++});
++
++describe("textOf", () => {
++  it("reads an attribute's first value, trimmed, from a list or a single value", () => {
++    expect(textOf([" Nivea ", "Other"])).toBe("Nivea");
++    expect(textOf("Nivea Soft")).toBe("Nivea Soft");
++  });
++
++  it.each<{ why: string; attribute: unknown }>([
++    { why: "an empty list", attribute: [] },
++    { why: "blank text", attribute: [" "] },
++    { why: "a number", attribute: [300] },
++    { why: "null", attribute: null },
++  ])("reads nothing from $why", ({ attribute }) => {
++    expect(textOf(attribute)).toBeNull();
++  });
++});
+diff --git a/src/lib/services/shops/shop-values.ts b/src/lib/services/shops/shop-values.ts
+index eae615e..7c8c348 100644
+--- a/src/lib/services/shops/shop-values.ts
++++ b/src/lib/services/shops/shop-values.ts
+@@ -34,11 +34,16 @@ export function countOf(value: unknown): string {
+   return typeof value === "number" ? String(value) : kindOf(value);
+ }
+ 
++/** Text trimmed, or null when it's missing or empty once trimmed, so a blank field reads as none. */
++export function cleanText(value: string | null | undefined): string | null {
++  const trimmed = value?.trim() ?? "";
++  return trimmed === "" ? null : trimmed;
++}
++
+ /** An attribute's first value as trimmed text, or null when it isn't text or is empty. */
+ export function textOf(attribute: unknown): string | null {
+   const [value] = valuesOf(attribute);
+-  const text = typeof value === "string" ? value.trim() : "";
+-  return text === "" ? null : text;
++  return typeof value === "string" ? cleanText(value) : null;
+ }
+ 
+ /** Keeps text within its limit, or drops it: a cut-off size or URL would be wrong, not just shorter. */

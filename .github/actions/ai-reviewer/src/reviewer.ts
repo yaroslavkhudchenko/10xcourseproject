@@ -16,7 +16,11 @@ const MAX_OUTPUT_TOKENS = 8000;
 const TIMEOUT_MS = 120_000;
 const ATTEMPTS = 2;
 
-/** A review's tokens, and its cost in US dollars, over all its calls. A count no call told is undefined, never 0. */
+/**
+ * A review's tokens, and its cost in US dollars, over all its calls. A count or cost the SDK didn't report is undefined,
+ * never 0. OpenRouter's provider itself reads a missing token count as 0, so through OpenRouter only the cost can be
+ * unknown.
+ */
 export interface Usage {
   inputTokens: number | undefined;
   outputTokens: number | undefined;
