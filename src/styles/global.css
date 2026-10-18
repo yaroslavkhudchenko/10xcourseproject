@@ -6,6 +6,8 @@
 @source not "../../context";
 /* Nor the 10x CLI's skills in .claude/, or an agent's git worktree there: a local build then scans what CI scans. */
 @source not "../../.claude";
+/* Nor the AI reviewer's package: its test and eval diffs and its node_modules hold classes that aren't the app's. */
+@source not "../../.github/actions/ai-reviewer";
 
 @custom-variant dark (&:is(.dark *));
 

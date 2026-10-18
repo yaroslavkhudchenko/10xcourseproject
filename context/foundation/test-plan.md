@@ -6,7 +6,7 @@
 >
 > Refresh: re-run `/10x-test-plan --refresh` when stale (see §8).
 >
-> Last updated: 2026-10-10
+> Last updated: 2026-10-18
 
 ## 1. Strategy
 
@@ -77,6 +77,7 @@ The classic test base for this project. AI-native tools (if any) carry a `checke
 | accessibility      | contrast script only                                                               | n/a     | no automated axe checks yet                                                                                                                                                                                                                                                    |
 | (AI-native)        | Playwright CLI (`@playwright/cli`) — checked: 2026-10-02                           | n/a     | the agent explores the running app through accessibility snapshots to write e2e tests. When NOT to use: as the gate itself; the committed Playwright test is the gate                                                                                                          |
 | (AI-native)        | Claude Code hooks (post-edit lint, end-of-turn typecheck) — checked: 2026-10-16    | n/a     | configured in `.claude/settings.json` by `/10x-configure-hook` (2026-10-02; re-run 2026-10-16 so they check sibling worktrees, proven by `scripts/agent-hooks.test.mjs`). When NOT to use: as a CI substitute, or to run the whole suite on every edit                         |
+| (AI-native)        | AI code review (`ai`, the AI SDK) and its promptfoo eval — checked: 2026-10-18     | 7.0.142 | `.github/actions/ai-reviewer`, on OpenRouter: CI's advisory `review` job scores a PR on six criteria with a `pass`/`fail`; its tests and type check run in the `ci` job. promptfoo 0.124.1 evals it locally. When NOT to use: for a risk a test can pin; promptfoo in CI       |
 
 **Stack grounding tools (current session):**
 
@@ -99,6 +100,7 @@ The full set of gates that must pass before a change reaches production. "Requir
 | e2e on critical flows                    | CI (`e2e` job)                                                                   | required                                                                                          | broken critical user paths in a real browser                                                                                                                                                                                                                                                  |
 | migration on production before deploy    | Workers Builds (`npm run deploy:checked`)                                        | required after §3 Phase 4, from the owner's switch of the deploy command                          | code shipping ahead of its schema                                                                                                                                                                                                                                                             |
 | signed-out production check              | Workers Builds after each deploy; the `Deploy check` workflow emails a red build | required after §3 Phase 4, from the owner's switch of the deploy command                          | environment and setting drift (sign-up open, pages down, a wrong Worker key)                                                                                                                                                                                                                  |
+| AI code review                           | CI (`review` job)                                                                | advisory (2026-10-18): not in the ruleset, so a red one never blocks a merge                      | what a reader of the diff would name on six criteria (correctness, idiom, complexity, tests, documentation, security); its eval plants a React migration's three flaws, an SQL injection and a shop request outside the gate. Blind to the paths `EXCLUDED_PATHS` leaves out                  |
 | post-edit hook + end-of-turn typecheck   | local (agent loop)                                                               | recommended — configured in `.claude/settings.json` (2026-10-02), worktrees included (2026-10-16) | errors at edit time, before a commit, in every checkout the session edits                                                                                                                                                                                                                     |
 
 ## 6. Cookbook Patterns

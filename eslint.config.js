@@ -235,7 +235,8 @@ export default defineConfig(
   includeIgnoreFile(gitignorePath),
   // Skills and their helper scripts are written by the 10x CLI, not project code, and a change's design handoff is a
   // reference kept byte for byte as its designer sent it.
-  globalIgnores([".claude/", "context/**/handoff/"]),
+  // The AI reviewer is its own package, with its own dependencies, tsconfig, tests and type check.
+  globalIgnores([".claude/", "context/**/handoff/", ".github/actions/ai-reviewer/"]),
   baseConfig,
   reactConfig,
   eslintPluginAstro.configs["flat/recommended"],
