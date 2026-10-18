@@ -72,6 +72,8 @@ It's what Module 5's lessons 2 and 3 build, and the course material for the opti
 4. A `ToolLoopAgent` with schema-checked output calls the OpenRouter model. The answer is range-checked and printed as JSON with the model, tokens and cost.
 5. The workflow edits one comment by its marker, swaps the labels, writes the job summary, and fails unless the verdict is `pass`.
 
+The job token stays out of the reviewer's reach: checkout doesn't persist it, `GH_TOKEN` is set only on the `gh` steps, and `npm ci` runs with `--ignore-scripts`. A re-run waits for a running review; only a new push cancels one.
+
 Every decision lives in a pure, tested module (`diff.ts`, `prompt.ts`, `review-schema.ts`, `comment.ts`). The model sits behind `createReviewer`, which tests replace with AI SDK's mock.
 
 ## Phases at a Glance
@@ -95,7 +97,7 @@ Every decision lives in a pure, tested module (`diff.ts`, `prompt.ts`, `review-s
 - **Routing:** `data_collection: "deny"` with `require_parameters` may leave a model with no endpoint. The eval or the first run shows it, and loosening the data policy would be the owner's call.
 - **Model quality:** the reviews' usefulness is untested until the eval. A score-and-verdict review from the diff alone can't judge business fit or architecture, which the requirements park.
 - **Prompt injection:** a PR's description and diff reach the model as data. Only the owner opens PRs today, and the check is advisory.
-- **Inference:** that job-level concurrency avoids the label-event cancellation is inferred from GitHub's docs. It's checked manually in Phase 2.
+- **Observed, not documented:** a job skipped by its `if:` doesn't join a job-level concurrency group (seen in public repositories). A re-review leaves the earlier `review` run beside it on the commit, so the label and the comment are the review's record. Both are checked manually in Phase 2. Making `review` required later first moves the label re-run to its own workflow.
 
 ## Success Criteria (Summary)
 
