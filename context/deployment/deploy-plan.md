@@ -307,7 +307,7 @@ This replaces step 5 of Getting Started in `infrastructure.md`.
 
 ## Checked deploys (rollout Phase 4)
 
-From rollout Phase 4 of the test plan (`testing-deploy-and-production-checks`, 2026-10-06), Workers Builds deploys with `npm run deploy:checked` (`scripts/deploy-checked.mjs`) instead of `npx wrangler deploy`, once you switch its deploy command in the sitting below. It refuses code whose migration production lacks, deploys, then checks production signed out, and any failure turns the build red. The `Deploy check` workflow then fails on GitHub, which emails you. Nothing goes into GitHub's secrets, and the checks write nothing to production: their one Auth call is a sign-in for an address no one has, which Auth refuses.
+From rollout Phase 4 of the test plan (`testing-deploy-and-production-checks`, 2026-10-06), Workers Builds deploys with `npm run deploy:checked` (`scripts/deploy-checked.mjs`) instead of `npx wrangler deploy`, once you switch its deploy command in the sitting below. It refuses code whose migration production lacks, deploys, then checks production signed out, and any failure turns the build red. The `Deploy check` workflow then fails on GitHub, which emails you. None of this goes into GitHub's secrets, which hold only the AI review's OpenRouter key ("AI review (ci-cd-code-review)"), and the checks write nothing to production: their one Auth call is a sign-in for an address no one has, which Auth refuses.
 
 **Windows:** your PC's PowerShell blocks `npx.ps1`, so the commands here are written `npx.cmd`; in Command Prompt or Git Bash, plain `npx` works. The Supabase CLI comes with the project (2.117.0). A new machine needs `npx.cmd supabase login` and `npx.cmd supabase link --project-ref <ref>` once (0.7), and yours has both.
 
@@ -457,6 +457,43 @@ Since S-06 (`super-pharm-in-comparison`) Super-Pharm's prices come from its Algo
 
   3. If it's the same key, Algolia refused something else: treat the stop as a real block and leave the shop off.
 - **Switching Super-Pharm off yourself [you]:** set the same row's `enabled` to false. The gate then skips every Super-Pharm request at once, without a deploy, and its cards show the gap. The full rollback is a revert PR. The stored Super-Pharm decisions stay, and the reads ignore a shop that isn't switched on.
+
+## AI review (ci-cd-code-review)
+
+Since `ci-cd-code-review` (2026-10-18), the `review` job of `.github/workflows/ai-review.yml` reviews each pull request to `main` once it's ready for review. The reviewer (`.github/actions/ai-reviewer/`) reads the pull request's title, description and diff, without the paths in `EXCLUDED_PATHS` (its `src/diff.ts`: mostly documents, recorded answers and lockfiles), and asks one OpenRouter model, `DEFAULT_MODEL` in its `src/reviewer.ts`, only through endpoints that don't collect prompts. The check is advisory: `preventFailedDeploy` doesn't require it, so a red `review` never blocks a merge or a deploy, until you make it required (below). Its key is the repository's only secret: `ci`, `smoke` and `e2e` need none, and no Cloudflare token or Supabase key goes into GitHub.
+
+- **What a run does:**
+  - It starts when a pull request is opened, reopened or marked ready, and at each push to it; a draft is skipped until it's marked ready. Adding the label `ai-cr:review` reviews it again, and the run takes the label off once it has a verdict. A new push cancels a review still running, while a re-run waits for it.
+  - It keeps one comment on the pull request, which each later review edits: the verdict, six scores, the summary, the paths left out, the commit it reviewed, and the model, tokens and cost. It labels the pull request `ai-cr:passed` or `ai-cr:failed`, writes the comment into the job summary, and fails the check on `fail`.
+  - A pull request that changes only left-out paths passes with "Nothing to review", without a model or the key.
+  - **Cost:** estimated at under a cent for a typical pull request on the default model, and a few cents for the largest. Each call answers in at most 8,000 tokens within 120 s, an invalid answer is asked again once, and the job stops after 10 minutes. The key's credit limit caps what the reviews can spend.
+- **The key [you]:**
+  1. On OpenRouter, create a key for this use only, named so you'll recognise it, with a credit limit of about $5. Keep it in your password manager if you'll also run the review or the eval locally.
+  2. On GitHub, add it under the repository's Settings → Secrets and variables → Actions → New repository secret, named `OPENROUTER_API_KEY`. Never paste it into this chat, a file or a commit.
+  3. Mark a pull request ready, or add `ai-cr:review` to a ready one. Its `review` check must run, one comment must appear with the scores, the summary and the cost, and the pull request must get `ai-cr:passed` or `ai-cr:failed`.
+  - **Rotating it:** create a new key with its limit, replace the secret's value with it, then delete the old key on OpenRouter. Rotate it whenever it may have leaked.
+  - **Who can read it:** a pull request from a branch of this repository runs its own copy of the workflow and the reviewer, so whoever can push a branch here can read the key: you, and agents working with your token. That's why it's a key of its own with a small limit. A fork's pull request gets no secret, so its review fails visibly; the repository has no forks.
+  - **Local runs:** the review and the eval (`CLAUDE.md`, Commands) read the key from your shell. The first line reads it without showing it or keeping it in the history (paste it, then press Enter), and the last drops it:
+
+    ```bash
+    read -rs OPENROUTER_API_KEY && export OPENROUTER_API_KEY
+    npm run eval --prefix .github/actions/ai-reviewer
+    unset OPENROUTER_API_KEY
+    ```
+
+- **What a red `review` means:** the job summary, or else the failed step's log, says which of these it is.
+  - **A `fail` verdict:** the comment's scores and summary say why, and the label is `ai-cr:failed`. It's advice: fix what it names and push, or merge anyway. A `fail` whose summary starts "Not reviewed" means the diff left to review was over 1,000,000 bytes, so no model was asked: split the pull request, or review it by hand.
+  - **No verdict:** the job summary has one `ai-reviewer:` line saying why, and the comment and the label stay as the last verdict left them, the comment naming the commit it reviewed.
+    - `OPENROUTER_API_KEY is empty`: the secret is missing, or the pull request comes from a fork. Add the secret (above).
+    - `the call to <model> failed: …`: OpenRouter or the model refused or failed, as after a deleted key, a used-up credit limit or an outage. Check the key and its limit on OpenRouter, then run the review again.
+    - `<model> gave no valid review in 2 attempts: …`: two answers didn't fit the review's shape. Run it again; if it keeps happening, the eval shows how other models do.
+  - **A red step after the review** ("Write the comment", "Post the comment" or "Label the pull request"): the review gave a verdict, but writing or posting the comment, or setting the label, failed. The step's log says why; run the review again once that's fixed.
+  - **Running it again:** push a commit, or add `ai-cr:review`, taking it off first if a run without a verdict left it on.
+- **Switching it off [you]:** delete the secret, and every review that needs a model fails visibly, without blocking a merge; or delete `.github/workflows/ai-review.yml` in a pull request.
+- **Making `review` required [you]:** your call after a trial, as with `e2e`. Once it is, a missing key, an OpenRouter outage or a `fail` blocks every merge, and so every deploy, hotfixes included, until a review passes or `review` leaves the ruleset again: the ruleset has no bypass.
+  1. First, in a pull request, move the `ai-cr:review` re-run out of `ai-review.yml`, whose triggers then lose `labeled`, into a workflow of its own whose job isn't named `review`. Each run is its own check suite, so every run on a commit leaves its own `review` result there: a failed run stays beside a later passing one, and another label starts a run whose skipped job GitHub reports as a success. How a ruleset weighs several results of one check is undocumented (F3 of `ci-cd-code-review`'s plan review). The move doesn't remove one pair of the same kind: a commit pushed while its pull request was a draft carries a skipped `review` run, and marking it ready starts the real review on the same commit. So before step 2, have a review fail on a throwaway pull request that was a draft, and check that the ruleset blocks its merge.
+  2. Then add `review` to `preventFailedDeploy`'s required checks, beside `ci`, `smoke` and `e2e`, from GitHub Actions (integration id 15368): Settings → Rules → Rulesets → `preventFailedDeploy` → Require status checks to pass → Add checks, or through the rulesets API, as `e2e` was on 2026-10-02 (`context/archive/2026-10-02-testing-critical-browser-flows/plan.md:815`). Keep every other rule and check. Do it while no other pull request is open: a required check that hasn't run on an open pull request's head blocks it until it runs.
+  3. Record it in 8.3, in the decisions at the top of this file and in `CLAUDE.md`'s ruleset bullet, and change every document that calls `review` advisory (`git grep -n advisory`).
 
 ## Deferred, with the trigger that brings each back
 

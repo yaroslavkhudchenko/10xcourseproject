@@ -601,6 +601,7 @@ To roll back:
   - the surrogate-safe cut moved into `cutAt(text, max)`.
 
   Behaviour is unchanged.
+
 - **The workflow's steps:** the template's "Comment and label" became three steps:
   - "Write the comment" runs `comment.ts`, which loads the reviewer's packages, holds no token, and writes the job summary before any `gh` call.
   - "Post the comment" and "Label the pull request" are the only steps with `GH_TOKEN`.
@@ -641,6 +642,7 @@ To roll back:
   - a failed review.
 
   A `config.model` that isn't an id makes the constructor throw, so `validate` and the eval stop before any case.
+
 - **The config:**
   - It has a placeholder prompt (`raw: "{{title}}"`), since promptfoo refuses a config without one, and the provider ignores it.
   - Each rubric names its flaws concretely, because the grader sees only the review's JSON and the rubric, never the diff.
@@ -665,6 +667,32 @@ To roll back:
   - **Brevity:** the system prompt asks for a 2–3 sentence summary, so a model could fail the React rubric (all three flaws named and explained) for brevity rather than for missing a flaw. The lesson's rule is to run the eval before changing the prompt, so the owner's results decide.
   - **No cache for the reviews:** promptfoo caches only built-in providers, so each run asks the three models again. That's 12 reviews (up to 24 calls with retries), plus the grader's calls.
   - **Telemetry:** with telemetry off, promptfoo 0.124.1 still sends one "telemetry disabled" event.
+
+### Phase 4
+
+- **CLAUDE.md:** the plan's "Architecture" note became a bullet under "Tooling and repository conventions", after the CI bullet, since the Architecture section describes the app. Two Commands bullets follow `npx playwright test`:
+  - the reviewer's install, tests and type check;
+  - its local review and eval, with the rule to run the eval before changing the prompt or the model.
+
+  The CI bullet and README's CI section also name the reviewer's tests and type check in the `ci` job, which `ci.yml` runs since Phase 2.
+
+- **The deploy plan's runbook** moves the `ai-cr:review` re-run out of `ai-review.yml` (whose triggers then lose `labeled`) and into a workflow of its own whose job isn't named `review`. The plan said "its own workflow or job name", but either change alone leaves F3's hazard:
+  - a new job name inside `ai-review.yml` keeps the `labeled` trigger, so another label still adds a skipped `review` run;
+  - a separate workflow whose job is still named `review` adds `review` results to the commit again.
+- **One more caveat, from Phase 4's report:** a commit pushed while its pull request was a draft carries a skipped `review` run before the real review runs on the same commit. The runbook names it, and asks for a failing review on a throwaway pull request that was a draft before `review` is added to the ruleset.
+- **The runbook, beyond the plan's list:**
+  - handling the key for local runs (`read -rs`, then `unset`, as for the owner's links);
+  - each no-verdict `ai-reviewer:` line and what to do;
+  - a red step after the verdict;
+  - taking `ai-cr:review` off before adding it again;
+  - switching the review off;
+  - what a required check costs (no bypass, hotfixes wait).
+- **test-plan.md:** the §4 and §5 rows fit the tables' existing column widths, so Prettier left the rest of the tables alone. Details that didn't fit are in CLAUDE.md's Commands. The §4 Version column holds `ai`'s 7.0.142, with promptfoo 0.124.1 in Notes.
+- **Criterion 4.1, read:** the grep's remaining lines are:
+  - `CLAUDE.md`'s CI bullet, which names `OPENROUTER_API_KEY` in the same bullet;
+  - `test-plan.md`'s line about the `e2e` job;
+  - the deploy plan's Phase 2 checklist (2026-09-23) and its lines about Worker versions or the probe Worker, none about CI.
+- **The cost figures** in the documents are research §6's estimates, until steps 1.12, 2.7 and 3.6 measure a real run.
 
 ## Progress
 
@@ -713,11 +741,11 @@ To roll back:
 
 #### Automated
 
-- [x] 3.1 The provider module loads without a model call: `node -e "import('./.github/actions/ai-reviewer/eval/reviewer-provider.mjs').then(() => console.log('ok'))"` prints `ok`
-- [x] 3.2 Each fixture keeps a non-empty diff through `filterDiff`, checked by a test in `npm test --prefix .github/actions/ai-reviewer`
-- [x] 3.3 The config validates with telemetry off: `npx --yes promptfoo@0.124.1 validate -c .github/actions/ai-reviewer/eval/promptfooconfig.yaml` (it checks the config's shape and loads the provider, not the assertion types)
-- [x] 3.4 A reviewed pull request leaves the planted diffs out: a `filterDiff` test shows `eval/fixtures/` among the excluded paths
-- [x] 3.5 The app's gates pass: `npm run lint`, `npm run test`, `npx astro check` and `npm run build`
+- [x] 3.1 The provider module loads without a model call: `node -e "import('./.github/actions/ai-reviewer/eval/reviewer-provider.mjs').then(() => console.log('ok'))"` prints `ok` — 9efb655
+- [x] 3.2 Each fixture keeps a non-empty diff through `filterDiff`, checked by a test in `npm test --prefix .github/actions/ai-reviewer` — 9efb655
+- [x] 3.3 The config validates with telemetry off: `npx --yes promptfoo@0.124.1 validate -c .github/actions/ai-reviewer/eval/promptfooconfig.yaml` (it checks the config's shape and loads the provider, not the assertion types) — 9efb655
+- [x] 3.4 A reviewed pull request leaves the planted diffs out: a `filterDiff` test shows `eval/fixtures/` among the excluded paths — 9efb655
+- [x] 3.5 The app's gates pass: `npm run lint`, `npm run test`, `npx astro check` and `npm run build` — 9efb655
 
 #### Manual
 
@@ -728,9 +756,9 @@ To roll back:
 
 #### Automated
 
-- [ ] 4.1 Reviewed, not mechanical: no document still says CI has no secrets without the exception. `git grep -nE "no (repository )?secrets|holds no secrets|Nothing goes into GitHub" -- CLAUDE.md README.md context/foundation context/deployment` lists only lines that also name the review's secret, or lines about the `smoke` or `e2e` job alone
-- [ ] 4.2 The documents are formatted: `npx prettier --check README.md context/deployment/deploy-plan.md context/foundation/infrastructure.md context/foundation/test-plan.md`
-- [ ] 4.3 The app's gates pass: `npm run lint`, `npm run test`, `npx astro check` and `npm run build`
+- [x] 4.1 Reviewed, not mechanical: no document still says CI has no secrets without the exception. `git grep -nE "no (repository )?secrets|holds no secrets|Nothing goes into GitHub" -- CLAUDE.md README.md context/foundation context/deployment` lists only lines that also name the review's secret, or lines about the `smoke` or `e2e` job alone
+- [x] 4.2 The documents are formatted: `npx prettier --check README.md context/deployment/deploy-plan.md context/foundation/infrastructure.md context/foundation/test-plan.md`
+- [x] 4.3 The app's gates pass: `npm run lint`, `npm run test`, `npx astro check` and `npm run build`
 
 #### Manual
 
