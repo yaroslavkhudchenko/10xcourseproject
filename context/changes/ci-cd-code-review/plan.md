@@ -756,9 +756,9 @@ To roll back:
 
 #### Automated
 
-- [x] 4.1 Reviewed, not mechanical: no document still says CI has no secrets without the exception. `git grep -nE "no (repository )?secrets|holds no secrets|Nothing goes into GitHub" -- CLAUDE.md README.md context/foundation context/deployment` lists only lines that also name the review's secret, or lines about the `smoke` or `e2e` job alone
-- [x] 4.2 The documents are formatted: `npx prettier --check README.md context/deployment/deploy-plan.md context/foundation/infrastructure.md context/foundation/test-plan.md`
-- [x] 4.3 The app's gates pass: `npm run lint`, `npm run test`, `npx astro check` and `npm run build`
+- [x] 4.1 Reviewed, not mechanical: no document still says CI has no secrets without the exception. `git grep -nE "no (repository )?secrets|holds no secrets|Nothing goes into GitHub" -- CLAUDE.md README.md context/foundation context/deployment` lists only lines that also name the review's secret, or lines about the `smoke` or `e2e` job alone — 3f5dde1
+- [x] 4.2 The documents are formatted: `npx prettier --check README.md context/deployment/deploy-plan.md context/foundation/infrastructure.md context/foundation/test-plan.md` — 3f5dde1
+- [x] 4.3 The app's gates pass: `npm run lint`, `npm run test`, `npx astro check` and `npm run build` — 3f5dde1
 
 #### Manual
 
