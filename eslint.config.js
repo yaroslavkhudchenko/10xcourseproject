@@ -158,8 +158,8 @@ const islandConfig = defineConfig({
   },
 });
 
-// The front door, the sign-in pages, the watchlist's two pages, their shells, their components, the shadcn components
-// and the kitchen sinks are built from the design tokens in src/styles/global.css and the components in
+// The front door, the error pages, the sign-in pages, the watchlist's two pages, their shells, their components, the
+// shadcn components and the kitchen sinks are built from the design tokens in src/styles/global.css and the components in
 // src/components/ui only, so a Tailwind palette class, an arbitrary px/rem value or an arbitrary colour in any string
 // there fails: a class, class:list or className value, a cn() argument or a template literal.
 // The patterns start from the /10x-ui scan's: its palette part, widened to every colour utility's prefix (a border's
@@ -177,6 +177,8 @@ const TOKEN_MESSAGE =
 const tokenConfig = defineConfig({
   files: [
     "src/pages/index.astro",
+    "src/pages/404.astro",
+    "src/pages/500.astro",
     "src/pages/auth/**/*.astro",
     "src/pages/watchlist.astro",
     "src/pages/watchlist/\\[id\\].astro",
