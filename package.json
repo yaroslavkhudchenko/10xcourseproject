@@ -2,7 +2,8 @@
   "name": "drogeria-radar",
   "type": "module",
   "version": "0.0.1",
-  "license": "MIT",
+  "private": true,
+  "license": "UNLICENSED",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build && node scripts/check-built-fonts.mjs",

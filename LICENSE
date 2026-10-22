@@ -1,21 +1,54 @@
-MIT License
+Copyright (c) 2026 Yaroslav Khudchenko. All rights reserved.
 
-Copyright (c) 2026 Yaroslav Khudchenko
+This repository is public so that it can be read and reviewed. You may view
+it, and fork it on GitHub, as GitHub's Terms of Service allow for every
+public repository. No other right is granted: without the copyright
+holder's prior written permission, no part of this repository may be
+copied, modified, merged, published, distributed, sublicensed or sold, in
+whole or in part, and no other work may be based on it. To ask for
+permission, contact the copyright holder through
+https://github.com/yaroslavkhudchenko.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+The software is provided "as is", without warranty of any kind, express or
+implied. In no event shall the copyright holder be liable for any claim,
+damages or other liability arising from the software or its use.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+THIRD-PARTY MATERIAL
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+These parts of the repository are not the copyright holder's work and keep
+their own terms:
+
+- The project was bootstrapped on 2026-09-20 from the 10x Astro Starter
+  (https://github.com/przeprogramowani/10x-astro-starter), whose README
+  names the MIT License. The parts of it that remain are used under that
+  license.
+- The components in src/components/ui/ come from shadcn/ui
+  (https://ui.shadcn.com), used under the MIT License, Copyright (c) 2023
+  shadcn. Each file's header comment names its source and what was changed.
+- The 10xDevs AI Toolkit's files that the 10x CLI installs and tracks
+  (.10x-cli.json and the files listed in .claude/.10x-cli-manifest.json),
+  and the course block at the end of CLAUDE.md, belong to their authors.
+- The recorded shop answers in src/lib/services/shops/fixtures/ are the
+  shops' own data, kept only to test this project.
+
+The MIT License, under which the 10x Astro Starter and shadcn/ui are
+published:
+
+  Permission is hereby granted, free of charge, to any person obtaining a
+  copy of this software and associated documentation files (the
+  "Software"), to deal in the Software without restriction, including
+  without limitation the rights to use, copy, modify, merge, publish,
+  distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to
+  the following conditions:
+
+  The above copyright notice and this permission notice shall be included
+  in all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+  OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+  CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+  TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

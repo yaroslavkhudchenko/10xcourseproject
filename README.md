@@ -124,4 +124,4 @@ The project follows the 10xDevs AI Toolkit workflow, with `context/` as its reco
 
 ## License
 
-MIT, see [`LICENSE`](LICENSE).
+All rights reserved. The repository is public so that it can be read and reviewed; copying or reusing any part of it needs the copyright holder's written permission. [`LICENSE`](LICENSE) has the full terms and lists the third-party parts, which keep their own licenses.
