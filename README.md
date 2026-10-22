@@ -84,7 +84,7 @@ Nobody can register: there is no sign-up page, and the app sends no email. The o
 | `/auth/set-password`     | Sets the account's password, only for a session a link opened in the last 60 minutes; then the list with "Hasło zapisane."     |
 | `POST /api/auth/signout` | Signs out this device only, then `/auth/signin` with "Wylogowano."                                                             |
 
-`PROTECTED_ROUTES` in `src/middleware.ts` lists the paths that need sign-in.
+`PROTECTED_ROUTES` in `src/middleware.ts` lists the paths that need sign-in. An address the app has no page for shows the Polish 404 page (`src/pages/404.astro`), and an uncaught error the 500 page (`src/pages/500.astro`); both offer the way back to the list.
 
 ## Testing
 
@@ -124,4 +124,4 @@ The project follows the 10xDevs AI Toolkit workflow, with `context/` as its reco
 
 ## License
 
-MIT
+MIT, see [`LICENSE`](LICENSE).
