@@ -1,14 +1,14 @@
 ---
 project: "Drogeria Radar"
 version: 1
-status: draft
+status: reviewed
 created: 2026-09-20
 context_type: greenfield
 product_type: web-app
 target_scale:
   users: small
-  qps: # TODO: target_scale.qps — see Open Questions
-  data_volume: # TODO: target_scale.data_volume — see Open Questions
+  qps: "well under one request per second: a handful of invited people on one deployment, asking on demand; shop requests are capped at 30 per shop in any 60 seconds for the whole deployment (public.shops.cap_per_minute, settable from 1 to 60), each under the shop gate's 8-second timeout (settled by the shipped implementation, 2026-10-21; Open Questions 7)"
+  data_volume: "small: one append-only price_observations row per price check of a shop item, never deleted, for a few products per user, each priced in up to four shops, so thousands of rows a month (settled by the shipped implementation, 2026-10-21; Open Questions 7)"
 timeline_budget:
   mvp_weeks: 3
   hard_deadline: 2026-11-04
@@ -21,7 +21,7 @@ timeline_budget:
 
 A shopper who buys the same drugstore products again and again does not know, at the moment of buying, which of their usual shops has the lowest current price for that exact product. Today they check two or three shop sites by hand before each purchase, and they repeat that check every time the product runs out.
 
-Comparison sites skip these chains: Rossmann is absent from Ceneo entirely and coverage of the others is patchy, and general comparison sites are too chaotic for this purpose. What is missing is a view focused on the exact product and the exact shops the shopper buys from. The prices themselves are public: each of the five chains exposes its current, promotional and 30-day-low price through its own product search, so a focused comparison is feasible without any shop's cooperation. At a hundred times the intended scale the rule itself would stand, but the shops' own search could not carry the traffic and official data feeds would be needed; the intended scale is a handful of people on one private deployment, with fetches made on demand and bounded by the per-shop request cap.
+Comparison sites skip these chains: Rossmann is absent from Ceneo entirely and coverage of the others is patchy, and general comparison sites are too chaotic for this purpose. What is missing is a view focused on the exact product and the exact shops the shopper buys from. The prices themselves are public: each of the four compared chains exposes its current, promotional and 30-day-low price through its own product search, so a focused comparison is feasible without any shop's cooperation (dm exposes them too, but refuses the app's traffic and is out of the MVP: the FR-013 update of 2026-09-24). At a hundred times the intended scale the rule itself would stand, but the shops' own search could not carry the traffic and official data feeds would be needed; the intended scale is a handful of people on one private deployment, with fetches made on demand and bounded by the per-shop request cap.
 
 ## User & Persona
 
@@ -73,6 +73,7 @@ A few people the owner knows, using the same deployment with their own private w
 #### Acceptance Criteria
 
 - A shop whose lookup returns nothing is shown as unmatched, not as an error; the user can retry later
+  > Update 2026-10-21: the shipped app keeps two states where this story says „unmatched”: `unmatched`, the user's own decline („Żaden z nich”), and `not_found`, a lookup that found nothing, whose card says „Nie znaleziono w …” and offers „Szukaj ponownie” (FR-007). Neither is an error. And since FR-006 accepts an exact candidate automatically, the user is asked only for an ambiguous result, so „for every shop the user sees the candidate item” holds for those shops only.
 - A candidate whose size differs from the chosen product is flagged before confirmation
 - A refresh that returns nothing for a confirmed match marks the price stale; it never un-pins the match
 
@@ -143,6 +144,7 @@ A few people the owner knows, using the same deployment with their own private w
 - FR-008: System can refresh the prices of a watched product on demand, when the user opens it or asks for a refresh, by stored shop id or EAN. Priority: must-have
   > Socrates: Counter-argument accepted: on demand is enough for a personal tool in the MVP; the owner expects a scheduled refresh to matter later.
   > Resolution: split; FR-008 becomes on-demand refresh (must-have), FR-015 holds the daily automatic refresh (nice-to-have).
+  > Update 2026-10-21: the shipped refresh asks each shop by the stored id of the item the user watches there, their own item's or a confirmed match's, and never by EAN: the EAN is a matching helper (FR-004), not a refresh key. A product's page refetches each shop last checked more than 15 minutes ago when the user opens it, and „Odśwież ceny” asks whenever the user presses it (Open Questions 5).
 - FR-009: User can record a price by hand for a product in a shop. Priority: nice-to-have
   > Socrates: Counter-argument accepted: if fetching works, nobody types prices; the feature may never be used.
   > Resolution: demoted to nice-to-have; fetched prices are the only source in the MVP.
@@ -153,6 +155,7 @@ A few people the owner knows, using the same deployment with their own private w
   > Socrates: Counter-argument accepted: price per unit is redundant when every shop shows the same EAN and the pin step keeps sizes equal.
   > Resolution: price per unit dropped from the MVP view; it returns only if different sizes are ever compared.
   > Update 2026-10-05: S-06 (`super-pharm-in-comparison`) shows Super-Pharm's prices as its record states them (the owner's call, 2026-10-05). The record carries a sale's regular price for some promotions only (`docs/research/polish-drugstore-price-apis.md` §2.3), so a Super-Pharm sale without it shows as a plain price with its 30-day low. No other field stands in for the regular price, so such a sale isn't shown as a promotion and isn't under "Promocje". A promotion's end counts only beside its regular price, as Super-Pharm's own site reads it, since the record keeps a sale's dates after the sale.
+  > Update 2026-10-21: the shipped app also has a few things no requirement names, recorded here so the PRD matches it: „Wyloguj”, which ends this device's session only; a light and a dark theme, following the system's unless the user picks one; a notice on the product page when a fetched price couldn't be saved, so the list won't show it („Nie udało się zapisać tej ceny…”); and, when a shop's match was changed in another tab while the page was open, the page says so („Dopasowanie w … się zmieniło.”) and asks for a reload instead of showing another item's price. `CLAUDE.md`'s UI section has the detail.
 - FR-012: User can see whether today's price is a good one against the product's own history. Priority: must-have
   > Socrates: Counter-arguments considered: history starts empty; an untuned threshold is false confidence.
   > Resolution: stands as written; history length and threshold stay in Open Questions (4).
@@ -186,13 +189,11 @@ A few people the owner knows, using the same deployment with their own private w
 
 ## Non-Functional Requirements
 
-- Usable on a phone in the shop: the comparison is readable and operable on a current mobile browser while the shopper stands at the shelf.
+- Usable on a phone in the shop: the comparison is readable and operable on a current mobile browser while the shopper stands at the shelf. (Devices and browsers: Open Questions 8.)
 - Continuous feedback while prices load: opening a product shows progress per shop, and results appear as each shop answers rather than after a single long wait.
-- Every price shows its age: no price is ever displayed without when it was fetched, and a price older than an agreed limit is marked stale. (Limit: Open Questions 5.)
-- Polite to the shops: no shop receives more than a small, fixed number of requests per minute from the whole deployment, and fetching stops for a shop that blocks or asks. (Cap: Open Questions 6.)
+- Every price shows its age: no price is ever displayed without when it was fetched, and a price older than an agreed limit is marked stale. (Limit: Open Questions 5; answered 2026-10-09: 24 hours.)
+- Polite to the shops: no shop receives more than a small, fixed number of requests per minute from the whole deployment, and fetching stops for a shop that blocks or asks. (Cap: Open Questions 6; answered 2026-10-09: 30 requests per shop in any 60 seconds.)
 - Watchlists are private: no user can observe or infer another user's watchlist; only price observations are shared.
-
-# TODO: exact device and browser targets for the phone-usable requirement — see Open Questions
 
 ## Business Logic
 
@@ -200,7 +201,7 @@ For a product bought repeatedly, the app names which of the shopper's shops is c
 
 The rule consumes the shopper's confirmed item in each supported shop, each shop's current regular and promotional price together with its declared 30-day low, fetched when the product is opened, and the prices previously observed for that product across shops.
 
-Its output is the shops ordered by today's price with the cheapest marked, the age of every price, and one good-price judgement for the product: against the product's own history once enough exists, otherwise against the shop's 30-day low, labelled as such so the shopper knows which comparison was made. How much history counts as enough and which threshold separates a good price from an ordinary one are open (Open Questions 4).
+Its output is the shops ordered by today's price with the cheapest marked, the age of every price, and one good-price judgement for the product: against the product's own history once enough exists, otherwise against the shop's 30-day low, labelled as such so the shopper knows which comparison was made. How much history counts as enough and which threshold separates a good price from an ordinary one were answered on 2026-10-07 (Open Questions 4, the FR-012 update): history is enough after 30 days on the list with prices on 5 different days, and a price below what it is compared with is good, one equal or above ordinary.
 
 The shopper meets the rule by opening a watched product: progress appears per shop as prices arrive, then the ordered comparison and the judgement. A shop whose price could not be fetched shows its last known price with its age, or a clear gap, never a wrong number presented as current.
 
@@ -209,9 +210,9 @@ The shopper meets the rule by opening a watched product: progress appears per sh
 - Sign-in: email and password.
 - Sign-up: invite-only. The owner creates accounts or hands out invite links; there is no open registration.
 - Roles: flat. Every signed-in user has the same capabilities: manage their own watchlist, confirm product matches, and see the shared price observations. Recording manual prices (FR-009) and viewing the status page (FR-014) are nice-to-have capabilities and follow the same flat model when they exist.
-- Data separation: watchlists are private per user; price observations are shared by all users of the deployment.
+- Data separation: watchlists are private per user; price observations are shared by each shop item's watchers (see the update).
   > Update 2026-09-28: S-03 (`cheapest-shop-today`) narrows the sharing to each shop item's watchers. A user reads and adds the observations of an item only while they watch it, either as their product's own item or through a confirmed match. The users watching the same item share its prices, and no one can list what others watch. Accepted risk: people watching the same item see each other's check times, which can show that someone else watches it.
-- Unauthenticated visitors: behaviour on a gated page not yet decided (Open Questions 1).
+- Unauthenticated visitors: decided: a sign-in redirect that returns to the list or the product (see the update; Open Questions 1).
   > Update 2026-10-05: S-07 (`invite-only-access`) decides it: a sign-in redirect that returns to the list or the product (Open Questions 1).
 
 ## Non-Goals
@@ -235,6 +236,7 @@ No non-functional non-goals were chosen.
 1. **What does an unauthenticated visitor see when opening a gated page?** — Owner: user.
    > Update 2026-10-05: answered by S-07 (`invite-only-access`, the owner's call, 2026-10-04): the Polish sign-in page. A visitor who opened the list or a product is sent back there after signing in, with the list's filter kept and nothing else, so a crafted link can't make the page ask a shop; from any other gated address they land on the list. `/` sends a visitor to sign-in and a signed-in user to the list, and there is no landing page.
 2. **Which of the five shops does the owner actually buy from, and in which order should they be added?** — Owner: user. (dm is out of the MVP; see FR-013.)
+   > Update 2026-10-21: the order is answered by the shipped implementation, not by the owner's call: Rossmann's search first, then Drogerie Natura, Hebe and Super-Pharm, as the FR-013 updates of 2026-10-04 and 2026-10-05 record, and since 2026-10-09 a product can be added from any of the four (FR-003). Which of them the owner actually buys from remains the owner's note to add.
 3. **How are misspelled product names handled, and does search run live as you type or on submit?** Rossmann's search returns a spelling hint; its suggestion feature is untested. — Owner: user.
    > Update 2026-10-09: answered (the owner's call, 2026-10-09), keeping what S-01 (`watchlist-add-by-search`) built: a search runs when the user submits it, never while they type, and a misspelling offers Rossmann's spelling hint as „Czy chodziło Ci o…?”, a link that searches the hint.
 4. **How much history and which threshold define a good price (FR-012)?** — Owner: user.
@@ -243,5 +245,7 @@ No non-functional non-goals were chosen.
    > Update 2026-10-09: answered (the owner's call, 2026-10-09), keeping S-03's (`cheapest-shop-today`) default: a price more than 24 hours old is stale, shown with its age and never named cheapest. On its own, a product's page asks a shop again only once its last check is more than 15 minutes old, while its „Odśwież ceny” asks whenever the user presses it.
 6. **What is the request cap per shop per minute for the whole deployment?** — Owner: user.
    > Update 2026-10-09: answered (the owner's call, 2026-10-09), keeping F-01's (`polite-shop-access`) default: at most 30 requests to each shop in any 60 seconds from the whole deployment. The cap is stored per shop in the database and can be set from 1 to 60 without a deploy.
-7. **What request volume and data volume should the product be sized for (target_scale.qps, target_scale.data_volume)?** Not captured during shaping; the frontmatter carries TODO placeholders. — Owner: user.
+7. **What request volume and data volume should the product be sized for (target_scale.qps, target_scale.data_volume)?** Not captured during shaping. — Owner: user.
+   > Update 2026-10-21: answered by the shipped implementation, not by the owner's call; the frontmatter's `target_scale` carries the sizing it settled. A handful of invited people on one deployment, asking on demand, so well under one request per second. Shop requests are capped at 30 per shop in any 60 seconds for the whole deployment (`public.shops.cap_per_minute`, settable from 1 to 60; Open Question 6), each under the shop gate's 8-second timeout. The data is one append-only `price_observations` row per price check of a shop item, never deleted, for a few products per user, each priced in up to four shops: thousands of rows a month.
 8. **Which devices and browsers must the phone-usable requirement cover?** Not captured during shaping. — Owner: user.
+   > Update 2026-10-21: answered by the shipped implementation, not by the owner's call: the design and the e2e suite target a phone at 390 × 844 with touch, in Chromium with Playwright's Pixel 7 emulation (`playwright.config.ts`), and no other browser is tested.
