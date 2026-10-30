@@ -1,9 +1,9 @@
 ---
 project: Drogeria Radar
 version: 1
-status: draft # draft | active | locked
+status: active # draft | active | locked
 created: 2026-09-25
-updated: 2026-10-11
+updated: 2026-10-21
 prd_version: 1
 main_goal: quality
 top_blocker: time
@@ -131,10 +131,10 @@ None. Every layer M-2 touches is present (`## Baseline`), and the guardian arriv
 
 ## Open Roadmap Questions
 
-None of these blocks M-2. The PRD's Open Questions 3, 5 and 6 were answered on 2026-10-09.
+None of these blocks M-2. The PRD's Open Questions 3, 5 and 6 were answered on 2026-10-09, and 7 and 8 on 2026-10-21 by the shipped implementation.
 
-1. **What request volume and data volume should the product be sized for (target_scale.qps, target_scale.data_volume)?** Not captured during shaping; the PRD frontmatter carries TODO placeholders. — Owner: user. Block: none at a handful of users (PRD Open Question 7).
-2. **Which devices and browsers must the phone-usable requirement cover?** Not captured during shaping. — Owner: user. Block: none (PRD Open Question 8).
+1. **What request volume and data volume should the product be sized for (target_scale.qps, target_scale.data_volume)?** Not captured during shaping; answered 2026-10-21 by the shipped implementation, in the PRD frontmatter (PRD Open Question 7). — Owner: user. Block: none at a handful of users.
+2. **Which devices and browsers must the phone-usable requirement cover?** Not captured during shaping; answered 2026-10-21 by the shipped implementation: a phone at 390 × 844 with touch, in Chromium (PRD Open Question 8). — Owner: user. Block: none.
 3. **How should a person's access end?** Deleting the account in the Supabase dashboard deletes their list and decisions and keeps the prices they recorded. — Owner: user, as the operator. Block: none (domain map Q-02).
 4. **Should a Super-Pharm price's age be when the app fetched it, or when Super-Pharm last indexed the record?** — Owner: user. Block: none (domain map Q-03).
 5. **Does production still refuse sign-up, with each deploy's production check passing its settings group?** — Owner: user, as the operator. Block: none (domain map Q-04).
