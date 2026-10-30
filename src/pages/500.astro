@@ -1,0 +1,27 @@
+---
+// The page Astro renders when a request's handler throws, in Polish on the app's tokens, in the auth shell's card. Astro
+// hands it the error as a prop, which the page never shows: its message could name a host, a key or a table, and Astro
+// has already logged it. It reads no locals either, since Astro renders it without the middleware when that is what
+// threw, and it asks no shop. The status is 500 whether Astro renders the page for an error or someone opens /500
+// itself: Astro's default for this route, set here so the intent is plain.
+import { buttonVariants } from "@/components/ui/button";
+import AuthShell from "@/layouts/AuthShell.astro";
+import { cn } from "@/lib/utils";
+
+interface Props {
+  /** The error Astro caught, left unread on purpose: nothing of it reaches the page. */
+  error?: unknown;
+}
+
+Astro.response.status = 500;
+---
+
+<AuthShell title="Błąd serwera">
+  <div class="flex flex-col gap-5 lg:gap-6">
+    <h1 class="text-2xl font-extrabold tracking-heading">Coś poszło nie tak</h1>
+    <p class="text-sm text-muted-foreground">To błąd po naszej stronie. Spróbuj ponownie za chwilę.</p>
+    <a href="/watchlist" class:list={cn(buttonVariants({ variant: "underlined", size: "inline" }), "self-start")}>
+      Przejdź do listy
+    </a>
+  </div>
+</AuthShell>

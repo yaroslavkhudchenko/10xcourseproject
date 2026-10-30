@@ -1,0 +1,23 @@
+---
+// The page Astro serves for an address no route matches, in Polish on the app's tokens, in the auth shell's card, since
+// a visitor may reach it signed out. It reads no locals, so it renders without Supabase too (the null-client contract),
+// it repeats no address and it asks no shop. Its way onward is the list: the middleware sends a signed-out visitor from
+// there to sign-in with the list as the way back (signInHref), so they land on it after signing in. The status is 404
+// whether Astro serves the page for a missing address or someone opens /404 itself: Astro's default for this route,
+// set here so the intent is plain.
+import { buttonVariants } from "@/components/ui/button";
+import AuthShell from "@/layouts/AuthShell.astro";
+import { cn } from "@/lib/utils";
+
+Astro.response.status = 404;
+---
+
+<AuthShell title="Nie znaleziono">
+  <div class="flex flex-col gap-5 lg:gap-6">
+    <h1 class="text-2xl font-extrabold tracking-heading">Nie ma takiej strony</h1>
+    <p class="text-sm text-muted-foreground">Adres może być błędny albo strona została usunięta.</p>
+    <a href="/watchlist" class:list={cn(buttonVariants({ variant: "underlined", size: "inline" }), "self-start")}>
+      Przejdź do listy
+    </a>
+  </div>
+</AuthShell>

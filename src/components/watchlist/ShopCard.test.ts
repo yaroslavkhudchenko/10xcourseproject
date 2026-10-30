@@ -17,7 +17,7 @@ import type { PriceRefreshAnswer } from "@/types";
 // Node, with no DOM and no new dependency, and createElement stands in for JSX, which the suite's .test.ts files can't
 // hold. It pins the line a shop's card adds while the price it shows is one the route couldn't store (`saved: false`),
 // which e2e can't reach: every shop is stopped there, so a refetch only ever gets the stopped notice, the refresh flow
-// analysis's TD-19 (context/changes/price-refresh-flow-analysis/research.md). The line is the owner's of 2026-10-10
+// analysis's TD-19 (context/archive/2026-10-10-price-refresh-flow-analysis/research.md). The line is the owner's of 2026-10-10
 // (context/archive/2026-10-10-unstored-price-check/plan.md), and shop-messages.test.ts pins its words.
 
 /**
