@@ -7,8 +7,11 @@ import type { LanguageModel, LanguageModelUsage } from "ai";
 import { InvalidReviewError, parseReview, REVIEW_SCHEMA, SYSTEM_PROMPT } from "./review-schema.ts";
 import type { Review } from "./review-schema.ts";
 
-/** The OpenRouter model a review asks when REVIEW_MODEL names none. */
-export const DEFAULT_MODEL = "z-ai/glm-5.3";
+/**
+ * The OpenRouter model a review asks when REVIEW_MODEL names none: OpenRouter's router to its free models, which picks
+ * one that can give the structured output. The owner's call of 2026-10-31, for an account without credit.
+ */
+export const DEFAULT_MODEL = "openrouter/free";
 
 // Each call may answer with up to 8,000 tokens within 120 s, and an invalid answer is asked again once, so a review
 // makes at most two calls.
@@ -56,11 +59,12 @@ export class ReviewFailedError extends Error {
 export function createReviewer({ apiKey, model, languageModel, fetch: customFetch }: ReviewerOptions) {
   const agent = new ToolLoopAgent({
     // A bare model id would go through the Vercel AI Gateway, so OpenRouter's model is built here. Only endpoints that
-    // take every parameter sent, the structured output included, and that don't collect prompts may answer.
+    // take every parameter sent, the structured output included, may answer, and for a paid model only those that
+    // don't collect prompts (dataCollectionOf).
     model:
       languageModel ??
       createOpenRouter({ apiKey, compatibility: "strict", fetch: customFetch }).chat(model, {
-        provider: { require_parameters: true, data_collection: "deny" },
+        provider: { require_parameters: true, data_collection: dataCollectionOf(model) },
       }),
     instructions: SYSTEM_PROMPT,
     output: Output.object({ schema: REVIEW_SCHEMA }),
@@ -107,6 +111,15 @@ export function usageText({ inputTokens, outputTokens, cost }: Usage): string {
   const tokens = (count: number | undefined) => (count === undefined ? "unknown" : String(count));
   const price = cost === undefined ? "cost unknown" : `cost $${cost.toFixed(6)}`;
   return `${tokens(inputTokens)} input and ${tokens(outputTokens)} output tokens, ${price}`;
+}
+
+/**
+ * Whether endpoints that collect prompts may answer. For a free model, OpenRouter's free router or an id ending in
+ * ":free", they may: free endpoints mostly collect prompts, so "deny" would leave it none, and the repository is public,
+ * so its diffs are anyway. For a paid model they may not.
+ */
+function dataCollectionOf(model: string): "allow" | "deny" {
+  return model === "openrouter/free" || model.endsWith(":free") ? "allow" : "deny";
 }
 
 /**

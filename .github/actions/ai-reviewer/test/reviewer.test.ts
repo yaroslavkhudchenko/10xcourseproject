@@ -192,7 +192,11 @@ describe("createReviewer, with the mock model", () => {
 });
 
 describe("createReviewer on OpenRouter, with a stub fetch", () => {
-  // Only endpoints that take every parameter, the structured output included, and don't collect prompts may answer.
+  // The course template's model, a paid one.
+  const PAID_MODEL = "z-ai/glm-5.3";
+
+  // For a paid model, only endpoints that take every parameter, the structured output included, and don't collect
+  // prompts may answer.
   it("sends the data policy, the structured output and the token cap, and reads back the cost", async () => {
     const requests: { url: string; method: string | undefined; authorization: string | null; body: unknown }[] = [];
     const stub: typeof fetch = async (input, init) => {
@@ -206,13 +210,13 @@ describe("createReviewer on OpenRouter, with a stub fetch", () => {
         id: "gen-test",
         object: "chat.completion",
         created: 1760000000,
-        model: DEFAULT_MODEL,
+        model: PAID_MODEL,
         choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: JSON.stringify(REVIEW) } }],
         usage: { prompt_tokens: 1234, completion_tokens: 56, total_tokens: 1290, cost: 0.00321 },
       });
     };
 
-    const run = await createReviewer({ apiKey: "sk-or-test", model: DEFAULT_MODEL, fetch: stub }).review("Review it.");
+    const run = await createReviewer({ apiKey: "sk-or-test", model: PAID_MODEL, fetch: stub }).review("Review it.");
 
     assert.equal(requests.length, 1);
     const [request] = requests;
@@ -221,15 +225,40 @@ describe("createReviewer on OpenRouter, with a stub fetch", () => {
     assert.equal(request.method, "POST");
     assert.equal(request.authorization, "Bearer sk-or-test");
     const body = request.body as Record<string, unknown>;
-    assert.equal(body.model, DEFAULT_MODEL);
+    assert.equal(body.model, PAID_MODEL);
     assert.deepEqual(body.provider, { require_parameters: true, data_collection: "deny" });
     assert.equal((body.response_format as { type?: unknown }).type, "json_schema");
     assert.equal(body.max_tokens, 8000);
     assert.deepEqual(run, {
       review: REVIEW,
       usage: { inputTokens: 1234, outputTokens: 56, cost: 0.00321 },
-      model: DEFAULT_MODEL,
+      model: PAID_MODEL,
     });
+  });
+
+  // Free endpoints mostly collect prompts, so "deny" would leave a free model none.
+  it("lets endpoints that collect prompts answer for a free model, the free router or a :free id", async () => {
+    const policies: unknown[] = [];
+    const stub: typeof fetch = async (_input, init) => {
+      policies.push((JSON.parse(String(init?.body)) as { provider?: unknown }).provider);
+      return Response.json({
+        id: "gen-test",
+        object: "chat.completion",
+        created: 1760000000,
+        model: "nvidia/nemotron-3.5-super-vl:free",
+        choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: JSON.stringify(REVIEW) } }],
+        usage: { prompt_tokens: 1234, completion_tokens: 56, total_tokens: 1290 },
+      });
+    };
+
+    for (const model of ["openrouter/free", "nvidia/nemotron-3.5-super-vl:free"]) {
+      await createReviewer({ apiKey: "sk-or-test", model, fetch: stub }).review("Review it.");
+    }
+
+    assert.deepEqual(policies, [
+      { require_parameters: true, data_collection: "allow" },
+      { require_parameters: true, data_collection: "allow" },
+    ]);
   });
 });
 

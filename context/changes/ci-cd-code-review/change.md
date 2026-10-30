@@ -3,7 +3,7 @@ change_id: ci-cd-code-review
 title: An AI code review on every pull request, as a merge gate's verdict
 status: implementing
 created: 2026-10-16
-updated: 2026-10-18
+updated: 2026-10-31
 archived_at: null
 ---
 
@@ -19,3 +19,5 @@ An AI code review on every pull request to `main`, as Module 5's lessons 2 and 3
 2026-10-16, the owner's call: after PR #57 fetched Module 5, they chose "Hooks first, then AI review" (the hooks fix is PR #58), with this change run as a full 10x change. It needs an API key from the owner as a GitHub secret. Today CI "never deploys and needs no repository secrets" (CLAUDE.md), so that rule changes with this change.
 
 This branch starts from PR #57 (`chore/10x-module-5`), whose `.claude/config-templates/` and `m5l3-*` prompts aren't on `main` yet.
+
+2026-10-31, the owner's call: with no OpenRouter credit, the review runs on OpenRouter's free models (`DEFAULT_MODEL` is `openrouter/free`). A free model's request lets endpoints that collect prompts answer, since free endpoints mostly do, while a paid model keeps `data_collection: "deny"`; the repository is public, so its diffs are anyway. `main`, with PRs #60 and #61, is merged into this branch.

@@ -694,6 +694,14 @@ To roll back:
   - the deploy plan's Phase 2 checklist (2026-09-23) and its lines about Worker versions or the probe Worker, none about CI.
 - **The cost figures** in the documents are research §6's estimates, until steps 1.12, 2.7 and 3.6 measure a real run.
 
+### After Phase 4: the free default (2026-10-31)
+
+- **The owner's call:** the account has no OpenRouter credit, so `DEFAULT_MODEL` is `openrouter/free`, OpenRouter's router to its free models, which picks one that can give the structured output. 3.7's choice is made by cost, not by the eval, which still needs credit: its three models and its grader are paid.
+- **The data policy:** free endpoints mostly collect prompts, so `data_collection: "deny"` would leave a free model no endpoint, the routing risk the plan brief left to the owner. `dataCollectionOf` in `reviewer.ts` allows them for the free router and any `:free` id, and a paid model keeps `"deny"`. The repository is public, so its diffs are anyway. The account must also allow such endpoints under Settings → Privacy.
+- **Tests:** the stub-fetch test now asks the template's paid `z-ai/glm-5.3` and still asserts `"deny"`; a new one asserts `"allow"` for `openrouter/free` and a `:free` id. Forcing `"deny"` turns the new one red.
+- **The deploy plan's runbook:** the cost (none, within 20 requests a minute and 50 a day), the key without credit, the privacy setting, and the two failures it adds: the free models' daily limit, and no endpoint matching the data policy.
+- **Not changed:** 2.7's title still names a credit limit, since Progress titles aren't renamed; the free default needs none.
+
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
