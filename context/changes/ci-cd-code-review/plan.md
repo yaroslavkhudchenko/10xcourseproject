@@ -700,6 +700,7 @@ To roll back:
 - **The data policy:** free endpoints mostly collect prompts, so `data_collection: "deny"` would leave a free model no endpoint, the routing risk the plan brief left to the owner. `dataCollectionOf` in `reviewer.ts` allows them for the free router and any `:free` id, and a paid model keeps `"deny"`. The repository is public, so its diffs are anyway. The account must also allow such endpoints under Settings → Privacy.
 - **Tests:** the stub-fetch test now asks the template's paid `z-ai/glm-5.3` and still asserts `"deny"`; a new one asserts `"allow"` for `openrouter/free` and a `:free` id. Forcing `"deny"` turns the new one red.
 - **The deploy plan's runbook:** the cost (none, within 20 requests a minute and 50 a day), the key without credit, the privacy setting, and the two failures it adds: the free models' daily limit, and no endpoint matching the data policy.
+- **The certification write-up:** `docs/certification.md`, merged in from `main`, says the same in its Champion block (132 tests, the free default, the data policy, the eval not yet run) and lists the three screenshots the course asks for as Champion's evidence (M5L1, step 4).
 - **Not changed:** 2.7's title still names a credit limit, since Progress titles aren't renamed; the free default needs none.
 
 ## Progress
