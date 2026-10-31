@@ -2,7 +2,7 @@
 
 The owner's write-up for the certification form, with every claim pointed at its evidence in this repository: a path, a pull request number or a date. The repository is public (`github.com/yaroslavkhudchenko/10xcourseproject`), so no collaborator needs adding.
 
-**What to paste where.** The form has one space for the mandatory part and one for each extra block: paste `## Project` and `## 10xBuilder (mandatory)` into the mandatory part, `## 10xArchitect` into the Architect block and `## 10xChampion` into the Champion block. `## Numbers` fits wherever the form asks for a summary. The form is submitted once, with every block that is ready, before 4 November 2026, 23:59 (the first deadline, the only one with a distinction).
+**What to paste where.** The form has one space for the mandatory part and one for each extra block: paste `## Project` and `## 10xBuilder (mandatory)` into the mandatory part, `context/architect-report.md`, the two-page report lesson M4L5 asks for, into the Architect block (pasted or attached, with `## 10xArchitect` below as its evidence if there is room), and `## 10xChampion` into the Champion block. `## Numbers` fits wherever the form asks for a summary. The form is submitted once, with every block that is ready, before 4 November 2026, 23:59 (the first deadline, the only one with a distinction).
 
 **Before submitting, the owner:**
 
@@ -11,6 +11,7 @@ The owner's write-up for the certification form, with every claim pointed at its
 - [ ] checks that production is up: the Supabase Free project pauses after 7 idle days (`context/deployment/deploy-plan.md`, "Free-plan behaviour"), so sign in once a week until 18 November 2026, when the two-week assessment window closes;
 - [ ] has the public URL at hand: it is not in this file, by the repository's rule;
 - [ ] sets the GitHub repository's description and topics (both empty on 2026-10-21);
+- [ ] rewrites section 6 of `context/architect-report.md`, "Decisions that belong to me", in their own words, as M4L5 asks, and deletes its note to the owner, keeping the report within two pages;
 - [ ] fills the form once, with Builder, Architect and Champion together.
 
 ## Project
@@ -75,7 +76,7 @@ The public URL (the owner adds it in the form). Production runs on Cloudflare Wo
 
 ## 10xArchitect
 
-Modules 3 and 4, applied to this project after M-1's first slices.
+Modules 3 and 4, applied to this project after M-1's first slices. The form's Architect block takes `context/architect-report.md`, the two-page report built with lesson M4L5's prompt from the module 4 artifacts below; this section lists the same work with its evidence.
 
 - **Risk-first test plan and its four rollout phases** (`context/foundation/test-plan.md`, PR #19, 2026-10-02): 7 risk scenarios, each with what would prove protection and the cheapest layer. Phase 1, critical flows in a real browser (Playwright, PR #20, 2026-10-02); Phase 4, deploy and production checks (the migration gate, the signed-out production check and the `Deploy check` workflow that emails a red deploy, PR #34, 2026-10-06); Phase 2, route and database seams (the two-user check, the catalogue check, the database tests, PR #40, 2026-10-07); Phase 3, shop answer contracts (deliberately broken copies of the recordings, which found five defects in merged code, PR #42, 2026-10-08). Each phase is an archived change under `context/archive/2026-10-0*-testing-*/`.
 - **Agent hooks** (`/10x-configure-hook`, PR #22, 2026-10-02; worktrees in PR #58, 2026-10-18): per-edit lint and an end-of-turn sweep, as described above.
