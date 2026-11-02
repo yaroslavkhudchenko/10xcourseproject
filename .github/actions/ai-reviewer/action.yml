@@ -1,0 +1,65 @@
+# The AI code review of a pull request's diff, as a composite action: Node 24, the reviewer's runtime dependencies, and
+# its command line (src/review.ts), which Node runs by type stripping, with no build. Adapted from the course's
+# m5l3-action.yml.template; .github/workflows/ai-review.yml calls it.
+name: AI Reviewer
+description: Review a pull request's diff with the reviewer agent and give a binding pass or fail verdict
+
+inputs:
+  api-key:
+    description: The OpenRouter API key
+    required: true
+  pr-title:
+    description: The pull request's title
+    required: true
+  pr-body:
+    description: The pull request's description (the reviewer sends up to 10,000 characters of it, which costs tokens)
+    required: false
+    default: ""
+  diff-file:
+    description: The path to a file holding the pull request's diff (a file avoids step-output size and newline limits)
+    required: true
+  model:
+    description: The OpenRouter model id; empty for the reviewer's DEFAULT_MODEL (src/reviewer.ts)
+    required: false
+    default: ""
+
+outputs:
+  verdict:
+    description: The binding verdict, pass or fail
+    value: ${{ steps.review.outputs.verdict }}
+  review-file:
+    description: The path to the review's JSON, as src/review.ts prints it
+    value: ${{ steps.review.outputs.review-file }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: 24
+        cache: npm
+        # Relative to the workspace: a local action's github.action_path holds "/./", which setup-node's glob refuses.
+        cache-dependency-path: .github/actions/ai-reviewer/package-lock.json
+
+    - name: Install the reviewer
+      shell: bash
+      # The runtime dependencies only, and no package's install script, in a job that holds a token.
+      run: npm ci --prefix "$GITHUB_ACTION_PATH" --omit=dev --ignore-scripts --no-audit --no-fund
+
+    - name: Review
+      id: review
+      shell: bash
+      # Untrusted PR text goes through env, never interpolated into the script. Without a verdict, the reviewer exits 1
+      # with its reason on stderr and in the job summary, which fails this step.
+      env:
+        OPENROUTER_API_KEY: ${{ inputs.api-key }}
+        PR_TITLE: ${{ inputs.pr-title }}
+        PR_BODY: ${{ inputs.pr-body }}
+        DIFF_FILE: ${{ inputs.diff-file }}
+        REVIEW_MODEL: ${{ inputs.model }}
+      run: |
+        review_file="$RUNNER_TEMP/ai-review.json"
+        node "$GITHUB_ACTION_PATH/src/review.ts" > "$review_file"
+        verdict=$(node -e 'const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); if (!["pass", "fail"].includes(r.verdict)) process.exit(1); console.log(r.verdict)' "$review_file")
+        echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+        echo "review-file=$review_file" >> "$GITHUB_OUTPUT"

@@ -103,13 +103,14 @@ Every merge to `main` deploys to Cloudflare Workers through Workers Builds, whic
 
 ## CI
 
-GitHub Actions runs three jobs on every push and PR to `main`, with no secrets:
+GitHub Actions runs three jobs on every push and PR to `main`, which need no secret, and the AI review on pull requests, which holds the repository's one secret, the OpenRouter key `OPENROUTER_API_KEY`:
 
-- **ci** — lint, the design-token contrast check, `astro check`, the unit tests and the build.
+- **ci** — lint, the design-token contrast check, `astro check`, the unit tests, the AI reviewer's tests and type check, and the build.
 - **smoke** — on a local Supabase, the database checks and tests and the deploy gate; then, on the production preview, the smoke test, the two-user check and the production check.
 - **e2e** — the Playwright suite on the production preview, with its own local Supabase.
+- **review** — the AI code review of each PR that is ready for review (`.github/workflows/ai-review.yml`, with the reviewer in `.github/actions/ai-reviewer/`): one comment with six scores and a summary, kept up to date on each push, the label `ai-cr:passed` or `ai-cr:failed`, and a red check on `fail`. Adding the label `ai-cr:review` runs it again.
 
-The ruleset on `main` requires all three. A separate `Deploy check` workflow fails when a commit's Workers Builds deploy is red, so GitHub emails whoever merged.
+The ruleset on `main` requires `ci`, `smoke` and `e2e`; `review` is advisory, and its runbook, with the key, is in `context/deployment/deploy-plan.md` ("AI review (ci-cd-code-review)"). A separate `Deploy check` workflow fails when a commit's Workers Builds deploy is red, so GitHub emails whoever merged.
 
 ## Project documents
 

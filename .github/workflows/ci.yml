@@ -22,6 +22,10 @@ jobs:
         run: node scripts/check-token-contrast.mjs
       - run: npx astro check
       - run: npm run test
+      # The AI reviewer is its own package, which the app's tests and type check don't reach.
+      - run: npm ci --prefix .github/actions/ai-reviewer
+      - run: npm test --prefix .github/actions/ai-reviewer
+      - run: npm run typecheck --prefix .github/actions/ai-reviewer
       - run: npm run build
 
   smoke:

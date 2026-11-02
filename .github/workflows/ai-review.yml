@@ -1,0 +1,106 @@
+# The AI code review of every ready pull request to main. The reviewer (.github/actions/ai-reviewer) reads the diff,
+# one comment shows its review and is edited on each later review, the label ai-cr:passed or ai-cr:failed records the
+# verdict, and the review check fails on "fail". The check is advisory: it isn't in the preventFailedDeploy ruleset.
+# Adapted from the course's m5l3-review.yml.template.
+name: AI review
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write # labels live on the issues API
+
+defaults:
+  run:
+    shell: bash # with pipefail, which the runner's default bash leaves off
+
+jobs:
+  review:
+    # A draft is reviewed once it's ready, and of the label events only ai-cr:review asks for another review.
+    if: github.event.pull_request.draft == false && (github.event.action != 'labeled' || github.event.label.name == 'ai-cr:review')
+    # On the job, so a run its if: skips joins no group and another label can't cancel a running review. Only a push
+    # cancels one; a re-run (ai-cr:review, reopened) waits for it instead.
+    concurrency:
+      group: ai-review-${{ github.event.pull_request.number }}
+      cancel-in-progress: ${{ github.event.action == 'synchronize' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # full history, otherwise there is no base to diff against
+          # Every fetch happens here, so the job's token isn't left behind for npm's packages or the reviewer.
+          persist-credentials: false
+
+      - name: Compute the diff
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git diff "origin/$BASE_REF...HEAD" > "$RUNNER_TEMP/pr.diff"
+
+      - name: Review
+        id: review
+        uses: ./.github/actions/ai-reviewer
+        with:
+          api-key: ${{ secrets.OPENROUTER_API_KEY }}
+          pr-title: ${{ github.event.pull_request.title }}
+          pr-body: ${{ github.event.pull_request.body }}
+          diff-file: ${{ runner.temp }}/pr.diff
+
+      # The reviewer's packages run here, so this step holds no token. The job summary gets the comment too. The comment
+      # names the commit it reviewed, so one that a later run without a verdict leaves in place shows it's older.
+      - name: Write the comment
+        if: steps.review.outputs.verdict != ''
+        env:
+          REVIEW_FILE: ${{ steps.review.outputs.review-file }}
+          REVIEWED_COMMIT: ${{ github.event.pull_request.head.sha }}
+        run: |
+          node .github/actions/ai-reviewer/src/comment.ts "$REVIEW_FILE" > "$RUNNER_TEMP/ai-review-comment.md"
+          cat "$RUNNER_TEMP/ai-review-comment.md" >> "$GITHUB_STEP_SUMMARY"
+
+      # One comment per pull request: the first comment by the workflow's bot that starts with the marker, the written
+      # comment's first line, is edited, and one is created only when there's none. gh's --jq takes no --arg, so the
+      # marker enters the filter as a JSON string, which jq reads as a string literal.
+      - name: Post the comment
+        if: steps.review.outputs.verdict != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          comment="$RUNNER_TEMP/ai-review-comment.md"
+          marker=$(head -n 1 "$comment")
+          literal=$(node -p 'JSON.stringify(process.argv[1])' "$marker")
+          ids=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments?per_page=100" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith($literal))) | .id")
+          id=${ids%%$'\n'*}
+          if [ -z "$id" ]; then
+            gh api --silent "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F body=@"$comment"
+          elif [[ $id =~ ^[0-9]+$ ]]; then
+            gh api --silent -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F body=@"$comment"
+          else
+            echo "The comment search's answer can't be read, so no comment is posted or edited." >&2
+            exit 1
+          fi
+
+      # Labels added with the job's token start no workflow run, so the labelling never asks for another review.
+      - name: Label the pull request
+        if: steps.review.outputs.verdict != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          VERDICT: ${{ steps.review.outputs.verdict }}
+        run: |
+          gh label create ai-cr:passed --color 0E8A16 --description "The AI code review passed" --force
+          gh label create ai-cr:failed --color B60205 --description "The AI code review failed" --force
+          gh label create ai-cr:review --color 1D76DB --description "Add to run the AI code review again" --force
+          if [ "$VERDICT" = pass ]; then add=ai-cr:passed drop=ai-cr:failed; else add=ai-cr:failed drop=ai-cr:passed; fi
+          gh pr edit "$PR" --add-label "$add" --remove-label "$drop" --remove-label ai-cr:review
+
+      - name: Gate on the verdict
+        env:
+          VERDICT: ${{ steps.review.outputs.verdict }}
+        run: test "$VERDICT" = pass || { echo "The AI code review's verdict is ${VERDICT:-missing}."; exit 1; }

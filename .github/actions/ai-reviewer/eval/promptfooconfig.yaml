@@ -1,0 +1,120 @@
+# The reviewer's eval (lesson M5L3), from the course's m5l3-promptfooconfig.yaml.template: the reviewer CI runs, on
+# three models through OpenRouter, against four planted diffs. The owner runs it with OPENROUTER_API_KEY exported:
+#
+#   npm run eval --prefix .github/actions/ai-reviewer
+#
+# reviewer-provider.mjs reviews each case with the reviewer's own filterDiff, buildPrompt and createReviewer, so there's
+# no copy of the prompt here: the one prompt below is only there because promptfoo needs one, and the provider builds
+# the message from each case's title, body and diff. The llm-rubric grader reads the same OPENROUTER_API_KEY, and sees
+# a review's JSON and its rubric, never the diff, so each rubric names what the review has to find.
+#
+# The planted flaws, which the diffs themselves never name:
+# - react19-migration.diff moves an app from React 16 to 19, correctly but for its PriceTicker component:
+#   1. PriceTicker's useEffect subscribes to the price feed and returns no cleanup, so every product change and every
+#      unmount leaves a subscription running, and an earlier product's updates keep setting the price on show;
+#   2. PriceTicker returns early when it has no productId, before it calls useState, useMemo and useEffect, so its hooks
+#      run conditionally, against the Rules of Hooks: React throws when the App's picker goes from no product to one;
+#   3. PriceTicker keeps defaultProps, which React 19 ignores on a function component, so currency and locale are
+#      undefined and Intl.NumberFormat throws for every ticker that passes no currency, as the App's doesn't.
+#   The migrated tests no longer check an unsubscribe, and pass currency and locale themselves, so none of them fails.
+# - sql-injection.diff adds an order search that builds its SQL from the email and status query parameters by string
+#   concatenation, with no bound parameters; only its sort column is allow-listed.
+# - shop-gate-bypass.diff makes Rossmann's price check, whose request goes through gate.fetch under the deployment-wide
+#   per-shop cap, call fetch on the shop directly whenever the gate answers "capped": past the cap, the stop after a
+#   403 or a bot challenge, the honest User-Agent and the refusal to follow redirects.
+# - clean-refactor.diff has none: Rossmann's private clean() becomes cleanText in shop-values.ts, with its tests.
+description: The AI reviewer on three models and four planted diffs
+
+providers:
+  - id: file://reviewer-provider.mjs
+    label: glm-5.3
+    config:
+      model: z-ai/glm-5.3
+  - id: file://reviewer-provider.mjs
+    label: deepseek-v4.1-flash
+    config:
+      model: deepseek/deepseek-v4.1-flash
+  - id: file://reviewer-provider.mjs
+    label: gpt-5.6-luna
+    config:
+      model: openai/gpt-5.6-luna
+
+prompts:
+  - label: the reviewer's own message (buildPrompt)
+    raw: "{{title}}"
+
+defaultTest:
+  options:
+    # The llm-rubric grader; any OpenRouter model works here.
+    provider: openrouter:anthropic/claude-sonnet-5.5
+
+tests:
+  - description: React 16 -> 19 migration with three planted flaws
+    vars:
+      title: Move the app to React 19
+      body: >-
+        Upgrades react and react-dom to 19 and mounts the app with createRoot, since React 19 removed ReactDOM.render.
+        App and PriceTicker become function components with hooks, and the tests move from Enzyme, which has no React
+        19 adapter, to Testing Library.
+      diff: file://fixtures/react19-migration.diff
+    assert:
+      # 1. valid JSON: the CI gate reads the verdict from it
+      - type: is-json
+      # 2. a second model checks that the review names what is broken
+      - type: llm-rubric
+        value: >-
+          The review names all three of these flaws in the PriceTicker component and says why each one breaks it:
+          (1) the useEffect that subscribes to the price feed returns no cleanup, so subscriptions leak and an earlier
+          product's price updates keep arriving after the product changes or the component unmounts; (2) useState,
+          useMemo and useEffect are called after an early return for a missing productId, so the hooks run
+          conditionally, against the Rules of Hooks; (3) defaultProps on a function component is ignored by React 19,
+          so the currency and locale defaults never apply.
+      # 3. a hard condition on the binding verdict
+      - type: javascript
+        value: JSON.parse(output).verdict === "fail"
+
+  - description: SQL injection
+    vars:
+      title: Add order search for the support team
+      body: >-
+        Support looks a customer's orders up by their email and an order status. This adds GET /api/orders/search for
+        staff, sorted by an allow-listed column, with tests.
+      diff: file://fixtures/sql-injection.diff
+    assert:
+      - type: is-json
+      - type: llm-rubric
+        value: >-
+          The review rejects the change and points to the SQL injection: the order search builds its SQL from the
+          request's email and status by string concatenation instead of bound query parameters.
+      - type: javascript
+        value: JSON.parse(output).verdict === "fail" && JSON.parse(output).securitySafety <= 3
+
+  - description: A shop request that bypasses the shop gate
+    vars:
+      title: Show Rossmann's price when the shop gate is capped
+      body: >-
+        On a busy minute the shop gate answers "capped", and the product page shows a gap where Rossmann's price
+        should be. Rossmann answers a detail in about 200 ms, so the price check now asks it directly when the gate is
+        capped. The test covers the fallback.
+      diff: file://fixtures/shop-gate-bypass.diff
+    assert:
+      - type: is-json
+      - type: llm-rubric
+        value: >-
+          The review flags that the new code calls fetch on Rossmann directly instead of going through the shop gate
+          (gate.fetch), so its requests escape the deployment-wide per-shop request cap that the gate enforces.
+      - type: javascript
+        value: JSON.parse(output).verdict === "fail"
+
+  - description: A small, correct refactor with its tests
+    vars:
+      title: Share the trim rule for shop text between the adapters
+      body: >-
+        Rossmann's adapter kept its own clean(), the rule textOf in shop-values.ts already applies: trim the text, and
+        read empty text as none. cleanText in shop-values.ts is now that one rule, used by textOf and by Rossmann's
+        adapter, with tests. No behaviour changes.
+      diff: file://fixtures/clean-refactor.diff
+    assert:
+      - type: is-json
+      - type: javascript
+        value: JSON.parse(output).verdict === "pass"

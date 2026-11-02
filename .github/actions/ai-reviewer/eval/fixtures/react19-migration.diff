@@ -1,0 +1,330 @@
+diff --git a/package.json b/package.json
+index 463296d..94a7961 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "drugstore-prices-web",
+-  "version": "1.4.0",
++  "version": "2.0.0",
+   "private": true,
+   "type": "module",
+   "scripts": {
+@@ -9,14 +9,13 @@
+     "test": "vitest run"
+   },
+   "dependencies": {
+-    "prop-types": "^15.8.1",
+-    "react": "^16.14.0",
+-    "react-dom": "^16.14.0"
++    "react": "^19.1.0",
++    "react-dom": "^19.1.0"
+   },
+   "devDependencies": {
++    "@testing-library/jest-dom": "^6.6.3",
++    "@testing-library/react": "^16.3.0",
+     "@vitejs/plugin-react": "^4.3.4",
+-    "enzyme": "^3.11.0",
+-    "enzyme-adapter-react-16": "^1.15.8",
+     "jsdom": "^25.0.1",
+     "vite": "^6.0.7",
+     "vitest": "^2.1.8"
+diff --git a/src/App.jsx b/src/App.jsx
+index 1d6d169..1f96a95 100644
+--- a/src/App.jsx
++++ b/src/App.jsx
+@@ -1,35 +1,28 @@
+-import React from "react";
++import { useEffect, useRef, useState } from "react";
+ import PriceTicker from "./components/PriceTicker";
+ 
+ /** The shopper picks one of their products and watches its live price. */
+-export class App extends React.Component {
+-  state = { selectedId: "" };
++export function App({ products }) {
++  const [selectedId, setSelectedId] = useState("");
++  const picker = useRef(null);
+ 
+-  componentDidMount() {
++  useEffect(() => {
+     // Shoppers pick a product first, so the picker takes the focus.
+-    this.refs.product.focus();
+-  }
++    picker.current.focus();
++  }, []);
+ 
+-  render() {
+-    const { products } = this.props;
+-    return (
+-      <main className="app">
+-        <label htmlFor="product">Product</label>
+-        <select
+-          id="product"
+-          ref="product"
+-          value={this.state.selectedId}
+-          onChange={(event) => this.setState({ selectedId: event.target.value })}
+-        >
+-          <option value="">Choose a product…</option>
+-          {products.map((product) => (
+-            <option key={product.id} value={product.id}>
+-              {product.name}
+-            </option>
+-          ))}
+-        </select>
+-        <PriceTicker productId={this.state.selectedId} />
+-      </main>
+-    );
+-  }
++  return (
++    <main className="app">
++      <label htmlFor="product">Product</label>
++      <select id="product" ref={picker} value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
++        <option value="">Choose a product…</option>
++        {products.map((product) => (
++          <option key={product.id} value={product.id}>
++            {product.name}
++          </option>
++        ))}
++      </select>
++      <PriceTicker productId={selectedId} />
++    </main>
++  );
+ }
+diff --git a/src/components/PriceTicker.jsx b/src/components/PriceTicker.jsx
+index 5431226..5eecc42 100644
+--- a/src/components/PriceTicker.jsx
++++ b/src/components/PriceTicker.jsx
+@@ -1,98 +1,65 @@
+-import React from "react";
+-import PropTypes from "prop-types";
++import { useEffect, useMemo, useState } from "react";
+ import { priceFeed } from "../lib/price-feed";
+ import "./PriceTicker.css";
+ 
+ const EMPTY = { price: null, previousPrice: null, updatedAt: null, error: null };
+ 
+ /** The live price of one product, from the price feed, with its trend since the previous update. */
+-export default class PriceTicker extends React.Component {
+-  static propTypes = {
+-    productId: PropTypes.string,
+-    currency: PropTypes.string,
+-    locale: PropTypes.string,
+-    compact: PropTypes.bool,
+-  };
+-
+-  static defaultProps = {
+-    currency: "PLN",
+-    locale: "pl-PL",
+-    compact: false,
+-  };
+-
+-  state = EMPTY;
+-
+-  componentDidMount() {
+-    this.subscribe();
++export default function PriceTicker({ productId, currency, locale, compact }) {
++  if (!productId) {
++    return <p className="price-ticker price-ticker--empty">Pick a product to see its price.</p>;
+   }
+ 
+-  componentDidUpdate(prevProps) {
+-    if (prevProps.productId !== this.props.productId) {
+-      this.unsubscribe();
+-      this.setState(EMPTY);
+-      this.subscribe();
+-    }
+-  }
+-
+-  componentWillUnmount() {
+-    this.unsubscribe();
+-  }
++  const [ticker, setTicker] = useState(EMPTY);
++  const format = useMemo(() => new Intl.NumberFormat(locale, { style: "currency", currency }), [locale, currency]);
+ 
+-  subscribe() {
+-    if (!this.props.productId) return;
+-    this.unsubscribeFeed = priceFeed.subscribe(this.props.productId, {
++  useEffect(() => {
++    setTicker(EMPTY);
++    priceFeed.subscribe(productId, {
+       next: (update) =>
+-        this.setState((state) => ({
++        setTicker((state) => ({
+           price: update.price,
+           previousPrice: state.price,
+           updatedAt: update.at,
+           error: null,
+         })),
+-      error: (error) => this.setState({ error }),
++      error: (error) => setTicker((state) => ({ ...state, error })),
+     });
+-  }
++  }, [productId]);
+ 
+-  unsubscribe() {
+-    if (this.unsubscribeFeed) {
+-      this.unsubscribeFeed();
+-      this.unsubscribeFeed = null;
+-    }
++  const { price, previousPrice, updatedAt, error } = ticker;
++  if (error) {
++    return (
++      <p className="price-ticker price-ticker--error" role="alert">
++        Price unavailable: {error.message}
++      </p>
++    );
+   }
+-
+-  render() {
+-    const { productId, currency, locale, compact } = this.props;
+-    const { price, previousPrice, updatedAt, error } = this.state;
+-    if (!productId) {
+-      return <p className="price-ticker price-ticker--empty">Pick a product to see its price.</p>;
+-    }
+-    if (error) {
+-      return (
+-        <p className="price-ticker price-ticker--error" role="alert">
+-          Price unavailable: {error.message}
+-        </p>
+-      );
+-    }
+-    if (price === null) {
+-      return (
+-        <p className="price-ticker" aria-busy="true">
+-          Loading the price…
+-        </p>
+-      );
+-    }
+-    const format = new Intl.NumberFormat(locale, { style: "currency", currency });
++  if (price === null) {
+     return (
+-      <p className={`price-ticker price-ticker--${trendOf(price, previousPrice)}`}>
+-        <span className="price-ticker__price">{format.format(price)}</span>
+-        {!compact && (
+-          <time className="price-ticker__time" dateTime={updatedAt}>
+-            {new Date(updatedAt).toLocaleTimeString(locale)}
+-          </time>
+-        )}
++      <p className="price-ticker" aria-busy="true">
++        Loading the price…
+       </p>
+     );
+   }
++  return (
++    <p className={`price-ticker price-ticker--${trendOf(price, previousPrice)}`}>
++      <span className="price-ticker__price">{format.format(price)}</span>
++      {!compact && (
++        <time className="price-ticker__time" dateTime={updatedAt}>
++          {new Date(updatedAt).toLocaleTimeString(locale)}
++        </time>
++      )}
++    </p>
++  );
+ }
+ 
++PriceTicker.defaultProps = {
++  currency: "PLN",
++  locale: "pl-PL",
++  compact: false,
++};
++
+ /** Whether the price went down, up or stayed the same since the previous update. */
+ function trendOf(price, previousPrice) {
+   if (previousPrice === null || price === previousPrice) return "same";
+diff --git a/src/components/PriceTicker.test.jsx b/src/components/PriceTicker.test.jsx
+index 68de3b2..c23f9d6 100644
+--- a/src/components/PriceTicker.test.jsx
++++ b/src/components/PriceTicker.test.jsx
+@@ -1,5 +1,4 @@
+-import React from "react";
+-import { mount } from "enzyme";
++import { act, render, screen } from "@testing-library/react";
+ import { afterEach, describe, expect, it, vi } from "vitest";
+ import PriceTicker from "./PriceTicker";
+ import { priceFeed } from "../lib/price-feed";
+@@ -24,39 +23,30 @@ afterEach(() => {
+ describe("PriceTicker", () => {
+   it("shows the price in złoty, with its trend", () => {
+     const feed = fakeFeed();
+-    const wrapper = mount(<PriceTicker productId="26900" />);
+-    feed.push({ price: 26.99, at: "2026-10-18T09:00:00Z" });
+-    feed.push({ price: 24.99, at: "2026-10-18T09:05:00Z" });
+-    wrapper.update();
+-    expect(wrapper.find(".price-ticker__price").text()).toBe("24,99\u00a0zł");
+-    expect(wrapper.find(".price-ticker--down").exists()).toBe(true);
++    render(<PriceTicker productId="26900" currency="PLN" locale="pl-PL" />);
++    act(() => feed.push({ price: 26.99, at: "2026-10-18T09:00:00Z" }));
++    act(() => feed.push({ price: 24.99, at: "2026-10-18T09:05:00Z" }));
++    expect(screen.getByText("24,99\u00a0zł")).toHaveClass("price-ticker__price");
++    expect(screen.getByText("24,99\u00a0zł").parentElement).toHaveClass("price-ticker--down");
+   });
+ 
+   it("asks for a product when it has none, and subscribes to nothing", () => {
+-    const wrapper = mount(<PriceTicker />);
+-    expect(wrapper.text()).toBe("Pick a product to see its price.");
++    render(<PriceTicker />);
++    expect(screen.getByText("Pick a product to see its price.")).toBeInTheDocument();
+     expect(priceFeed.subscribe).not.toHaveBeenCalled();
+   });
+ 
+   it("says why the price is unavailable", () => {
+     const feed = fakeFeed();
+-    const wrapper = mount(<PriceTicker productId="26900" />);
+-    feed.fail(new Error("the feed is down"));
+-    wrapper.update();
+-    expect(wrapper.find('[role="alert"]').text()).toBe("Price unavailable: the feed is down");
++    render(<PriceTicker productId="26900" currency="PLN" locale="pl-PL" />);
++    act(() => feed.fail(new Error("the feed is down")));
++    expect(screen.getByRole("alert")).toHaveTextContent("Price unavailable: the feed is down");
+   });
+ 
+-  it("moves its subscription to the new product", () => {
+-    const feed = fakeFeed();
+-    const wrapper = mount(<PriceTicker productId="26900" />);
+-    wrapper.setProps({ productId: "11790" });
+-    expect(feed.unsubscribe).toHaveBeenCalledTimes(1);
++  it("subscribes to the new product", () => {
++    fakeFeed();
++    const { rerender } = render(<PriceTicker productId="26900" currency="PLN" locale="pl-PL" />);
++    rerender(<PriceTicker productId="11790" currency="PLN" locale="pl-PL" />);
+     expect(priceFeed.subscribe).toHaveBeenLastCalledWith("11790", expect.any(Object));
+   });
+-
+-  it("unsubscribes when it unmounts", () => {
+-    const feed = fakeFeed();
+-    mount(<PriceTicker productId="26900" />).unmount();
+-    expect(feed.unsubscribe).toHaveBeenCalledTimes(1);
+-  });
+ });
+diff --git a/src/index.jsx b/src/index.jsx
+index b147e7b..1a532e8 100644
+--- a/src/index.jsx
++++ b/src/index.jsx
+@@ -1,12 +1,11 @@
+-import React from "react";
+-import ReactDOM from "react-dom";
++import { StrictMode } from "react";
++import { createRoot } from "react-dom/client";
+ import { App } from "./App";
+ import { products } from "./products";
+ import "./index.css";
+ 
+-ReactDOM.render(
+-  <React.StrictMode>
++createRoot(document.getElementById("root")).render(
++  <StrictMode>
+     <App products={products} />
+-  </React.StrictMode>,
+-  document.getElementById("root"),
++  </StrictMode>,
+ );
+diff --git a/src/setupTests.js b/src/setupTests.js
+index 0d5e308..f149f27 100644
+--- a/src/setupTests.js
++++ b/src/setupTests.js
+@@ -1,4 +1 @@
+-import Enzyme from "enzyme";
+-import Adapter from "enzyme-adapter-react-16";
+-
+-Enzyme.configure({ adapter: new Adapter() });
++import "@testing-library/jest-dom/vitest";

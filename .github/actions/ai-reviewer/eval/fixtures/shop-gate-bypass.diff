@@ -1,0 +1,94 @@
+diff --git a/src/lib/services/shops/rossmann.test.ts b/src/lib/services/shops/rossmann.test.ts
+index 58065db..79957a2 100644
+--- a/src/lib/services/shops/rossmann.test.ts
++++ b/src/lib/services/shops/rossmann.test.ts
+@@ -234,6 +234,7 @@ const niveaSoftRowsWith = (change: Partial<CandidateRow>): CandidateRow[] =>
+ 
+ afterEach(() => {
+   vi.restoreAllMocks();
++  vi.unstubAllGlobals();
+ });
+ 
+ describe("Rossmann search: recorded answers", () => {
+@@ -1027,7 +1028,6 @@ describe("Rossmann price: broken copies give a gap, never 'missing'", () => {
+ 
+ describe("Rossmann price: why it's unavailable", () => {
+   it.each([
+-    { refusal: "the cap is reached", reservation: { outcome: "capped" }, expected: { reason: "busy" } },
+     { refusal: "the shop is stopped", reservation: { outcome: "stopped" }, expected: { reason: "stopped" } },
+   ])("says so without calling Rossmann when $refusal", async ({ reservation, expected }) => {
+     const { gate, fetchMock, reserve } = setup(
+@@ -1040,6 +1040,17 @@ describe("Rossmann price: why it's unavailable", () => {
+     expect(fetchMock).not.toHaveBeenCalled();
+   });
+ 
++  it("asks Rossmann directly when the cap is reached, so the page still shows its price", async () => {
++    const direct = vi.fn(createReplayFetch([{ url: detailUrl("131225"), status: 200, body: JSON.stringify(reduced) }]));
++    vi.stubGlobal("fetch", direct);
++    const { gate, fetchMock, reserve } = setup([], { outcome: "capped" });
++
++    expect(await fetchRossmannPrice(gate, "131225")).toEqual({ kind: "price", offer: FELIX_OFFER });
++    expect(reserve).toHaveBeenCalledTimes(1);
++    expect(fetchMock).not.toHaveBeenCalled();
++    expect(requestedUrls(direct)).toEqual([detailUrl("131225")]);
++  });
++
+   it.each<{ refusal: string; answer: ServedAnswer; reported: unknown[][] }>([
+     { refusal: "a 403", answer: { status: 403 }, reported: [["rossmann", "blocked", undefined, "HTTP 403"]] },
+     {
+diff --git a/src/lib/services/shops/rossmann.ts b/src/lib/services/shops/rossmann.ts
+index 7b9da51..126408b 100644
+--- a/src/lib/services/shops/rossmann.ts
++++ b/src/lib/services/shops/rossmann.ts
+@@ -256,10 +256,16 @@ async function requestRossmannPrice(
+     logFailure("rossmann-price", "invalid product id", "not 1-12 digits, not sent");
+     return { check: { kind: "unavailable", reason: "failed" }, responded: false };
+   }
+-  const outcome = await gate.fetch("rossmann", `${DETAIL_URL}/${sourceItemId}?shopNumber=null`, {
++  const url = `${DETAIL_URL}/${sourceItemId}?shopNumber=null`;
++  const outcome = await gate.fetch("rossmann", url, {
+     headers: { Accept: "application/json" },
+     signal: AbortSignal.timeout(PRICE_TIMEOUT_MS),
+   });
++  if (outcome.kind === "skipped" && outcome.reason === "capped") {
++    // The gate's per-shop cap is shared by the whole deployment, so on a busy minute a product page shows a gap where
++    // Rossmann's price should be. Rossmann answers a detail in about 200 ms, so ask it directly instead.
++    return requestRossmannPriceDirectly(url, sourceItemId);
++  }
+   if (outcome.kind !== "ok") {
+     // The gate has already logged why, with the status and the media type. Only Rossmann's own "no such product", a
+     // 404 in problem+json, says the product is gone: a 404 of another type, or of none, could be a moved route's,
+@@ -277,6 +283,33 @@ async function requestRossmannPrice(
+   return { check: priceCheckOf(read.body.data, sourceItemId), responded: true };
+ }
+ 
++/**
++ * Fetches a pinned Rossmann product's offer straight from Rossmann, for a minute whose requests the gate's cap has used
++ * up: the same request, read the same way as requestRossmannPrice reads it.
++ */
++async function requestRossmannPriceDirectly(
++  url: string,
++  sourceItemId: string,
++): Promise<{ check: PriceCheck; responded: boolean }> {
++  let response: Response;
++  try {
++    response = await fetch(url, {
++      headers: { Accept: "application/json" },
++      signal: AbortSignal.timeout(PRICE_TIMEOUT_MS),
++    });
++  } catch {
++    return { check: { kind: "unavailable", reason: "failed" }, responded: false };
++  }
++  if (!response.ok) {
++    return { check: { kind: "unavailable", reason: "failed" }, responded: true };
++  }
++  const read = await readBody(response, detailSchema, "rossmann-price");
++  if (read.kind === "unread") {
++    return { check: { kind: "unavailable", reason: "failed" }, responded: !read.timedOut };
++  }
++  return { check: priceCheckOf(read.body.data, sourceItemId), responded: true };
++}
++
+ /** The price check a product's detail comes to, by the rules fetchRossmannPrice states. */
+ function priceCheckOf(item: z.infer<typeof detailSchema>["data"], sourceItemId: string): PriceCheck {
+   // An answer about another product would put its price on this one.

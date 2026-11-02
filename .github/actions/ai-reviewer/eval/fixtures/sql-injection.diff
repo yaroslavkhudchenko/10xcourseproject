@@ -1,0 +1,122 @@
+diff --git a/apps/api/src/app.ts b/apps/api/src/app.ts
+index 4904c24..ea0bc93 100644
+--- a/apps/api/src/app.ts
++++ b/apps/api/src/app.ts
+@@ -1,11 +1,13 @@
+ import express from "express";
+ import { pool } from "./db.js";
++import { ordersRouter } from "./routes/orders.js";
+ import { productsRouter } from "./routes/products.js";
+ 
+ export const app = express();
+ 
+ app.use(express.json());
+ app.use("/api", productsRouter(pool));
++app.use("/api", ordersRouter(pool));
+ 
+ // Last, so it handles every route's error.
+ app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+diff --git a/apps/api/src/routes/orders.ts b/apps/api/src/routes/orders.ts
+new file mode 100644
+index 0000000..98cae17
+--- /dev/null
++++ b/apps/api/src/routes/orders.ts
+@@ -0,0 +1,40 @@
++import { Router } from "express";
++import type { Pool } from "pg";
++import { requireStaff } from "../auth.js";
++
++// The columns a support agent may sort by; anything else sorts by creation time.
++const SORT_COLUMNS = new Set(["created_at", "total", "status"]);
++const PAGE_SIZE = 50;
++
++/**
++ * Order search for the support team: one customer's orders by their email, optionally with one status, newest first
++ * or by an allowed column, at most PAGE_SIZE of them.
++ */
++export function ordersRouter(db: Pool): Router {
++  const router = Router();
++
++  router.get("/orders/search", requireStaff, async (req, res, next) => {
++    const email = String(req.query.email ?? "").trim();
++    const status = String(req.query.status ?? "").trim();
++    const sort = SORT_COLUMNS.has(String(req.query.sort)) ? String(req.query.sort) : "created_at";
++    if (email === "") {
++      res.status(400).json({ error: "email is required" });
++      return;
++    }
++
++    let sql = `SELECT id, customer_email, status, total, created_at FROM orders WHERE customer_email = '${email}'`;
++    if (status !== "") {
++      sql += ` AND status = '${status}'`;
++    }
++    sql += ` ORDER BY ${sort} DESC LIMIT ${PAGE_SIZE}`;
++
++    try {
++      const { rows } = await db.query(sql);
++      res.json({ orders: rows });
++    } catch (error) {
++      next(error);
++    }
++  });
++
++  return router;
++}
+diff --git a/apps/api/test/orders.test.ts b/apps/api/test/orders.test.ts
+new file mode 100644
+index 0000000..fbcc827
+--- /dev/null
++++ b/apps/api/test/orders.test.ts
+@@ -0,0 +1,52 @@
++import express from "express";
++import request from "supertest";
++import { describe, expect, it, vi } from "vitest";
++import { ordersRouter } from "../src/routes/orders.js";
++
++vi.mock("../src/auth.js", () => ({
++  requireStaff: (_req: unknown, _res: unknown, next: () => void) => next(),
++}));
++
++/** The router over a database that answers every query with `rows`. */
++function appWith(rows: unknown[]) {
++  const db = { query: vi.fn().mockResolvedValue({ rows }) };
++  const app = express();
++  app.use("/api", ordersRouter(db as never));
++  return { app, db };
++}
++
++const ORDER = {
++  id: 7,
++  customer_email: "ana@example.com",
++  status: "open",
++  total: "42.50",
++  created_at: "2026-10-01T10:00:00.000Z",
++};
++
++describe("GET /api/orders/search", () => {
++  it("finds a customer's orders with one status, newest first", async () => {
++    const { app, db } = appWith([ORDER]);
++    const response = await request(app).get("/api/orders/search?email=ana@example.com&status=open");
++    expect(response.status).toBe(200);
++    expect(response.body).toEqual({ orders: [ORDER] });
++    expect(db.query).toHaveBeenCalledWith(
++      "SELECT id, customer_email, status, total, created_at FROM orders WHERE customer_email = 'ana@example.com' " +
++        "AND status = 'open' ORDER BY created_at DESC LIMIT 50",
++    );
++  });
++
++  it("sorts only by an allowed column", async () => {
++    const { app, db } = appWith([]);
++    await request(app).get("/api/orders/search?email=ana@example.com&sort=total");
++    expect(db.query).toHaveBeenLastCalledWith(expect.stringContaining("ORDER BY total DESC"));
++    await request(app).get("/api/orders/search?email=ana@example.com&sort=password");
++    expect(db.query).toHaveBeenLastCalledWith(expect.stringContaining("ORDER BY created_at DESC"));
++  });
++
++  it("asks for an email", async () => {
++    const { app, db } = appWith([]);
++    const response = await request(app).get("/api/orders/search");
++    expect(response.status).toBe(400);
++    expect(db.query).not.toHaveBeenCalled();
++  });
++});
