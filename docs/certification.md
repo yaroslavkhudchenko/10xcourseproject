@@ -11,7 +11,7 @@ The owner's write-up for the certification form, with every claim pointed at its
 - [ ] checks that production is up: the Supabase Free project pauses after 7 idle days (`context/deployment/deploy-plan.md`, "Free-plan behaviour"), so sign in once a week until 18 November 2026, when the two-week assessment window closes;
 - [ ] has the public URL at hand: it is not in this file, by the repository's rule;
 - [ ] sets the GitHub repository's description and topics (both empty on 2026-10-21);
-- [ ] rewrites section 6 of `context/architect-report.md`, "Decisions that belong to me", in their own words, as M4L5 asks, and deletes its note to the owner, keeping the report within two pages;
+- [ ] reads section 6 of `context/architect-report.md`, "Decisions that belong to me", and confirms that each decision and its reason is their own, as M4L5 asks;
 - [ ] fills the form once, with Builder, Architect and Champion together.
 
 ## Project
