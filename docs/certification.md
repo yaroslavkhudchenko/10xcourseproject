@@ -7,7 +7,7 @@ The owner's write-up for the certification form, with every claim pointed at its
 **Before submitting, the owner:**
 
 - [ ] keeps the Champion block's evidence, three screenshots of PR #59's review (M5L1, step 4): the Actions run with the `review` job, that job's log, and the AI's comment on the pull request;
-- [ ] merges PR #59 (the AI code review); the Champion block below is written as true once it's merged;
+- [x] merges PR #59 (the AI code review): merged on 2026-11-02, so the Champion block below holds;
 - [ ] checks that production is up: the Supabase Free project pauses after 7 idle days (`context/deployment/deploy-plan.md`, "Free-plan behaviour"), so sign in once a week until 18 November 2026, when the two-week assessment window closes;
 - [ ] has the public URL at hand: it is not in this file, by the repository's rule;
 - [ ] sets the GitHub repository's description and topics (both empty on 2026-10-21);
@@ -92,7 +92,7 @@ Modules 3 and 4, applied to this project after M-1's first slices. The form's Ar
 
 ## 10xChampion
 
-Module 5, lessons 2 and 3: an AI code review in CI, built as a full 10x change (`context/changes/ci-cd-code-review/`: `change.md`, `requirements.md`, `research.md` of 2026-10-16, `plan.md`, `plan-brief.md`, `reviews/plan-review.md` of 2026-10-17 with 1 critical and 4 warnings, all fixed in the plan). It is PR #59, opened 2026-10-18. [Owner: confirm PR #59 is merged before pasting this block.]
+Module 5, lessons 2 and 3: an AI code review in CI, built as a full 10x change (`context/changes/ci-cd-code-review/`: `change.md`, `requirements.md`, `research.md` of 2026-10-16, `plan.md`, `plan-brief.md`, `reviews/plan-review.md` of 2026-10-17 with 1 critical and 4 warnings, all fixed in the plan). It is PR #59, opened 2026-10-18 and merged 2026-11-02, after its own first review passed.
 
 - **What it does.** `.github/workflows/ai-review.yml` reviews every pull request to `main` once it is ready for review, and on each later push. The reviewer reads the title, description and diff, scores six criteria from 1 to 10 (correctness, idiomaticity, complexity, test and risk coverage, documentation, security), gives a binding `pass`/`fail` verdict and a summary, keeps one comment per pull request up to date, labels it `ai-cr:passed` or `ai-cr:failed`, and fails the `review` check on `fail`. Adding `ai-cr:review` runs it again. A pull request that changes only documents or recorded answers passes with "Nothing to review" and no model call.
 - **How it is built.** A composite action, `.github/actions/ai-reviewer/`, with its own package and lockfile: AI SDK 7's `ToolLoopAgent` with a zod schema as structured output (`src/reviewer.ts`, `src/review-schema.ts`), through OpenRouter, run by Node 24's type stripping with no build step. Its decisions are pure, tested modules: the diff filter and size limit (`src/diff.ts`), the prompt, the answer check and the comment. 132 tests (`node --test`) drive it with a mock model and a stub fetch, and CI's `ci` job runs its install, tests and type check.
